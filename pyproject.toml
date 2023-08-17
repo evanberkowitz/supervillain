@@ -1,0 +1,23 @@
+[project]
+
+name = "supervillain"
+description = "Quantum monte carlo for the Villain model"
+authors = [
+    
+]
+
+dynamic = ["dependencies", "version"]
+
+[options]
+
+install_requires = [
+    ]
+
+[tool.setuptools]
+py-modules = [
+    "supervillain",
+]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+version = { attr = "supervillain.meta.version" }
