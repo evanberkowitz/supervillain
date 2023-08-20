@@ -1,0 +1,80 @@
+#!/usr/bin/env python
+
+class Configurations:
+    r'''
+    A group of configurations has fields (which you can access by doing ``cfgs.field``) and other auxiliary information (one per configuration).
+
+    However, you can also use ``cfgs[step]`` to get a dictionary with keys that correspond to the names of the fields (and the auxiliary information) and associated values.
+
+    If you like you can think of a set of Configurations as a very lightweight barely-featured `pandas DataFrame`_.
+
+    Parameters
+    ----------
+    dictionary: dict
+        A dictionary with ``{key: value}`` pairs, where each value is an array whose first dimension is one per configuration.
+
+
+    .. _pandas DataFrame: https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.html
+    '''
+    def __init__(self, dictionary):
+        self.steps = dictionary
+        
+    def __str__(self):
+        return str(self.steps)
+
+    def __getitem__(self, index):
+        r'''
+        Parameters
+        ----------
+        index: fancy indexing
+            A subset of numpy `fancy indexing`_ is supported; this selection is used for selecting configurations based on their location in the dataset, rather than their ``index``.
+            Some valid choices are ``7``, ``[1,2,3]``, ``slice(1,4)``, ``slice(1,10,2)``.
+
+        Returns
+        -------
+        one or many configurations:
+            If index is an integer, returns a dictionary with key/value pairs for the requested configuration.
+            If the index is fancier, return another set of :class:`Configurations`.
+
+
+        .. _fancy indexing: https://docs.h5py.org/en/stable/high/dataset.html#fancy-indexing
+        '''
+        t = type(index)
+        if t is int:
+            return {key: value[index] for key, value in self.steps.items()}
+        if t is slice or list:
+            return Configurations({key: value[index] for key, value in self.steps.items()})
+
+        raise ValueError(f'Not sure how to select configurations given a {type(index)}.')
+    
+    def __setitem__(self, index, new):
+        r'''
+        Parameters
+        ----------
+        index: fancy indexing
+            Index or indices to overwrite.
+        new: dictionary or Configurations
+            Data to write.
+        '''
+        for key, value in new.items():
+            self.steps[key][index] = value
+            
+    def items(self):
+        r'''
+        Like a dictionary's ``.items()``, iterates over the fields and auxiliary information.
+        '''
+        return self.steps.items()
+
+    def __getattr__(self, name):
+        try:
+            return self.steps[name]
+        except:
+            raise AttributeError(name)
+
+    def __setattr__(self, name, value):
+        if name == 'steps':
+            self.__dict__['steps'] = value
+        elif name in self.steps:
+            self.steps[name] = value
+        else:
+            self.__dict__[name] = value
