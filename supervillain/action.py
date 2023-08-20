@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-import torch
+import numpy as np
 from supervillain.h5 import H5able
+from supervillain.configurations import Configurations
 
 import logging
 logger = logging.getLogger(__name__)
@@ -37,21 +38,21 @@ class Villain(H5able):
     def __str__(self):
         return f'Villain({self.Lattice}, κ={self.kappa})'
 
-    def __call__(self, phi, n):
+    def __call__(self, phi, n, **kwargs):
         r'''
         Parameters
         ----------
-        phi: torch.tensor
+        phi: np.ndarray
             A real-valued 0-form.
-        n: torch.tensor
+        n: np.ndarray
             An integer-valued 1-form.
 
         Returns
         -------
-        torch.float:
+        float
             $S_0[\phi, n]$
         '''
-        return self.kappa / 2 * torch.sum((self.Lattice.d(0, phi) - 2*torch.pi*n)**2)
+        return self.kappa / 2 * np.sum((self.Lattice.d(0, phi) - 2*np.pi*n)**2)
 
     def configurations(self, count):
         r'''
@@ -62,12 +63,13 @@ class Villain(H5able):
         Returns
         -------
         dict
-            A dictionary of zeroed torch tensors at keys ``phi`` and ``n``, holding ``count`` 0- and 1-forms respectively.
+            A dictionary of zeroed arrays at keys ``phi`` and ``n``, holding ``count`` 0- and 1-forms respectively.
         '''
-        return {
+        return Configurations({
             'phi': self.Lattice.form(0, count),
-            'n':   self.Lattice.form(1, count),
-            }
+            'n':   self.Lattice.form(1, count, dtype=int),
+            'index': np.arange(count if count is not None else 0),
+            })
 
 class Dual(H5able):
     r'''
@@ -109,16 +111,16 @@ class Dual(H5able):
 
         return (self.Lattice.delta(m) == 0).all()
 
-    def __call__(self, m):
+    def __call__(self, m, **kwargs):
         r'''
         Parameters
         ----------
-        m: torch.tensor
+        m: np.ndarray
             An integer-valued 1-form.
 
         Returns
         -------
-        torch.float:
+        float:
             $S_0[m]$
 
         Raises
@@ -129,7 +131,7 @@ class Dual(H5able):
 
         if not self.valid(m):
             raise ValueError(f'The one-form m does not satisfy the constraint δm = 0 everywhere.')
-        return 0.5 / self.kappa * torch.sum(m**2)
+        return 0.5 / self.kappa * np.sum(m**2)
 
     def configurations(self, count):
         r'''
@@ -141,9 +143,10 @@ class Dual(H5able):
         Returns
         -------
         dict
-            A dictionary of zeroed torch tensors at key ``m`` holding ``count`` 1-forms.
+            A dictionary of zeroed arrays at key ``m`` holding ``count`` 1-forms.
         '''
 
-        return {
-            'm': self.Lattice.form(1, count),
-            }
+        return Configurations({
+            'm': self.Lattice.form(1, count, dtype=int),
+            'index': np.arange(count if count is not None else 0),
+            })
