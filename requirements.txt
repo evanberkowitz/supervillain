@@ -1,6 +1,5 @@
 # MATH
 
-torch>=1.13
 numpy>=1.21
 scipy>=1.8
 

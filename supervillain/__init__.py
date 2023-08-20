@@ -3,5 +3,7 @@
 def _no_op(x):
     return x
 
+import supervillain.cli as cli
+
 from .lattice import Lattice2D
 from .action  import Villain

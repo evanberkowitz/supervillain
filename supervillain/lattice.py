@@ -2,7 +2,6 @@
 
 from functools import cached_property
 import numpy as np
-import torch
 
 from supervillain.h5 import H5able
 
@@ -19,7 +18,7 @@ def _dimension(n):
         an FFT-convention-compatible list of coordinates for a dimension of size n,
         ``[0, 1, 2, ... max, min ... -2, -1]``.
     '''
-    return torch.tensor(list(range(0, n // 2 + 1)) + list(range( - n // 2 + 1, 0)), dtype=int)
+    return np.array(list(range(0, n // 2 + 1)) + list(range( - n // 2 + 1, 0)), dtype=int)
 
 class Lattice2D(H5able):
 
@@ -27,13 +26,13 @@ class Lattice2D(H5able):
         self.nt = n
         self.nx = n
 
-        self.dims = torch.tensor([self.nx, self.nt])
+        self.dims = (self.nx, self.nt)
         r'''
         The dimension sizes in order.
 
         >>> lattice = Lattice2D(5)
         >>> lattice.dims
-        tensor([5, 5])
+        (5, 5)
         '''
 
         self.dim = len(self.dims)
@@ -56,7 +55,7 @@ class Lattice2D(H5able):
 
         >>> lattice = Lattice2D(5)
         >>> lattice.t
-        tensor([ 0,  1,  2, -2, -1])
+        array([ 0,  1,  2, -2, -1])
         '''
 
         self.x = _dimension(self.nx)
@@ -65,68 +64,68 @@ class Lattice2D(H5able):
 
         >>> lattice = Lattice2D(5)
         >>> lattice.x
-        tensor([ 0,  1,  2, -2, -1])
+        array([ 0,  1,  2, -2, -1])
         '''
 
-        self.T = torch.tile( self.t, (self.nx, 1)).transpose(0,1)
+        self.T = np.tile( self.t, (self.nx, 1)).transpose()
         r'''
-        A tensor of size ``dims`` with the t coordinate as a value.
+        An array of size ``dims`` with the t coordinate as a value.
 
         >>> lattice = Lattice(5)
         >>> lattice.T
-        tensor([[ 0,  0,  0,  0,  0],
-                [ 1,  1,  1,  1,  1],
-                [ 2,  2,  2,  2,  2],
-                [-2, -2, -2, -2, -2],
-                [-1, -1, -1, -1, -1]])
+        array([[ 0,  0,  0,  0,  0],
+               [ 1,  1,  1,  1,  1],
+               [ 2,  2,  2,  2,  2],
+               [-2, -2, -2, -2, -2],
+               [-1, -1, -1, -1, -1]])
         '''
-        self.X = torch.tile( self.x, (self.nt, 1))
+        self.X = np.tile( self.x, (self.nt, 1))
         r'''
-        A tensor of size ``dims`` with the y coordinate as a value.
+        An array of size ``dims`` with the y coordinate as a value.
 
         >>> lattice = Lattice(5)
         >>> lattice.X
-        tensor([[ 0,  1,  2, -2, -1],
-                [ 0,  1,  2, -2, -1],
-                [ 0,  1,  2, -2, -1],
-                [ 0,  1,  2, -2, -1],
-                [ 0,  1,  2, -2, -1]])
+        array([[ 0,  1,  2, -2, -1],
+               [ 0,  1,  2, -2, -1],
+               [ 0,  1,  2, -2, -1],
+               [ 0,  1,  2, -2, -1],
+               [ 0,  1,  2, -2, -1]])
         '''
 
         # We also construct a linearized list of coordinates.
         # The order matches self.X.ravel() and self.Y.ravel()
-        self.coordinates = torch.stack((self.T.flatten(), self.X.flatten())).transpose(0,1)
+        self.coordinates = np.stack((self.T.flatten(), self.X.flatten())).transpose()
         '''
-        A tensor of size ``[sites, len(dims)]``.  Each row contains a pair of coordinates.  The order matches ``{T,X}.flatten()``.
+        An array of size ``[sites, len(dims)]``.  Each row contains a pair of coordinates.  The order matches ``{T,X}.flatten()``.
 
         >>> lattice = Lattice(5)
         >>> lattice.coordinates
         >>> lattice.coordinates
-        tensor([[ 0,  0],
-                [ 0,  1],
-                [ 0,  2],
-                [ 0, -2],
-                [ 0, -1],
-                [ 1,  0],
-                [ 1,  1],
-                [ 1,  2],
-                [ 1, -2],
-                [ 1, -1],
-                [ 2,  0],
-                [ 2,  1],
-                [ 2,  2],
-                [ 2, -2],
-                [ 2, -1],
-                [-2,  0],
-                [-2,  1],
-                [-2,  2],
-                [-2, -2],
-                [-2, -1],
-                [-1,  0],
-                [-1,  1],
-                [-1,  2],
-                [-1, -2],
-                [-1, -1]])
+        array([[ 0,  0],
+               [ 0,  1],
+               [ 0,  2],
+               [ 0, -2],
+               [ 0, -1],
+               [ 1,  0],
+               [ 1,  1],
+               [ 1,  2],
+               [ 1, -2],
+               [ 1, -1],
+               [ 2,  0],
+               [ 2,  1],
+               [ 2,  2],
+               [ 2, -2],
+               [ 2, -1],
+               [-2,  0],
+               [-2,  1],
+               [-2,  2],
+               [-2, -2],
+               [-2, -1],
+               [-1,  0],
+               [-1,  1],
+               [-1,  2],
+               [-1, -2],
+               [-1, -1]])
         '''
 
     def __str__(self):
@@ -141,31 +140,22 @@ class Lattice2D(H5able):
 
         Parameters
         ----------
-            x:  torch.tensor
-                Either one coordinate pair of ``.shape==torch.Size([2])`` or a set of pairs ``.shape==torch.Size([*,2])``
+            x:  np.ndarray
+                Either one coordinate pair of ``.shape==(2,)`` or a set of pairs ``.shape==(*,2)``
                 The last dimension should be of size 2.
 
         Returns
         -------
-            torch.tensor
+            np.ndarray
                 Each x is identified with an entry of ``coordinates`` by periodic boundary conditions.
                 The output is the same shape as the input.
         '''
 
-        if x.ndim == 1:
-            return torch.tensor([
-                    self.t[torch.remainder(x[0],self.nt)],
-                    self.x[torch.remainder(x[1],self.nx)],
-                ])
-
-        coordinate_slowest = x.permute(*torch.arange(x.ndim - 1, -1, -1))
-        
-        modded = torch.stack((
-            self.t[torch.remainder(coordinate_slowest[0],self.nt)],
-            self.x[torch.remainder(coordinate_slowest[1],self.nx)],
-            ))
-        
-        return modded.permute(*torch.arange(modded.ndim -1, -1, -1))
+        modded = np.mod(x, self.dims).transpose()
+        return np.stack((
+                self.t[modded[0]],
+                self.x[modded[1]]
+                )).transpose()
 
     def distance_squared(self, a, b):
         r'''
@@ -174,23 +164,27 @@ class Lattice2D(H5able):
 
         Parameters
         ----------
-            a:  torch.tensor
+            a:  np.ndarray
                 coordinates that need not be on the lattice
-            b:  torch.tensor
+            b:  np.ndarray
                 coordinates that need not be on the lattice
 
         Returns
         -------
-            torch.tensor
+            np.ndarray
                 The distance between ``a`` and ``b`` on the lattice accounting for the fact that,
                 because of periodic boundary conditions, the distance may shorter than naively expected.
-                Either ``a`` and ``b`` are the same shape (a single or 1D-tensor of coordinate pairs) or one is a singlet and one is a tensor.
+                Either ``a`` and ``b`` both hold the same number of coordinate pairs, or one is a singleton.
         '''
         d = self.mod(a-b)
         if d.ndim == 1:
-            return torch.sum(d**2)
+            return np.sum(d**2)
 
-        return torch.sum(d**2, axis=(1,))
+        return np.sum(d**2, axis=(1,))
+
+    def roll(self, data, shift, axes=(-2,-1)):
+        
+        return np.roll(np.roll(data, shift=shift[0], axis=axes[0]), shift=shift[1], axis=axes[1])
 
     def coordinatize(self, v, dims=(-1,), center_origin=False):
         r'''
@@ -198,8 +192,8 @@ class Lattice2D(H5able):
         
         Parameters
         ----------
-            v: torch.tensor
-                A tensor with at least one dimension linearized in space.
+            v: np.ndarray
+                An array with at least one dimension linearized in space.
             dims: tuple of integers
                 The directions you wish to unflatten into a meaningful shape that matches the lattice.
             center_origin: boolean
@@ -209,28 +203,25 @@ class Lattice2D(H5able):
             
         Returns
         -------
-            torch.tensor
-                ``v`` but tensor more, shorter dimensions.  Dimensions specified by ``dims`` are unflattened.
+            np.ndarray
+                ``v`` but with more, shorter dimensions.  Dimensions specified by ``dims`` are unflattened.
         '''
         
         v_dims  = len(v.shape)
 
         # We'll build up the new shape by considering each index left-to-right.
         # So, for negative indices we need to mod them by the number of dimensions.
-        to_reshape, _ = torch.sort(torch.remainder(torch.tensor(dims), v_dims))
+        to_reshape = np.sort(np.remainder(np.array(dims), v_dims))
         
-        new_shape = tuple(torch.cat(tuple( # Assemble a tuple which has
-                # the size s of the dimension if we're not unflattening it
-                # or the dimensions of the lattice if we are unflattening.
-                torch.tensor([s]) if i not in to_reshape else self.dims
-                for i, s in enumerate(v.shape)) 
-            ))
+        new_shape = ()
+        for i, s in enumerate(v.shape):
+            new_shape += ((s,) if i not in to_reshape else self.dims)
 
         reshaped = v.reshape(new_shape)
         if not center_origin:
             return reshaped
         
-        axes = to_reshape + torch.arange(len(to_reshape))
+        axes = to_reshape + np.arange(len(to_reshape))
         shifts = (self.nt // 2, self.nx // 2)
         for a in axes:
             reshaped = reshaped.roll(shifts, dims=(a,a+1))
@@ -243,15 +234,15 @@ class Lattice2D(H5able):
         
         Parameters
         ----------
-            v:  torch.tensor
+            v:  np.ndarray
             dims: tuples of integers that specify that dimensions *in the result* that come from flattening.
-                Modded by the dimension of the resulting tensor so that any dimension is legal.
+                Modded by the dimension of the resulting array so that any dimension is legal.
                 However, one should take care to ensure that no two are the SAME index of the result;
                 this causes a RuntimeError.
             
         Returns
         -------
-            torch.tensor
+            np.ndarray
                 ``v`` but with fewer, larger dimensions
 
         .. note::
@@ -259,20 +250,20 @@ class Lattice2D(H5able):
             combine with ``coordinatize``.  ``linearize`` and ``coordinatize`` are inverses when they get *the same* 
             dims arguments.
 
-            >>> import torch
+            >>> import numpy as np
             >>> import supervillain
             >>> nx = 5
             >>> dims = (0, -1)
-            >>> lattice = supervillain.Lattice(5)
-            >>> v = torch.arange(nx**(2*3)).reshape(nx**2, nx**2, nx**2)
+            >>> lattice = supervillain.lattice.Lattice2D(5)
+            >>> v = np.arange(nx**(2*3)).reshape(nx**2, nx**2, nx**2)
             >>> u = lattice.coordinatize(v, dims)
             >>> u.shape
-            torch.Size([5, 5, 25, 5, 5])
+            (5, 5, 25, 5, 5)
             >>> w = lattice.linearize(u, dims) # dims indexes into the dimensions of w, not u!
             >>> w.shape
-            torch.Size([25, 25, 25])
+            (25, 25, 25)
             >>> (v == w).all()
-            tensor(True)
+            True
 
         '''
 
@@ -305,7 +296,7 @@ class Lattice2D(H5able):
             Perhaps this happened with your vector of shape {v.shape} and {dims=}?
             ''') from error
 
-    def form(self, p, count=None):
+    def form(self, p, count=None, dtype=float):
         r'''
         Parameters
         ----------
@@ -313,35 +304,37 @@ class Lattice2D(H5able):
                 A 2D lattice supports {0, 1, 2}-forms.
             count:
                 How many forms to return.
+            dtype:
+                Data type (float, int, etc.)
 
         Returns
         -------
-            torch.tenssor
-                If count is none, return a tensor full of zeros that can hold a p-form.
-                If count is not none, return a tensor that can hold that many p-forms.
+            np.ndarray
+                If count is none, return an array full of zeros that can hold a p-form.
+                If count is not none, return an array that can hold that many p-forms, batch dimension first.
 
                 For example, if we needed to hold 7 forms of each kind for a 3×3 lattice,
 
                 >>> L = Lattice2D(3)
                 >>> L.form(0, 7).shape
-                torch.Size([7, 9])
+                (7, 3, 3)
                 >>> L.form(1, 7).shape
-                torch.Size([7, 2, 9])
+                (7, 2, 3, 3)
                 >>> L.form(2, 7).shape
-                torch.Size([7, 9])
+                (7, 3, 3)
 
                 Notice that the 1-form has an extra dimension compared to the 0 form (because there are 2 links per site in 2 dimensions) and the 2-form has the same shape as sites (which is special to 2D).
                 The spacetime dependence is last because :func:`~coordinatize` and :func:`~Lattice2D.linearize` default to the last dimension.
         '''
         if count is None:
-            return self.form(p, count=1)[0]
+            return self.form(p, count=1, dtype=dtype)[0]
 
         if p == 0:
-            return torch.zeros((count, self.sites))
+            return np.zeros((count,) + self.dims, dtype=dtype)
         elif p == 1:
-            return torch.zeros((count, self.dim, self.sites))
+            return np.zeros((count, self.dim) + self.dims, dtype=dtype)
         elif p == 2:
-            return torch.zeros((count, self.sites)) # 2D
+            return np.zeros((count, ) + self.dims, dtype=dtype) # 2D
         else:
             raise ValueError("It's a 2D lattice, you can't have a {p}-form.")
 
@@ -353,22 +346,18 @@ class Lattice2D(H5able):
         ----------
             p: int
                 The rank of the form.
-            form: torch.tensor
+            form: np.ndarray
                 The data the form.
         '''
         if p == 0:
 
-            x = self.coordinatize(form)
-            return self.linearize(torch.stack(tuple(
-                torch.roll(x, shifts=(-1,), dims=(a,)) - x for a, _ in enumerate(self.dims)
-            )))
+            return np.stack(tuple(
+                np.roll(form, shift=-1, axis=a) - form for a, _ in enumerate(self.dims)
+            ))
 
         elif p == 1:
 
-            l = self.coordinatize(form)
-            return self.linearize(
-                    l[0] + torch.roll(l[1], shifts=(-1,), dims=(1,)) - torch.roll(l[0], shifts=(-1,), dims=(0,)) - l[1]
-                    )
+            return form[0] + np.roll(form[1], shift=-1, axis=1) - np.roll(form[0], shift=-1, axis=0) - form[1]
 
         elif form == 2:
 
