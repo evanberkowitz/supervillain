@@ -59,6 +59,24 @@ class Configurations:
         for key, value in new.items():
             self.steps[key][index] = value
             
+
+    def __len__(self):
+        L = None
+        for k, v in self.items():
+            try:
+                l = len(v)
+            except TypeError as e:
+                continue
+
+            if L is None:
+                L = l
+            elif L == l:
+                pass
+            else:
+                raise ValueError("Configurations have no consistent length")
+
+        return L
+
     def items(self):
         r'''
         Like a dictionary's ``.items()``, iterates over the fields and auxiliary information.

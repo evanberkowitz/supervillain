@@ -359,7 +359,7 @@ class Lattice2D(H5able):
 
             return form[0] + np.roll(form[1], shift=-1, axis=0) - np.roll(form[0], shift=-1, axis=1) - form[1]
 
-        elif form == 2:
+        elif p == 2:
 
             return 0
 
