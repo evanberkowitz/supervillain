@@ -1,3 +1,6 @@
+
+import numpy as np
+
 from supervillain import _no_op
 import supervillain
 from supervillain.h5 import H5able
@@ -56,7 +59,7 @@ class Ensemble(H5able):
                 In a script you might use `tqdm.tqdm`_, and in a notebook `tqdm.notebook`_.
                 Defaults to no progress reporting.
             starting_index: int
-                The generated ``configurations['index']`` will be ``[starting_index, starting_index+steps)``.
+                An ensemble has a ``.index`` which is an array of sequential integers labeling the configurations; this sets the lower value.
 
         Returns
         -------
@@ -67,7 +70,7 @@ class Ensemble(H5able):
         '''
 
         self.configurations = self.Action.configurations(steps)
-        self.configurations.index += starting_index
+        self.index = starting_index + np.arange(steps)
 
         if start == 'cold':
             seed = self.Action.configurations(1)[0]
@@ -87,6 +90,9 @@ class Ensemble(H5able):
             self.generator = generator
 
         return self
+
+    def __len__(self):
+        return len(self.configurations)
 
     def cut(self, start):
         r'''
