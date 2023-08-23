@@ -7,3 +7,5 @@ import supervillain.cli as cli
 
 from .lattice import Lattice2D
 from .action  import Villain
+import supervillain.observable
+from .ensemble import Ensemble

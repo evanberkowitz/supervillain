@@ -68,7 +68,6 @@ class Villain(H5able):
         return Configurations({
             'phi': self.Lattice.form(0, count),
             'n':   self.Lattice.form(1, count, dtype=int),
-            'index': np.arange(count if count is not None else 0),
             })
 
 class Dual(H5able):
@@ -148,5 +147,4 @@ class Dual(H5able):
 
         return Configurations({
             'm': self.Lattice.form(1, count, dtype=int),
-            'index': np.arange(count if count is not None else 0),
             })
