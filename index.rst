@@ -12,6 +12,9 @@ supervillain
 
    supervillain/action
    supervillain/lattice
+   supervillain/ensemble
+   supervillain/observable
+   supervillain/h5
    todo
    bibliography
 
