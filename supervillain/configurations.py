@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
-class Configurations:
+from supervillain.h5 import H5able
+
+class Configurations(H5able):
     r'''
     A group of configurations has fields (which you can access by doing ``cfgs.field``) and other auxiliary information (one per configuration).
 
@@ -17,10 +19,10 @@ class Configurations:
     .. _pandas DataFrame: https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.html
     '''
     def __init__(self, dictionary):
-        self.steps = dictionary
+        self.fields = dictionary
         
     def __str__(self):
-        return str(self.steps)
+        return str(self.fields)
 
     def __getitem__(self, index):
         r'''
@@ -41,9 +43,9 @@ class Configurations:
         '''
         t = type(index)
         if t is int:
-            return {key: value[index] for key, value in self.steps.items()}
+            return {key: value[index] for key, value in self.fields.items()}
         if t is slice or list:
-            return Configurations({key: value[index] for key, value in self.steps.items()})
+            return Configurations({key: value[index] for key, value in self.fields.items()})
 
         raise ValueError(f'Not sure how to select configurations given a {type(index)}.')
     
@@ -57,7 +59,7 @@ class Configurations:
             Data to write.
         '''
         for key, value in new.items():
-            self.steps[key][index] = value
+            self.fields[key][index] = value
             
 
     def __len__(self):
@@ -81,18 +83,18 @@ class Configurations:
         r'''
         Like a dictionary's ``.items()``, iterates over the fields and auxiliary information.
         '''
-        return self.steps.items()
+        return self.fields.items()
 
     def __getattr__(self, name):
         try:
-            return self.steps[name]
+            return self.fields[name]
         except:
             raise AttributeError(name)
 
     def __setattr__(self, name, value):
-        if name == 'steps':
-            self.__dict__['steps'] = value
-        elif name in self.steps:
-            self.steps[name] = value
+        if name == 'fields':
+            self.__dict__['fields'] = value
+        elif name in self.fields:
+            self.fields[name] = value
         else:
             self.__dict__[name] = value
