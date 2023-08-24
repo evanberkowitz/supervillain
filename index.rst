@@ -13,6 +13,7 @@ supervillain
    supervillain/action
    supervillain/lattice
    todo
+   bibliography
 
 Version Information
 ===================
