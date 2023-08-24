@@ -70,9 +70,9 @@ class Villain(H5able):
             'n':   self.Lattice.form(1, count, dtype=int),
             })
 
-class Dual(H5able):
+class Worldline(H5able):
     r'''
-    The dual action is
+    The dual (worldline) action is
 
     .. math::
        \begin{align}
@@ -101,7 +101,7 @@ class Dual(H5able):
         self.kappaa = kappa
 
     def __str__(self):
-        return f'Dual({self.Lattice}, κ={self.kappa})'
+        return f'Worldline({self.Lattice}, κ={self.kappa})'
 
     def valid(self, m):
         r'''

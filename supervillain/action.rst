@@ -1,3 +1,4 @@
+.. _action:
 
 *****************
 The Villain Model
@@ -76,7 +77,7 @@ However, we can now execute the integral over $\phi$, which just sets $\delta m=
 
 where $[\delta m = 0]$ is the `Iverson bracket`_.
 
-.. autoclass :: supervillain.action.Dual
+.. autoclass :: supervillain.action.Worldline
    :members:
 
 
