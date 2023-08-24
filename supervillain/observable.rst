@@ -25,8 +25,11 @@ The result is cached and repeated calls for that ensemble require no further com
 For example, to evaluate the action density you would ask for ``ensemble.ActionDensity``.
 If the ensemble was constructed from a :class:`~.Villain` action you will get the ``Villain`` implementation above; if it was constructed from a :class:`~.Worldline` action you will get the ``Worldline`` implementation.
 
+All of these nice features are accomplished using the `Descriptor`_ protocol but the implementation is unimportant.
+
 If the observable does not provide an implementation for the ensemble's action, asking for it will raise a `NotImplemented`_ exception.
 
 
 .. _staticmethod: https://docs.python.org/3/library/functions.html#staticmethod
+.. _Descriptor: https://docs.python.org/3/howto/descriptor.html
 .. _NotImplemented: https://docs.python.org/3/library/exceptions.html#NotImplementedError

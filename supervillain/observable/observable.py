@@ -25,10 +25,6 @@ class Observable:
         cls._logger(f'Observable registered: {cls.name}')
 
         setattr(supervillain.ensemble.Ensemble, cls.name, cls())
-        # if intermediate:
-        #     supervillain.ensemble.Ensemble._intermediates.add(cls.name)
-        # else:
-        #     supervillain.ensemble.Ensemble._observables.add(cls.name)
 
     def __set_name__(self, owner, name):
         self.name  = name
