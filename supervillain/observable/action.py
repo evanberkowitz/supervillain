@@ -9,4 +9,8 @@ class ActionDensity(Observable):
         return S(phi, n) / L.sites
 
 
-
+    @staticmethod
+    def Worldline(S, m):
+        
+        L = S.Lattice
+        return S(m) / L.sites

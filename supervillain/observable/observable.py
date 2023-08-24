@@ -53,13 +53,8 @@ class Observable:
                 obj.__dict__[self.name]= np.array([getattr(self, class_name)(obj.Action, **o) for o in obj.configurations])
             return obj.__dict__[self.name]
         except:
-            raise ValueError(f'{self.name} cannot be evaluated for {class_name}')
+            raise NotImplemented(f'{self.name} not implemented for {class_name}')
 
-        # It may be possible to further generalize and implement the canonical projections
-        # or data analysis like binning and bootstrapping by detecting the class here and
-        # giving a different implementation.
-        #
-        # But for now,
         raise NotImplemented()
 
     def __set__(self, obj, value):
