@@ -19,7 +19,7 @@ The model has a gauge symmetry
 .. math::
    \phi &\rightarrow\; \phi + 2\pi k
    \\
-   n &\rightarrow\; n + 2\pi dk
+   n &\rightarrow\; n + dk
 
 for an integer-valued 0-form $k$.
 
