@@ -1,3 +1,4 @@
+.. _action:
 
 *****************
 The Villain Model
@@ -18,7 +19,7 @@ The model has a gauge symmetry
 .. math::
    \phi &\rightarrow\; \phi + 2\pi k
    \\
-   n &\rightarrow\; n + 2\pi dk
+   n &\rightarrow\; n + dk
 
 for an integer-valued 0-form $k$.
 
@@ -60,7 +61,7 @@ That leaves us with
 
 .. math::
    \begin{align}
-   Z[J] &= \sum\hspace{-1.33em}\int D\phi\; Dm\; e^{-S_J[\phi, m]}
+   Z[J] &= (2\pi\kappa)^{-|\ell|/2} \sum\hspace{-1.33em}\int D\phi\; Dm\; e^{-S_J[\phi, m]}
    &
    S_J[\phi, m] &= \frac{1}{2\kappa} \sum_\ell \left(m - \frac{\delta J}{2\pi}\right)_\ell^2 - i \sum_x \delta m _x \phi_x
    \end{align}
@@ -69,14 +70,14 @@ However, we can now execute the integral over $\phi$, which just sets $\delta m=
 
 .. math::
    \begin{align}
-   Z[J] &= \sum Dm\; e^{-S_J[m]} \left[\delta m = 0\right]
+   Z[J] &= (2\pi\kappa)^{-|\ell|/2} \sum Dm\; e^{-S_J[m]} \left[\delta m = 0\right]
    &
    S_J[m] &= \frac{1}{2\kappa} \sum_\ell \left(m - \frac{\delta J}{2\pi}\right)_\ell^2 
    \end{align}
 
 where $[\delta m = 0]$ is the `Iverson bracket`_.
 
-.. autoclass :: supervillain.action.Dual
+.. autoclass :: supervillain.action.Worldline
    :members:
 
 

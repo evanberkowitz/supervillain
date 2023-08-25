@@ -70,13 +70,13 @@ class Villain(H5able):
             'n':   self.Lattice.form(1, count, dtype=int),
             })
 
-class Dual(H5able):
+class Worldline(H5able):
     r'''
-    The dual action is
+    The dual (worldline) action is
 
     .. math::
        \begin{align}
-       Z[J] &= \sum Dm\; e^{-S_J[m]} \left[\delta m = 0\right]
+       Z[J] &= (2\pi\kappa)^{-|\ell|/2}\sum Dm\; e^{-S_J[m]} \left[\delta m = 0\right]
        &
        S_J[m] &= \frac{1}{2\kappa} \sum_\ell \left(m - \frac{\delta J}{2\pi}\right)_\ell^2 
        \end{align}
@@ -101,7 +101,7 @@ class Dual(H5able):
         self.kappaa = kappa
 
     def __str__(self):
-        return f'Dual({self.Lattice}, κ={self.kappa})'
+        return f'Worldline({self.Lattice}, κ={self.kappa})'
 
     def valid(self, m):
         r'''

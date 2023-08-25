@@ -12,7 +12,12 @@ supervillain
 
    supervillain/action
    supervillain/lattice
+   supervillain/ensemble
+   supervillain/generator
+   supervillain/observable
+   supervillain/h5
    todo
+   bibliography
 
 Version Information
 ===================

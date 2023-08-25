@@ -15,4 +15,7 @@ Ensembls are made up of configurations.
 
 
 .. autoclass :: supervillain.ensemble.Ensemble
-   :members:
+   :no-special-members:
+   :members: Action, from_configurations, generate, cut, every
+   :show-inheritance:
+

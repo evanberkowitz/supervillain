@@ -112,7 +112,9 @@ class Ensemble(H5able):
         Ensemble
             An ensemble with fewer configurations.
         '''
-        return Ensemble(self.Action).from_configurations(self.configurations[start:])
+        e = Ensemble(self.Action).from_configurations(self.configurations[start:])
+        e.index = self.index[start:]
+        return e
 
     def every(self, stride):
         r'''
@@ -133,4 +135,6 @@ class Ensemble(H5able):
             An ensemble with fewer configurations.
         '''
 
-        return Ensemble(self.Action).from_configurations(self.configurations[::stride])
+        e = Ensemble(self.Action).from_configurations(self.configurations[::stride])
+        e.index = self.index[::stride]
+        return e
