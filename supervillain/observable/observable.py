@@ -11,14 +11,11 @@ logger = logging.getLogger(__name__)
 
 class Observable:
 
-    def __init_subclass__(cls, name='', intermediate=False):
+    def __init_subclass__(cls, intermediate=False):
         # This registers every subclass that inherits from Observable.
         # Upon registration, Ensemble gets an attribute with the appropriate name.
 
-        if name == '':
-            cls.name = cls.__name__
-        else:
-            cls.name = name
+        cls.name = cls.__name__
 
         cls._logger = (logger.debug if cls.name[0] == '_' else logger.info)
         cls._debug  = logger.debug
