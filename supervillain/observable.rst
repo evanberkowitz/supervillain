@@ -11,6 +11,10 @@ A derived quantity is a generally nonlinear function of primary observables whic
 The same observable might be computed differently using different :ref:`actions <action>`.
 
 You can construct observables by writing a class that inherits from the ``supervillain.observable.Observable`` class.
+
+.. autoclass :: supervillain.observable.Observable
+   :members:
+
 Your observable can provide different implementations for different actions.
 Implementations are `staticmethod`_\ s named for their corresponding action that take an action object and a single configuration of fields needed to evaluate the action.
 
@@ -29,6 +33,17 @@ All of these nice features are accomplished using the `Descriptor`_ protocol but
 
 If the observable does not provide an implementation for the ensemble's action, asking for it will raise a `NotImplemented`_ exception.
 
+---------
+Built-Ins
+---------
+
+.. autoclass :: supervillain.observable.ActionDensity
+   :members:
+   :show-inheritance:
+
+.. autoclass :: supervillain.observable.TopologicalSusceptibility
+   :members:
+   :show-inheritance:
 
 .. _staticmethod: https://docs.python.org/3/library/functions.html#staticmethod
 .. _Descriptor: https://docs.python.org/3/howto/descriptor.html
