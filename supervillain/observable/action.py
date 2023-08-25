@@ -1,7 +1,7 @@
 from supervillain.observable import Observable
 
 class ActionDensity(Observable):
-    r'''The :ref:`action` fixes the Boltzmann weight of field configurations.
+    r'''The :ref:`action <action>` fixes the Boltzmann weight of field configurations.
     It is extensive in the spacetime volume, so we calculate the density
 
     .. math ::
