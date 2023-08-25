@@ -53,8 +53,8 @@ class NeighborhoodUpdate:
         '''
         L = self.Action.Lattice
 
-        phi = L.roll(cfg['phi'], dx)
-        n   = L.roll(cfg['n'],   dx)
+        phi = L.roll(cfg['phi'].copy(), dx)
+        n   = L.roll(cfg['n'].copy(),   dx)
 
         phi[0,0] += self.rng.uniform(-self.interval_phi,+self.interval_phi,None)
 
