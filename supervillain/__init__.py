@@ -10,3 +10,4 @@ from .action  import Villain
 import supervillain.observable
 from .ensemble import Ensemble
 import supervillain.generator
+import supervillain.analysis

@@ -12,8 +12,8 @@ parser = supervillain.cli.ArgumentParser()
 parser.add_argument('--N', type=int, default=5, help='Sites on a side.')
 parser.add_argument('--kappa', type=float, default=0.1, help='κ.')
 parser.add_argument('--configurations', type=int, default=1000)
-parser.add_argument('--cut', type=int, default=100)
-parser.add_argument('--stride', type=int, default=20)
+parser.add_argument('--cut', type=int, default=None, help='Thermalization time.  Defaults to 10*the autocorrelation time.')
+parser.add_argument('--stride', type=int, default=None, help='Stride for decorrelation.  Defaults to the autocorrelation time.')
 parser.add_argument('--figure', default=False, type=str)
 parser.add_argument('--h5', default=False, type=str)
 
@@ -75,8 +75,11 @@ fig.suptitle(f'{S}', fontsize=16)
 plot_history(ax[0], e.index, e.ActionDensity  )
 plot_history(ax[1], e.index, e.TopologicalSusceptibility, bins=101)
 
+autocorrelation = max([supervillain.analysis.autocorrelation_time(o) for o in (e.ActionDensity, e.TopologicalSusceptibility)])
+
 # Now let's cut and decorrelate
-e = e.cut(args.cut).every(args.stride)
+print(f'Autocorrelation time = {autocorrelation}')
+e = e.cut(10*autocorrelation if args.cut is None else args.cut).every(autocorrelation if args.stride is None else args.stride)
 # in order to make uncertainty estimates
 s   = estimate(e.ActionDensity)
 dn2 = estimate(e.TopologicalSusceptibility)

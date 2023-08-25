@@ -15,6 +15,7 @@ supervillain
    supervillain/ensemble
    supervillain/generator
    supervillain/observable
+   supervillain/analysis
    supervillain/h5
    todo
    bibliography
