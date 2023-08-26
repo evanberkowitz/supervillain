@@ -13,7 +13,7 @@ parser.add_argument('--N', type=int, default=5, help='Sites on a side.')
 parser.add_argument('--kappa', type=float, default=0.1, help='κ.')
 parser.add_argument('--configurations', type=int, default=1000)
 parser.add_argument('--cut', type=int, default=None, help='Thermalization time.  Defaults to 10*the autocorrelation time.')
-parser.add_argument('--stride', type=int, default=None, help='Stride for decorrelation.  Defaults to the autocorrelation time.')
+parser.add_argument('--stride', type=int, default=None, help='Stride for decorrelation.  Defaults to 2*the autocorrelation time.')
 parser.add_argument('--figure', default=False, type=str)
 parser.add_argument('--h5', default=False, type=str)
 
@@ -36,8 +36,9 @@ def naive_estimate(observable):
     # (mean, uncertainty)
     return (np.mean(observable), np.std(observable) / np.sqrt(len(observable)))
 
-# The error estimate will be crude.
-estimate = naive_estimate
+def boot(observable):
+    # (mean, uncertainty) if the observable is bootstrapped.
+    return (np.mean(observable), np.std(observable))
 
 def error_format(estimate):
     mean = estimate[0]
@@ -79,10 +80,15 @@ autocorrelation = max([supervillain.analysis.autocorrelation_time(o) for o in (e
 
 # Now let's cut and decorrelate
 print(f'Autocorrelation time = {autocorrelation}')
-e = e.cut(10*autocorrelation if args.cut is None else args.cut).every(autocorrelation if args.stride is None else args.stride)
+e = e.cut(10*autocorrelation if args.cut is None else args.cut).every(2*autocorrelation if args.stride is None else args.stride)
+b = supervillain.analysis.Bootstrap(e, len(e))
+
+# Since we have bootstrapped we can make bootstrap uncertainty estimates.
+estimate = boot
+
 # in order to make uncertainty estimates
-s   = estimate(e.ActionDensity)
-dn2 = estimate(e.TopologicalSusceptibility)
+s   = estimate(b.ActionDensity)
+dn2 = estimate(b.TopologicalSusceptibility)
 
 print(f'Action density             {error_format(s)}')
 print(f'Topological susceptibility {error_format(dn2)}')

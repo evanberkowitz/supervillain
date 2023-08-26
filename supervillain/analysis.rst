@@ -31,5 +31,15 @@ Some simple ways of decreasing autocorrelation are to decimate your Markov Chain
 The :class:`~.Ensemble` provides the :func:`every <supervillain.ensemble.Ensemble.every>` method, which returns another :class:`~.Ensemble` ensemble keeping configurations evenly spaced by n.
 A natural choice for n is the autocorrelation time.
 
+The Bootstrap
+-------------
+
+Bootstrap resampling, `bootstrapping`_, or "the bootstrap" is a resampling method used for uncertainty estimation.
+One draws, with replacement, from a sample drawn according to the distribution of interest.
+The idea is that each draw *could* have been what your samples were with the same likelihood as the ensemble you actually have, and that we can estimate uncertainties by looking at distributions of means of observables from these fictitious Markov chains.
+
+.. autoclass:: supervillain.analysis.Bootstrap
+   :members:
+
 .. _autocorrelation: https://en.wikipedia.org/wiki/Autocorrelation
 .. _bootstrapping: https://en.wikipedia.org/wiki/Bootstrapping_(statistics)

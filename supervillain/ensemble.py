@@ -71,6 +71,7 @@ class Ensemble(H5able):
 
         self.configurations = self.Action.configurations(steps)
         self.index = starting_index + np.arange(steps)
+        self.weight = np.ones(steps)
 
         if start == 'cold':
             seed = self.Action.configurations(1)[0]
@@ -114,6 +115,7 @@ class Ensemble(H5able):
         '''
         e = Ensemble(self.Action).from_configurations(self.configurations[start:])
         e.index = self.index[start:]
+        e.weight = self.weight[start:]
         return e
 
     def every(self, stride):
@@ -137,4 +139,5 @@ class Ensemble(H5able):
 
         e = Ensemble(self.Action).from_configurations(self.configurations[::stride])
         e.index = self.index[::stride]
+        e.weight = self.weight[::stride]
         return e
