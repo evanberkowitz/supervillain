@@ -31,7 +31,15 @@ A less dumb algorithm is a local update,
 
 The :class:`SlowNeighborhoodUpdate <supervillain.generator.metropolis.SlowNeighborhoodUpdate>` generator suffers from a variety of defects.
 
-First, its *implementation* makes a lot of calls.  We could 'unfactor' the proposal, single-site accept/reject, and sweep of the lattice for some benefits in speed.  Moreover, to compute the change in action it evaluates the action for both configurations and takes the difference.  But, we know that's silly, most of the $\phi$s and $n$s haven't changed at all and those links will contribute to both actions equally, giving zero difference.  We could reduce the arithmetic substantially by computing the difference directly.
+First, its *implementation* makes a lot of calls.
+We could 'unfactor' the proposal, single-site accept/reject, and sweep of the lattice for some benefits in speed.
+Moreover, to compute the change in action it evaluates the action for both configurations and takes the difference.
+But, we know that's silly, most of the $\phi$s and $n$s haven't changed at all and those links will contribute to both actions equally, giving zero difference.
+We could reduce the arithmetic substantially by computing the difference directly.
+Finally, for ease of thinking, each :func:`proposal <supervillain.generator.metropolis.SlowNeighborhoodUpdate.proposal()>` reckons locations relative the origin and therefore moves all the fields around in order to update ergodically.
+All of that data movement adds cost, especially as the lattice gets large.
+
+It was easy to write the :class:`SlowNeighborhoodUpdate <supervillain.generator.metropolis.SlowNeighborhoodUpdate>` but we can do better for production.
 
 .. autoclass :: supervillain.generator.NeighborhoodUpdate
    :members:

@@ -66,6 +66,9 @@ class SlowNeighborhoodUpdate:
         '''
         L = self.Action.Lattice
 
+        # We move the lattice around (which is fine by translational symmetry)
+        # so that we update a different site with each proposal.
+        # The advantage of thinking this way is that we only have to reckon from the origin.
         phi = L.roll(cfg['phi'].copy(), dx)
         n   = L.roll(cfg['n'].copy(),   dx)
 
@@ -172,7 +175,7 @@ class SlowNeighborhoodUpdate:
 
 class NeighborhoodUpdate:
     r'''
-    This performs the same update as :class:`SlowNeighborhoodUpdate <supervillain.generator.metropolis.SlowNeighborhoodUpdate>` but is streamlined to eliminate calls and to calculate the change in action directly.
+    This performs the same update as :class:`SlowNeighborhoodUpdate <supervillain.generator.metropolis.SlowNeighborhoodUpdate>` but is streamlined to eliminate calls, to calculate the change in action directly, and to avoid data movement.
 
     .. note ::
        On a small 5×5 example this generator yields about three times as many updates per second than :class:`SlowNeighborhoodUpdate <supervillain.generator.metropolis.SlowNeighborhoodUpdate>` on my machine!
@@ -220,17 +223,17 @@ class NeighborhoodUpdate:
         n   = cfg['n'].copy()
 
         # Rather than sweeping the lattice in a particular order, we randomly update sites.
-        shifts = np.stack((
+        sites = np.stack((
             np.random.randint(self.Lattice.dims[0], size=self.Lattice.sites),
             np.random.randint(self.Lattice.dims[1], size=self.Lattice.sites)
         )).transpose()
 
-        for dx in shifts:
-            # We move the lattice around (which is fine by translational symmetry)
-            # so that we update a different site with each proposal.
-            # The advantage of thinking this way is that we only have to reckon from the origin.
-            phi =  self.Lattice.roll(phi, dx)
-            n   =  self.Lattice.roll(n,   dx)
+        for here, metropolis in zip(sites, self.rng.uniform(0,1,len(sites))):
+            # Rather than leveraging translational symmetry and reckoning from the origin,
+            # it is faster to do a little bit of index arithmetic and avoid all the data movement.
+            # This is particularly noticable on large lattices.
+            north, south, east, west = self.Lattice.mod(here + np.array([[+1,0],[-1,0],[0,-1],[0,+1]]))
+                # Since time is the zeroeth axis, *west* is the positive space direction.
 
             change_phi = self.rng.uniform(-self.interval_phi,+self.interval_phi,None)
             change_n = self.rng.choice(self.n_changes,4)
@@ -239,34 +242,32 @@ class NeighborhoodUpdate:
             # We can calculate dS directly from just the previous values and the proposed changes.
             # This formula is the application of the difference of two squares for each changed link.
             dS = 0.5*self.kappa*(
-                +(-change_phi-2*np.pi*change_n[0])*(2*(phi[+1,+0]-phi[+0,+0]-2*np.pi*n[0][+0,+0])-change_phi-2*np.pi*change_n[0])
-                +(+change_phi-2*np.pi*change_n[1])*(2*(phi[+0,+0]-phi[-1,+0]-2*np.pi*n[0][-1,+0])+change_phi-2*np.pi*change_n[1])
-                +(-change_phi-2*np.pi*change_n[2])*(2*(phi[+0,+1]-phi[+0,+0]-2*np.pi*n[1][+0,+0])-change_phi-2*np.pi*change_n[2])
-                +(+change_phi-2*np.pi*change_n[3])*(2*(phi[+0,+0]-phi[+0,-1]-2*np.pi*n[1][+0,-1])+change_phi-2*np.pi*change_n[3])
+                +(-change_phi-2*np.pi*change_n[0])*(2*(phi[north[0],north[1]]-phi[here [0],here [1]]-2*np.pi*n[0][here [0],here [1]])-change_phi-2*np.pi*change_n[0])
+                +(+change_phi-2*np.pi*change_n[1])*(2*(phi[here [0],here [1]]-phi[south[0],south[1]]-2*np.pi*n[0][south[0],south[1]])+change_phi-2*np.pi*change_n[1])
+                +(-change_phi-2*np.pi*change_n[2])*(2*(phi[west [0],west [1]]-phi[here [0],here [1]]-2*np.pi*n[1][here [0],here [1]])-change_phi-2*np.pi*change_n[2])
+                +(+change_phi-2*np.pi*change_n[3])*(2*(phi[here [0],here [1]]-phi[east [0],east [1]]-2*np.pi*n[1][east [0],east [1]])+change_phi-2*np.pi*change_n[3])
             )
 
             # Now we Metropolize
             acceptance = np.clip( np.exp(-dS), a_min=0, a_max=1)
             total_acceptance += acceptance
-            metropolis = self.rng.uniform(0,1,None)
             if metropolis < acceptance:
                 logger.debug(f'Proposal accepted; ∆S = {dS:f}; acceptance probability = {acceptance:f}')
                 accepted += 1
                 # and conditionally update the configuration.
-                phi[0,0] += change_phi
+                phi [here [0],here [1]] += change_phi
                 # These assignments are picked to match the unrolled dS calculation.
-                n[0][+0,+0] += change_n[0]
-                n[0][-1,+0] += change_n[1]
-                n[1][+0,+0] += change_n[2]
-                n[1][+0,-1] += change_n[3]
-
+                n[0][here [0],here [1]] += change_n[0]
+                n[0][south[0],south[1]] += change_n[1]
+                n[1][here [0],here [1]] += change_n[2]
+                n[1][east [0],east [1]] += change_n[3]
             else:
                 logger.debug(f'Proposal rejected; ∆S = {dS:f}; acceptance probability = {acceptance:f}')
 
         self.accepted += accepted
-        self.proposed += len(shifts)
+        self.proposed += len(sites)
 
-        total_acceptance /= len(shifts)
+        total_acceptance /= len(sites)
         self.acceptance += total_acceptance
         logger.info(f'Average proposal {acceptance=:.6f}; Actually {accepted = } / {self.Action.Lattice.sites} = {accepted / self.Action.Lattice.sites}')
 
