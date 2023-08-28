@@ -73,10 +73,10 @@ fig, ax = plt.subplots(2,2,
 fig.suptitle(f'{S}', fontsize=16)
 
 # Plot the whole history
-plot_history(ax[0], e.index, e.ActionDensity  )
-plot_history(ax[1], e.index, e.TopologicalSusceptibility, bins=101)
+plot_history(ax[0], e.index, e.InternalEnergyDensity  )
+plot_history(ax[1], e.index, e.WindingSquared, bins=101)
 
-autocorrelation = max([supervillain.analysis.autocorrelation_time(o) for o in (e.ActionDensity, e.TopologicalSusceptibility)])
+autocorrelation = max([supervillain.analysis.autocorrelation_time(o) for o in (e.InternalEnergyDensity, e.WindingSquared)])
 
 # Now let's cut and decorrelate
 print(f'Autocorrelation time = {autocorrelation}')
@@ -87,20 +87,20 @@ b = supervillain.analysis.Bootstrap(e, len(e))
 estimate = boot
 
 # in order to make uncertainty estimates
-s   = estimate(b.ActionDensity)
-dn2 = estimate(b.TopologicalSusceptibility)
+s   = estimate(b.InternalEnergyDensity)
+dn2 = estimate(b.WindingSquared)
 
-print(f'Action density             {error_format(s)}')
-print(f'Topological susceptibility {error_format(dn2)}')
+print(f'Internal Energy Density     {error_format(s)}')
+print(f'Winding Squared             {error_format(dn2)}')
 
-plot_history(ax[0], e.index, e.ActionDensity,             label=error_format(s))
-plot_history(ax[1], e.index, e.TopologicalSusceptibility, label=error_format(dn2), bins=101)
+plot_history(ax[0], e.index, e.InternalEnergyDensity,   label=error_format(s))
+plot_history(ax[1], e.index, e.WindingSquared,          label=error_format(dn2), bins=101)
 
 band(ax[0,0], s  )
 band(ax[1,0], dn2)
 
-ax[0,0].set_ylabel('S / Λ')
-ax[1,0].set_ylabel('dn^2 / Λ')
+ax[0,0].set_ylabel('U / Λ')
+ax[1,0].set_ylabel('w^2')
 ax[-1,0].set_xlabel('Monte Carlo time')
 
 for a in ax[:,1]:

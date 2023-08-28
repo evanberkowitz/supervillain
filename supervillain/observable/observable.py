@@ -15,38 +15,35 @@ class Observable:
         # This registers every subclass that inherits from Observable.
         # Upon registration, Ensemble gets an attribute with the appropriate name.
 
-        cls.name = cls.__name__
+        name = cls.__name__
 
-        cls._logger = (logger.debug if cls.name[0] == '_' else logger.info)
+        cls._logger = (logger.debug if name[0] == '_' else logger.info)
         cls._debug  = logger.debug
-        cls._logger(f'Observable registered: {cls.name}')
+        cls._logger(f'Observable registered: {name}')
 
-        setattr(supervillain.ensemble.Ensemble, cls.name, cls())
-
-    def __set_name__(self, owner, name):
-        self.name  = name
+        setattr(supervillain.ensemble.Ensemble, name, cls())
 
     def __get__(self, obj, objtype=None):
         # The __get__ method is the workhorse of the Descriptor protocol.
-
+        name = self.__class__.__name__
         # Cache:
-        if self.name in obj.__dict__:
+        if name in obj.__dict__:
             # What's nice about this is that the cache is in the object's dictionary itself,
             # rather than associated with the observable class.  This avoids the issue of a
             # class level cache discussed in https://github.com/evanberkowitz/two-dimensional-gasses/issues/12
             # in that there's no extra reference to the object at all with this strategy.
             # So, when it goes out of scope with no reference, it will be deleted.
-            self._debug(f'{self.name} already cached.')
-            return obj.__dict__[self.name]
+            self._debug(f'{name} already cached.')
+            return obj.__dict__[name]
 
         # Just call the measurement and cache the result.
         class_name = obj.Action.__class__.__name__
         try:
-            with Timer(self._logger, f'Measurement of {self.name}', per=len(obj)):
-                obj.__dict__[self.name]= np.array([getattr(self, class_name)(obj.Action, **o) for o in obj.configurations])
-            return obj.__dict__[self.name]
+            with Timer(self._logger, f'Measurement of {name}', per=len(obj)):
+                obj.__dict__[name]= np.array([getattr(self, class_name)(obj.Action, **o) for o in obj.configurations])
+            return obj.__dict__[name]
         except:
-            raise NotImplemented(f'{self.name} not implemented for {class_name}')
+            raise NotImplemented(f'{name} not implemented for {class_name}')
 
         raise NotImplemented()
 
