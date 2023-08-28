@@ -76,9 +76,9 @@ class Worldline(H5able):
 
     .. math::
        \begin{align}
-       Z[J] &= (2\pi\kappa)^{-|\ell|/2}\sum Dm\; e^{-S_J[m]} \left[\delta m = 0\right]
+       Z[J] &= \sum Dm\; e^{-S_J[m]} \left[\delta m = 0\right]
        &
-       S_J[m] &= \frac{1}{2\kappa} \sum_\ell \left(m - \frac{\delta J}{2\pi}\right)_\ell^2 
+       S_J[m] &= \frac{1}{2\kappa} \sum_\ell \left(m - \frac{\delta J}{2\pi}\right)_\ell^2 + \frac{|\ell|}{2} \ln (2\pi \kappa) - |x| \ln 2\pi
        \end{align}
 
     In other words, it is a sum over all configurations where $\delta m$ vanishes on every site.
