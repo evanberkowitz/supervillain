@@ -70,12 +70,21 @@ However, we can now execute the integral over $\phi$, which just sets $\delta m=
 
 .. math::
    \begin{align}
-   Z[J] &= (2\pi\kappa)^{-|\ell|/2} \sum Dm\; e^{-S_J[m]} \left[\delta m = 0\right]
+   Z[J] &= (2\pi)^{|x|}(2\pi\kappa)^{-|\ell|/2} \sum Dm\; e^{-S_J[m]} \left[\delta m = 0\right]
    &
    S_J[m] &= \frac{1}{2\kappa} \sum_\ell \left(m - \frac{\delta J}{2\pi}\right)_\ell^2 
    \end{align}
 
-where $[\delta m = 0]$ is the `Iverson bracket`_.
+where $[\delta m = 0]$ is the `Iverson bracket`_ and we picked up a $2\pi$ for every site since $\int d\phi\; e^{i o \phi} = 2\pi \delta(o)$.
+We can cast the dimensionless constants up into the action
+
+.. math::
+   \begin{align}
+   Z[J] &= \sum Dm\; e^{-S_J[m]} \left[\delta m = 0\right]
+   &
+   S_J[m] &= \frac{1}{2\kappa} \sum_\ell \left(m - \frac{\delta J}{2\pi}\right)_\ell^2 + \frac{|\ell|}{2} \ln (2\pi \kappa) - |x| \ln 2\pi
+   \end{align}
+
 
 .. autoclass :: supervillain.action.Worldline
    :members:
