@@ -39,7 +39,7 @@ If the observable does not provide an implementation for the ensemble's action, 
 Primary Observables
 -------------------
 
-.. autoclass :: supervillain.observable.ActionDensity
+.. autoclass :: supervillain.observable.InternalEnergyDensity
    :members:
    :show-inheritance:
 

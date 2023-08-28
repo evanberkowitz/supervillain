@@ -1,4 +1,4 @@
 from .observable import Observable
 
-from .action import ActionDensity
+from .energy import InternalEnergyDensity
 from .topology import TopologicalSusceptibility
