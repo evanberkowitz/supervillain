@@ -98,7 +98,8 @@ class Worldline(H5able):
     def __init__(self, lattice, kappa):
 
         self.Lattice = lattice
-        self.kappaa = kappa
+        self.kappa = kappa
+        self._constant_offset = self.Lattice.links / 2 * np.log(2*np.pi*kappa) - self.Lattice.sites * np.log(2*np.pi)
 
     def __str__(self):
         return f'Worldline({self.Lattice}, κ={self.kappa})'
@@ -130,7 +131,7 @@ class Worldline(H5able):
 
         if not self.valid(m):
             raise ValueError(f'The one-form m does not satisfy the constraint δm = 0 everywhere.')
-        return 0.5 / self.kappa * np.sum(m**2)
+        return 0.5 / self.kappa * np.sum(m**2) + self._constant_offset
 
     def configurations(self, count):
         r'''
