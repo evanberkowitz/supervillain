@@ -20,7 +20,7 @@ Implementations are `staticmethod`_\ s named for their corresponding action that
 
 A simple example, since :ref:`actions <action>` are already callable, is
 
-.. literalinclude:: observable/action.py
+.. literalinclude:: observable/energy.py
 
 Under the hood ``Observable``\ s are attached to the :class:`~.Ensemble` class.
 In particular, you can evaluate the observable for *every* configuration in an ensemble by just calling for the ensemble's property with the name of the observable.
@@ -43,7 +43,7 @@ Primary Observables
    :members:
    :show-inheritance:
 
-.. autoclass :: supervillain.observable.TopologicalSusceptibility
+.. autoclass :: supervillain.observable.WindingSquared
    :members:
    :show-inheritance:
 
