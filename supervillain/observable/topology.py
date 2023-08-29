@@ -16,7 +16,7 @@ class WindingSquared(Observable):
 
     and we can drop the quantum-disconnected pieces because $\delta Z / \delta J_p = 0$ for any $p$ when $J=0$.
 
-    To increase statisticls we calculate the local winding number squared and average over the lattice
+    To increase statistics we calculate the local winding number squared and average over the lattice
 
     .. math ::
        \texttt{WindingSquared} = \frac{1}{\Lambda} \sum_p w_p^2
