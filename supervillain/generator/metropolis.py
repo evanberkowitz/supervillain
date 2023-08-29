@@ -2,11 +2,12 @@
 
 import numpy as np
 import supervillain.action
+from supervillain.h5 import H5able
 
 import logging
 logger = logging.getLogger(__name__)
 
-class SlowNeighborhoodUpdate:
+class SlowNeighborhoodUpdate(H5able):
     r'''
     A neighborhood update changes only fields in some small area of the lattice.
 
@@ -173,7 +174,7 @@ class SlowNeighborhoodUpdate:
         )
 
 
-class NeighborhoodUpdate:
+class NeighborhoodUpdate(H5able):
     r'''
     This performs the same update as :class:`SlowNeighborhoodUpdate <supervillain.generator.metropolis.SlowNeighborhoodUpdate>` but is streamlined to eliminate calls, to calculate the change in action directly, and to avoid data movement.
 
