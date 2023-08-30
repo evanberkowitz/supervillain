@@ -382,4 +382,426 @@ class Lattice2D(H5able):
         else:
             raise ValueError("It's a 2D lattice, you can't have a {p}-form.")
 
+    def t_fft(self, form, axis=-2):
+        r'''
+        Fourier transforms the form in the time direction,
+
+        .. math ::
+            
+            F_\nu = \frac{1}{\sqrt{N}} \sum_{t=0}^{N-1} e^{-2\pi i \nu t / N} f_t
+
+        where $\nu$ is the integer frequency, $t$ the integer time coordinate and $N$ is the temporal extent of the lattice.
+
+        Parameters
+        ----------
+        form: np.array
+            The data to transform
+        axis: int
+            The axis which is the time direction.
+
+        Returns
+        -------
+        np.array:
+            The form is transformed to the frequency domain along the axis.
+        '''
+        return np.fft.fft(form, axis=axis, norm='ortho')
+
+    def t_ifft(self, form, axis=-2):
+        r'''
+        Inverse transforms the form in the time direction,
+
+        .. math ::
+            
+            f_t = \frac{1}{\sqrt{N}} \sum_{\nu=0}^{N-1} e^{+2\pi i \nu t / N} F_\nu
+
+        where $\nu$ is the integer frequency, $t$ the integer time coordinate and $N$ is the temporal extent of the lattice.
+
+        Parameters
+        ----------
+        form: np.array
+            The data to transform
+        axis: int
+            The axis which is the frequency direction.
+
+        Returns
+        -------
+        np.array:
+            The form is transformed to the time domain along the axis.
+        '''
+        return np.fft.ifft(form, axis=axis, norm='ortho')
+
+    def t_convolution(self, f, g, axis=-2):
+        r'''
+        The `convolution <https://en.wikipedia.org/wiki/Convolution>`_ is given by
+
+        .. math ::
+            \texttt{t_convolution(f, g)}(t) = (f * g)(t) = \sum_\tau f(\tau) g(t-\tau)
+
+        .. collapse :: The convolution is Fourier accelerated.
+            :class: note
+
+            .. math ::
+
+                   \begin{align}
+                    (f * g)(t) &= \sum_\tau  f(\tau ) g(t-\tau )
+                    \\  &= \sum_{\tau } \left( \frac{1}{\sqrt{N}} \sum_\nu e^{2\pi i \nu \tau  / N} F_\nu \right)\left( \frac{1}{\sqrt{N}} \sum_{\nu'} e^{2\pi i \nu' (t-\tau ) / N} G_{\nu'} \right)
+                    \\  &= \sum_{\nu\nu'} e^{2\pi i \nu' t / N} F_\nu G_{\nu'} \left(\frac{1}{N} \sum_{\tau} e^{2\pi i (\nu-\nu') \tau  / N} \right) 
+                    \\  &= \sum_{\nu} e^{2\pi i \nu t / N} F_\nu G_\nu
+                    \\
+                    \texttt{t_convolution(f, g)} &= \sqrt{N} \times \texttt{t_ifft(t_fft(f)t_fft(g))}
+                   \end{align}
+
+        Parameters
+        ----------
+        f: np.array
+            A form whose axis is a temporal direction.
+        g: np.array
+            A form whose axis is a temporal direction.
+        axis: int
+            The common spatial dimension along which to convolve.
+
+        Returns
+        -------
+        np.array:
+            The convolution of f and g along the axis.
+
+
+        '''
+        return np.sqrt(self.nt) * self.t_ifft( self.t_fft(f, axis=axis) * self.x_fft(g, axis=axis), axis=axis)
+
+    def t_correlation(self, f, g, axis=-1):
+        r'''
+        The temporal `cross-correlation <https://en.wikipedia.org/wiki/Cross-correlation>`_ is given by
+
+        .. math ::
+            \texttt{t_correlation(f, g)}(t) = (f ⋆ g)(t) = \frac{1}{N} \sum_\tau f(\tau)^* g(\tau-t)
+
+        where $f^*$ is the complex conjugate of $f$.
+
+        .. collapse :: The temporal cross-correlation is Fourier accelerated.
+            :class: note
+
+            .. math ::
+
+               \begin{align}
+                (f ⋆ g)(t) &= \frac{1}{N} \sum_\tau f(\tau )^* g(\tau -t)
+                \\  &= \frac{1}{N} \sum_{\tau } \left( \frac{1}{\sqrt{N}} \sum_\nu e^{2\pi i \nu \tau  / N} F_\nu \right)^* \left( \frac{1}{\sqrt{N}} \sum_{\nu'} e^{2\pi i \nu' (\tau -t) / N} G_{\nu'} \right)
+                \\  &= \frac{1}{N} \sum_{\nu\nu'} e^{-2\pi i \nu' t / N} F_\nu^* G_{\nu'} \; \left(\frac{1}{N}\sum_\tau  e^{2\pi i (\nu'-\nu) \tau  / N} = \delta_{\nu'\nu} \right)
+                \\  &= \frac{1}{N} \sum_{\nu} e^{-2\pi i \nu t / N} F_\nu^* G_\nu
+                \\  &= \frac{1}{\sqrt{N}} \left( \frac{1}{\sqrt{N}} \sum_{\nu} e^{-2\pi i \nu t / N} F_\nu^* G_\nu \right)
+                \\
+                \texttt{t_correlation(f, g)} &= \texttt{t_fft(conj(t_fft(f))t_fft(g))} / \sqrt{N}
+               \end{align}
+
+        .. warning ::
+            We have $g(\tau-t)$ whereas `Wikipedia <https://en.wikipedia.org/wiki/Cross-correlation>`_ has $g(\tau+t)$.
+            The difference is just the sign on the relative coordinates.
+
+        .. warning ::
+            We normalize by the number of time slices, `Wikipedia <https://en.wikipedia.org/wiki/Cross-correlation>`_ does not.
+
+
+        Parameters
+        ----------
+        f: np.array
+            A form whose axis is a temporal direction.
+        g: np.array
+            A form whose axis is a temporl direction.
+        axis: int
+            The common temporal dimension along which to correlate.
+
+        Returns
+        -------
+        np.array:
+            The correlation of f and g along the axis, which is now the relative coordinate.
+
+        '''
+        return  self.x_ifft( self.x_fft(f, axis=axis).conj() * self.x_fft(g, axis=axis), axis=axis) / np.sqrt(self.nx)
+
+
+    def x_fft(self, form, axis=-1):
+        r'''
+        Fourier transforms the form in the space direction,
+
+        .. math ::
+            
+            F_k = \frac{1}{\sqrt{N}} \sum_{x=0}^{N-1} e^{-2\pi i k x / N} f_x
+
+        where $k$ is the integer wavenumber, $x$ the integer space coordinate and $N$ is the spatial volume of the lattice.
+
+        Parameters
+        ----------
+        form: np.array
+            The data to transform
+        axis: int
+            The axis which is the space direction.
+
+        Returns
+        -------
+        np.array:
+            The form is transformed to the wavenumber domain along the axis.
+        '''
+        return np.fft.fft(form, axis=axis, norm='ortho')
+
+    def x_ifft(self, form, axis=-1):
+        r'''
+        Inverse transforms the form in the space direction,
+
+        .. math ::
+            
+            f_x = \frac{1}{\sqrt{N}} \sum_{k=0}^{N-1} e^{+2\pi i k x / N} F_k
+
+        where $k$ is the integer wavenumber, $x$ the integer space coordinate and $N$ is the spatial volume of the lattice.
+
+        Parameters
+        ----------
+        form: np.array
+            The data to transform
+        axis: int
+            The axis which is the wavenumber direction.
+
+        Returns
+        -------
+        np.array:
+            The form is transformed to the space domain along the axis.
+        '''
+        return np.fft.ifft(form, axis=axis, norm='ortho')
+
+    def x_convolution(self, f, g, axis=-1):
+        r'''
+        The `convolution <https://en.wikipedia.org/wiki/Convolution>`_
+
+        .. math ::
+            (f * g)(x) = \int dy\; f(y) g(x-y)
+
+        on the discretized lattice is given by
+
+        .. math ::
+            \texttt{x_convolution(f, g)}(x) = (f * g)(x) = \sum_y f(y) g(x-y)
+
+        .. collapse :: The convolution is Fourier accelerated.
+            :class: note
+
+            .. math ::
+
+               \begin{align}
+                (f * g)(x) &= \sum_y f(y) g(x-y)
+                \\  &= \sum_{y} \left( \frac{1}{\sqrt{N}} \sum_k e^{2\pi i k y / N} F_k \right)\left( \frac{1}{\sqrt{N}} \sum_q e^{2\pi i q (x-y) / N} G_q \right)
+                \\  &= \sum_{kq} e^{2\pi i q x / N} F_k G_q \left(\frac{1}{N} \sum_y e^{2\pi i (k-q) y / N} = \delta_{kq} \right)
+                \\  &= \sum_{k} e^{2\pi i k x / N} F_k G_k
+                \\
+                \texttt{x_convolution(f, g)} &= \sqrt{N} \times \texttt{x_ifft(x_fft(f)x_fft(g))}
+               \end{align}
+
+        Parameters
+        ----------
+        f: np.array
+            A form whose axis is a spatial direction.
+        g: np.array
+            A form whose axis is a spatial direction.
+        axis: int
+            The common spatial dimension along which to convolve.
+
+        Returns
+        -------
+        np.array:
+            The convolution of f and g along the axis.
+
+        '''
+        return np.sqrt(self.nx) * self.x_ifft( self.x_fft(f, axis=axis) * self.x_fft(g, axis=axis), axis=axis)
+
+    def x_correlation(self, f, g, axis=-1):
+        r'''
+        The spatial `cross-correlation <https://en.wikipedia.org/wiki/Cross-correlation>`_ is given by
+
+        .. math ::
+            \texttt{x_correlation(f, g)}(x) = (f ⋆ g)(x) = \frac{1}{N} \sum_y f(y)^* g(y-x)
+
+        where $f^*$ is the complex conjugate of $f$.
+
+        .. collapse :: The spatial cross-correlation is Fourier accelerated.
+            :class: note
+
+            .. math ::
+
+               \begin{align}
+                (f ⋆ g)(x) &= \frac{1}{N} \sum_y f(y)^* g(y-x)
+                \\  &= \frac{1}{N} \sum_{y} \left( \frac{1}{\sqrt{N}} \sum_k e^{2\pi i k y / N} F_k \right)^* \left( \frac{1}{\sqrt{N}} \sum_q e^{2\pi i q (y-x) / N} G_q \right)
+                \\  &= \frac{1}{N} \sum_{kq} e^{-2\pi i q x / N} F_k^* G_q \; \left(\frac{1}{N}\sum_y e^{2\pi i (q-k) y / N} = \delta_{qk} \right)
+                \\  &= \frac{1}{N} \sum_{k} e^{-2\pi i k x / N} F_k^* G_k
+                \\  &= \frac{1}{\sqrt{N}} \left( \frac{1}{\sqrt{N}} \sum_{k} e^{-2\pi i k x / N} F_k^* G_k \right)
+                \\
+                \texttt{x_correlation(f, g)} &= \texttt{x_fft(conj(x_fft(f))x_fft(g))} / \sqrt{N}
+               \end{align}
+
+        .. warning ::
+            We have $g(y-x)$ whereas `Wikipedia <https://en.wikipedia.org/wiki/Cross-correlation>`_ has $g(y+x)$.
+            The difference is just the sign on the relative coordinates.
+
+        .. warning ::
+            We normalize by the spatial volume, `Wikipedia <https://en.wikipedia.org/wiki/Cross-correlation>`_ does not.
+
+        Parameters
+        ----------
+        f: np.array
+            A form whose axis is a spatial direction.
+        g: np.array
+            A form whose axis is a spatial direction.
+        axis: int
+            The common spatial dimension along which to correlate.
+
+        Returns
+        -------
+        np.array:
+            The correlation of f and g along the axis, which is now the relative coordinate.
+
+        '''
+        return  self.x_ifft( self.x_fft(f, axis=axis).conj() * self.x_fft(g, axis=axis), axis=axis) / np.sqrt(self.nx)
+
+    def fft(self, form, axes=(-2,-1)):
+        r'''
+        Fourier transforms the form in the space and time directions,
+
+        .. math ::
+            
+            F_{\nu,k} = \frac{1}{N} \sum_{x,t=0}^{N-1} e^{-2\pi i (\nu t +k x) / N} f_{t,x}
+
+        where $\nu, k$ are the integer frequency and wavenumber, $t, x$ are the integer time adn space coordinates and $N$ is the linear extent of the lattice.
+
+        Parameters
+        ----------
+        form: np.array
+            The data to transform
+        axes: (int, int)
+            The axes which are the (time, space) directions.
+
+        Returns
+        -------
+        np.array:
+            The form is transformed to the (frequency, wavenumber) domain along the axis.
+        '''
+        return np.fft.fft2(form, axes=axes, norm='ortho')
+
+    def ifft(self, form, axes=(-2,-1)):
+        r'''
+        Inverse Fourier transforms the form in the space and time directions,
+
+        .. math ::
+            
+            f_{t,x} = \frac{1}{N} \sum_{\nu,k=0}^{N-1} e^{-2\pi i (\nu t +k x) / N} F_{\nu,k}
+
+        where $\nu, k$ are the integer frequency and wavenumber, $t, x$ are the integer time adn space coordinates and $N$ is the linear extent of the lattice.
+
+        Parameters
+        ----------
+        form: np.array
+            The data to transform
+        axes: (int, int)
+            The axes which are the (frequency, wavenumber) directions.
+
+        Returns
+        -------
+        np.array:
+            The form is transformed to the (time, space) domain along the axis.
+        '''
+        return np.fft.ifft2(form, axes=axes, norm='ortho')
+
+    def convolution(self, f, g, axes=(-2, -1)):
+        r'''
+        The `convolution <https://en.wikipedia.org/wiki/Convolution>`_ is given by
+
+        .. math ::
+            \texttt{convolution(f, g)}(t, x) = (f * g)(t, x) = \sum_{\tau y} f(\tau,y) g(t-\tau, x-y)
+
+        where $f^*$ is the complex-conjugate of $f$.
+
+        .. collapse :: The convolution is Fourier accelerated.
+            :class: note
+
+            .. math ::
+
+               \begin{align}
+                (f * g)(t,x) &= \sum_{\tau y} f(\tau,y) g(t-\tau, x-y)
+                \\ &= \sum_{\tau y}
+                    \left(\frac{1}{N} \sum_{\nu,k} e^{-2\pi i (\nu \tau +k y) / N} F_{\nu,k}\right)
+                    \left(\frac{1}{N} \sum_{\nu',q} e^{-2\pi i (\nu' (t-\tau) +q (x-y)) / N} G_{\nu',q}\right)
+                \\ &= \sum_{\nu, k, \nu', q}
+                    e^{-2\pi i (\nu' t + q x) / N} F_{\nu,k}G_{\nu',q}
+                    \left(\frac{1}{N^2}\sum_{\tau y}e^{-2\pi i [\tau(\nu-\nu') + y(k-q)] / N} = \delta_{kq} \delta_{\nu\nu'}\right)
+                \\ &= N \times \frac{1}{N} \sum_{\nu, k}
+                    e^{-2\pi i (\nu t + k x) / N} F_{\nu,k}G_{\nu,k}
+                \\
+                \texttt{convolution(f, g)} &= N \times \texttt{ifft(fft(f)fft(g))} 
+               \end{align}
+
+        Parameters
+        ----------
+        f: np.array
+            A form whose axes are temporal and spatial directions.
+        g: np.array
+            A form whose axes are temporal and spatial directions.
+        axes: (int, int)
+            The common temporal and spatial dimensions along which to convolve.
+
+        Returns
+        -------
+        np.array:
+            The convolution of f and g along the axes, which represent the (time, space) separation.
+
+        '''
+        return np.sqrt(self.sites) * self.ifft(self.fft(f, axes=axes) * self.fft(g, axes=axes), axes=axes)
+
+    def correlation(self, f, g, axes=(-2,-1)):
+        r'''
+        The `cross-correlation <https://en.wikipedia.org/wiki/Cross-correlation>`_ is given by
+
+        .. math ::
+            \texttt{correlation(f, g)}(t, x) = (f ⋆ g)(t, x) = \frac{1}{N^2} \sum_{\tau y} f(\tau,y)^* g(\tau-t, y-x)
+
+        where $f^*$ is the complex-conjugate of $f$.
+
+        .. collapse :: The cross-correlation is Fourier accelerated.
+            :class: note
+
+            .. math ::
+
+               \begin{align}
+                (f ⋆ g)(t,x) &= \frac{1}{N^2} \sum_{\tau y} f(\tau,y)^* g(\tau-t, y-x)
+                \\ &= \frac{1}{N^2} \sum_{\tau y}
+                    \left(\frac{1}{N} \sum_{\nu,k} e^{-2\pi i (\nu \tau +k y) / N} F_{\nu,k}\right)^*
+                    \left(\frac{1}{N} \sum_{\nu',q} e^{-2\pi i (\nu' (\tau-t) +q (y-x)) / N} G_{\nu',q}\right)
+                \\ &= \frac{1}{N^2} \sum_{\nu, k, \nu', q}
+                    e^{+2\pi i (\nu' t + q x) / N} F_{\nu,k}^*G_{\nu',q}
+                    \left(\frac{1}{N^2}\sum_{\tau y}e^{2\pi i [\tau(\nu-\nu') + y(k-q)] / N} = \delta_{kq} \delta_{\nu\nu'}\right)
+                \\ &= \frac{1}{N}\times \frac{1}{N} \sum_{\nu, k}
+                    e^{+2\pi i (\nu t + k x) / N} F_{\nu,k}^*G_{\nu,k}
+                \\
+                \texttt{correlation(f, g)} &= \texttt{fft(conj(fft(f))fft(g))} / N
+               \end{align}
+
+        .. warning ::
+            We have $g(\tau-t, y-x)$ whereas `Wikipedia <https://en.wikipedia.org/wiki/Cross-correlation>`_ has $g(\tau+t, y+x)$.
+            The difference is just the sign on the relative coordinates.
+
+        .. warning ::
+            We normalize by the spacetime volume, `Wikipedia <https://en.wikipedia.org/wiki/Cross-correlation>`_ does not.
+
+
+        Parameters
+        ----------
+        f: np.array
+            A form whose axes are temporal and spatial directions.
+        g: np.array
+            A form whose axes are temporal and spatial directions.
+        axes: (int, int)
+            The common temporal and spatial dimensions along which to correlate.
+
+        Returns
+        -------
+        np.array:
+            The correlation of f and g along the axes, which represent the (time, space) separation.
+
+        '''
+        return  self.fft( self.fft(f, axes=axes).conj() * self.fft(g, axes=axes), axes=axes) / np.sqrt(self.sites)
+
 

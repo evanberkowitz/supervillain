@@ -35,4 +35,30 @@ class WindingSquared(Observable):
         return np.mean(L.d(1, n)**2)
 
 
+class Winding_Winding(Observable):
+    r'''
+    Beyond just the :class:`same-site-squared <WindingSquared>` we can compute correlations of the plaquette winding number.
+
+    .. math ::
+        W_{p,q} = -\frac{\delta^2 \log Z}{\delta J_p \delta J_q}
+
+    By translation invariance we can average so that only the separation remains
+
+    .. math ::
+        W_{\Delta p} = \frac{1}{\Lambda} \sum_{p} W_{p, p-\Delta p}.
+
+    .. note ::
+        You can check that $\texttt{Winding_Winding[0,0]} = \texttt{WindingSquared}$ configuration by configurations.
+
+    '''
+
+    @staticmethod
+    def Villain(S, phi, n):
+        r'''
+        Differentiating twice gives $W_{p,q} = \left\langle dn_p dn_q \right\rangle$; the quantum-disconnected piece vanishes when $J=0$.
+        '''
+
+        L = S.Lattice
+        dn = L.d(1, n)
+        return L.correlation(dn, dn)
 

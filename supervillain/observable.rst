@@ -47,6 +47,10 @@ Primary Observables
    :members:
    :show-inheritance:
 
+.. autoclass :: supervillain.observable.Winding_Winding
+   :members:
+   :show-inheritance:
+
 .. _staticmethod: https://docs.python.org/3/library/functions.html#staticmethod
 .. _Descriptor: https://docs.python.org/3/howto/descriptor.html
 .. _NotImplemented: https://docs.python.org/3/library/exceptions.html#NotImplementedError
