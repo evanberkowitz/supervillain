@@ -804,4 +804,55 @@ class Lattice2D(H5able):
         '''
         return  self.fft( self.fft(f, axes=axes).conj() * self.fft(g, axes=axes), axes=axes) / np.sqrt(self.sites)
 
+    def plot_form(self, p, form, axis, zorder=None, pointsize=200, linkwidth=0.025):
+        r'''
+        Plots the p-form on the axis.
 
+        The following figure shows a 0-form plotted on sites, a 1-form on links, and a 2-form on plaquettes.
+        See the source for details.
+
+        .. plot:: examples/plot-forms.py
+        
+        Parameters
+        ----------
+        p: int
+            The kind of form.
+        form: np.array
+            The data constituting form.
+        axis: matplotlib.pyplot.axis
+            The axis on which to plot.
+        zorder: float
+            If `None` defaults to `zorder=-p` to layer plaquettes, links, and sites well.
+        '''
+        zorder = -p if zorder is None else zorder
+        
+        background='white'
+        marker = {'s': pointsize, 'edgecolor': background, 'linewidth': 2} 
+        no_arrowhead = {'headwidth': 0, 'headlength': 0, 'headaxislength': 0,}
+        linkpadding = {'edgecolor': background, 'linewidth': 4}
+        
+        links = {'scale_units': 'xy', 'scale': 1, 'width': linkwidth, **no_arrowhead, **linkpadding}
+        
+        if p == 0:
+            axis.scatter(self.T, self.X, c=form, zorder=zorder, **marker)
+        
+        if p == 1:
+            axis.quiver(self.T, self.X, 1, 0, form[0], zorder=zorder, **links)
+            axis.quiver(self.T, self.X, 0, 1, form[1], zorder=zorder, **links)
+            axis.scatter(self.T, self.X, color=background, zorder=zorder, **marker)
+            
+        if p == 2:
+            # We roll the form because the figure should have (0,0) in the middle but the form has (0,0) in the corner.
+            # We transpose because imshow goes in the 'other order'.
+            form = self.roll(form, (self.nt // 2, self.nx // 2)).transpose()
+            axis.imshow(form, zorder=zorder, origin='lower', extent=(min(self.t), max(self.t)+1, min(self.x), max(self.x)+1))
+            axis.quiver(self.T, self.X, 1, 0, color='white', zorder=zorder, **links)
+            axis.quiver(self.T, self.X, 0, 1, color='white', zorder=zorder, **links)
+            axis.scatter(self.T, self.X, color=background, zorder=zorder, **marker)
+            axis.xaxis.set_zorder(-p)
+            axis.yaxis.set_zorder(-p)
+            
+        axis.set_xlim(min(self.t)-0.5, max(self.t)+1.5)
+        axis.set_ylim(min(self.x)-0.5, max(self.x)+1.5)
+        axis.set_xlabel('t')
+        axis.set_ylabel('x')
