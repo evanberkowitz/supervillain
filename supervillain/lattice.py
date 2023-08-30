@@ -469,6 +469,56 @@ class Lattice2D(H5able):
         '''
         return np.sqrt(self.nt) * self.t_ifft( self.t_fft(f, axis=axis) * self.x_fft(g, axis=axis), axis=axis)
 
+    def t_correlation(self, f, g, axis=-1):
+        r'''
+        The temporal `cross-correlation <https://en.wikipedia.org/wiki/Cross-correlation>`_ is given by
+
+        .. math ::
+            \texttt{t_correlation(f, g)}(t) = (f ⋆ g)(t) = \frac{1}{N} \sum_\tau f(\tau)^* g(\tau-t)
+
+        where $f^*$ is the complex conjugate of $f$.
+
+        .. collapse :: The temporal cross-correlation is Fourier accelerated.
+            :class: note
+
+            .. math ::
+
+               \begin{align}
+                (f ⋆ g)(t) &= \frac{1}{N} \sum_\tau f(\tau )^* g(\tau -t)
+                \\  &= \frac{1}{N} \sum_{\tau } \left( \frac{1}{\sqrt{N}} \sum_\nu e^{2\pi i \nu \tau  / N} F_\nu \right)^* \left( \frac{1}{\sqrt{N}} \sum_{\nu'} e^{2\pi i \nu' (\tau -t) / N} G_{\nu'} \right)
+                \\  &= \frac{1}{N} \sum_{\nu\nu'} e^{-2\pi i \nu' t / N} F_\nu^* G_{\nu'} \; \left(\frac{1}{N}\sum_\tau  e^{2\pi i (\nu'-\nu) \tau  / N} = \delta_{\nu'\nu} \right)
+                \\  &= \frac{1}{N} \sum_{\nu} e^{-2\pi i \nu t / N} F_\nu^* G_\nu
+                \\  &= \frac{1}{\sqrt{N}} \left( \frac{1}{\sqrt{N}} \sum_{\nu} e^{-2\pi i \nu t / N} F_\nu^* G_\nu \right)
+                \\
+                \texttt{t_correlation(f, g)} &= \texttt{t_fft(conj(t_fft(f))t_fft(g))} / \sqrt{N}
+               \end{align}
+
+        .. warning ::
+            We have $g(\tau-t)$ whereas `Wikipedia <https://en.wikipedia.org/wiki/Cross-correlation>`_ has $g(\tau+t)$.
+            The difference is just the sign on the relative coordinates.
+
+        .. warning ::
+            We normalize by the number of time slices, `Wikipedia <https://en.wikipedia.org/wiki/Cross-correlation>`_ does not.
+
+
+        Parameters
+        ----------
+        f: np.array
+            A form whose axis is a temporal direction.
+        g: np.array
+            A form whose axis is a temporl direction.
+        axis: int
+            The common temporal dimension along which to correlate.
+
+        Returns
+        -------
+        np.array:
+            The correlation of f and g along the axis, which is now the relative coordinate.
+
+        '''
+        return  self.x_ifft( self.x_fft(f, axis=axis).conj() * self.x_fft(g, axis=axis), axis=axis) / np.sqrt(self.nx)
+
+
     def x_fft(self, form, axis=-1):
         r'''
         Fourier transforms the form in the space direction,
@@ -559,6 +609,54 @@ class Lattice2D(H5able):
 
         '''
         return np.sqrt(self.nx) * self.x_ifft( self.x_fft(f, axis=axis) * self.x_fft(g, axis=axis), axis=axis)
+
+    def x_correlation(self, f, g, axis=-1):
+        r'''
+        The spatial `cross-correlation <https://en.wikipedia.org/wiki/Cross-correlation>`_ is given by
+
+        .. math ::
+            \texttt{x_correlation(f, g)}(x) = (f ⋆ g)(x) = \frac{1}{N} \sum_y f(y)^* g(y-x)
+
+        where $f^*$ is the complex conjugate of $f$.
+
+        .. collapse :: The spatial cross-correlation is Fourier accelerated.
+            :class: note
+
+            .. math ::
+
+               \begin{align}
+                (f ⋆ g)(x) &= \frac{1}{N} \sum_y f(y)^* g(y-x)
+                \\  &= \frac{1}{N} \sum_{y} \left( \frac{1}{\sqrt{N}} \sum_k e^{2\pi i k y / N} F_k \right)^* \left( \frac{1}{\sqrt{N}} \sum_q e^{2\pi i q (y-x) / N} G_q \right)
+                \\  &= \frac{1}{N} \sum_{kq} e^{-2\pi i q x / N} F_k^* G_q \; \left(\frac{1}{N}\sum_y e^{2\pi i (q-k) y / N} = \delta_{qk} \right)
+                \\  &= \frac{1}{N} \sum_{k} e^{-2\pi i k x / N} F_k^* G_k
+                \\  &= \frac{1}{\sqrt{N}} \left( \frac{1}{\sqrt{N}} \sum_{k} e^{-2\pi i k x / N} F_k^* G_k \right)
+                \\
+                \texttt{x_correlation(f, g)} &= \texttt{x_fft(conj(x_fft(f))x_fft(g))} / \sqrt{N}
+               \end{align}
+
+        .. warning ::
+            We have $g(y-x)$ whereas `Wikipedia <https://en.wikipedia.org/wiki/Cross-correlation>`_ has $g(y+x)$.
+            The difference is just the sign on the relative coordinates.
+
+        .. warning ::
+            We normalize by the spatial volume, `Wikipedia <https://en.wikipedia.org/wiki/Cross-correlation>`_ does not.
+
+        Parameters
+        ----------
+        f: np.array
+            A form whose axis is a spatial direction.
+        g: np.array
+            A form whose axis is a spatial direction.
+        axis: int
+            The common spatial dimension along which to correlate.
+
+        Returns
+        -------
+        np.array:
+            The correlation of f and g along the axis, which is now the relative coordinate.
+
+        '''
+        return  self.x_ifft( self.x_fft(f, axis=axis).conj() * self.x_fft(g, axis=axis), axis=axis) / np.sqrt(self.nx)
 
     def fft(self, form, axes=(-2,-1)):
         r'''
@@ -652,5 +750,58 @@ class Lattice2D(H5able):
 
         '''
         return np.sqrt(self.sites) * self.ifft(self.fft(f, axes=axes) * self.fft(g, axes=axes), axes=axes)
+
+    def correlation(self, f, g, axes=(-2,-1)):
+        r'''
+        The `cross-correlation <https://en.wikipedia.org/wiki/Cross-correlation>`_ is given by
+
+        .. math ::
+            \texttt{correlation(f, g)}(t, x) = (f ⋆ g)(t, x) = \frac{1}{N^2} \sum_{\tau y} f(\tau,y)^* g(\tau-t, y-x)
+
+        where $f^*$ is the complex-conjugate of $f$.
+
+        .. collapse :: The cross-correlation is Fourier accelerated.
+            :class: note
+
+            .. math ::
+
+               \begin{align}
+                (f ⋆ g)(t,x) &= \frac{1}{N^2} \sum_{\tau y} f(\tau,y)^* g(\tau-t, y-x)
+                \\ &= \frac{1}{N^2} \sum_{\tau y}
+                    \left(\frac{1}{N} \sum_{\nu,k} e^{-2\pi i (\nu \tau +k y) / N} F_{\nu,k}\right)^*
+                    \left(\frac{1}{N} \sum_{\nu',q} e^{-2\pi i (\nu' (\tau-t) +q (y-x)) / N} G_{\nu',q}\right)
+                \\ &= \frac{1}{N^2} \sum_{\nu, k, \nu', q}
+                    e^{+2\pi i (\nu' t + q x) / N} F_{\nu,k}^*G_{\nu',q}
+                    \left(\frac{1}{N^2}\sum_{\tau y}e^{2\pi i [\tau(\nu-\nu') + y(k-q)] / N} = \delta_{kq} \delta_{\nu\nu'}\right)
+                \\ &= \frac{1}{N}\times \frac{1}{N} \sum_{\nu, k}
+                    e^{+2\pi i (\nu t + k x) / N} F_{\nu,k}^*G_{\nu,k}
+                \\
+                \texttt{correlation(f, g)} &= \texttt{fft(conj(fft(f))fft(g))} / N
+               \end{align}
+
+        .. warning ::
+            We have $g(\tau-t, y-x)$ whereas `Wikipedia <https://en.wikipedia.org/wiki/Cross-correlation>`_ has $g(\tau+t, y+x)$.
+            The difference is just the sign on the relative coordinates.
+
+        .. warning ::
+            We normalize by the spacetime volume, `Wikipedia <https://en.wikipedia.org/wiki/Cross-correlation>`_ does not.
+
+
+        Parameters
+        ----------
+        f: np.array
+            A form whose axes are temporal and spatial directions.
+        g: np.array
+            A form whose axes are temporal and spatial directions.
+        axes: int
+            The common temporal and spatial dimensions along which to correlate.
+
+        Returns
+        -------
+        np.array:
+            The correlation of f and g along the axes, which represent the (time, space) separation.
+
+        '''
+        return  self.fft( self.fft(f, axes=axes).conj() * self.fft(g, axes=axes), axes=axes) / np.sqrt(self.sites)
 
 
