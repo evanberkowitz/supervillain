@@ -21,10 +21,16 @@ extensions = [
         'sphinx.ext.autodoc',
         'sphinx.ext.viewcode',
         'sphinx_toolbox.collapse',
+        'sphinx_toolbox.github',
+        'sphinx_toolbox.sidebar_links',
         'sphinxcontrib.bibtex',
         'sphinx_git',
         'matplotlib.sphinxext.plot_directive',
 ]
+
+# https://sphinx-toolbox.readthedocs.io/en/stable/extensions/github.html
+github_username='evanberkowitz'
+github_repository='supervillain'
 
 templates_path = ['_templates']
 

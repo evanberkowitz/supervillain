@@ -36,3 +36,5 @@ Indices and tables
 * :ref:`modindex`
 * :ref:`search`
 
+.. sidebar-links::
+   :github:
