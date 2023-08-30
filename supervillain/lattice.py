@@ -478,4 +478,52 @@ class Lattice2D(H5able):
         '''
         return np.fft.ifft(form, axis=axis, norm='ortho')
 
+    def fft(self, form, axes=(-2,-1)):
+        r'''
+        Fourier transforms the form in the space and time directions,
+
+        .. math ::
+            
+            F_{\nu,k} = \frac{1}{N} \sum_{x,t=0}^{N-1} e^{-2\pi i (\nu t +k x) / N} f_{t,x}
+
+        where $\nu, k$ are the integer frequency and wavenumber, $t, x$ are the integer time adn space coordinates and $N$ is the linear extent of the lattice.
+
+        Parameters
+        ----------
+        form: np.array
+            The data to transform
+        axes: (int, int)
+            The axes which are the (time, space) directions.
+
+        Returns
+        -------
+        np.array:
+            The form is transformed to the (frequency, wavenumber) domain along the axis.
+        '''
+        return np.fft.fft2(form, axes=axes, norm='ortho')
+
+    def ifft(self, form, axes=(-2,-1)):
+        r'''
+        Inverse Fourier transforms the form in the space and time directions,
+
+        .. math ::
+            
+            f_{t,x} = \frac{1}{N} \sum_{\nu,k=0}^{N-1} e^{-2\pi i (\nu t +k x) / N} F_{\nu,k}
+
+        where $\nu, k$ are the integer frequency and wavenumber, $t, x$ are the integer time adn space coordinates and $N$ is the linear extent of the lattice.
+
+        Parameters
+        ----------
+        form: np.array
+            The data to transform
+        axes: (int, int)
+            The axes which are the (frequency, wavenumber) directions.
+
+        Returns
+        -------
+        np.array:
+            The form is transformed to the (time, space) domain along the axis.
+        '''
+        return np.fft.ifft2(form, axes=axes, norm='ortho')
+
 
