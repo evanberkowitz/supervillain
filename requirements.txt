@@ -15,6 +15,7 @@ sphinx-git==11.0.0
 sphinx-rtd-theme==1.1.0
 sphinxcontrib-bibtex==2.5.0
 sphinx-math-dollar
+sphinx_toolbox
 pybtex
 pybtex-docutils
 nbstripout
