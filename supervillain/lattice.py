@@ -382,4 +382,52 @@ class Lattice2D(H5able):
         else:
             raise ValueError("It's a 2D lattice, you can't have a {p}-form.")
 
+    def t_fft(self, form, axis=-2):
+        r'''
+        Fourier transforms the form in the time direction,
+
+        .. math ::
+            
+            F_\nu = \frac{1}{\sqrt{N}} \sum_{t=0}^{N-1} e^{-2\pi i \nu t / N} f_t
+
+        where $\nu$ is the integer frequency, $t$ the integer time coordinate and $N$ is the temporal extent of the lattice.
+
+        Parameters
+        ----------
+        form: np.array
+            The data to transform
+        axis: int
+            The axis which is the time direction.
+
+        Returns
+        -------
+        np.array:
+            The form is transformed to the frequency domain along the axis.
+        '''
+        return np.fft.fft(form, axis=axis, norm='ortho')
+
+    def t_ifft(self, form, axis=-2):
+        r'''
+        Inverse transforms the form in the time direction,
+
+        .. math ::
+            
+            f_t = \frac{1}{\sqrt{N}} \sum_{\nu=0}^{N-1} e^{+2\pi i \nu t / N} F_\nu
+
+        where $\nu$ is the integer frequency, $t$ the integer time coordinate and $N$ is the temporal extent of the lattice.
+
+        Parameters
+        ----------
+        form: np.array
+            The data to transform
+        axis: int
+            The axis which is the frequency direction.
+
+        Returns
+        -------
+        np.array:
+            The form is transformed to the time domain along the axis.
+        '''
+        return np.fft.ifft(form, axis=axis, norm='ortho')
+
 

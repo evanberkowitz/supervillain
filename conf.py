@@ -20,6 +20,7 @@ extensions = [
         'sphinx.ext.mathjax',
         'sphinx.ext.autodoc',
         'sphinx.ext.viewcode',
+        'sphinx_toolbox.collapse',
         'sphinxcontrib.bibtex',
         'sphinx_git',
         'matplotlib.sphinxext.plot_directive',
