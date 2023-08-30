@@ -430,4 +430,52 @@ class Lattice2D(H5able):
         '''
         return np.fft.ifft(form, axis=axis, norm='ortho')
 
+    def x_fft(self, form, axis=-1):
+        r'''
+        Fourier transforms the form in the space direction,
+
+        .. math ::
+            
+            F_k = \frac{1}{\sqrt{N}} \sum_{x=0}^{N-1} e^{-2\pi i k x / N} f_x
+
+        where $k$ is the integer wavenumber, $x$ the integer space coordinate and $N$ is the spatial volume of the lattice.
+
+        Parameters
+        ----------
+        form: np.array
+            The data to transform
+        axis: int
+            The axis which is the space direction.
+
+        Returns
+        -------
+        np.array:
+            The form is transformed to the wavenumber domain along the axis.
+        '''
+        return np.fft.fft(form, axis=axis, norm='ortho')
+
+    def x_ifft(self, form, axis=-1):
+        r'''
+        Inverse transforms the form in the space direction,
+
+        .. math ::
+            
+            f_x = \frac{1}{\sqrt{N}} \sum_{k=0}^{N-1} e^{+2\pi i k x / N} F_k
+
+        where $k$ is the integer wavenumber, $x$ the integer space coordinate and $N$ is the spatial volume of the lattice.
+
+        Parameters
+        ----------
+        form: np.array
+            The data to transform
+        axis: int
+            The axis which is the wavenumber direction.
+
+        Returns
+        -------
+        np.array:
+            The form is transformed to the space domain along the axis.
+        '''
+        return np.fft.ifft(form, axis=axis, norm='ortho')
+
 
