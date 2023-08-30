@@ -430,12 +430,12 @@ class Lattice2D(H5able):
         '''
         return np.fft.ifft(form, axis=axis, norm='ortho')
 
-    def t_convolve(self, f, g, axis=-2):
+    def t_convolution(self, f, g, axis=-2):
         r'''
         The `convolution <https://en.wikipedia.org/wiki/Convolution>`_ is given by
 
         .. math ::
-            \texttt{t_convolve(f, g)}(t) = (f * g)(t) = \sum_\tau f(\tau) g(t-\tau)
+            \texttt{t_convolution(f, g)}(t) = (f * g)(t) = \sum_\tau f(\tau) g(t-\tau)
 
         .. collapse :: The convolution is Fourier accelerated.
             :class: note
@@ -448,7 +448,7 @@ class Lattice2D(H5able):
                     \\  &= \sum_{\nu\nu'} e^{2\pi i \nu' t / N} F_\nu G_{\nu'} \left(\frac{1}{N} \sum_{\tau} e^{2\pi i (\nu-\nu') \tau  / N} \right) 
                     \\  &= \sum_{\nu} e^{2\pi i \nu t / N} F_\nu G_\nu
                     \\
-                    \texttt{t_convolve(f, g)} &= \sqrt{N} \times \texttt{t_ifft(t_fft(f)t_fft(g))}
+                    \texttt{t_convolution(f, g)} &= \sqrt{N} \times \texttt{t_ifft(t_fft(f)t_fft(g))}
                    \end{align}
 
         Parameters
@@ -567,7 +567,7 @@ class Lattice2D(H5able):
         '''
         return np.fft.ifft(form, axis=axis, norm='ortho')
 
-    def x_convolve(self, f, g, axis=-1):
+    def x_convolution(self, f, g, axis=-1):
         r'''
         The `convolution <https://en.wikipedia.org/wiki/Convolution>`_
 
@@ -577,7 +577,7 @@ class Lattice2D(H5able):
         on the discretized lattice is given by
 
         .. math ::
-            \texttt{x_convolve(f, g)}(x) = (f * g)(x) = \sum_y f(y) g(x-y)
+            \texttt{x_convolution(f, g)}(x) = (f * g)(x) = \sum_y f(y) g(x-y)
 
         .. collapse :: The convolution is Fourier accelerated.
             :class: note
@@ -590,7 +590,7 @@ class Lattice2D(H5able):
                 \\  &= \sum_{kq} e^{2\pi i q x / N} F_k G_q \left(\frac{1}{N} \sum_y e^{2\pi i (k-q) y / N} = \delta_{kq} \right)
                 \\  &= \sum_{k} e^{2\pi i k x / N} F_k G_k
                 \\
-                \texttt{x_convolve(f, g)} &= \sqrt{N} \times \texttt{x_ifft(x_fft(f)x_fft(g))}
+                \texttt{x_convolution(f, g)} &= \sqrt{N} \times \texttt{x_ifft(x_fft(f)x_fft(g))}
                \end{align}
 
         Parameters
@@ -706,12 +706,12 @@ class Lattice2D(H5able):
         '''
         return np.fft.ifft2(form, axes=axes, norm='ortho')
 
-    def convolve(self, f, g, axes=(-2, -1)):
+    def convolution(self, f, g, axes=(-2, -1)):
         r'''
         The `convolution <https://en.wikipedia.org/wiki/Convolution>`_ is given by
 
         .. math ::
-            \texttt{convolve(f, g)}(t, x) = (f * g)(t, x) = \sum_{\tau y} f(\tau,y) g(t-\tau, x-y)
+            \texttt{convolution(f, g)}(t, x) = (f * g)(t, x) = \sum_{\tau y} f(\tau,y) g(t-\tau, x-y)
 
         where $f^*$ is the complex-conjugate of $f$.
 
@@ -740,7 +740,7 @@ class Lattice2D(H5able):
             A form whose axes are temporal and spatial directions.
         g: np.array
             A form whose axes are temporal and spatial directions.
-        axes: int
+        axes: (int, int)
             The common temporal and spatial dimensions along which to convolve.
 
         Returns
@@ -793,7 +793,7 @@ class Lattice2D(H5able):
             A form whose axes are temporal and spatial directions.
         g: np.array
             A form whose axes are temporal and spatial directions.
-        axes: int
+        axes: (int, int)
             The common temporal and spatial dimensions along which to correlate.
 
         Returns
