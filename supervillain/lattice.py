@@ -856,3 +856,29 @@ class Lattice2D(H5able):
         axis.set_ylim(min(self.x)-0.5, max(self.x)+1.5)
         axis.set_xlabel('t')
         axis.set_ylabel('x')
+
+    def x_even(self, form, axis=-1):
+        r'''
+        Returns the form symmetrized along the spatial axis.
+        '''
+        return 0.5*(form + np.roll(np.flip(form, axis=axis), 1, axis=axis))
+
+    def x_odd(self, form, axis=-1):
+        r'''
+        Returns the form antisymmetrized along the spatial axis.
+        '''
+        return 0.5*(form - np.roll(np.flip(form, axis=axis), 1, axis=axis))
+
+    def t_even(self, form, axis=-2):
+        r'''
+        Returns the form symmetrized along the temporal axis.
+        '''
+        return 0.5*(form + np.roll(np.flip(form, axis=axis), 1, axis=axis))
+
+    def t_odd(self, form, axis=-2):
+        r'''
+        Returns the form antisymmetrized along the temporal axis.
+        '''
+        return 0.5*(form - np.roll(np.flip(form, axis=axis), 1, axis=axis))
+
+    # TODO: spacetime point group symmetry projection to D4 irreps.
