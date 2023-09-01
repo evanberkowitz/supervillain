@@ -24,6 +24,10 @@ the result will be an ensemble ``e`` that has 17 identical configurations (becau
 Obviously, for good sampling, DoNothing is the worst imaginable algorithm!
 It has an infinitely bad ergodicity problem!
 
+-----------------------
+The Villain Formulation
+-----------------------
+
 A less dumb algorithm is a local update,
 
 .. autoclass :: supervillain.generator.metropolis.SlowNeighborhoodUpdate
@@ -45,3 +49,32 @@ It was easy to write the :class:`SlowNeighborhoodUpdate <supervillain.generator.
    :members:
 
 But, also, as an *algorithm* the neighborhood update suffers because it can only make small changes in a local area.  Smarter algorithms can make high-acceptance updates to many variables across the lattice, which can help overcome *critical slowing down*.
+
+-------------------------
+The Worldline Formulation
+-------------------------
+
+In the :class:`~.Worldline` formulation the constraint $\delta m = 0$ restricts which kinds of updates we could propose.
+For example, changing only a single link is *guaranteed* to break the constraint on both ends.
+So, we need clever generators to maintain the constraint.
+
+.. autoclass :: supervillain.generator.constraint.PlaquetteUpdate
+   :members:
+
+To have a fully ergodic algorithm we will also need to update the holonomies.
+
+.. autoclass :: supervillain.generator.constraint.HolonomyUpdate
+   :members:
+
+foo bar baz
+
+
+--------------------
+Combining Generators
+--------------------
+
+You can combine generators.
+One simple combination is just the sequential application.
+
+.. autoclass :: supervillain.generator.combining.Sequentially
+   :members:
