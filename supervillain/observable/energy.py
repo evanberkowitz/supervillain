@@ -43,4 +43,4 @@ class InternalEnergyDensity(Observable):
         '''
         
         L = S.Lattice
-        return (L.links / 2 - 0.5 / S.kappa * np.sum(m**2)) / L.sites
+        return (L.links / 2 - 0.5 / S.kappa * (m**2).sum()) / L.sites
