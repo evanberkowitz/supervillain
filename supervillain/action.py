@@ -109,7 +109,7 @@ class Worldline(H5able):
         Returns true if the constraint $[\delta m = 0]$ is satisfied everywhere and false otherwise.
         '''
 
-        return (self.Lattice.delta(m) == 0).all()
+        return (self.Lattice.delta(1, m) == 0).all()
 
     def __call__(self, m, **kwargs):
         r'''
@@ -129,8 +129,9 @@ class Worldline(H5able):
             If $m$ does not satisfy the constraint.
         '''
 
-        if not self.valid(m):
-            raise ValueError(f'The one-form m does not satisfy the constraint δm = 0 everywhere.')
+        # TODO: restore the validity check once Lattice.delta is implemented; see #22.
+        #if not self.valid(m):
+        #    raise ValueError(f'The one-form m does not satisfy the constraint δm = 0 everywhere.')
         return 0.5 / self.kappa * np.sum(m**2) + self._constant_offset
 
     def configurations(self, count):
