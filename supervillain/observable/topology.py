@@ -41,11 +41,9 @@ class WindingSquared(Observable):
 
         .. math::
 
-            w_p =  -\frac{1}{(2\pi \kappa)^2}\left\langle (dm)_p^2 \right\rangle
-
-        (if $\delta/\delta J_p ( d \delta J_p ) = 0$).
+            w_p =  \frac{1}{\pi^2 \kappa}-\frac{1}{(2\pi \kappa)^2}\left\langle (dm)_p^2 \right\rangle.
         '''
-        return -np.mean(S.Lattice.d(1, m)**2) / (2*np.pi*S.kappa)**2
+        return 1/(np.pi**2 * S.kappa)-np.mean(S.Lattice.d(1, m)**2) / (2*np.pi*S.kappa)**2
 
 class Winding_Winding(Observable):
     r'''
