@@ -129,9 +129,8 @@ class Worldline(H5able):
             If $m$ does not satisfy the constraint.
         '''
 
-        # TODO: restore the validity check once Lattice.delta is implemented; see #22.
-        #if not self.valid(m):
-        #    raise ValueError(f'The one-form m does not satisfy the constraint δm = 0 everywhere.')
+        if not self.valid(m):
+            raise ValueError(f'The one-form m does not satisfy the constraint δm = 0 everywhere.')
         return 0.5 / self.kappa * np.sum(m**2) + self._constant_offset
 
     def configurations(self, count):

@@ -348,6 +348,11 @@ class Lattice2D(H5able):
                 The rank of the form.
             form: np.ndarray
                 The data the form.
+
+        Returns
+        -------
+            np.ndarray:
+                d(0-form) = 1-form, d(1-form) = 2-form, d(2-form) = 0.
         '''
         if p == 0:
 
@@ -368,19 +373,39 @@ class Lattice2D(H5able):
 
     def delta(self, p, form):
         r'''
-        Not yet implemented.
+        The (lattice) interior derivative / divergence of the p-form.
+
+        Parameters
+        ----------
+            p: int
+                The rank of the form.
+            form: np.ndarray
+                The data the form.
+
+        Returns
+        -------
+            np.ndarray:
+                δ(2-form) = 1-form, δ(1-form) = 0-form, δ(0-form) = 0.
         '''
         if p == 0:
             return 0
 
         elif p == 1:
-            raise NotImplemented("δ(1 form) not implemented ... yet.")
+            return self.roll(form[0], (+1,0)) + self.roll(form[1], (0,+1)) - form[0] - form[1]
 
         elif p == 2:
-            raise NotImplemented("δ(2 form) not implemented ... yet.")
+            return np.stack((
+                form - self.roll(form, (0,+1)),
+                self.roll(form, (+1,0)) - form,
+                ))
 
         else:
             raise ValueError("It's a 2D lattice, you can't have a {p}-form.")
+
+    δ = delta
+    r'''
+    Alias for :func:`delta <supervillain.lattice.Lattice2D.delta>`.
+    '''
 
     def t_fft(self, form, axis=-2):
         r'''
