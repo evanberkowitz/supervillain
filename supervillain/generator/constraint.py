@@ -94,7 +94,7 @@ class HolonomyUpdate(H5able):
 
     def __init__(self, action):
         if not isinstance(action, supervillain.action.Worldline):
-            raise ValueError('The PlaquetteUpdate requires the Worldline action.')
+            raise ValueError('The HolonomyUpdate requires the Worldline action.')
         self.Action = action
 
         self.accepted = 0
