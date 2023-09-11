@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import numpy as np
+import supervillain
 from supervillain.h5 import H5able
 
 class PlaquetteUpdate(H5able):
@@ -17,8 +18,10 @@ class PlaquetteUpdate(H5able):
 
     '''
     
-    def __init__(self, Action):
-        self.Action = Action
+    def __init__(self, action):
+        if not isinstance(action, supervillain.action.Worldline):
+            raise ValueError('The PlaquetteUpdate requires the Worldline action.')
+        self.Action = action
         self.accepted = 0
         self.proposed = 0
         self.rng = np.random.default_rng()
@@ -90,6 +93,8 @@ class HolonomyUpdate(H5able):
     '''
 
     def __init__(self, action):
+        if not isinstance(action, supervillain.action.Worldline):
+            raise ValueError('The PlaquetteUpdate requires the Worldline action.')
         self.Action = action
 
         self.accepted = 0
