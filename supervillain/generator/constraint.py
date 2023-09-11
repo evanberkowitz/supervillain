@@ -66,6 +66,14 @@ class PlaquetteUpdate(H5able):
         self.proposed += L.sites
         return {'m': m}
 
+    def report(self):
+        return (
+                f'There were {self.accepted} single-plaquette proposals accepted of {self.proposed} proposed updates.'
+                +'\n'+
+                f'    {self.accepted/self.proposed:.6f} acceptance rate'
+                +'\n'+
+                f'    {self.acceptance / self.proposed :.6f} average Metropolis acceptance probability.'
+            )
 
 class HolonomyUpdate(H5able):
     r'''
@@ -133,3 +141,12 @@ class HolonomyUpdate(H5able):
 
         self.proposed += L.nt + L.nx
         return {'m': m}
+
+    def report(self):
+        return (
+                f'There were {self.accepted} single-holonomy proposals accepted of {self.proposed} proposed updates.'
+                +'\n'+
+                f'    {self.accepted   / self.proposed :.6f} acceptance rate' 
+                +'\n'+
+                f'    {self.acceptance / self.proposed :.6f} average Metropolis acceptance probability.'
+            )
