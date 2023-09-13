@@ -68,7 +68,10 @@ However, because derived quantities are (possibly-)nonlinear combinations of exp
 
 DerivedQuantity implementations are `staticmethod`_\ s named for their corresponding action that take an action object and a bootstrap-resampled expectation value of primary observables or other derived quantities.
 In other words, where an :class:`~.Observable` takes the action and the field variables, a :class:`~.DerivedQuantity` takes the action and potentially other quantities.
-The arguments are the action and the exact names of the needed observables or derived quantities; the arguments' names matter and have to exactly match the needed expectation values.
+The arguments are the action and the exact names of the needed observables or derived quantities.
+
+.. note ::
+   The arguments' names matter and have to exactly match the needed expectation values.
 
 The implementations are automatically threaded over the bootstrap samples, maintaining all correlations.
 
