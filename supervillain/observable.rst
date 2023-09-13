@@ -58,13 +58,13 @@ If the observable does not provide an implementation for the ensemble's action, 
 Derived Quantities
 ==================
 
-Like the primary observables, derived quantities also inherit from a common ``supervillain.observable.DerivedQuantity`` class.
+Like the primary observables, derived quantities also inherit from a common :class:`supervillain.observable.DerivedQuantity` class.
 
 .. autoclass :: supervillain.observable.DerivedQuantity
    :members:
 
 Just like observables, derived quantities can provide different implementations for different actions.
-However, because derived quantities are (possibly-)nonlinear combinations of expectation values of primary observables, they cannot be measured on single configurations and therefore are not attached to :class:`~.Ensemble`\ s but to :class:`~.Bootstrap`\ s, which automatically provide resampled expectation value of primary obervables.
+However, because derived quantities are (possibly-)nonlinear combinations of expectation values of primary observables, they cannot be measured on single configurations and therefore are not attached to :class:`~.Ensemble`\ s but to :class:`~.Bootstrap`\ s, which automatically provide resampled expectation values of primary obervables.
 
 DerivedQuantity implementations are `staticmethod`_\ s named for their corresponding action that take an action object and a bootstrap-resampled expectation value of primary observables or other derived quantities.
 In other words, where an :class:`~.Observable` takes the action and the field variables, a :class:`~.DerivedQuantity` takes the action and potentially other quantities.
