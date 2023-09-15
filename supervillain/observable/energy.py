@@ -24,11 +24,10 @@ class InternalEnergyDensity(Observable):
     @staticmethod
     def Villain(S, phi, n):
         r'''
-        In the :class:`~.Villain` case differentiating and then multiplying by $\kappa$ gives the action $S_0$ itself!
+        In the :class:`~.Villain` case differentiating the action $S_0$ is the same as dividing it by $\kappa$!
         '''
-        beta = S.kappa
         L = S.Lattice
-        return S(phi, n) / (L.sites * beta)
+        return S(phi, n) / (L.sites * S.kappa)
 
 
     @staticmethod
@@ -42,9 +41,9 @@ class InternalEnergyDensity(Observable):
            \end{align}
 
         '''
-        beta = S.kappa
+
         L = S.Lattice
-        return (L.links / 2 - 0.5 / S.kappa * (m**2).sum()) / (L.sites * beta)
+        return (L.links / 2 - 0.5 / S.kappa * (m**2).sum()) / (L.sites * S.kappa)
     
 class ActionDensity(Observable):
     r'''The expectation value of the action density can be calculated as
