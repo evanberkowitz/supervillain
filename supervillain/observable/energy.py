@@ -82,7 +82,7 @@ class ActionDensity(Observable):
 
         .. math ::
            \begin{align}
-            \mathcal{S} &= \left\langle \partial_\kappa S \right\rangle = - \frac{1}{2\kappa^2} \sum_{\ell} m_\ell^2 + \frac{|\ell|}{2 \kappa}.
+            \mathcal{S} &= \left\langle \kappa \partial_\kappa S \right\rangle = - \frac{1}{2\kappa} \sum_{\ell} m_\ell^2 + \frac{|\ell|}{2}.
            \end{align}
 
         '''
