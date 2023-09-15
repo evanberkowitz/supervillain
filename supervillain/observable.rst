@@ -41,10 +41,29 @@ All of these nice features are accomplished using the `Descriptor`_ protocol but
 
 If the observable does not provide an implementation for the ensemble's action, asking for it will raise a `NotImplemented`_ exception.
 
+-----------------------
+Internal Energy Density
+-----------------------
 
 .. autoclass :: supervillain.observable.InternalEnergyDensity
    :members:
    :show-inheritance:
+
+.. autoclass :: supervillain.observable.InternalEnergyDensitySquared
+   :members:
+   :show-inheritance:
+
+------
+Action
+------
+
+.. autoclass :: supervillain.observable.ActionDensity
+   :members:
+   :show-inheritance:
+
+-------
+Winding
+-------
 
 .. autoclass :: supervillain.observable.WindingSquared
    :members:
