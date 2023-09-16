@@ -35,3 +35,9 @@ class Sequentially(H5able):
             result = g.step(result)
             
         return result
+
+    def report(self):
+        r'''
+        Returns a string with some summarizing statistics.
+        '''
+        return '\n\n'.join(g.report() for g in self.generators)

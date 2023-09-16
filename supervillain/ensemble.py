@@ -1,5 +1,6 @@
 
 import numpy as np
+import h5py as h5
 
 from supervillain import _no_op
 import supervillain
@@ -13,9 +14,6 @@ logger = logging.getLogger(__name__)
 
 class Ensemble(H5able):
     r'''An ensemble of configurations importance-sampled according to the ``action``.
-
-    .. todo::
-        Decide how to incorporate observables.
 
     Parameters
     ----------
@@ -91,6 +89,45 @@ class Ensemble(H5able):
             self.generator = generator
 
         return self
+
+    @classmethod
+    def continue_from(cls, ensemble, steps, progress=_no_op):
+        r'''
+        Use the last configuration and generator of ``ensemble`` to produce a new ensemble of ``steps`` configurations.
+        
+        Parameters
+        ----------
+            ensemble: supervillain.Ensemble or an h5py.Group that encodes such an ensemble
+                The ensemble to continue.  Raises a ValueError if it is not a `supervillain.Ensemble` or an `h5py.Group` with an action, generator, and at least one configuration.
+            steps: int
+                Number of configurations to generate.
+
+        Returns
+        -------
+            supervillain.Ensemble:
+                An ensemble with ``steps`` new configurataions generted in the same way as ``ensemble``.
+
+        .. todo::
+           
+           The starting weight should automatically be read in; currently not.
+        '''
+        if isinstance(ensemble, h5.Group):
+            e = supervillain.Ensemble.from_h5(ensemble)
+            # TODO: as in tdg, read only the last configuration, index, and so on, rather than the whole thing.
+        elif isinstance(ensemble, supervillain.Ensemble):
+            e = ensemble
+        else:
+            raise ValueError('ensemble should be a supervillain.Ensemble or an h5 group that stores one.')
+
+        try:
+            generator = e.generator
+            action    = e.Action
+            last      = e.configurations[-1]
+            index     = e.index[-1] + 1
+        except:
+            raise ValueError('The ensemble must provide a generator, an Action, and at least one configuration.')
+
+        return Ensemble(action).generate(steps, generator, last, progress=progress, starting_index=index)
 
     def __len__(self):
         return len(self.configurations)

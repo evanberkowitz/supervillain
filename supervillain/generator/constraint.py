@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import numpy as np
+import supervillain
 from supervillain.h5 import H5able
 
 class PlaquetteUpdate(H5able):
@@ -17,8 +18,10 @@ class PlaquetteUpdate(H5able):
 
     '''
     
-    def __init__(self, Action):
-        self.Action = Action
+    def __init__(self, action):
+        if not isinstance(action, supervillain.action.Worldline):
+            raise ValueError('The PlaquetteUpdate requires the Worldline action.')
+        self.Action = action
         self.accepted = 0
         self.proposed = 0
         self.rng = np.random.default_rng()
@@ -66,6 +69,14 @@ class PlaquetteUpdate(H5able):
         self.proposed += L.sites
         return {'m': m}
 
+    def report(self):
+        return (
+                f'There were {self.accepted} single-plaquette proposals accepted of {self.proposed} proposed updates.'
+                +'\n'+
+                f'    {self.accepted/self.proposed:.6f} acceptance rate'
+                +'\n'+
+                f'    {self.acceptance / self.proposed :.6f} average Metropolis acceptance probability.'
+            )
 
 class HolonomyUpdate(H5able):
     r'''
@@ -82,6 +93,8 @@ class HolonomyUpdate(H5able):
     '''
 
     def __init__(self, action):
+        if not isinstance(action, supervillain.action.Worldline):
+            raise ValueError('The HolonomyUpdate requires the Worldline action.')
         self.Action = action
 
         self.accepted = 0
@@ -133,3 +146,12 @@ class HolonomyUpdate(H5able):
 
         self.proposed += L.nt + L.nx
         return {'m': m}
+
+    def report(self):
+        return (
+                f'There were {self.accepted} single-holonomy proposals accepted of {self.proposed} proposed updates.'
+                +'\n'+
+                f'    {self.accepted   / self.proposed :.6f} acceptance rate' 
+                +'\n'+
+                f'    {self.acceptance / self.proposed :.6f} average Metropolis acceptance probability.'
+            )

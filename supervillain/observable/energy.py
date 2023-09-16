@@ -24,11 +24,10 @@ class InternalEnergyDensity(Observable):
     @staticmethod
     def Villain(S, phi, n):
         r'''
-        In the :class:`~.Villain` case differentiating and then multiplying by $\kappa$ gives the action $S_0$ itself!
+        In the :class:`~.Villain` case differentiating the action $S_0$ is the same as dividing it by $\kappa$!
         '''
-        beta = S.kappa
         L = S.Lattice
-        return S(phi, n) / (L.sites * beta)
+        return S(phi, n) / (L.sites * S.kappa)
 
 
     @staticmethod
@@ -42,64 +41,25 @@ class InternalEnergyDensity(Observable):
            \end{align}
 
         '''
-        beta = S.kappa
-        L = S.Lattice
-        return (L.links / 2 - 0.5 / S.kappa * (m**2).sum()) / (L.sites * beta)
-    
-class ActionDensity(Observable):
-    r'''The expectation value of the action density can be calculated as
-
-    .. math::
-        \begin{align}
-        \mathcal{S} &= -  \kappa \partial_\kappa \log Z
-        \\
-          &= \left\langle - \kappa  \partial_\kappa (-S) \right\rangle
-        \\
-          &= \left\langle \kappa  \partial_\kappa S \right\rangle
-        \end{align}
-
-    It is extensive in the spacetime volume, so we calculate the density
-
-    .. math ::
-       \texttt{ActionDensity} =  \mathcal{S} / \Lambda
-
-    where $\Lambda$ is the number of sites in our spacetime.
-    '''
-
-    @staticmethod
-    def Villain(S, phi, n):
-        r'''
-        In the :class:`~.Villain` case differentiating and then multiplying by $\kappa$ gives the action $S_0$ itself!
-        '''
 
         L = S.Lattice
-        return S(phi, n) / (L.sites)
-
-
-    @staticmethod
-    def Worldline(S, m):
-        r'''
-        In the :class:`~.Worldline` formulation we differentiate to find
-
-        .. math ::
-           \begin{align}
-            \mathcal{S} &= \left\langle \partial_\kappa S \right\rangle = - \frac{1}{2\kappa^2} \sum_{\ell} m_\ell^2 + \frac{|\ell|}{2 \kappa}.
-           \end{align}
-
-        '''
-        
-        L = S.Lattice
-        return (L.links / 2 - 0.5 / S.kappa * (m**2).sum()) / (L.sites)
+        return (L.links / 2 - 0.5 / S.kappa * (m**2).sum()) / (L.sites * S.kappa)
 
 class InternalEnergyDensitySquared(Observable):
-    r'''If we think of $\kappa$ as a thermodynamic $\beta$, then we
-     may compute the expectation value of the square of the internal
-     energy density $U$ as
+    r'''
+    If we think of $\kappa$ as a thermodynamic $\beta$, then we
+    may compute the expectation value of the square of the internal
+    energy $U$
 
     .. math::
         \begin{align}
-        \langle U^2 \rangle &= \frac{1}{\Lambda^2} \frac{1}{Z} \partial^2_\kappa  Z
+        \langle U^2 \rangle &= \frac{1}{Z} \partial^2_\kappa  Z = \left\langle (\partial_\kappa S)^2 - \partial^2_\kappa S \right\rangle
         \end{align}
+
+    and to the intensive density squared is
+
+    .. math::
+        \texttt{InternalEnergyDensitySquared} = \langle U^2 \rangle / \Lambda^2
 
     where $\Lambda$ is the number of sites in our spacetime. 
     '''
@@ -107,7 +67,14 @@ class InternalEnergyDensitySquared(Observable):
     @staticmethod
     def Villain(S, phi, n):
         r'''
-        In the :class:`~.Villain` case differentiating by $\kappa$ gives the energy.
+        In the :class:`~.Villain` case,
+
+        .. math ::
+            \begin{align}
+                \partial_\kappa S &= S/\kappa
+                &
+                \partial^2_\kappa S &= 0
+            \end{align}
         '''
 
         L = S.Lattice
@@ -120,21 +87,16 @@ class InternalEnergyDensitySquared(Observable):
         In the :class:`~.Worldline` formulation we differentiate to find
 
         .. math ::
-           \begin{align}
-            \langle U^2 \rangle &= \frac{1}{Z}\frac{1}{\Lambda^2} \sum_{i} \left[(E_{i}(\beta)-\beta E_{i}'(\beta))^2 -2 E'_{i}(\beta) - \beta E_{i}''(\beta)\right] e^{-\beta E_{i}(\beta)}
-           \end{align}
-        
-        where
-        .. math ::
-       E_{i}(\beta) =  \sum_{\ell} \left[\frac{1}{2\beta^2} +\frac{1}{2
-       \beta} \log(2\pi \beta) \right]
+            \begin{align}
+                \partial_\kappa S &= - \frac{1}{2\kappa^2} \sum_{\ell} m_\ell^2 + \frac{|\ell|}{2 \kappa}
+                &
+                \partial^2_\kappa S &= \frac{1}{\kappa} \sum_{\ell} m_\ell^2 - \frac{|\ell|}{2\kappa^2}.
+            \end{align}
 
-       is the effective worldline `energy'. 
         '''
 
         L = S.Lattice
-        beta = S.kappa
-        en = 0.5 * (m**2).sum() / (beta**2) + L.links * 0.5 * np.log(2*np.pi*beta)/beta
-        enPrime = -1.0 * (m**2).sum()/(beta**3 )+ L.links * 0.5 * (1 - np.log(2 * np.pi * beta))/(beta ** 2)
-        enPrimePrime = 3.0 * (m**2).sum()/(beta ** 4) + L.links * 0.5 *( -3.0  + 2.0 *  np.log(2 * np.pi * beta))/(beta ** 3 )
-        return ( (en + beta * enPrime)**2 - 2.0 * enPrime  - beta * enPrimePrime )/(L.sites ** 2)
+        partial_kappa_S = (L.links / 2 - 0.5 / S.kappa * (m**2).sum()) / S.kappa
+        partial_2_kappa_S = ((m**2).sum() - L.links / S.kappa) / S.kappa
+        
+        return (partial_kappa_S**2 - partial_2_kappa_S) / L.sites**2

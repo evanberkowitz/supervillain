@@ -2,7 +2,7 @@
 
 import numpy as np
 
-def autocorrelation(data, mean=None):
+def autocorrelation(data, mean=None, _cutoff=1e-16):
     r'''
 
     The *autocorrelation function* is
@@ -34,6 +34,8 @@ def autocorrelation(data, mean=None):
         The data to correlate
     mean: float
         If `None`, compute the mean from the data.  But, if you know something about the quantity you're considering, you might want to impose a mean value rather than compute one from the data.
+    _cutoff: float
+        If $C(\tau=0)$ is less than the cutoff, there is a problem (for example, no fluctuations).
 
     Returns
     -------
@@ -51,6 +53,8 @@ def autocorrelation(data, mean=None):
     minus= np.fft.ifft(Delta, norm='forward')
 
     C = np.fft.fft(plus*minus, norm='backward').real / (len(Delta))**2
+    if np.abs(C[0]) < _cutoff:
+        raise ValueError('The fluctuations are too small to reliably determine an autocorrelation.')
     C /= C[0] # normalize
 
     clamped = np.clip(C, 0, None)
