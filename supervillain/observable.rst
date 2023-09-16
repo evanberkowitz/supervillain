@@ -27,6 +27,8 @@ Implementations are `staticmethod`_\ s named for their corresponding action that
 A simple example, since :ref:`actions <action>` are already callable, is
 
 .. literalinclude:: observable/energy.py
+   :pyobject: InternalEnergyDensity
+
 
 Under the hood ``Observable``\ s are attached to the :class:`~.Ensemble` class.
 In particular, you can evaluate the observable for *every* configuration in an ensemble by just calling for the ensemble's property with the name of the observable.
@@ -40,9 +42,29 @@ All of these nice features are accomplished using the `Descriptor`_ protocol but
 If the observable does not provide an implementation for the ensemble's action, asking for it will raise a `NotImplemented`_ exception.
 
 
+-----------------------
+Internal Energy Density
+-----------------------
+
 .. autoclass :: supervillain.observable.InternalEnergyDensity
    :members:
    :show-inheritance:
+
+.. autoclass :: supervillain.observable.InternalEnergyDensitySquared
+   :members:
+   :show-inheritance:
+
+------
+Action
+------
+
+.. autoclass :: supervillain.observable.ActionDensity
+   :members:
+   :show-inheritance:
+
+-------
+Winding
+-------
 
 .. autoclass :: supervillain.observable.WindingSquared
    :members:

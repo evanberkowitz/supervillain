@@ -22,9 +22,14 @@ args = parser.parse_args()
 import logging
 logger = logging.getLogger(__name__)
 
+# Villain Setup
+# L = supervillain.Lattice2D(args.N)
+# S = supervillain.action.Villain(L, args.kappa)
+# G = supervillain.generator.NeighborhoodUpdate(S)
+
+# Worldline Setup
 L = supervillain.Lattice2D(args.N)
 S = supervillain.action.Worldline(L, args.kappa)
-#G = supervillain.generator.NeighborhoodUpdate(S)
 p = supervillain.generator.constraint.PlaquetteUpdate(S)
 h = supervillain.generator.constraint.HolonomyUpdate(S)
 G = supervillain.generator.combining.Sequentially((p, h))
@@ -78,7 +83,7 @@ fig, ax = plt.subplots(2,2,
 fig.suptitle(f'{S}', fontsize=16)
 
 # Plot the whole history
-plot_history(ax[0], e.index, e.InternalEnergyDensity  )
+plot_history(ax[0], e.index, e.ActionDensity  )
 plot_history(ax[1], e.index, e.WindingSquared, bins=101)
 
 autocorrelation = max([supervillain.analysis.autocorrelation_time(o) for o in (e.InternalEnergyDensity, e.WindingSquared)])
@@ -92,10 +97,14 @@ b = supervillain.analysis.Bootstrap(e, len(e))
 estimate = boot
 
 # in order to make uncertainty estimates
-s   = estimate(b.InternalEnergyDensity)
+en   = estimate(b.InternalEnergyDensity)
+s = estimate(b.ActionDensity)
+enSquared = estimate(b.InternalEnergyDensitySquared)
 dn2 = estimate(b.WindingSquared)
 
-print(f'Internal Energy Density     {error_format(s)}')
+print(f'Action Density     {error_format(s)}')
+print(f'Internal Energy Density     {error_format(en)}')
+print(f'Internal Energy Density Squared    {error_format(enSquared)}')
 print(f'Winding Squared             {error_format(dn2)}')
 
 plot_history(ax[0], e.index, e.InternalEnergyDensity,   label=error_format(s))
