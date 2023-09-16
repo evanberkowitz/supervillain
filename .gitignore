@@ -3,6 +3,7 @@
 *.pdf
 *.png
 *.log
+.DS_Store
 
 # Docs
 _build/
