@@ -41,6 +41,7 @@ All of these nice features are accomplished using the `Descriptor`_ protocol but
 
 If the observable does not provide an implementation for the ensemble's action, asking for it will raise a `NotImplemented`_ exception.
 
+
 -----------------------
 Internal Energy Density
 -----------------------
