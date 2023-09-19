@@ -62,6 +62,10 @@ Action
    :members:
    :show-inheritance:
 
+.. autoclass :: supervillain.observable.Action_Action
+   :members:
+   :show-inheritance:
+
 -------
 Winding
 -------

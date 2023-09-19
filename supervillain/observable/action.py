@@ -1,4 +1,4 @@
-from supervillain.observable import Observable
+from supervillain.observable import Observable, DerivedQuantity
 import numpy as np
 
 class ActionDensity(Observable):
@@ -46,4 +46,47 @@ class ActionDensity(Observable):
         L = S.Lattice
         return (L.links / 2 - 0.5 / S.kappa * (m**2).sum()) / (L.sites)
 
+class Action_Action(DerivedQuantity):
+    r'''
+    If we imagine rewriting the actions' sums over links as a sum over sites and a sum over directions we can associate a value of κ with each site.
+    Then we may compute the correlations of the action density by evaluating
 
+    .. math::
+        \begin{align}
+            \mathcal{S}_{x,y} = \left.\left(\kappa_y \frac{\delta}{\delta \kappa_y}\right) \left(\kappa_x \frac{\delta}{\delta \kappa_x}\right) \log Z\right|_{\kappa_{x,y} = \kappa} =
+            & 
+            \left\langle (\kappa_y \partial_{\kappa_y} S) (\kappa_x \partial_{\kappa_x} S) - \kappa_y \delta_{yx} \partial_{\kappa_x} S - \kappa_y \kappa_x \partial_{\kappa_y} \partial_{\kappa_x} S \right\rangle
+            \\ &
+            - \left\langle \kappa_x \partial_{\kappa_x} S \right\rangle \left\langle \kappa_y \partial_{\kappa_y} S \right\rangle.
+        \end{align}
+
+    Using translational invariance the quantum-disconnected piece is independent of $x$ and $y$ and can be replaced by $\left\langle\texttt{ActionDensity}\right\rangle^2$.
+    The piece explicitly local can also be simplified $\left\langle \delta_{xy} \kappa_y \partial_{\kappa_x} S\right\rangle = \delta_{xy} \left\langle \texttt{ActionDensity} \right\rangle$ by translational invariance.
+    So, we find the simplification
+
+    .. math ::
+        \begin{align}
+            \mathcal{S}_{x,y} = 
+            & 
+            \left\langle (\kappa_y \partial_{\kappa_y} S) (\kappa_x \partial_{\kappa_x} S)  \kappa_y \kappa_x \partial_{\kappa_y} \partial_{\kappa_x} S \right\rangle
+            \\ &
+            - \delta_{xy} \left\langle \texttt{ActionDensity} \right\rangle
+            - \left\langle \texttt{ActionDensity} \right\rangle^2
+        \end{align}
+
+    We can reduce to a function of a single relative coordinate,
+
+    .. math ::
+        \begin{align}
+            \texttt{Action_Action}_{\Delta x} = \mathcal{S}_{\Delta x} = \frac{1}{\Lambda} \sum_{\Delta x} \mathcal{S}_{x, x-\Delta x}
+        \end{align}
+
+    '''
+
+    @staticmethod
+    def Villain(S, phi, n):
+        pass
+
+    @staticmethod
+    def Worldline(S, m):
+        pass
