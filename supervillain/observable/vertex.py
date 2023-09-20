@@ -112,7 +112,7 @@ class Vertex_Vertex(Observable):
             S' = \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_{\ell}^2 + i \sum_p J_p dn_p + i \phi_x - i \phi_y
 
         we can Poisson resum $n \rightarrow m$ as usual but the offset by the operator changes the constraint.
-        Rather than requiring $\delta m = 0$ everywhere we get $(\delta m)_z = \delta_{x,z} - \delta_{y,z}$,
+        Rather than requiring $\delta m = 0$ everywhere we get $(\delta m)_z = \delta_{y,z} - \delta_{x,z}$,
 
         .. math ::
            \begin{align}
