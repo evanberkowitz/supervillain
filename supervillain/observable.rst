@@ -74,6 +74,14 @@ Winding
    :members:
    :show-inheritance:
 
+-------------------
+Vertex Correlations
+-------------------
+
+.. autoclass :: supervillain.observable.Vertex_Vertex
+   :members:
+   :show-inheritance:
+
 .. _derived quantities:
 
 ==================
