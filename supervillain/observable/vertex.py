@@ -121,7 +121,7 @@ class Vertex_Vertex(Observable):
                S_J[m] &= \frac{1}{2\kappa} \sum_\ell \left(m - \frac{\delta J}{2\pi}\right)_\ell^2 + \frac{|\ell|}{2} \ln (2\pi \kappa) - |x| \ln 2\pi
            \end{align}
 
-        Now define $\hat{m}_\ell = m_{\ell} - [P_{xy}]_\ell$ where $L_{xy}$ traces any fixed path at all whatsoever from $x$ to $y$ and on any link $P$ accumulates $+1$ for every time the path traces along the link and $-1$ every time the path traces against the link.
+        Now define $\hat{m}_\ell = m_{\ell} - [P_{xy}]_\ell$ where $P_{xy}$ traces any fixed path at all whatsoever from $x$ to $y$ and on any link $P$ accumulates $+1$ for every time the path traces along the link and $-1$ every time the path traces against the link.
         For sites visited in the middle of the path $P$ the constraint is maintained while at the endpoints it is violated in exactly the desired way.
 
         Then we can change the integration variables from $m$ to $\hat{m}$ as long as we also change the action,
