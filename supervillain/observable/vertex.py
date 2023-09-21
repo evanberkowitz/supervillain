@@ -153,6 +153,10 @@ class Vertex_Vertex(Observable):
             try:
                 P = _stencils[(L.nt, L.nx, Δt, Δx)]
             except KeyError:
+                # Each stencil will hold the path starting on the origin, AND a copy
+                # for every other starting point.
+                #
+                # We construct the one from the origin first, as it is easiest to think about...
                 P = L.form(1, L.sites)
 
                 if Δt >= 0:
@@ -171,6 +175,7 @@ class Vertex_Vertex(Observable):
                     # Follow the links in the negative x direction.
                     P[0, 1][Δt,Δx:] = -1
 
+                # ... and then we just roll it around and store every possible translation.
                 for j, shift in enumerate(L.coordinates):
                     P[j] = L.roll(P[0], shift)
 
@@ -180,8 +185,14 @@ class Vertex_Vertex(Observable):
             # in all possible ways and sum.  Then we have measured the dependence on Δx
             # as efficiently as possible for each configuration, summing each displacement
             # over all possible starting points.
-            for p in P:
-                # Warning: adds an extra factor of the volume in cost at least!
-                result[i] += np.exp(-1/(2*kappa) * (p * (2*m + p)).sum())
+            #
+            # Since we have stored every translation, we can use the numpy broadcasting rules
+            #
+            #    https://numpy.org/doc/stable/user/basics.broadcasting.html
+            #
+            # to eliminate some python for loops, which were explicit in previous implementations.
+            result[i] = np.exp(-1/(2*kappa) * (P * (2*m + P)).sum(
+                axis=(1,2,3)    # the 0th axis is the broadcast axis, 1,2, and 3 are the vector index, time, and space.
+                )).mean()       # <-- we should average over the different starting points.
 
-        return L.coordinatize(result) / L.sites
+        return L.coordinatize(result)
