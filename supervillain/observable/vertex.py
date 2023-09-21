@@ -153,23 +153,26 @@ class Vertex_Vertex(Observable):
             try:
                 P = _stencils[(L.nt, L.nx, Δt, Δx)]
             except KeyError:
-                P = L.form(1)
+                P = L.form(1, L.sites)
 
                 if Δt >= 0:
                     # Follow the links in the positive t direction.
                     # Therefore increment P by 1
-                    P[0][:Δt,0] = +1
+                    P[0, 0][:Δt,0] = +1
                 else:
                     # Follow the links in the negative t direction.
                     # Therefore decrement P by 1
-                    P[0][Δt:,0] = -1
+                    P[0, 0][Δt:,0] = -1
 
                 if Δx >= 0:
                     # Follow the links in the positive x direction.
-                    P[1][Δt,:Δx] = +1
+                    P[0, 1][Δt,:Δx] = +1
                 else:
                     # Follow the links in the negative x direction.
-                    P[1][Δt,Δx:] = -1
+                    P[0, 1][Δt,Δx:] = -1
+
+                for j, shift in enumerate(L.coordinates):
+                    P[j] = L.roll(P[0], shift)
 
                 _stencils[(L.nt, L.nx, Δt, Δx)] = P
 
@@ -177,9 +180,8 @@ class Vertex_Vertex(Observable):
             # in all possible ways and sum.  Then we have measured the dependence on Δx
             # as efficiently as possible for each configuration, summing each displacement
             # over all possible starting points.
-            for shift in L.coordinates:
+            for p in P:
                 # Warning: adds an extra factor of the volume in cost at least!
-                p = L.roll(P, shift)
                 result[i] += np.exp(-1/(2*kappa) * (p * (2*m + p)).sum())
 
         return L.coordinatize(result) / L.sites
