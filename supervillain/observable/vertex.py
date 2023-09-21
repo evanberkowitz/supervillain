@@ -39,28 +39,23 @@ class SloppyVertex_Vertex(Observable):
         # For every displacment we will take the taxicab route, as dumb as possible.
         # Just go Δt in time first and then Δx in space.
         for i, (Δt, Δx)  in enumerate(L.coordinates):
-            try:
-                P = _stencils[(L.nt, L.nx, Δt, Δx)]
-            except KeyError:
-                P = L.form(1)
+            P = L.form(1)
 
-                if Δt >= 0:
-                    # Follow the links in the positive t direction.
-                    # Therefore increment P by 1
-                    P[0][:Δt,0] = +1
-                else:
-                    # Follow the links in the negative t direction.
-                    # Therefore decrement P by 1
-                    P[0][Δt:,0] = -1
+            if Δt >= 0:
+                # Follow the links in the positive t direction.
+                # Therefore increment P by 1
+                P[0][:Δt,0] = +1
+            else:
+                # Follow the links in the negative t direction.
+                # Therefore decrement P by 1
+                P[0][Δt:,0] = -1
 
-                if Δx >= 0:
-                    # Follow the links in the positive x direction.
-                    P[1][Δt,:Δx] = +1
-                else:
-                    # Follow the links in the negative x direction.
-                    P[1][Δt,Δx:] = -1
-
-                _stencils[(L.nt, L.nx, Δt, Δx)] = P
+            if Δx >= 0:
+                # Follow the links in the positive x direction.
+                P[1][Δt,:Δx] = +1
+            else:
+                # Follow the links in the negative x direction.
+                P[1][Δt,Δx:] = -1
 
             # The difference between the Sloppy and full versions is that here we only
             # overlay the stencil on the configuration one time.  That always puts the
