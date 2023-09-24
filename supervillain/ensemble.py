@@ -178,3 +178,17 @@ class Ensemble(H5able):
         e.index = self.index[::stride]
         e.weight = self.weight[::stride]
         return e
+
+    def plot_history(self, axes, observable, label=None,
+                     bins=31, density=True,
+                     alpha=0.5, color=None,
+                     ):
+
+        data = getattr(self, observable)
+        axes[0].plot(self.index, data, color=color)
+        axes[1].hist(data, label=label,
+                     orientation='horizontal',
+                     bins=bins, density=density,
+                     color=color, alpha=alpha,
+                     )
+ 
