@@ -74,3 +74,17 @@ class Bootstrap(H5able):
 
             self.__dict__[name] = self._resample(forward)
             return self.__dict__[name]
+    def estimate(self, observable):
+        r'''
+        Parameters
+        ----------
+        observable: string
+            Name of the observable or derived quantity
+
+        Returns
+        -------
+        tuple:
+            A tuple with the central value and uncertainty estimate for the observable.  Need not be scalars, if the observable has other indices, the pieces of the tuples have those indices.
+        '''
+        o = getattr(self, observable)
+        return (np.mean(o), np.std(o))
