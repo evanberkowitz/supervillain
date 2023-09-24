@@ -100,6 +100,34 @@ class Bootstrap(H5able):
             color = axis.get_lines()[-1].get_color()
         axis.axhspan(mean-err, mean+err, color=color, alpha=0.5, linestyle='none')
 
+    def plot_correlator(self, axis, correlator, linestyle='none', marker='o', markerfacecolor='none', **kwargs):
+        r'''
+        Plots the space-dependent correlator against $\Delta x$ on the axis.
+        Plotting options and kwargs are forwarded.
+
+        Parameters
+        ----------
+        axis: matplotlib.pyplot.axis
+            The axis on which to plot.
+        correlator: string
+            Name of the observable or derived quantity.
+        '''
+        
+        L = self.Ensemble.Action.Lattice
+        Δx = L.linearize(L.T**2 + L.X**2)**0.5
+        C = getattr(self, correlator).real
+
+        axis.errorbar(
+                Δx,
+                L.linearize(C.mean(axis=0)),
+                L.linearize(C.std(axis=0)),
+                linestyle=linestyle,
+                marker=marker,
+                markerfacecolor=markerfacecolor,
+                **kwargs
+                )
+        axis.set_xlabel('∆x')
+
     def estimate(self, observable):
         r'''
         Parameters
