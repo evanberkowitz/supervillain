@@ -74,6 +74,32 @@ class Bootstrap(H5able):
 
             self.__dict__[name] = self._resample(forward)
             return self.__dict__[name]
+
+    def plot_band(self, axis, observable, color=None):
+        r'''
+        Plots the single-number-valued observable as a horizontal band.
+
+        Parameters
+        ----------
+        axis: matplotlib.pyplot.axis
+            The axis on which to plot.
+        observable: string
+            Name of the observable or derived quantity.
+        color: matplotlib color
+            See the `matplotlib color API <https://matplotlib.org/stable/api/colors_api.html#module-matplotlib.colors>`_\. Defaults to the previously-used color.
+
+        '''
+        data = getattr(self, observable)
+        mean = data.mean(axis=0)
+        err  = data.std (axis=0)
+
+        if mean.shape != ():
+            raise ValueError(f'{observable} has shape {mean.shape}')
+
+        if color is None:
+            color = axis.get_lines()[-1].get_color()
+        axis.axhspan(mean-err, mean+err, color=color, alpha=0.5, linestyle='none')
+
     def estimate(self, observable):
         r'''
         Parameters
