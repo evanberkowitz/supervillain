@@ -69,8 +69,8 @@ class Bootstrap(H5able):
 
             try:
                 forward = getattr(self.Ensemble, name)
-            except:
-                raise AttributeError(f"... and so 'Bootstrap' object has no attribute '{name}'")
+            except Exception as e:
+                raise AttributeError(f"... and so 'Bootstrap' object has no attribute '{name}'") from e
 
             self.__dict__[name] = self._resample(forward)
             return self.__dict__[name]
