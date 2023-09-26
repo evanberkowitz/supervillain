@@ -74,13 +74,22 @@ Winding
    :members:
    :show-inheritance:
 
--------------------
-Vertex Correlations
--------------------
+-----------------
+Spin Correlations
+-----------------
 
-.. autoclass :: supervillain.observable.Vertex_Vertex
+.. autoclass :: supervillain.observable.Spin_Spin
    :members:
    :show-inheritance:
+
+.. autoclass :: supervillain.observable.SpinSusceptibility
+   :members:
+   :show-inheritance:
+
+.. autoclass :: supervillain.observable.SpinSusceptibilityScaled
+   :members:
+   :show-inheritance:
+
 
 .. _derived quantities:
 
@@ -97,6 +106,7 @@ Just like observables, derived quantities can provide different implementations 
 However, because derived quantities are (possibly-)nonlinear combinations of expectation values of primary observables, they cannot be measured on single configurations and therefore are not attached to :class:`~.Ensemble`\ s but to :class:`~.Bootstrap`\ s, which automatically provide resampled expectation values of primary obervables.
 
 DerivedQuantity implementations are `staticmethod`_\ s named for their corresponding action that take an action object and a bootstrap-resampled expectation value of primary observables or other derived quantities.
+Because DerivedQuantities are often reductions of other primary Observables or DerivedQuantities, the implementation may be shared between different actions; you can provide a common ``default`` implementation to fall back to that can be overridden by action-specific implementations.
 In other words, where an :class:`~.Observable` takes the action and the field variables, a :class:`~.DerivedQuantity` takes the action and potentially other quantities.
 The arguments are the action and the exact names of the needed observables or derived quantities.
 

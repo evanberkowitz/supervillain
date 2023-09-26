@@ -4,4 +4,4 @@ from .derived import DerivedQuantity
 from .energy import InternalEnergyDensity, InternalEnergyDensitySquared
 from .action import ActionDensity
 from .topology import WindingSquared, Winding_Winding
-from .vertex import Vertex_Vertex
+from .spin import Spin_Spin, SpinSusceptibility, SpinSusceptibilityScaled

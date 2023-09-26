@@ -39,7 +39,14 @@ class DerivedQuantity:
         # Just call the measurement and cache the result.
         class_name = obj.Ensemble.Action.__class__.__name__
         try:
-            measure = getattr(self, class_name)
+            try:
+                measure = getattr(self, class_name)
+            except AttributeError as e:
+                if hasattr(self, 'default'):
+                    measure = getattr(self, 'default')
+                else:
+                    raise e from None
+            
             with Timer(self._logger, f'Bootstrapping of {name}', per=len(obj)):
                 # The main difference between a DerivedQuantity and an Observable is that a DQ needs
                 # expectation values---attributes of the Bootstrap, not just the field variables in

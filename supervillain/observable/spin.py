@@ -1,21 +1,21 @@
 import numpy as np
-from supervillain.observable import Observable
+from supervillain.observable import Observable, DerivedQuantity
 
 _stencils = dict()
 
-class SloppyVertex_Vertex(Observable):
+class SloppySpin_Spin(Observable):
     r'''
 
     This performs the same measurement as the non-Sloppy version but does not get all the juice out of every Worldline configuration.
 
 
-    See the :class:`~.Vertex_Vertex` documentation for detailed descriptions.
+    See the :class:`~.Spin_Spin` documentation for detailed descriptions.
     '''
 
     @staticmethod
     def Villain(S, phi, n):
         r'''
-        The same as in the :class:`~.Vertex_Vertex`.
+        The same as in the :class:`~.Spin_Spin`.
         '''
 
         L = S.Lattice
@@ -28,7 +28,7 @@ class SloppyVertex_Vertex(Observable):
     def Worldline(S, m):
         r'''
 
-        See the :class:`Vertex_Vertex` documentation.
+        See the :class:`Spin_Spin` documentation.
         '''
 
         L = S.Lattice
@@ -65,19 +65,19 @@ class SloppyVertex_Vertex(Observable):
 
         return L.coordinatize(result)
 
-class Vertex_Vertex(Observable):
+class Spin_Spin(Observable):
     r'''
 
     We can deform $Z_J \rightarrow Z_{J}[x,y]$ to include the creation of a boson at $y$ and the destruction of a boson at $x$ in the action.
     We define the expectation value
 
     .. math ::
-        V_{x,y} = \frac{1}{Z_J} Z_J[x,y]
+        S_{x,y} = \frac{1}{Z_J} Z_J[x,y]
 
     and reduce to a single relative coordinate
 
     .. math ::
-        \texttt{Vertex_Vertex}_{\Delta x} = \frac{1}{\Lambda} \sum_x V_{x,x-\Delta x}
+        \texttt{Spin_Spin}_{\Delta x} = S_{\Delta x} = \frac{1}{\Lambda} \sum_x S_{x,x-\Delta x}
 
     '''
 
@@ -87,7 +87,7 @@ class Vertex_Vertex(Observable):
         In the :class:`~.Villain` formulation the correlator is just
 
         .. math ::
-            V_{xy} = \left\langle e^{i(\phi_x - \phi_y)} \right\rangle
+            S_{xy} = \left\langle e^{i(\phi_x - \phi_y)} \right\rangle
 
 
         '''
@@ -139,7 +139,7 @@ class Vertex_Vertex(Observable):
         '''
 
         # Note: for a substantially similar but slightly simpler implementation
-        # which leaves a lot of information on the table, see the SloppyVertex_Vertex
+        # which leaves a lot of information on the table, see the SloppySpin_Spin
         # observable.
 
         L = S.Lattice
@@ -196,3 +196,59 @@ class Vertex_Vertex(Observable):
                 )).mean()       # <-- we should average over the different starting points.
 
         return L.coordinatize(result)
+
+
+class SpinSusceptibility(DerivedQuantity):
+    r'''
+    The *spin susceptibility* is the spacetime integral of the :class:`~.Spin_Spin` correlator $S_{\Delta x}$,
+
+    .. math::
+        
+        \texttt{SpinSusceptibility} = \chi_S = \int d^2r\; S(r).
+    '''
+
+    @staticmethod
+    def default(S, Spin_Spin):
+        return np.sum(Spin_Spin.real)
+    
+def _CriticalSpinScalingDimension(W):
+    r'''
+    W is the constraining integer which controls the allowed vorticity.
+    '''
+    # TODO: cache?
+    # TODO: W != 1
+    if W == 1:  # The BKT case, Δ = 1/8
+        return 0.125
+
+    else:
+        raise NotImplementedError(f'The constrained W≠1 scaling is not yet implemented so {W=} cannot be computed.')
+
+class SpinSusceptibilityScaled(DerivedQuantity):
+    r'''
+    At the critical point and in the CFT the :class:`~.SpinSusceptibility` has a known expected scaling that comes from the scaling dimension $\Delta$ of $e^{i\phi}$
+
+    .. math::
+        
+        \chi_S \sim L^{2-2\Delta(\kappa)}.
+
+    where the scaling dimension at the critical coupling $\kappa_c$ is known and depends on the constraint integer $W$.
+
+    So, we scale the susceptibility,
+
+    .. math::
+        \texttt{SpinSusceptibilityScaled} = \chi_S / L^{2-2\Delta(\kappa_c)}
+
+    so that at the critical coupling the infinite-volume limit of :class:`~.SpinSusceptibilityScaled` will be a constant.
+
+    .. note::
+        The 2 depends on being in 2 dimensions, while the $2\Delta$ comes from the fact that the :class:`~.Spin_Spin` is a two-point function.
+    '''
+
+    @staticmethod
+    def default(S, SpinSusceptibility):
+
+        L = S.Lattice.nx
+        # NOTE: implicitly assumes that the lattice is square!
+        # TODO: Since we don't currently have any constraint implemented we hard-code W=1.
+        return SpinSusceptibility / L**(2-2*_CriticalSpinScalingDimension(1))
+
