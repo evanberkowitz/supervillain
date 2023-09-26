@@ -198,3 +198,57 @@ class Spin_Spin(Observable):
         return L.coordinatize(result)
 
 
+class SpinSusceptibility(DerivedQuantity):
+    r'''
+    The *spin susceptibility* is the spacetime integral of the :class:`~.Spin_Spin` correlator $S_{\Delta x}$,
+
+    .. math::
+        
+        \texttt{SpinSusceptibility} = \chi_S = \int d^2r\; S(r).
+    '''
+
+    @staticmethod
+    def default(S, Spin_Spin):
+        return np.sum(Spin_Spin.real)
+    
+def _CriticalSpinScalingDimension(W):
+    r'''
+    W is the constraining integer which controls the allowed vorticity.
+    '''
+    # TODO: cache?
+    # TODO: W != 1
+    if W == 1:  # The BKT case, Δ = 1/8
+        return 0.125
+
+    else:
+        raise NotImplementedError(f'The constrained W≠1 scaling is not yet implemented so {W=} cannot be computed.')
+
+class SpinSusceptibilityScaled(DerivedQuantity):
+    r'''
+    At the critical point and in the CFT the :class:`~.SpinSusceptibility` has a known expected scaling that comes from the scaling dimension $\Delta$ of $e^{i\phi}$
+
+    .. math::
+        
+        \chi_S \sim L^{2-2\Delta(\kappa)}.
+
+    where the scaling dimension at the critical coupling $\kappa_c$ is known and depends on the constraint integer $W$.
+
+    So, we scale the susceptibility,
+
+    .. math::
+        \texttt{SpinSusceptibilityScaled} = \chi_S / L^{2-2\Delta(\kappa_c)}
+
+    so that at the critical coupling the infinite-volume limit of :class:`~.SpinSusceptibilityScaled` will be a constant.
+
+    .. note::
+        The 2 depends on being in 2 dimensions, while the $2\Delta$ comes from the fact that the :class:`~.Spin_Spin` is a two-point function.
+    '''
+
+    @staticmethod
+    def default(S, SpinSusceptibility):
+
+        L = S.Lattice.nx
+        # NOTE: implicitly assumes that the lattice is square!
+        # TODO: Since we don't currently have any constraint implemented we hard-code W=1.
+        return SpinSusceptibility / L**(2-2*_CriticalSpinScalingDimension(1))
+

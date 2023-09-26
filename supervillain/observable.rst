@@ -82,6 +82,15 @@ Spin Correlations
    :members:
    :show-inheritance:
 
+.. autoclass :: supervillain.observable.SpinSusceptibility
+   :members:
+   :show-inheritance:
+
+.. autoclass :: supervillain.observable.SpinSusceptibilityScaled
+   :members:
+   :show-inheritance:
+
+
 .. _derived quantities:
 
 ==================
