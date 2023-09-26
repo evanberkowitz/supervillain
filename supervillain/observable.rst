@@ -74,11 +74,11 @@ Winding
    :members:
    :show-inheritance:
 
--------------------
-Vertex Correlations
--------------------
+-----------------
+Spin Correlations
+-----------------
 
-.. autoclass :: supervillain.observable.Vertex_Vertex
+.. autoclass :: supervillain.observable.Spin_Spin
    :members:
    :show-inheritance:
 

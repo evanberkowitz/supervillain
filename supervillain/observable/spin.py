@@ -1,21 +1,21 @@
 import numpy as np
-from supervillain.observable import Observable
+from supervillain.observable import Observable, DerivedQuantity
 
 _stencils = dict()
 
-class SloppyVertex_Vertex(Observable):
+class SloppySpin_Spin(Observable):
     r'''
 
     This performs the same measurement as the non-Sloppy version but does not get all the juice out of every Worldline configuration.
 
 
-    See the :class:`~.Vertex_Vertex` documentation for detailed descriptions.
+    See the :class:`~.Spin_Spin` documentation for detailed descriptions.
     '''
 
     @staticmethod
     def Villain(S, phi, n):
         r'''
-        The same as in the :class:`~.Vertex_Vertex`.
+        The same as in the :class:`~.Spin_Spin`.
         '''
 
         L = S.Lattice
@@ -28,7 +28,7 @@ class SloppyVertex_Vertex(Observable):
     def Worldline(S, m):
         r'''
 
-        See the :class:`Vertex_Vertex` documentation.
+        See the :class:`Spin_Spin` documentation.
         '''
 
         L = S.Lattice
@@ -65,19 +65,19 @@ class SloppyVertex_Vertex(Observable):
 
         return L.coordinatize(result)
 
-class Vertex_Vertex(Observable):
+class Spin_Spin(Observable):
     r'''
 
     We can deform $Z_J \rightarrow Z_{J}[x,y]$ to include the creation of a boson at $y$ and the destruction of a boson at $x$ in the action.
     We define the expectation value
 
     .. math ::
-        V_{x,y} = \frac{1}{Z_J} Z_J[x,y]
+        S_{x,y} = \frac{1}{Z_J} Z_J[x,y]
 
     and reduce to a single relative coordinate
 
     .. math ::
-        \texttt{Vertex_Vertex}_{\Delta x} = \frac{1}{\Lambda} \sum_x V_{x,x-\Delta x}
+        \texttt{Spin_Spin}_{\Delta x} = S_{\Delta x} = \frac{1}{\Lambda} \sum_x S_{x,x-\Delta x}
 
     '''
 
@@ -87,7 +87,7 @@ class Vertex_Vertex(Observable):
         In the :class:`~.Villain` formulation the correlator is just
 
         .. math ::
-            V_{xy} = \left\langle e^{i(\phi_x - \phi_y)} \right\rangle
+            S_{xy} = \left\langle e^{i(\phi_x - \phi_y)} \right\rangle
 
 
         '''
@@ -139,7 +139,7 @@ class Vertex_Vertex(Observable):
         '''
 
         # Note: for a substantially similar but slightly simpler implementation
-        # which leaves a lot of information on the table, see the SloppyVertex_Vertex
+        # which leaves a lot of information on the table, see the SloppySpin_Spin
         # observable.
 
         L = S.Lattice
@@ -196,3 +196,5 @@ class Vertex_Vertex(Observable):
                 )).mean()       # <-- we should average over the different starting points.
 
         return L.coordinatize(result)
+
+
