@@ -141,7 +141,7 @@ class Lattice2D(H5able):
                     ((+1,0),(0,-1)), # reflect across x-axis
                 ))
 
-        self.point_group_permutations = np.stack(tuple(self._permutation(o) for o in self.point_group_operations))
+        self.point_group_permutations = np.stack(tuple(self._point_group_permutation(o) for o in self.point_group_operations))
         self.point_group_weights = {
             'A1': np.array((+1,+1,+1,+1,+1,+1,+1,+1)) + 0.j,
             'A2': np.array((+1,-1,+1,-1,+1,-1,+1,-1)) + 0.j,
@@ -152,6 +152,7 @@ class Lattice2D(H5able):
             ("E'", +1): np.array((+1,-1j,+1j,+1,-1,+1j,-1j,-1)),
             ("E'", -1): np.array((+1,+1j,-1j,+1,-1,-1j,+1j,-1)),
         }
+        self.point_group_irreps = self.point_group_weights.keys()
         self.point_group_norm = 1./8
 
     def __str__(self):
@@ -934,7 +935,7 @@ class Lattice2D(H5able):
 
     # TODO: spacetime point group symmetry projection to D4 irreps.
 
-    def _permutation(self, operator):
+    def _point_group_permutation(self, operator):
         # Since the operations map lattice points to lattice points we know that they are a permutation
         # on the set of coordinates.
         permutation = []
@@ -945,29 +946,34 @@ class Lattice2D(H5able):
                     continue # since a permutation is one-to-one
         return np.array(permutation)
 
-    def irrep(self, correlator, irrep='A1', conjugate=False, axes=(-2,-1)):
+    def irrep(self, correlator, irrep='A1', conjugate=False, dims=(-1,)):
         r'''
+
+        The point group of a 2D lattice is $D_4$ and the structure and irreps are detailed in `https://two-dimensional-gasses.readthedocs.io/en/latest/computational-narrative/D4.html <the tdg documentation>`_\, where the spatial lattice is 2D.
+
+        .. plot:: examples/plot-D4-irreps.py
+
+        .. note::
+            Currently we only know how project scalar correlators that depend on a single spatial separation.
 
         Parameters
         ----------
             data: np.ndarray
                 Data whose `axes` should be symmetrized.
-            irrep: one of `.irreps`
+            irrep: one of ``.point_group_irreps``
                 The irrep to project to.
             conjugate: `True` or `False`
                 The weights are conjugated, which only affects the E representations.
-            axes: time and space
-                The axes will be linearized and therefore must be adjacent.
+            dims: 
+                The latter of an adjacent time/space pair of dimensions.
+                The dimensions will be linearized and therefore must be adjacent.
 
         Returns
         -------
             A complex-valued torch.tensor of the same shape as data, but with the axis projected to the requested irrep.
         '''
 
-        if np.abs(axes[0] - axes[1]) != 1:
-            raise ValueError(f'axes must differ by one; {axes} are not.')
-
-        C = self.linearize(correlator, axes=axes)
+        C = self.linearize(correlator, dims=dims)
         temp = np.zeros_like(C) + 0.j
 
         for p, w in zip(
@@ -976,4 +982,4 @@ class Lattice2D(H5able):
                 ):
             temp += w * np.take(C, p, -1)
 
-        return self.coordinatize(temp, axes=axes) * self.point_group_norm
+        return self.coordinatize(temp, dims=dims) * self.point_group_norm
