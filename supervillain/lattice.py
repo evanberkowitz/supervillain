@@ -128,6 +128,33 @@ class Lattice2D(H5able):
                [-1, -1]])
         '''
 
+        self.point_group_operations = np.array((
+                    # Matches the order of the (a,b) orbit in docs/D4.rst
+                    # That makes it easy to read off the weights
+                    ((+1,0),(0,+1)), # identity
+                    ((0,+1),(+1,0)), # reflect across y=+x
+                    ((0,-1),(+1,0)), # rotate(π/2)
+                    ((-1,0),(0,+1)), # reflect across y-axis
+                    ((-1,0),(0,-1)), # rotate(π) = inversion
+                    ((0,-1),(-1,0)), # reflect across y=-x
+                    ((0,+1),(-1,0)), # rotate(3π/2)
+                    ((+1,0),(0,-1)), # reflect across x-axis
+                ))
+
+        self.point_group_permutations = np.stack(tuple(self._point_group_permutation(o) for o in self.point_group_operations))
+        self.point_group_weights = {
+            'A1': np.array((+1,+1,+1,+1,+1,+1,+1,+1)) + 0.j,
+            'A2': np.array((+1,-1,+1,-1,+1,-1,+1,-1)) + 0.j,
+            'B1': np.array((+1,-1,-1,+1,+1,-1,-1,+1)) + 0.j,
+            'B2': np.array((+1,+1,-1,-1,+1,+1,-1,-1)) + 0.j,
+            ("E", +1): np.array((+1,+1j,+1j,-1,-1,-1j,-1j,+1)),
+            ("E", -1): np.array((+1,-1j,-1j,-1,-1,+1j,+1j,+1)),
+            ("E'", +1): np.array((+1,-1j,+1j,+1,-1,+1j,-1j,-1)),
+            ("E'", -1): np.array((+1,+1j,-1j,+1,-1,-1j,+1j,-1)),
+        }
+        self.point_group_irreps = self.point_group_weights.keys()
+        self.point_group_norm = 1./8
+
     def __str__(self):
         return f'Lattice2D({self.nt},{self.nx})'
 
@@ -907,3 +934,52 @@ class Lattice2D(H5able):
         return 0.5*(form - np.roll(np.flip(form, axis=axis), 1, axis=axis))
 
     # TODO: spacetime point group symmetry projection to D4 irreps.
+
+    def _point_group_permutation(self, operator):
+        # Since the operations map lattice points to lattice points we know that they are a permutation
+        # on the set of coordinates.
+        permutation = []
+        for i in range(self.sites):
+            for j in range(self.sites):
+                if (self.coordinates[i] == np.matmul(operator, self.coordinates[j])).all():
+                    permutation += [j]
+                    continue # since a permutation is one-to-one
+        return np.array(permutation)
+
+    def irrep(self, correlator, irrep='A1', conjugate=False, dims=(-1,)):
+        r'''
+
+        The point group of a 2D lattice is $D_4$ and the structure and irreps are detailed in `https://two-dimensional-gasses.readthedocs.io/en/latest/computational-narrative/D4.html <the tdg documentation>`_\, where the spatial lattice is 2D.
+
+        .. plot:: examples/plot-D4-irreps.py
+
+        .. note::
+            Currently we only know how project scalar correlators that depend on a single spatial separation.
+
+        Parameters
+        ----------
+            data: np.ndarray
+                Data whose `axes` should be symmetrized.
+            irrep: one of ``.point_group_irreps``
+                The irrep to project to.
+            conjugate: `True` or `False`
+                The weights are conjugated, which only affects the E representations.
+            dims: 
+                The latter of an adjacent time/space pair of dimensions.
+                The dimensions will be linearized and therefore must be adjacent.
+
+        Returns
+        -------
+            A complex-valued torch.tensor of the same shape as data, but with the axis projected to the requested irrep.
+        '''
+
+        C = self.linearize(correlator, dims=dims)
+        temp = np.zeros_like(C) + 0.j
+
+        for p, w in zip(
+                self.point_group_permutations,
+                self.point_group_weights[irrep] if not conjugate else self.point_group_weights[irrep].conj()
+                ):
+            temp += w * np.take(C, p, -1)
+
+        return self.coordinatize(temp, dims=dims) * self.point_group_norm
