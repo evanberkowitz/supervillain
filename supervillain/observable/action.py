@@ -123,24 +123,24 @@ class Action_Action(DerivedQuantity):
 
     .. math::
         \begin{align}
-            \mathcal{S}_{x,y} = \left.\left(\kappa_y \frac{\delta}{\delta \kappa_y}\right) \left(\kappa_x \frac{\delta}{\delta \kappa_x}\right) \log Z\right|_{\kappa_{x,y} = \kappa} =
-            & 
-            \left\langle (\kappa_y \partial_{\kappa_y} S) (\kappa_x \partial_{\kappa_x} S) - \kappa_y \kappa_x \partial_{\kappa_y} \partial_{\kappa_x} S  - \kappa_y \delta_{yx} \partial_{\kappa_x} S \right\rangle
+            \mathcal{S}_{x,y} =& \left.\left(-\kappa_y \frac{\delta}{\delta \kappa_y}\right) \left(-\kappa_x \frac{\delta}{\delta \kappa_x}\right) \log Z\right|_{\kappa_{x,y} = \kappa}
+            \\
+            =& 
+            \left.\left\langle (\kappa_y \partial_{\kappa_y} S) (\kappa_x \partial_{\kappa_x} S) - \kappa_y \kappa_x \partial_{\kappa_y} \partial_{\kappa_x} S  - \kappa_y \delta_{yx} \partial_{\kappa_x} S \right\rangle\right|_{\kappa_{x,y} = \kappa}
             \\ &
-            - \left\langle \kappa_x \partial_{\kappa_x} S \right\rangle \left\langle \kappa_y \partial_{\kappa_y} S \right\rangle.
+            - \left.\left\langle \kappa_x \partial_{\kappa_x} S \right\rangle\right|_{\kappa_x = \kappa}
+              \left.\left\langle \kappa_y \partial_{\kappa_y} S \right\rangle\right|_{\kappa_y = \kappa}.
         \end{align}
 
     Using translational invariance the quantum-disconnected piece is independent of $x$ and $y$ and can be replaced by $\left\langle\texttt{ActionDensity}\right\rangle^2$.
-    The piece explicitly local can also be simplified $\left\langle \delta_{xy} \kappa_y \partial_{\kappa_x} S\right\rangle = \delta_{xy} \left\langle \texttt{ActionDensity} \right\rangle$ by translational invariance.
     So, we find the simplification
 
     .. math ::
         \begin{align}
             \mathcal{S}_{x,y} = 
             & 
-            \left\langle (\kappa_y \partial_{\kappa_y} S) (\kappa_x \partial_{\kappa_x} S) -  \kappa_y \kappa_x \partial_{\kappa_y} \partial_{\kappa_x} S \right\rangle
+            \left\langle (\kappa_y \partial_{\kappa_y} S) (\kappa_x \partial_{\kappa_x} S) -  \kappa_y \kappa_x \partial_{\kappa_y} \partial_{\kappa_x} S - \delta_{xy} \kappa_x \partial_{\kappa_x} S\right\rangle
             \\ &
-            - \delta_{xy} \left\langle \texttt{ActionDensity} \right\rangle
             - \left\langle \texttt{ActionDensity} \right\rangle^2
         \end{align}
 
@@ -149,7 +149,7 @@ class Action_Action(DerivedQuantity):
     .. math ::
         S^2_{x,y}
         =
-        \left\langle (\kappa_y \partial_{\kappa_y} S) (\kappa_x \partial_{\kappa_x} S) -  \kappa_y \kappa_x \partial_{\kappa_y} \partial_{\kappa_x} S \right\rangle
+        \left\langle (\kappa_y \partial_{\kappa_y} S) (\kappa_x \partial_{\kappa_x} S) -  \kappa_y \kappa_x \partial_{\kappa_y} \partial_{\kappa_x} S - \delta_{xy} \kappa_x \partial_{\kappa_x} S \right\rangle
 
     so that $\mathcal{S}_{x,y} = S^2_{xy} - \left\langle \texttt{ActionDensity} \right\rangle^2$
 
@@ -161,14 +161,20 @@ class Action_Action(DerivedQuantity):
         \end{align}
 
 
-    The last term is $\Delta x$ independent, and penultimate term only contributes to $\Delta x = 0$.
+    and define a primary observable :class:`~.ActionTwoPoint`
+
+    .. math ::
+        \begin{align}
+            \texttt{ActionTwoPoint}_{\Delta x} = \frac{1}{\Lambda} \sum_{x} S^2_{x,x-\Delta x}.
+        \end{align}
+
+    The quantum-disconnected term is $\Delta x$ independent, so
+
+    .. math ::
+        \texttt{Action_Action}_{\Delta x} = \texttt{ActionTwoPoint}_{\Delta x} - \left\langle \texttt{ActionDensity} \right\rangle^2.
 
     '''
 
     @staticmethod
     def default(S, ActionTwoPoint, ActionDensity):
-        result = ActionTwoPoint.copy()
-        result[0,0] -= ActionDensity
-        result -= ActionDensity**2
-
-        return result
+        return ActionTwoPoint - ActionDensity**2
