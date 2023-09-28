@@ -100,7 +100,7 @@ class Bootstrap(H5able):
             color = axis.get_lines()[-1].get_color()
         axis.axhspan(mean-err, mean+err, color=color, alpha=0.5, linestyle='none')
 
-    def plot_correlator(self, axis, correlator, linestyle='none', marker='o', markerfacecolor='none', **kwargs):
+    def plot_correlator(self, axis, correlator, offset=0., linestyle='none', marker='o', markerfacecolor='none', **kwargs):
         r'''
         Plots the space-dependent correlator against $\Delta x$ on the axis.
         Plotting options and kwargs are forwarded.
@@ -111,6 +111,8 @@ class Bootstrap(H5able):
             The axis on which to plot.
         correlator: string
             Name of the observable or derived quantity.
+        offset: float
+            Horizontal displacement, good for visually separating two correlators.
         '''
         
         L = self.Ensemble.Action.Lattice
@@ -118,7 +120,7 @@ class Bootstrap(H5able):
         C = getattr(self, correlator).real
 
         axis.errorbar(
-                Δx,
+                Δx+offset,
                 L.linearize(C.mean(axis=0)),
                 L.linearize(C.std(axis=0)),
                 linestyle=linestyle,
