@@ -41,3 +41,47 @@ class Sequentially(H5able):
         Returns a string with some summarizing statistics.
         '''
         return '\n\n'.join(g.report() for g in self.generators)
+
+class KeepEvery(H5able):
+    r'''
+    To decorrelate and get honest error estimates it can be helpful to do MCMC but then only analyze evenly-spaced configurations.
+    Rather than keep every single generated configuration and then throw a bunch away, we can keep only those we might analyze.
+    
+    .. note::
+        The number of updates per second will decrease by a factor of n, but the autocorrelation time should be n less.
+        Generating a fixed number of configurations will take n times longer.
+
+    >>> p = supervillain.generator.constraint.PlaquetteUpdate(S)
+    >>> g = supervillain.generator.combining.KeepEvery(10, p)
+
+
+    Parameters
+    ----------
+    n: int
+        How many generator updates to make before emitting a configuration.
+    generator:
+        The generator to use for updates.
+    '''
+
+    def __init__(self, n, generator):
+
+        self.stride = n
+        self.generator = generator
+
+    def step(self, cfg):
+        r'''
+        Applies the generator n times and returns the resulting configuration.
+        '''
+
+        result = cfg
+        for i in range(self.stride):
+            result = self.generator.step(result)
+
+        return result
+
+    def report(self):
+        r'''
+        Returns a string with some summarizing statistics.
+        '''
+
+        return self.generator.report()
