@@ -62,11 +62,11 @@ Action
    :members:
    :show-inheritance:
 
-.. autoclass :: supervillain.observable.ActionTwoPoint
+.. autoclass :: supervillain.observable.Action_Action
    :members:
    :show-inheritance:
 
-.. autoclass :: supervillain.observable.Action_Action
+.. autoclass :: supervillain.observable.ActionTwoPoint
    :members:
    :show-inheritance:
 
