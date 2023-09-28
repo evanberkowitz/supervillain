@@ -48,17 +48,17 @@ class ActionDensity(Observable):
 
 class ActionTwoPoint(Observable):
     r'''
-    In :class:`~.Action_Action` we need the volume-averaged
+    In :class:`~.Action_Action` we need the translation-averaged
 
     .. math ::
         S^2_{x,y}
         =
-        \left.\left\langle (\kappa_y \partial_{\kappa_y} S) (\kappa_x \partial_{\kappa_x} S) -  \kappa_y \kappa_x \partial_{\kappa_y} \partial_{\kappa_x} S \right\rangle\right|_{\kappa_x = \kappa_y = \kappa}.
+        \left.\left\langle (\kappa_y \partial_{\kappa_y} S) (\kappa_x \partial_{\kappa_x} S) -  \kappa_y \kappa_x \partial_{\kappa_y} \partial_{\kappa_x} S - \delta_{xy} \kappa_x \partial_{\kappa_x} S \right\rangle\right|_{\kappa_{x,y} = \kappa}
 
-    We compute 
+    given by
 
     .. math ::
-        \texttt{ActionTwoPoint} = \frac{1}{\Lambda} \sum_x S^2_{x, x-\Delta x}
+        \texttt{ActionTwoPoint} = \frac{1}{\Lambda} \sum_x S^2_{x, x-\Delta x}.
     '''
 
     @staticmethod
@@ -67,12 +67,19 @@ class ActionTwoPoint(Observable):
         In the :class:`~.Villain` formulation one finds
 
         .. math ::
-            \left.\kappa_y \kappa_x \partial_{\kappa_y} \partial_{\kappa_x} S\right|_{\kappa_x = \kappa_y = \kappa} = 0
+            \left.\kappa_y \kappa_x \partial_{\kappa_y} \partial_{\kappa_x} S\right|_{\kappa_{x,y} = \kappa} = 0
 
         while
 
         .. math ::
-            \left.(\kappa_y \partial_{\kappa_y} S) (\kappa_x \partial_{\kappa_x} S)\right|_{\kappa_x = \kappa_y = \kappa}
+            \left.\delta_{xy} \kappa_x \partial_{\kappa_x} S \right|_{\kappa_x = \kappa}
+            =
+            \delta_{xy} \frac{\kappa}{2} \sum_{\ell \text{ from } x} (d\phi - 2\pi n)_\ell^2
+
+        and
+
+        .. math ::
+            \left.(\kappa_y \partial_{\kappa_y} S) (\kappa_x \partial_{\kappa_x} S)\right|_{\kappa_{x,y} = \kappa}
             =
             \left(\frac{\kappa}{2} \sum_{\ell \text{ from }y} (d\phi - 2\pi n)^2_{\ell}\right)
             \left(\frac{\kappa}{2} \sum_{\ell \text{ from }x} (d\phi - 2\pi n)^2_{\ell}\right)
@@ -87,20 +94,31 @@ class ActionTwoPoint(Observable):
     @staticmethod
     def Worldline(S, m):
         r'''
-        In the :class:`~.Worldline` formulation one has
+        In the :class:`~.Worldline` formulation one has to carefully treat the $|\ell|/2 \log 2\pi \kappa$ contribution.
+        We should really imagine $|\ell|/2$ as arising from a sum over sites of independent $\log 2\pi \kappa$s.
+        That term contributes constant pieces,
 
         .. math ::
-            \left.(\kappa_y \partial_{\kappa_y} S) (\kappa_x \partial_{\kappa_x} S)\right|_{\kappa_x = \kappa_y = \kappa}
+            \left.(\kappa_y \partial_{\kappa_y} S) (\kappa_x \partial_{\kappa_x} S)\right|_{\kappa_{x,y} = \kappa}
             =
-            \left(- \frac{1}{2\kappa} \sum_{\ell \text{ from } y} m_\ell^2 + \frac{1}{2}\right)
-            \left(- \frac{1}{2\kappa} \sum_{\ell \text{ from } x} m_\ell^2 + \frac{1}{2}\right)
+            \left(1 - \frac{1}{2\kappa} \sum_{\ell \text{ from } y} m_\ell^2 \right)
+            \left(1 - \frac{1}{2\kappa} \sum_{\ell \text{ from } x} m_\ell^2 \right)
 
         while
+        
+        .. math ::
+            \left.\delta_{xy} \kappa_x \partial_{\kappa_x} S \right|_{\kappa_x = \kappa}
+            =
+            \delta_{xy} \left(
+                1 - \frac{1}{2\kappa} \sum_{\ell \text{ from } x} m_\ell^2
+            \right)
+
+        and
 
         .. math ::
-            \left.\kappa_y \kappa_x \partial_{\kappa_y} \partial_{\kappa_x} S\right|_{\kappa_x = \kappa_y = \kappa}
+            \left.\kappa_y \kappa_x \partial_{\kappa_y} \partial_{\kappa_x} S\right|_{\kappa_{x,y} = \kappa}
             =
-            \delta_{xy} \left(\frac{1}{\kappa} \sum_{\ell \text{ from } x} m_\ell^2 - 1\right) 
+            \delta_{xy} \left(-1 + \frac{1}{\kappa} \sum_{\ell \text{ from } x} m_\ell^2\right).
 
         '''
         
