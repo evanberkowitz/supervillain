@@ -89,7 +89,16 @@ class ActionTwoPoint(Observable):
         L = S.Lattice
         density = 0.5 * S.kappa * ((L.d(0, phi) - 2*np.pi*n)**2).sum(axis=0)
 
-        return L.correlation(density, density)
+        result = L.correlation(density, density)
+
+        # The averaging over x of the δ term just modifies Δx=0.
+        # We can simplify 1/Λ ∑_x δ_{x,x-Δx} f_x = δ_{Δx, 0} 1/Λ ∑_x f_x which means the Δx=0
+        # piece of the correlator needs adjustment by the average f.
+        # In this case f = density.
+
+        result[0,0] -= density.mean()
+
+        return result
 
     @staticmethod
     def Worldline(S, m):
@@ -130,7 +139,15 @@ class ActionTwoPoint(Observable):
 
         result = L.correlation(derivative, derivative)
 
-        result[0,0] -= (m_squared / kappa - 1).mean()
+        # The averaging over x of the δ terms just modifies Δx=0.
+        # We can simplify 1/Λ ∑_x δ_{x,x-Δx} f_x = δ_{Δx, 0} 1/Λ ∑_x f_x which means the Δx=0
+        # piece of the correlator needs adjustment by the average f.
+        # In this case f = m^2 / 2κ,
+        # what is left from cancelling the local one-derivative against the two-derivative term.
+
+        delta = m_squared / 2 / kappa
+
+        result[0,0] -= delta.mean()
 
         return result
 
