@@ -26,7 +26,7 @@ class WindingSquared(Observable):
     '''
 
     @staticmethod
-    def Villain(S, phi, n):
+    def Villain(S, n):
         r'''
         Differentiating with respect to $J_p$ gives a $-i\,dn_p$; differentiating twice gives $-dn_p^2$, so that $w_p = dn_p^2$.
         '''
@@ -65,7 +65,7 @@ class Winding_Winding(Observable):
     '''
 
     @staticmethod
-    def Villain(S, phi, n):
+    def Villain(S, n):
         r'''
         Differentiating twice gives $W_{p,q} = \left\langle dn_p dn_q \right\rangle$; the quantum-disconnected piece vanishes when $J=0$.
         '''

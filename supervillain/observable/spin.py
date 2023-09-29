@@ -13,7 +13,7 @@ class SloppySpin_Spin(Observable):
     '''
 
     @staticmethod
-    def Villain(S, phi, n):
+    def Villain(S, phi):
         r'''
         The same as in the :class:`~.Spin_Spin`.
         '''
@@ -82,7 +82,7 @@ class Spin_Spin(Observable):
     '''
 
     @staticmethod
-    def Villain(S, phi, n):
+    def Villain(S, phi):
         r'''
         In the :class:`~.Villain` formulation the correlator is just
 
