@@ -30,12 +30,15 @@ observables = (
     'InternalEnergyDensity',
     'InternalEnergyDensitySquared',
     'WindingSquared',
+    'ActionDensity',
+    'SpinSusceptibilityScaled',
     )
 
 # We can also visualize the space-dependent correlators.
 correlators = (
     'Winding_Winding', # the zero correlator?
-    'Vertex_Vertex',
+    'Spin_Spin',
+    'Action_Action',
     )
 
 ####
