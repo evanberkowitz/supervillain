@@ -10,7 +10,7 @@ import supervillain
 
 parser = supervillain.cli.ArgumentParser()
 parser.add_argument('--N', type=int, default=5, help='Sites on a side.')
-parser.add_argument('--kappa', type=float, default=0.1, help='κ.')
+parser.add_argument('--kappa', type=float, default=0.5, help='κ.')
 parser.add_argument('--configurations', type=int, default=1000)
 parser.add_argument('--action', type=str, default='villain', choices=['villain', 'worldline'])
 parser.add_argument('--bootstraps', default=100, type=int, help='Number of bootstrap resamplings.')
@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 # Each observable whose history and histogram you want to see can be put into this list.
 observables = (
+    'XWrapping', 'TWrapping',
     'InternalEnergyDensity',
     'InternalEnergyDensitySquared',
     'WindingSquared',
@@ -71,7 +72,7 @@ def error_format(estimate):
 
 # First we'll construct a figure with one row per scalar observable, with room for the history and histogram.
 histories, ax = plt.subplots(len(observables),2,
-    figsize=(12, 8),
+    figsize=(12, 2*len(observables)),
     gridspec_kw={'width_ratios': [4, 1], 'wspace': 0},
     sharey='row'
 )
@@ -103,7 +104,7 @@ ax[-1,0].set_xlabel('Monte Carlo time')
 histories.tight_layout()
 
 correlations, ax = plt.subplots(len(correlators),1,
-    figsize=(12, 8),
+    figsize=(12, 3*len(correlators)),
     sharex='col',
     squeeze=False
 )
