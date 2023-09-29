@@ -82,6 +82,14 @@ Winding
    :members:
    :show-inheritance:
 
+--------
+Wrapping
+--------
+
+.. autoclass :: supervillain.observable.TorusWrapping
+   :members:
+   :show-inheritance:
+
 -----------------
 Spin Correlations
 -----------------
