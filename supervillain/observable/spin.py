@@ -198,7 +198,7 @@ class Spin_Spin(Observable):
         return L.coordinatize(result)
 
 
-class SpinSusceptibility(DerivedQuantity):
+class SpinSusceptibility(Observable):
     r'''
     The *spin susceptibility* is the spacetime integral of the :class:`~.Spin_Spin` correlator $S_{\Delta x}$,
 
@@ -223,7 +223,7 @@ def _CriticalSpinScalingDimension(W):
     else:
         raise NotImplementedError(f'The constrained W≠1 scaling is not yet implemented so {W=} cannot be computed.')
 
-class SpinSusceptibilityScaled(DerivedQuantity):
+class SpinSusceptibilityScaled(Observable):
     r'''
     At the critical point and in the CFT the :class:`~.SpinSusceptibility` has a known expected scaling that comes from the scaling dimension $\Delta$ of $e^{i\phi}$
 
