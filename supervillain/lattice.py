@@ -941,7 +941,7 @@ class Lattice2D(H5able):
         permutation = []
         for i in range(self.sites):
             for j in range(self.sites):
-                if (self.coordinates[i] == np.matmul(operator, self.coordinates[j])).all():
+                if (self.coordinates[i] == self.mod(np.matmul(operator, self.coordinates[j]))).all():
                     permutation += [j]
                     continue # since a permutation is one-to-one
         return np.array(permutation)
