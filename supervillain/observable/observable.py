@@ -10,7 +10,6 @@ from supervillain.performance import Timer
 import logging
 logger = logging.getLogger(__name__)
 
-
 class Observable:
 
     def __init_subclass__(cls, intermediate=False):
