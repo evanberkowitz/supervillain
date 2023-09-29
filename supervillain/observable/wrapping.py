@@ -37,3 +37,22 @@ class TorusWrapping(Observable):
         '''
 
         return m.sum(axis=(-2,-1)) / S.Lattice.dims
+
+class TWrapping(Observable):
+    r'''
+    Just the time component of :class:`~.TorusWrapping`.
+    '''
+
+    @staticmethod
+    def default(S, TorusWrapping):
+        return TorusWrapping[0]
+
+
+class XWrapping(Observable):
+    r'''
+    Just the space component of :class:`~.TorusWrapping`.
+    '''
+
+    @staticmethod
+    def default(S, TorusWrapping):
+        return TorusWrapping[1]
