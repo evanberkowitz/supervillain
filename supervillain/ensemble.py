@@ -192,3 +192,11 @@ class Ensemble(H5able):
                      color=color, alpha=alpha,
                      )
  
+    def __getattr__(self, name):
+        # It is particularly useful to expose fields as ensemble attributes
+        # because that helps unify the Observable's application to both
+        # fields and other primary observables.
+        try:
+            return getattr(self.configurations, name)
+        except Exception as e:
+            raise e

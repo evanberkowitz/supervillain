@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
 import numpy as np
+from functools import partial
+import inspect
 
 import supervillain.ensemble
 from supervillain.performance import Timer
@@ -39,8 +41,28 @@ class Observable:
         # Just call the measurement and cache the result.
         class_name = obj.Action.__class__.__name__
         try:
+            # Observables can have action-dependent implementations
+            # and a fall-back default which is convenient for observables which
+            # depend simply on others.  For example, a density might not
+            # need the field variables but the global charge (or vice-versa).
+            try:
+                measure = getattr(self, class_name)
+            except AttributeError as e:
+                if hasattr(self, 'default'):
+                    measure = getattr(self, 'default')
+                else:
+                    raise e from None
+
+            # All observables must take the action as the first argument.
+            measure = partial(measure, obj.Action)
+
+            # Observables can depend on field variables and other Observables.
+            # We look up the arguments as attributes of the ensemble.
             with Timer(self._logger, f'Measurement of {name}', per=len(obj)):
-                obj.__dict__[name]= np.array([getattr(self, class_name)(obj.Action, **o) for o in obj.configurations])
+                obj.__dict__[name]= np.array([
+                    measure(*obs)
+                    for obs in zip(*[getattr(obj, o) for o in inspect.getfullargspec(measure).args])
+                    ])
             return obj.__dict__[name]
         except:
             raise NotImplemented(f'{name} not implemented for {class_name}')

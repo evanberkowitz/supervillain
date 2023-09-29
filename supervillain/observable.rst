@@ -26,6 +26,9 @@ Implementations are `staticmethod`_\ s named for their corresponding action.
 Implementations *always* take the action first, and then can take field variables or other primary observables.
 
 .. note ::
+   Implementations always take the action ``S`` first.
+
+.. note ::
    The names of the arguments matter; they're used to look up the correct field variables or other observables.
 
 A simple example, since :ref:`actions <action>` are already callable, is
@@ -67,6 +70,9 @@ However, because derived quantities are (possibly-)nonlinear combinations of exp
 DerivedQuantity implementations are `staticmethod`_\ s named for their corresponding action that take an action object and a bootstrap-resampled expectation value of primary observables or other derived quantities.
 Because DerivedQuantities are often reductions of other primary Observables or DerivedQuantities, the implementation may be shared between different actions; you can provide a common ``default`` implementation to fall back to that can be overridden by action-specific implementations.
 Just like an :class:`~.Observable`, a :class:`~.DerivedQuantity` takes the action, primary observables, and potentially other derived quantities, though it is almost certainly a mistake for a derived quantity to depend directly on field variables.
+
+.. note ::
+   Implementations always take the action ``S`` first.
 
 .. note ::
    The arguments' names matter and have to exactly match the needed expectation values.
