@@ -17,11 +17,11 @@ for a, irrep in zip(ax[1], ('A1', 'A2', 'B1', 'B2')):
     L.plot_form(0, L.irrep(c, irrep), a)
     a.set_title(irrep)
 
-for re, im, irrep in zip(ax[2], ax[3], (("E", +1), ("E", -1), ("E'", +1), ("E'", -1))):
+for re, im, irrep in zip(ax[2], ax[3], ('E+', 'E-', "E'+", "E'-")):
     L.plot_form(0, L.irrep(c, irrep).real, re)
     L.plot_form(0, L.irrep(c, irrep).imag, im)
-    re.set_title(f'real{irrep}')
-    im.set_title(f'imag{irrep}')
+    re.set_title(f'real {irrep}')
+    im.set_title(f'imag {irrep}')
 
 for a in ax.flatten():
     a.set_xlabel(None)

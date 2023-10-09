@@ -141,19 +141,17 @@ class Lattice2D(H5able):
                     ((+1,0),(0,-1)), # reflect across x-axis
                 ))
 
-        self.point_group_permutations = np.stack(tuple(self._point_group_permutation(o) for o in self.point_group_operations))
         self.point_group_weights = {
-            'A1': np.array((+1,+1,+1,+1,+1,+1,+1,+1)) + 0.j,
-            'A2': np.array((+1,-1,+1,-1,+1,-1,+1,-1)) + 0.j,
-            'B1': np.array((+1,-1,-1,+1,+1,-1,-1,+1)) + 0.j,
-            'B2': np.array((+1,+1,-1,-1,+1,+1,-1,-1)) + 0.j,
-            ("E", +1): np.array((+1,+1j,+1j,-1,-1,-1j,-1j,+1)),
-            ("E", -1): np.array((+1,-1j,-1j,-1,-1,+1j,+1j,+1)),
-            ("E'", +1): np.array((+1,-1j,+1j,+1,-1,+1j,-1j,-1)),
-            ("E'", -1): np.array((+1,+1j,-1j,+1,-1,-1j,+1j,-1)),
+            'A1': np.array((+1,+1,+1,+1,+1,+1,+1,+1))/8 + 0.j,
+            'A2': np.array((+1,-1,+1,-1,+1,-1,+1,-1))/8 + 0.j,
+            'B1': np.array((+1,-1,-1,+1,+1,-1,-1,+1))/8 + 0.j,
+            'B2': np.array((+1,+1,-1,-1,+1,+1,-1,-1))/8 + 0.j,
+            "E+": np.array((+1,+1j,+1j,-1,-1,-1j,-1j,+1))/8,
+            "E-": np.array((+1,-1j,-1j,-1,-1,+1j,+1j,+1))/8,
+            "E'+": np.array((+1,-1j,+1j,+1,-1,+1j,-1j,-1))/8,
+            "E'-": np.array((+1,+1j,-1j,+1,-1,-1j,+1j,-1))/8,
         }
-        self.point_group_irreps = self.point_group_weights.keys()
-        self.point_group_norm = 1./8
+        self.point_group_irreps = tuple(self.point_group_weights.keys())
 
     def __str__(self):
         return f'Lattice2D({self.nt},{self.nx})'
@@ -935,6 +933,17 @@ class Lattice2D(H5able):
 
     # TODO: spacetime point group symmetry projection to D4 irreps.
 
+    @cached_property
+    def point_group_permutations(self):
+        r'''
+        Lists of permutations of sites that correspond to the geometric transformations in ``point_group_operations``.
+        The starting order is the order in ``coordinates``.
+
+        '''
+
+        # These are computed lazily because the implementation of _point_group_permutations is quadratic.
+        return  np.stack(tuple(self._point_group_permutation(o) for o in self.point_group_operations))
+
     def _point_group_permutation(self, operator):
         # Since the operations map lattice points to lattice points we know that they are a permutation
         # on the set of coordinates.
@@ -982,4 +991,4 @@ class Lattice2D(H5able):
                 ):
             temp += w * np.take(C, p, -1)
 
-        return self.coordinatize(temp, dims=dims) * self.point_group_norm
+        return self.coordinatize(temp, dims=dims)
