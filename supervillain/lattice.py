@@ -142,14 +142,14 @@ class Lattice2D(H5able):
                 ))
 
         self.point_group_weights = {
-            'A1': np.array((+1,+1,+1,+1,+1,+1,+1,+1)) + 0.j,
-            'A2': np.array((+1,-1,+1,-1,+1,-1,+1,-1)) + 0.j,
-            'B1': np.array((+1,-1,-1,+1,+1,-1,-1,+1)) + 0.j,
-            'B2': np.array((+1,+1,-1,-1,+1,+1,-1,-1)) + 0.j,
-            ("E", +1): np.array((+1,+1j,+1j,-1,-1,-1j,-1j,+1)),
-            ("E", -1): np.array((+1,-1j,-1j,-1,-1,+1j,+1j,+1)),
-            ("E'", +1): np.array((+1,-1j,+1j,+1,-1,+1j,-1j,-1)),
-            ("E'", -1): np.array((+1,+1j,-1j,+1,-1,-1j,+1j,-1)),
+            'A1': np.array((+1,+1,+1,+1,+1,+1,+1,+1))/8 + 0.j,
+            'A2': np.array((+1,-1,+1,-1,+1,-1,+1,-1))/8 + 0.j,
+            'B1': np.array((+1,-1,-1,+1,+1,-1,-1,+1))/8 + 0.j,
+            'B2': np.array((+1,+1,-1,-1,+1,+1,-1,-1))/8 + 0.j,
+            "E+": np.array((+1,+1j,+1j,-1,-1,-1j,-1j,+1))/8,
+            "E-": np.array((+1,-1j,-1j,-1,-1,+1j,+1j,+1))/8,
+            "E'+": np.array((+1,-1j,+1j,+1,-1,+1j,-1j,-1))/8,
+            "E'-": np.array((+1,+1j,-1j,+1,-1,-1j,+1j,-1))/8,
         }
         self.point_group_irreps = tuple(self.point_group_weights.keys())
 
@@ -991,4 +991,4 @@ class Lattice2D(H5able):
                 ):
             temp += w * np.take(C, p, -1)
 
-        return self.coordinatize(temp, dims=dims) * self.point_group_norm
+        return self.coordinatize(temp, dims=dims)
