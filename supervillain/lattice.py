@@ -141,7 +141,6 @@ class Lattice2D(H5able):
                     ((+1,0),(0,-1)), # reflect across x-axis
                 ))
 
-        self.point_group_permutations = np.stack(tuple(self._point_group_permutation(o) for o in self.point_group_operations))
         self.point_group_weights = {
             'A1': np.array((+1,+1,+1,+1,+1,+1,+1,+1)) + 0.j,
             'A2': np.array((+1,-1,+1,-1,+1,-1,+1,-1)) + 0.j,
@@ -933,6 +932,17 @@ class Lattice2D(H5able):
         return 0.5*(form - np.roll(np.flip(form, axis=axis), 1, axis=axis))
 
     # TODO: spacetime point group symmetry projection to D4 irreps.
+
+    @cached_property
+    def point_group_permutations(self):
+        r'''
+        Lists of permutations of sites that correspond to the geometric transformations in ``point_group_operations``.
+        The starting order is the order in ``coordinates``.
+
+        '''
+
+        # These are computed lazily because the implementation of _point_group_permutations is quadratic.
+        return  np.stack(tuple(self._point_group_permutation(o) for o in self.point_group_operations))
 
     def _point_group_permutation(self, operator):
         # Since the operations map lattice points to lattice points we know that they are a permutation
