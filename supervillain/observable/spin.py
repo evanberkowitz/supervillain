@@ -1,8 +1,6 @@
 import numpy as np
 from supervillain.observable import Observable, DerivedQuantity
 
-_stencils = dict()
-
 class SloppySpin_Spin(Observable):
     r'''
 
@@ -93,6 +91,9 @@ class SlowSpin_Spin(Observable):
 
         return L.correlation(exp_i_phi, exp_i_phi)
 
+
+    _stencils = dict()
+
     @staticmethod
     def Worldline(S, m):
         r'''
@@ -113,7 +114,7 @@ class SlowSpin_Spin(Observable):
         # Just go Δt in time first and then Δx in space.
         for i, (Δt, Δx)  in enumerate(L.coordinates):
             try:
-                P = _stencils[(L.nt, L.nx, Δt, Δx)]
+                P = SlowSpin_Spin._stencils[(L.nt, L.nx, Δt, Δx)]
             except KeyError:
                 # Each stencil will hold the path starting on the origin, AND a copy
                 # for every other starting point.
@@ -141,7 +142,7 @@ class SlowSpin_Spin(Observable):
                 for j, shift in enumerate(L.coordinates):
                     P[j] = L.roll(P[0], shift)
 
-                _stencils[(L.nt, L.nx, Δt, Δx)] = P
+                SlowSpin_Spin._stencils[(L.nt, L.nx, Δt, Δx)] = P
 
             # In the full measurement we overlay the stencil on the configuration 
             # in all possible ways and sum.  Then we have measured the dependence on Δx
