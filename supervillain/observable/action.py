@@ -32,7 +32,7 @@ class ActionDensity(Observable):
 
 
     @staticmethod
-    def Worldline(S, m):
+    def Worldline(S, Links):
         r'''
         In the :class:`~.Worldline` formulation we differentiate to find
 
@@ -44,7 +44,7 @@ class ActionDensity(Observable):
         '''
         
         L = S.Lattice
-        return (L.links / 2 - 0.5 / S.kappa * (m**2).sum()) / (L.sites)
+        return (L.links / 2 - 0.5 / S.kappa * (Links**2).sum()) / (L.sites)
 
 class ActionTwoPoint(Observable):
     r'''
@@ -62,7 +62,7 @@ class ActionTwoPoint(Observable):
     '''
 
     @staticmethod
-    def Villain(S, phi, n):
+    def Villain(S, Links):
         r'''
         In the :class:`~.Villain` formulation one finds
 
@@ -87,7 +87,7 @@ class ActionTwoPoint(Observable):
         '''
         
         L = S.Lattice
-        density = 0.5 * S.kappa * ((L.d(0, phi) - 2*np.pi*n)**2).sum(axis=0)
+        density = 0.5 * S.kappa * (Links**2).sum(axis=0)
 
         result = L.correlation(density, density)
 
@@ -101,7 +101,7 @@ class ActionTwoPoint(Observable):
         return result
 
     @staticmethod
-    def Worldline(S, m):
+    def Worldline(S, Links):
         r'''
         In the :class:`~.Worldline` formulation one has to carefully treat the $|\ell|/2 \log 2\pi \kappa$ contribution.
         We should really imagine $|\ell|/2$ as arising from a sum over sites of independent $\log 2\pi \kappa$s.
@@ -133,7 +133,7 @@ class ActionTwoPoint(Observable):
         
         L = S.Lattice
         kappa = S.kappa
-        m_squared = (m**2).sum(axis=0)
+        m_squared = (Links**2).sum(axis=0)
 
         derivative = 1 -0.5 / kappa * m_squared
 
