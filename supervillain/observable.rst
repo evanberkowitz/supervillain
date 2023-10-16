@@ -92,6 +92,14 @@ When possible we implement observables for different formulations.
 Since the equivalence between formulations is link-by-link, when measured on the same size lattice the different formulations should give equal results in the infinite-statistics limit.
 Which formulation is more efficient of course depends on the action parameters and on the lattice size.
 
+-----
+Links
+-----
+
+.. autoclass :: supervillain.observable.Links
+   :members:
+   :show-inheritance:
+
 -----------------------
 Internal Energy Density
 -----------------------
