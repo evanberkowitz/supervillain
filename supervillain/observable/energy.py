@@ -31,7 +31,7 @@ class InternalEnergyDensity(Observable):
 
 
     @staticmethod
-    def Worldline(S, m):
+    def Worldline(S, Links):
         r'''
         In the :class:`~.Worldline` formulation we differentiate to find
 
@@ -43,7 +43,7 @@ class InternalEnergyDensity(Observable):
         '''
 
         L = S.Lattice
-        return (L.links / 2 - 0.5 / S.kappa * (m**2).sum()) / (L.sites * S.kappa)
+        return (L.links / 2 - 0.5 / S.kappa * (Links**2).sum()) / (L.sites * S.kappa)
 
 class InternalEnergyDensitySquared(Observable):
     r'''
@@ -82,7 +82,7 @@ class InternalEnergyDensitySquared(Observable):
 
 
     @staticmethod
-    def Worldline(S, m):
+    def Worldline(S, Links):
         r'''
         In the :class:`~.Worldline` formulation we differentiate to find
 
@@ -96,7 +96,7 @@ class InternalEnergyDensitySquared(Observable):
         '''
 
         L = S.Lattice
-        partial_kappa_S = (L.links / 2 - 0.5 / S.kappa * (m**2).sum()) / S.kappa
-        partial_2_kappa_S = ((m**2).sum() - L.links / S.kappa) / S.kappa
+        partial_kappa_S = (L.links / 2 - 0.5 / S.kappa * (Links**2).sum()) / S.kappa
+        partial_2_kappa_S = ((Links**2).sum() - L.links / S.kappa) / S.kappa
         
         return (partial_kappa_S**2 - partial_2_kappa_S) / L.sites**2
