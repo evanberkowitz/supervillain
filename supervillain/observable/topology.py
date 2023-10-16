@@ -35,7 +35,7 @@ class WindingSquared(Observable):
         return np.mean(L.d(1, n)**2)
 
     @staticmethod
-    def Worldline(S, m):
+    def Worldline(S, Links):
         r'''
         Reusing the derivation from :class:`~.Winding_Winding` and setting $p=q$ we get
 
@@ -45,7 +45,7 @@ class WindingSquared(Observable):
 
         because $\delta / \delta J_p ( d \delta J_p) = 4$.
         '''
-        return 1/(np.pi**2 * S.kappa)-np.mean(S.Lattice.d(1, m)**2) / (2*np.pi*S.kappa)**2
+        return 1/(np.pi**2 * S.kappa)-np.mean(S.Lattice.d(1, Links)**2) / (2*np.pi*S.kappa)**2
 
 class Winding_Winding(Observable):
     r'''
@@ -75,7 +75,7 @@ class Winding_Winding(Observable):
         return L.correlation(dn, dn)
 
     @staticmethod
-    def Worldline(S, m):
+    def Worldline(S, Links):
         r'''
         .. collapse :: The Worldline observable is trickier.
             :class: note:
@@ -84,7 +84,7 @@ class Winding_Winding(Observable):
 
             .. math::
                 \begin{align}
-                S_J[m]
+                S_J[m, v]
                     &= \frac{1}{2\kappa} \sum_\ell \left(m - \frac{\delta J}{2\pi}\right)_\ell^2 + \text{constants}
                     \\
                     &= \frac{1}{2\kappa} \sum_\ell \left(m_\ell^2 - \frac{1}{\pi} m_\ell (\delta J)_\ell + \frac{1}{4\pi^2} (\delta J)_\ell^2 \right)+ \text{constants}
@@ -99,9 +99,9 @@ class Winding_Winding(Observable):
             .. math::
                 \begin{align}
                 \frac{\delta}{\delta J_p} \log Z
-                    &= \frac{1}{Z} \sum Dm\; [\delta m = 0] e^{-S_J[m]} \frac{\delta S}{\delta J_p}
+                    &= -\frac{1}{Z} \sum Dm\; Dv\; [\delta m = 0] e^{-S_J[m, v]} \frac{\delta S}{\delta J_p}
                     \\
-                    &= \frac{1}{Z} \sum Dm\; [\delta m = 0] e^{-S_J[m]} \frac{-1}{2\kappa}\left( -\frac{1}{\pi} (dm)_p + \frac{2}{4\pi^2} (d\delta J)_p \right)
+                    &= \frac{1}{Z} \sum Dm\; Dv\; [\delta m = 0] e^{-S_J[m, v]} \frac{-1}{2\kappa}\left( -\frac{1}{\pi} (dm)_p + \frac{2}{4\pi^2} (d\delta J)_p \right)
                 \end{align}
 
             where the factor of 2 on the $d \delta J$ term comes from the fact that $J d \delta J$ is quadratic in $J$.
@@ -111,15 +111,17 @@ class Winding_Winding(Observable):
             .. math::
                 \begin{align}
                 \frac{\delta}{\delta J_q}\frac{\delta}{\delta J_p} \log Z
-                    =& \frac{\delta}{\delta J_q} \left[\frac{1}{Z} \sum Dm\; [\delta m = 0] e^{S_J[m]} \frac{-1}{2\kappa}\left( -\frac{1}{\pi} (dm)_p + \frac{1}{2\pi^2} (d\delta J)_p \right) \right]
+                    =& \frac{\delta}{\delta J_q} \left[\frac{1}{Z} \sum Dm\; Dv\; [\delta m = 0] e^{-S_J[m,v]} \frac{-1}{2\kappa}\left( -\frac{1}{\pi} (dm)_p + \frac{1}{2\pi^2} (d\delta J)_p \right) \right]
                     \\
-                    =& -\frac{1}{Z^2} \left[\sum Dm\; [\delta m = 0] e^{S_J[m]} \frac{-1}{2\kappa}\left( -\frac{1}{\pi} (dm)_p + \frac{1}{2\pi^2} (d\delta J)_p \right) \right]
+                    =& -\frac{1}{Z^2} \left[\sum Dm\; Dv\; [\delta m = 0] e^{-S_J[m,v]} \frac{-1}{2\kappa}\left( -\frac{1}{\pi} (dm)_p + \frac{1}{2\pi^2} (d\delta J)_p \right) \right]
                     \\
-                    & \phantom{-\frac{1}{Z^2}}\times \left[\sum Dm\; [\delta m = 0] e^{S_J[m]} \frac{-1}{2\kappa}\left( -\frac{1}{\pi} (dm)_q + \frac{1}{2\pi^2} (d\delta J)_q \right) \right]
+                    & \phantom{-\frac{1}{Z^2}}\times \left[\sum Dm\; Dv\; [\delta m = 0] e^{-S_J[m,v]} \frac{-1}{2\kappa}\left( -\frac{1}{\pi} (dm)_q + \frac{1}{2\pi^2} (d\delta J)_q \right) \right]
                     \\
-                    &+ \frac{1}{Z} \sum Dm\; [\delta m = 0] e^{S_J[m]} \Bigg[
+                    &+ \frac{1}{Z} \sum Dm\; Dv\; [\delta m = 0] e^{-S_J[m,v]} \Bigg[
                     \\
-                    & \phantom{-\frac{1}{Z^2}} \left(\frac{-1}{2\kappa}\right)^2\left( -\frac{1}{\pi} (dm)_q + \frac{1}{2\pi^2} (d\delta J)_q \right)\left( -\frac{1}{\pi} (dm)_p + \frac{1}{2\pi^2} (d\delta J)_p \right)
+                    & \phantom{-\frac{1}{Z^2}} \left(\frac{-1}{2\kappa}\right)^2\left( -\frac{1}{\pi} (dm)_q + \frac{1}{2\pi^2} (d\delta J)_q \right)
+                    \\
+                    & \phantom{-\frac{1}{Z^2}} \times\left( -\frac{1}{\pi} (dm)_p + \frac{1}{2\pi^2} (d\delta J)_p \right)
                     \\
                     & \phantom{-\frac{1}{Z^2}} +\frac{-1}{4\pi^2 \kappa}\frac{\delta}{\delta J_q} (d \delta J)_p 
                     \Bigg]
@@ -164,7 +166,7 @@ class Winding_Winding(Observable):
         '''
         L = S.Lattice
         kappa = S.kappa
-        dm = L.d(1, m)
+        dm = L.d(1, Links)
 
         # δ/δJ_p (d δ (J_q)) doesn't vanish, but neither does it depends on J.
         # In fact, it is a constant that depends only the relative coordinate.
