@@ -82,7 +82,7 @@ class UndirectedWorm(H5able):
             newconfig[1,linksite[0],linksite[1]] -= 1
             newsite = mX
 
-        return [newconfig,newsite]
+        return [newconfig,newsite,[PpT,PmT,PpX,PmX]]
 
     def step(self, cfg):
         # Step encapsulates one iteration of a worm to completion, either with acceptance or erasure
