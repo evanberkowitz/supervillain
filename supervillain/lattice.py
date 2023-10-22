@@ -851,24 +851,26 @@ class Lattice2D(H5able):
         '''
         zorder = -p if zorder is None else zorder
         
-        levels = [-3, -2, -1, 0, 1, 2, 3]
-        colors = ['red', 'orange', 'yellow', 'green', 'blue', 'indigo']
-        import matplotlib
-        cmap, norm = matplotlib.colors.from_levels_and_colors(levels, colors)
+        # levels = [-3, -2, -1, 0, 1, 2, 3]
+        # colors = ['red', 'orange', 'yellow', 'green', 'blue', 'indigo']
+        # import matplotlib
+        # cmap, norm = matplotlib.colors.from_levels_and_colors(levels, colors)
 
         background='white'
         marker = {'s': pointsize, 'edgecolor': background, 'linewidth': 2} 
         no_arrowhead = {'headwidth': 0, 'headlength': 0, 'headaxislength': 0,}
         linkpadding = {'edgecolor': background, 'linewidth': 1}
-        
+
         links = {'scale_units': 'xy', 'scale': 1, 'width': linkwidth, **no_arrowhead, **linkpadding}
         
         if p == 0:
             axis.scatter(self.T, self.X, c=form, zorder=zorder, **marker)
         
         if p == 1:
-            axis.quiver(self.T, self.X, 1, 0, form[0], zorder=zorder, **links, cmap = cmap, norm = norm)
-            axis.quiver(self.T, self.X, 0, 1, form[1], zorder=zorder, **links, cmap = cmap, norm = norm)
+            axis.quiver(self.T, self.X, 1, 0, form[0], zorder=zorder, **links)
+            # cmap = cmap, norm = norm)
+            axis.quiver(self.T, self.X, 0, 1, form[1], zorder=zorder, **links)
+            # cmap = cmap), norm = norm)
             axis.scatter(self.T, self.X, color=background, zorder=zorder, **marker)
             
         if p == 2:
