@@ -199,7 +199,7 @@ class Lattice2D(H5able):
             center_origin: boolean
                 If true, each coordinatized dimension is rolled so that the origin is in the center of the two slices.  This is primarily good for making pictures.  :func:`~.linearize` does not provide an inverse of this, because you really should not do it in the middle of a calculation!
 
-                
+            
             
         Returns
         -------
@@ -247,7 +247,7 @@ class Lattice2D(H5able):
 
         .. note::
             The ``dims`` parameter may be a bit confusing.  This perhaps-peculiar convention is to make it easier to
-            combine with ``coordinatize``.  ``linearize`` and ``coordinatize`` are inverses when they get *the same* 
+            combine with ``coordinatize``.  ``linearize`` and ``coordinatize`` are inverses when they get *the same*
             dims arguments.
 
             >>> import numpy as np
@@ -274,7 +274,7 @@ class Lattice2D(H5able):
         
         future_dims = v_dims - (len(self.dims)-1) * len(dm)
         dm = set(d % future_dims for d in dm)
-            
+        
         new_shape = []
         idx = 0
         for i in range(future_dims):
@@ -470,7 +470,7 @@ class Lattice2D(H5able):
                    \begin{align}
                     (f * g)(t) &= \sum_\tau  f(\tau ) g(t-\tau )
                     \\  &= \sum_{\tau } \left( \frac{1}{\sqrt{N}} \sum_\nu e^{2\pi i \nu \tau  / N} F_\nu \right)\left( \frac{1}{\sqrt{N}} \sum_{\nu'} e^{2\pi i \nu' (t-\tau ) / N} G_{\nu'} \right)
-                    \\  &= \sum_{\nu\nu'} e^{2\pi i \nu' t / N} F_\nu G_{\nu'} \left(\frac{1}{N} \sum_{\tau} e^{2\pi i (\nu-\nu') \tau  / N} \right) 
+                    \\  &= \sum_{\nu\nu'} e^{2\pi i \nu' t / N} F_\nu G_{\nu'} \left(\frac{1}{N} \sum_{\tau} e^{2\pi i (\nu-\nu') \tau  / N} \right)
                     \\  &= \sum_{\nu} e^{2\pi i \nu t / N} F_\nu G_\nu
                     \\
                     \texttt{t_convolution(f, g)} &= \sqrt{N} \times \texttt{t_ifft(t_fft(f)t_fft(g))}
@@ -756,7 +756,7 @@ class Lattice2D(H5able):
                 \\ &= N \times \frac{1}{N} \sum_{\nu, k}
                     e^{-2\pi i (\nu t + k x) / N} F_{\nu,k}G_{\nu,k}
                 \\
-                \texttt{convolution(f, g)} &= N \times \texttt{ifft(fft(f)fft(g))} 
+                \texttt{convolution(f, g)} &= N \times \texttt{ifft(fft(f)fft(g))}
                \end{align}
 
         Parameters
@@ -829,7 +829,12 @@ class Lattice2D(H5able):
         '''
         return  self.fft( self.fft(f, axes=axes).conj() * self.fft(g, axes=axes), axes=axes) / np.sqrt(self.sites)
 
-    def plot_form(self, p, form, axis, zorder=None, pointsize=200, linkwidth=0.025):
+    def plot_form(self, p, form, axis, label=None, zorder=None,
+                  cmap=None, cbar_kw=dict(),
+                  vmin=None, vmax=None,
+                  pointsize=200, linkwidth=0.025,
+                  background='white',
+                 ):
         r'''
         Plots the p-form on the axis.
 
@@ -837,7 +842,7 @@ class Lattice2D(H5able):
         See the source for details.
 
         .. plot:: examples/plot-forms.py
-        
+
         Parameters
         ----------
         p: int
@@ -846,48 +851,86 @@ class Lattice2D(H5able):
             The data constituting form.
         axis: matplotlib.pyplot.axis
             The axis on which to plot.
+        
+        Returns
+        -------
+        matplotlib.image.AxesImage:
+            A handle for the data-sensitive part of the plot.
+
+        Other Parameters
+        ----------------
+        label: string
+            If specified, show a colorbar with the title given by the label.
         zorder: float
             If `None` defaults to `zorder=-p` to layer plaquettes, links, and sites well.
+        cmap: string or matplotlib.colors.Colormap
+            If a string, it should name `a colormap known to matplotlib <https://matplotlib.org/stable/users/explain/colors/colormaps.html>`_.
+        cbar_kw: dict
+            A dictionary of keyword arguments forwarded to `the colorbar constructor <https://matplotlib.org/stable/api/figure_api.html#matplotlib.figure.Figure.colorbar>`_.
+
+        
         '''
-        zorder = -p if zorder is None else zorder
+        zorder = {'zorder': -p if zorder is None else zorder}
+        vmin = form.min() if vmin is None else vmin
+        vmax = form.max() if vmax is None else vmax
         
-        # levels = [-3, -2, -1, 0, 1, 2, 3]
-        # colors = ['red', 'orange', 'yellow', 'green', 'blue', 'indigo']
-        # import matplotlib
-        # cmap, norm = matplotlib.colors.from_levels_and_colors(levels, colors)
-
-        background='white'
-        marker = {'s': pointsize, 'edgecolor': background, 'linewidth': 2} 
+        marker = {
+            's': pointsize,
+            'edgecolor': background,
+            'linewidth': 2,
+        }
+        
         no_arrowhead = {'headwidth': 0, 'headlength': 0, 'headaxislength': 0,}
-        linkpadding = {'edgecolor': background, 'linewidth': 1}
+        linkpadding = {'edgecolor': background, 'linewidth': 4}
+        links = {
+            'scale_units': 'xy', 'scale': 1,
+            'width': linkwidth,
+            **no_arrowhead,
+            **linkpadding,
+            'clim': [vmin, vmax],
+            'cmap': cmap,
+        }
 
-        links = {'scale_units': 'xy', 'scale': 1, 'width': linkwidth, **no_arrowhead, **linkpadding}
-        
         if p == 0:
-            axis.scatter(self.T, self.X, c=form, zorder=zorder, **marker)
-        
+            f = axis.scatter(self.T, self.X, c=form, cmap=cmap, **zorder, **marker)
+
         if p == 1:
-            axis.quiver(self.T, self.X, 1, 0, form[0], zorder=zorder, **links)
-            # , cmap = cmap, norm = norm)
-            axis.quiver(self.T, self.X, 0, 1, form[1], zorder=zorder, **links)
-            # , cmap = cmap, norm = norm)
-            axis.scatter(self.T, self.X, color=background, zorder=zorder, **marker)
-            
+            # To get the horizontal links and vertical links to have the same coloring the simplest
+            # thing is to combine them into a single quiver.  We'll just completely flatten the 1-form
+            # which puts all the 0-direction links first and then all the 1-direction links.
+            # So, we need two copies of their starting directions...
+            T = np.tile(self.T.flatten(), 2)
+            X = np.tile(self.X.flatten(), 2)
+            # ... and to say that the first half point in the 0 direction and the latter half in the 1 direction ...
+            U = np.concatenate((np.ones_like (self.T.flatten()), np.zeros_like(self.T.flatten())))
+            V = np.concatenate((np.zeros_like(self.T.flatten()), np.ones_like (self.T.flatten())))
+            # and then we can plot the whole form together.
+            f = axis.quiver(T, X, U, V, form.flatten(), **zorder, **links)
+            axis.scatter(self.T, self.X, color=background, **zorder, **marker)
+
         if p == 2:
             # We roll the form because the figure should have (0,0) in the middle but the form has (0,0) in the corner.
             # We transpose because imshow goes in the 'other order'.
             form = self.roll(form, (self.nt // 2, self.nx // 2)).transpose()
-            axis.imshow(form, zorder=zorder, origin='lower', extent=(min(self.t), max(self.t)+1, min(self.x), max(self.x)+1))
-            axis.quiver(self.T, self.X, 1, 0, color='white', zorder=zorder, **links)
-            axis.quiver(self.T, self.X, 0, 1, color='white', zorder=zorder, **links)
-            axis.scatter(self.T, self.X, color=background, zorder=zorder, **marker)
+            f = axis.imshow(form, **zorder, cmap=cmap,
+                        origin='lower', extent=(min(self.t), max(self.t)+1, min(self.x), max(self.x)+1)
+                       )
+            axis.quiver(self.T, self.X, 1, 0, color='white', **zorder, **links)
+            axis.quiver(self.T, self.X, 0, 1, color='white', **zorder, **links)
+            axis.scatter(self.T, self.X, color=background, **zorder, **marker)
             axis.xaxis.set_zorder(-p)
             axis.yaxis.set_zorder(-p)
-            
+
+        if label:
+            cbar = axis.figure.colorbar(f, ax=axis, **cbar_kw)
+            cbar.ax.set_title(label)
+
         axis.set_xlim(min(self.t)-0.5, max(self.t)+1.5)
         axis.set_ylim(min(self.x)-0.5, max(self.x)+1.5)
         axis.set_xlabel('t')
         axis.set_ylabel('x')
+
+        return f
 
     def x_even(self, form, axis=-1):
         r'''
@@ -914,3 +957,63 @@ class Lattice2D(H5able):
         return 0.5*(form - np.roll(np.flip(form, axis=axis), 1, axis=axis))
 
     # TODO: spacetime point group symmetry projection to D4 irreps.
+
+    @cached_property
+    def point_group_permutations(self):
+        r'''
+        Lists of permutations of sites that correspond to the geometric transformations in ``point_group_operations``.
+        The starting order is the order in ``coordinates``.
+
+        '''
+
+        # These are computed lazily because the implementation of _point_group_permutations is quadratic.
+        return  np.stack(tuple(self._point_group_permutation(o) for o in self.point_group_operations))
+
+    def _point_group_permutation(self, operator):
+        # Since the operations map lattice points to lattice points we know that they are a permutation
+        # on the set of coordinates.
+        permutation = []
+        for i in range(self.sites):
+            for j in range(self.sites):
+                if (self.coordinates[i] == self.mod(np.matmul(operator, self.coordinates[j]))).all():
+                    permutation += [j]
+                    continue # since a permutation is one-to-one
+        return np.array(permutation)
+
+    def irrep(self, correlator, irrep='A1', conjugate=False, dims=(-1,)):
+        r'''
+
+        The point group of a 2D lattice is $D_4$ and the structure and irreps are detailed in `https://two-dimensional-gasses.readthedocs.io/en/latest/computational-narrative/D4.html <the tdg documentation>`_\, where the spatial lattice is 2D.
+
+        .. plot:: examples/plot-D4-irreps.py
+
+        .. note::
+            Currently we only know how project scalar correlators that depend on a single spatial separation.
+
+        Parameters
+        ----------
+            data: np.ndarray
+                Data whose `axes` should be symmetrized.
+            irrep: one of ``.point_group_irreps``
+                The irrep to project to.
+            conjugate: `True` or `False`
+                The weights are conjugated, which only affects the E representations.
+            dims:
+                The latter of an adjacent time/space pair of dimensions.
+                The dimensions will be linearized and therefore must be adjacent.
+
+        Returns
+        -------
+            A complex-valued torch.tensor of the same shape as data, but with the axis projected to the requested irrep.
+        '''
+
+        C = self.linearize(correlator, dims=dims)
+        temp = np.zeros_like(C) + 0.j
+
+        for p, w in zip(
+                self.point_group_permutations,
+                self.point_group_weights[irrep] if not conjugate else self.point_group_weights[irrep].conj()
+                ):
+            temp += w * np.take(C, p, -1)
+
+        return self.coordinatize(temp, dims=dims)

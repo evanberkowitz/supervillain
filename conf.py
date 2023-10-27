@@ -64,3 +64,4 @@ autodoc_default_options = {
 }
 
 todo_include_todos=True
+napoleon_use_param=False #see https://github.com/sphinx-doc/sphinx/issues/10330

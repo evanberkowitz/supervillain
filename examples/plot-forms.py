@@ -25,10 +25,10 @@ with logging_redirect_tqdm():
     e = supervillain.Ensemble(S).generate(args.configurations, G, start='cold', progress=tqdm)
 
 fig, ax = plt.subplots(1,1,
-    figsize=(6, 6),
+    figsize=(12, 6),
 )
 
-fig.suptitle(f'{S}', fontsize=16)
+ax.set_title(f'{S}', fontsize=16)
 
 cfg = e.configurations[-1]
 phi = cfg['phi']
@@ -37,9 +37,10 @@ n   = cfg['n']
 links = (L.d(0, phi) - 2*np.pi*n)
 winding = L.d(1, n)
 
-L.plot_form(0, phi,  ax)
-L.plot_form(1, links,   ax)
-L.plot_form(2, winding, ax)
+# Note: this combination of colormaps is not aesthetically recommended!
+L.plot_form(0, phi,     ax, cmap='rainbow', label='sites')
+L.plot_form(1, links,   ax, cmap='tab20b',  label='links')
+L.plot_form(2, winding, ax, cmap='tab20c',  label='plaquettes')
 
 fig.tight_layout()
 plt.show()
