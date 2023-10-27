@@ -224,7 +224,7 @@ class Lattice2D(H5able):
             center_origin: boolean
                 If true, each coordinatized dimension is rolled so that the origin is in the center of the two slices.  This is primarily good for making pictures.  :func:`~.linearize` does not provide an inverse of this, because you really should not do it in the middle of a calculation!
 
-                
+            
             
         Returns
         -------
@@ -272,7 +272,7 @@ class Lattice2D(H5able):
 
         .. note::
             The ``dims`` parameter may be a bit confusing.  This perhaps-peculiar convention is to make it easier to
-            combine with ``coordinatize``.  ``linearize`` and ``coordinatize`` are inverses when they get *the same* 
+            combine with ``coordinatize``.  ``linearize`` and ``coordinatize`` are inverses when they get *the same*
             dims arguments.
 
             >>> import numpy as np
@@ -299,7 +299,7 @@ class Lattice2D(H5able):
         
         future_dims = v_dims - (len(self.dims)-1) * len(dm)
         dm = set(d % future_dims for d in dm)
-            
+        
         new_shape = []
         idx = 0
         for i in range(future_dims):
@@ -495,7 +495,7 @@ class Lattice2D(H5able):
                    \begin{align}
                     (f * g)(t) &= \sum_\tau  f(\tau ) g(t-\tau )
                     \\  &= \sum_{\tau } \left( \frac{1}{\sqrt{N}} \sum_\nu e^{2\pi i \nu \tau  / N} F_\nu \right)\left( \frac{1}{\sqrt{N}} \sum_{\nu'} e^{2\pi i \nu' (t-\tau ) / N} G_{\nu'} \right)
-                    \\  &= \sum_{\nu\nu'} e^{2\pi i \nu' t / N} F_\nu G_{\nu'} \left(\frac{1}{N} \sum_{\tau} e^{2\pi i (\nu-\nu') \tau  / N} \right) 
+                    \\  &= \sum_{\nu\nu'} e^{2\pi i \nu' t / N} F_\nu G_{\nu'} \left(\frac{1}{N} \sum_{\tau} e^{2\pi i (\nu-\nu') \tau  / N} \right)
                     \\  &= \sum_{\nu} e^{2\pi i \nu t / N} F_\nu G_\nu
                     \\
                     \texttt{t_convolution(f, g)} &= \sqrt{N} \times \texttt{t_ifft(t_fft(f)t_fft(g))}
@@ -781,7 +781,7 @@ class Lattice2D(H5able):
                 \\ &= N \times \frac{1}{N} \sum_{\nu, k}
                     e^{-2\pi i (\nu t + k x) / N} F_{\nu,k}G_{\nu,k}
                 \\
-                \texttt{convolution(f, g)} &= N \times \texttt{ifft(fft(f)fft(g))} 
+                \texttt{convolution(f, g)} &= N \times \texttt{ifft(fft(f)fft(g))}
                \end{align}
 
         Parameters
@@ -1023,7 +1023,7 @@ class Lattice2D(H5able):
                 The irrep to project to.
             conjugate: `True` or `False`
                 The weights are conjugated, which only affects the E representations.
-            dims: 
+            dims:
                 The latter of an adjacent time/space pair of dimensions.
                 The dimensions will be linearized and therefore must be adjacent.
 
