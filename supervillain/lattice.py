@@ -854,7 +854,12 @@ class Lattice2D(H5able):
         '''
         return  self.fft( self.fft(f, axes=axes).conj() * self.fft(g, axes=axes), axes=axes) / np.sqrt(self.sites)
 
-    def plot_form(self, p, form, axis, zorder=None, pointsize=200, linkwidth=0.025):
+    def plot_form(self, p, form, axis, label=None, zorder=None,
+                  cmap=None, cbar_kw=dict(),
+                  vmin=None, vmax=None,
+                  pointsize=200, linkwidth=0.025,
+                  background='white',
+                 ):
         r'''
         Plots the p-form on the axis.
 
@@ -862,7 +867,7 @@ class Lattice2D(H5able):
         See the source for details.
 
         .. plot:: examples/plot-forms.py
-        
+
         Parameters
         ----------
         p: int
@@ -871,41 +876,86 @@ class Lattice2D(H5able):
             The data constituting form.
         axis: matplotlib.pyplot.axis
             The axis on which to plot.
+        
+        Returns
+        -------
+        matplotlib.image.AxesImage:
+            A handle for the data-sensitive part of the plot.
+
+        Other Parameters
+        ----------------
+        label: string
+            If specified, show a colorbar with the title given by the label.
         zorder: float
             If `None` defaults to `zorder=-p` to layer plaquettes, links, and sites well.
-        '''
-        zorder = -p if zorder is None else zorder
+        cmap: string or matplotlib.colors.Colormap
+            If a string, it should name `a colormap known to matplotlib <https://matplotlib.org/stable/users/explain/colors/colormaps.html>`_.
+        cbar_kw: dict
+            A dictionary of keyword arguments forwarded to `the colorbar constructor <https://matplotlib.org/stable/api/figure_api.html#matplotlib.figure.Figure.colorbar>`_.
+
         
-        background='white'
-        marker = {'s': pointsize, 'edgecolor': background, 'linewidth': 2} 
+        '''
+        zorder = {'zorder': -p if zorder is None else zorder}
+        vmin = form.min() if vmin is None else vmin
+        vmax = form.max() if vmax is None else vmax
+        
+        marker = {
+            's': pointsize,
+            'edgecolor': background,
+            'linewidth': 2,
+        }
+        
         no_arrowhead = {'headwidth': 0, 'headlength': 0, 'headaxislength': 0,}
         linkpadding = {'edgecolor': background, 'linewidth': 4}
-        
-        links = {'scale_units': 'xy', 'scale': 1, 'width': linkwidth, **no_arrowhead, **linkpadding}
-        
+        links = {
+            'scale_units': 'xy', 'scale': 1,
+            'width': linkwidth,
+            **no_arrowhead,
+            **linkpadding,
+            'clim': [vmin, vmax],
+            'cmap': cmap,
+        }
+
         if p == 0:
-            axis.scatter(self.T, self.X, c=form, zorder=zorder, **marker)
-        
+            f = axis.scatter(self.T, self.X, c=form, cmap=cmap, **zorder, **marker)
+
         if p == 1:
-            axis.quiver(self.T, self.X, 1, 0, form[0], zorder=zorder, **links)
-            axis.quiver(self.T, self.X, 0, 1, form[1], zorder=zorder, **links)
-            axis.scatter(self.T, self.X, color=background, zorder=zorder, **marker)
-            
+            # To get the horizontal links and vertical links to have the same coloring the simplest
+            # thing is to combine them into a single quiver.  We'll just completely flatten the 1-form
+            # which puts all the 0-direction links first and then all the 1-direction links.
+            # So, we need two copies of their starting directions...
+            T = np.tile(self.T.flatten(), 2)
+            X = np.tile(self.X.flatten(), 2)
+            # ... and to say that the first half point in the 0 direction and the latter half in the 1 direction ...
+            U = np.concatenate((np.ones_like (self.T.flatten()), np.zeros_like(self.T.flatten())))
+            V = np.concatenate((np.zeros_like(self.T.flatten()), np.ones_like (self.T.flatten())))
+            # and then we can plot the whole form together.
+            f = axis.quiver(T, X, U, V, form.flatten(), **zorder, **links)
+            axis.scatter(self.T, self.X, color=background, **zorder, **marker)
+
         if p == 2:
             # We roll the form because the figure should have (0,0) in the middle but the form has (0,0) in the corner.
             # We transpose because imshow goes in the 'other order'.
             form = self.roll(form, (self.nt // 2, self.nx // 2)).transpose()
-            axis.imshow(form, zorder=zorder, origin='lower', extent=(min(self.t), max(self.t)+1, min(self.x), max(self.x)+1))
-            axis.quiver(self.T, self.X, 1, 0, color='white', zorder=zorder, **links)
-            axis.quiver(self.T, self.X, 0, 1, color='white', zorder=zorder, **links)
-            axis.scatter(self.T, self.X, color=background, zorder=zorder, **marker)
+            f = axis.imshow(form, **zorder, cmap=cmap,
+                        origin='lower', extent=(min(self.t), max(self.t)+1, min(self.x), max(self.x)+1)
+                       )
+            axis.quiver(self.T, self.X, 1, 0, color='white', **zorder, **links)
+            axis.quiver(self.T, self.X, 0, 1, color='white', **zorder, **links)
+            axis.scatter(self.T, self.X, color=background, **zorder, **marker)
             axis.xaxis.set_zorder(-p)
             axis.yaxis.set_zorder(-p)
-            
+
+        if label:
+            cbar = axis.figure.colorbar(f, ax=axis, **cbar_kw)
+            cbar.ax.set_title(label)
+
         axis.set_xlim(min(self.t)-0.5, max(self.t)+1.5)
         axis.set_ylim(min(self.x)-0.5, max(self.x)+1.5)
         axis.set_xlabel('t')
         axis.set_ylabel('x')
+
+        return f
 
     def x_even(self, form, axis=-1):
         r'''
