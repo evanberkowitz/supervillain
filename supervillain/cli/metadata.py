@@ -1,5 +1,5 @@
 import supervillain.meta
-#from supervillain.license import copyright, license
+from supervillain.license import copyright, license
 import argparse
 
 # Every metadata flag will print something and then cause the program to exit.
@@ -19,7 +19,10 @@ def print_and_exit(description, data):
     # which, when called
         def __call__(self, parser, namespace, values, option_string):
             # prints and exits.
-            print(data)
+            if callable(data):
+                print(data())
+            else:
+                print(data)
             exit()
 
     # Return a dictionary which can be **unpacked.
@@ -41,8 +44,8 @@ def defaults():
     '''
     meta_arguments = argparse.ArgumentParser(add_help=False)
     meta_arguments.add_argument('--version', **print_and_exit("the version", supervillain.meta.version))
-    #meta_arguments.add_argument('--copyright', **print_and_exit("copyright information", copyright))
-    #meta_arguments.add_argument('--license', **print_and_exit("the license", license))
+    meta_arguments.add_argument('--copyright', **print_and_exit("copyright information", copyright))
+    meta_arguments.add_argument('--license', **print_and_exit("the license", license))
 
     return meta_arguments
 
