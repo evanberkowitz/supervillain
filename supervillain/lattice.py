@@ -868,9 +868,9 @@ class Lattice2D(H5able):
         
         if p == 1:
             axis.quiver(self.T, self.X, 1, 0, form[0], zorder=zorder, **links)
-            # cmap = cmap, norm = norm)
+            # , cmap = cmap, norm = norm)
             axis.quiver(self.T, self.X, 0, 1, form[1], zorder=zorder, **links)
-            # cmap = cmap), norm = norm)
+            # , cmap = cmap, norm = norm)
             axis.scatter(self.T, self.X, color=background, zorder=zorder, **marker)
             
         if p == 2:

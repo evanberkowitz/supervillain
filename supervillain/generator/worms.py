@@ -7,6 +7,16 @@ from supervillain.h5 import H5able
 import logging
 logger = logging.getLogger(__name__)
 
+#Random start
+#New direction randomly
+#Move worm
+
+#Try larger kappas?
+
+class SimpleWorm(H5able):
+    pass
+#?
+
 class UndirectedWorm(H5able):
     r'''
     '''
@@ -28,6 +38,7 @@ class UndirectedWorm(H5able):
         #Debugging lists to diagnose a worm ensemble
         self.startpointlist = []
         self.lastconfigslist = []
+        self.endconfiglist = []
         self.lastsiteslist = []
         self.lengthslist = []
         self.lastprobslist = []
@@ -57,53 +68,53 @@ class UndirectedWorm(H5able):
         proposedlink = currentlink + 1
         proposedconfigpT[0,currentsite[0],currentsite[1]] += 1
         #Difference in Action (Energy in literature) between proposition and current state
-        deltaEpT = 1/(2*self.kappa)*(proposedlink**2 - currentlink**2)
-        AEpT = min(1,np.exp(-deltaEpT/self.Action.kappa))
+        deltaSpT = 1/(2*self.kappa)*(proposedlink**2 - currentlink**2)
+        ASpT = min(1,np.exp(-deltaSpT))
 
         # -T
         proposedconfigmT = cfg.copy()
         currentlink = proposedconfigmT[0,mT[0],mT[1]]
         proposedlink = currentlink - 1
         proposedconfigmT[0,currentsite[0],currentsite[1]] -= 1
-        deltaEmT = 1/(2*self.kappa)*(proposedlink**2 - currentlink**2)
-        AEmT = min(1,np.exp(-deltaEmT/self.Action.kappa))
+        deltaSmT = 1/(2*self.kappa)*(proposedlink**2 - currentlink**2)
+        ASmT = min(1,np.exp(-deltaSmT))
         
         #+X
         proposedconfigpX = cfg.copy()
-        currentlink = proposedconfigpX[0,currentsite[0],currentsite[1]]
+        currentlink = proposedconfigpX[1,currentsite[0],currentsite[1]]
         proposedlink = currentlink + 1
         proposedconfigpX[1,currentsite[0],currentsite[1]] += 1
-        deltaEpX = 1/(2*self.kappa)*(proposedlink**2 - currentlink**2)
-        AEpX = min(1,np.exp(-deltaEpX/self.Action.kappa))
+        deltaSpX = 1/(2*self.kappa)*(proposedlink**2 - currentlink**2)
+        ASpX = min(1,np.exp(-deltaSpX))
         
         #-X
         proposedconfigmX = cfg.copy()
-        currentlink = proposedconfigmX[0,mX[0],mX[1]]
+        currentlink = proposedconfigmX[1,mX[0],mX[1]]
         proposedlink = currentlink - 1
         proposedconfigmX[1,currentsite[0],currentsite[1]] -= 1
-        deltaEmX = 1/(2*self.kappa)*(proposedlink**2 - currentlink**2)
-        AEmX = min(1,np.exp(-deltaEmX/self.Action.kappa))
+        deltaSmX = 1/(2*self.kappa)*(proposedlink**2 - currentlink**2)
+        ASmX = min(1,np.exp(-deltaSmX))
 
         #Normalization for the weighting of 4 directons
-        N = np.sum(np.array([AEpT,AEmT,AEpX,AEmX]))
+        N = np.sum(np.array([ASpT,ASmT,ASpX,ASmX]))
         #I was running into errors where the normalization was 0, so this was to help debug that
         #If anyone has suggestions about how to better do this using a logger please let me know
         if(N == 0):
             print('Error')
-            print([AEpT,AEmT,AEpX,AEmX])
-            print([deltaEpT,deltaEmT,deltaEpX,deltaEmX])
+            print([ASpT,ASmT,ASpX,ASmX])
+            print([deltaSpT,deltaSmT,deltaSpX,deltaSmX])
             print(currentsite)
             raise ValueError('N is 0')
         
         #The weights for each direction
         #+T
-        PpT = AEpT/N
+        PpT = ASpT/N
         #-T
-        PmT = AEmT/N
+        PmT = ASmT/N
         #+X
-        PpX = AEpX/N
+        PpX = ASpX/N
         #-X
-        PmX = AEmX/N
+        PmX = ASmX/N
 
         chosenDirection = self.rng.choice([1,2,3,4],p=[PpT,PmT,PpX,PmX])
         #1=PpT=+T, 2=PmT=-T, 3=PpX=+X, 4=PmX=-X
@@ -155,6 +166,7 @@ class UndirectedWorm(H5able):
         #At each step, randomly choose a first site for the worm
         startpoint = self.rng.choice(self.Lattice.coordinates)
         self.startpoint = startpoint
+        self.startpointlist.append(startpoint)
         #Initializing value for endpoint so that the loop runs
         endpoint = np.empty_like(startpoint)
         #The 'head' of the worm
@@ -180,14 +192,13 @@ class UndirectedWorm(H5able):
             propositions += 1
             #When a worm is stuck in a cycle, I currently break the loop to examine
             #configurations leading up to the stall
-            if propositions>1000:
+            if propositions>100000:
                 print(propositions)
                 print([endpoint,startpoint])
                 print(f'{probs[0]:3f}, {probs[1]:3f}, {probs[2]:3f}, {probs[3]:3f}')
-                for i in range(50):
-                    self.lastsiteslist = siteslist
-                    self.lastconfigslist = configlist
-                    self.lastprobslist = probslist
+                self.lastsiteslist = siteslist
+                self.lastconfigslist = configlist
+                self.lastprobslist = probslist
                 raise ValueError
             # print(self.Action.valid(currentconfig))
         #Calculates the total length of all worm(s) proposed in a step
@@ -202,4 +213,5 @@ class UndirectedWorm(H5able):
         #Updates average length
         self.avg_length = max(1,self.total_length)/max(1,self.worm_count)
         current['m'] = currentconfig
+        self.endconfiglist.append(currentconfig)
         return current
