@@ -128,6 +128,31 @@ class Lattice2D(H5able):
                [-1, -1]])
         '''
 
+        self.point_group_operations = np.array((
+                    # Matches the order of the (a,b) orbit in docs/D4.rst
+                    # That makes it easy to read off the weights
+                    ((+1,0),(0,+1)), # identity
+                    ((0,+1),(+1,0)), # reflect across y=+x
+                    ((0,-1),(+1,0)), # rotate(π/2)
+                    ((-1,0),(0,+1)), # reflect across y-axis
+                    ((-1,0),(0,-1)), # rotate(π) = inversion
+                    ((0,-1),(-1,0)), # reflect across y=-x
+                    ((0,+1),(-1,0)), # rotate(3π/2)
+                    ((+1,0),(0,-1)), # reflect across x-axis
+                ))
+
+        self.point_group_weights = {
+            'A1': np.array((+1,+1,+1,+1,+1,+1,+1,+1))/8 + 0.j,
+            'A2': np.array((+1,-1,+1,-1,+1,-1,+1,-1))/8 + 0.j,
+            'B1': np.array((+1,-1,-1,+1,+1,-1,-1,+1))/8 + 0.j,
+            'B2': np.array((+1,+1,-1,-1,+1,+1,-1,-1))/8 + 0.j,
+            "E+": np.array((+1,+1j,+1j,-1,-1,-1j,-1j,+1))/8,
+            "E-": np.array((+1,-1j,-1j,-1,-1,+1j,+1j,+1))/8,
+            "E'+": np.array((+1,-1j,+1j,+1,-1,+1j,-1j,-1))/8,
+            "E'-": np.array((+1,+1j,-1j,+1,-1,-1j,+1j,-1))/8,
+        }
+        self.point_group_irreps = tuple(self.point_group_weights.keys())
+
     def __str__(self):
         return f'Lattice2D({self.nt},{self.nx})'
 
