@@ -39,22 +39,28 @@ class UndirectedWorm(H5able):
         self.startpointlist = []
         self.lastconfigslist = []
         self.endconfiglist = []
+        self.endconfiglist_before_erasure = []
         self.lastsiteslist = []
         self.lengthslist = []
         self.lastprobslist = []
+        self.erasedlist = []
 
-        #Counter for total length of all worms
-        #Calculated by taking the abs of the worm (difference of new vs old config) and totalling.
-        self.total_length = 0
-        #Count of how many worms have been attempted (including erased/trivial worms)
-        self.worm_count = 0
-        self.avg_length = max(1,self.total_length)/max(1,self.worm_count)
 
         #TODO: Implement statistics monitors
         self.accepted = 0
         self.proposed = 0
         self.acceptance = 0.
+        #Count of how many worms have been attempted (including erased/trivial worms)
         self.sweeps = 0
+        #Counter for total length of all worms
+        #Calculated by taking the abs of the worm (difference of new vs old config) and totalling.
+        self.total_length = 0
+        #Counts total number of accepted, non-zero worms (Not accounting for disconnected steps)
+        self.worm_count = 0
+        self.erasure_Ns = []
+        self.avg_length_all = max(1,self.total_length)/max(1,self.sweeps)
+        self.avg_length_accepted = max(1,self.total_length)/max(1,self.accepted)
+        self.avg_length_nontriv = max(1,self.total_length)/max(1,self.worm_count)
 
     def burrow(self, cfg, currentsite):
         # Takes in the current position of the worm, returns the new configuration after the worm has moved and the coordinate to which it has burrowed.
@@ -144,7 +150,7 @@ class UndirectedWorm(H5able):
             newconfig[1,linksite[0],linksite[1]] -= 1
             newsite = mX
 
-        return [newconfig,newsite,[PpT,PmT,PpX,PmX]]
+        return [newconfig,newsite,[PpT,PmT,PpX,PmX],N]
 
     def step(self, cfg):
         # Step encapsulates one iteration of a worm to completion, either with acceptance or erasure
@@ -176,42 +182,80 @@ class UndirectedWorm(H5able):
         probslist = []
         siteslist = []
         
-        propositions=0
+        burrows=0
         length = 0
 
         currentconfig = cfg['m']
         initconfig = currentconfig.copy()
         while (endpoint != startpoint).any():
-            newconfig, endpoint, probs = self.burrow(currentconfig, currentpoint)
+            newconfig, endpoint, probs, Ns = self.burrow(currentconfig, currentpoint)
             #Updates position of the head of the worm
             currentpoint = endpoint.copy()
             currentconfig = newconfig.copy()
             configlist.append(currentconfig)
             siteslist.append(endpoint)
             probslist.append(probs)
-            propositions += 1
+            burrows += 1
             #When a worm is stuck in a cycle, I currently break the loop to examine
             #configurations leading up to the stall
-            if propositions>100000:
-                print(propositions)
-                print([endpoint,startpoint])
-                print(f'{probs[0]:3f}, {probs[1]:3f}, {probs[2]:3f}, {probs[3]:3f}')
-                self.lastsiteslist = siteslist
-                self.lastconfigslist = configlist
-                self.lastprobslist = probslist
-                raise ValueError
+            # print(burrows)
+            # print([endpoint,startpoint])
+            # print(f'{probs[0]:3f}, {probs[1]:3f}, {probs[2]:3f}, {probs[3]:3f}')
+            self.lastsiteslist = siteslist
+            self.lastconfigslist = configlist
+            self.lastprobslist = probslist
+            #     raise ValueError
             # print(self.Action.valid(currentconfig))
+            
+
         #Calculates the total length of all worm(s) proposed in a step
         length = np.sum(np.abs(currentconfig-initconfig))
         self.lengthslist.append(length)
-        self.total_length += length
-        logger.debug(f'Steps: {propositions}')
+        self.endconfiglist_before_erasure.append(currentconfig)
+        #Worm erasure step
+        #N_no_worm
+        _,_,_,nwN = self.burrow(cfg['m'],startpoint)
+        _,_,_,wN = self.burrow(currentconfig,startpoint)
+        self.erasure_Ns.append([nwN,wN])
+        erasure_metropolis = self.rng.uniform(0,1)
+        erasure_prob = 1-min([1,nwN/wN])
+        self.acceptance += 1-erasure_prob
+        if(erasure_metropolis <= erasure_prob):
+            currentconfig = cfg['m'].copy()
+            logger.debug('Worm erased')
+            self.erasedlist.append(True)
+            if length != 0:
+            #TODO: For steps that create two disconnected worms, it may be necessary to count each separately
+                self.worm_count += 1
+        else:
+            logger.debug('Worm not erased')
+            self.accepted += 1
+            self.erasedlist.append(False)
+            self.total_length += length
+            if length != 0:
+            #TODO: For steps that create two disconnected worms, it may be necessary to count each separately
+                self.worm_count += 1
+        logger.debug(f'Burrows: {burrows}')
         logger.debug(f'Length: {length}')
         current = {}
-        #TODO: For steps that create two disconnected worms, it may be necessary to count each separately
-        self.worm_count += 1
+        self.sweeps += 1
+
         #Updates average length
-        self.avg_length = max(1,self.total_length)/max(1,self.worm_count)
+        self.avg_length_all = max(1,self.total_length)/max(1,self.sweeps)
+        self.avg_length_accepted = max(1,self.total_length)/max(1,self.accepted)
+        self.avg_length_nontriv = max(1,self.total_length)/max(1,self.worm_count)
         current['m'] = currentconfig
         self.endconfiglist.append(currentconfig)
         return current
+    
+    def report(self):
+        r'''
+        Returns a string with some summarizing statistics.
+        '''
+        return (
+            f'There were {self.accepted} single-site proposals accepted of {self.proposed} proposed updates.'
+            +'\n'+
+            f'    {self.accepted/self.sweeps:.6f} acceptance rate' 
+            +'\n'+
+            f'    {self.acceptance / self.sweeps:.6f} average Metropolis acceptance probability.'
+        )
