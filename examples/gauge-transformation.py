@@ -8,7 +8,7 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 
 import supervillain
 
-parser = supervillain.cli.ArgumentParser()
+parser = supervillain.cli.ArgumentParser(description='Tests the gauge invariance of a variety of observables in the Villain formulation.  Exits with the number of failures; 0 if everything passes.')
 parser.add_argument('--N', type=int, default=5, help='Sites on a side.')
 parser.add_argument('--kappa', type=float, default=0.5, help='κ.')
 parser.add_argument('--configurations', type=int, default=1000)
@@ -82,3 +82,5 @@ if len(failed) > 0:
     print(f'\n{len(failed)} observables changed under gauge transformation           worst difference')
     for (o, worst) in failed:
         print(f'FAILED: {o:50s} {worst}')
+
+exit(len(failed))
