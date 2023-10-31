@@ -855,7 +855,7 @@ class Lattice2D(H5able):
         return  self.fft( self.fft(f, axes=axes).conj() * self.fft(g, axes=axes), axes=axes) / np.sqrt(self.sites)
 
     def plot_form(self, p, form, axis, label=None, zorder=None,
-                  cmap=None, cbar_kw=dict(),
+                  cmap=None, cbar_kw=dict(), norm=None,
                   vmin=None, vmax=None,
                   pointsize=200, linkwidth=0.025,
                   background='white',
@@ -892,8 +892,8 @@ class Lattice2D(H5able):
             If a string, it should name `a colormap known to matplotlib <https://matplotlib.org/stable/users/explain/colors/colormaps.html>`_.
         cbar_kw: dict
             A dictionary of keyword arguments forwarded to `the colorbar constructor <https://matplotlib.org/stable/api/figure_api.html#matplotlib.figure.Figure.colorbar>`_.
-
-        
+        norm: matplotlib.colors.Normalize
+            A `matplotlib color normalization <https://matplotlib.org/stable/users/explain/colors/colormapnorms.html>`_.
         '''
         zorder = {'zorder': -p if zorder is None else zorder}
         vmin = form.min() if vmin is None else vmin
@@ -903,8 +903,9 @@ class Lattice2D(H5able):
             's': pointsize,
             'edgecolor': background,
             'linewidth': 2,
+            'norm': norm,
         }
-        
+
         no_arrowhead = {'headwidth': 0, 'headlength': 0, 'headaxislength': 0,}
         linkpadding = {'edgecolor': background, 'linewidth': 4}
         links = {
@@ -914,6 +915,7 @@ class Lattice2D(H5able):
             **linkpadding,
             'clim': [vmin, vmax],
             'cmap': cmap,
+            'norm': norm,
         }
 
         if p == 0:
@@ -938,7 +940,8 @@ class Lattice2D(H5able):
             # We transpose because imshow goes in the 'other order'.
             form = self.roll(form, (self.nt // 2, self.nx // 2)).transpose()
             f = axis.imshow(form, **zorder, cmap=cmap,
-                        origin='lower', extent=(min(self.t), max(self.t)+1, min(self.x), max(self.x)+1)
+                        origin='lower', extent=(min(self.t), max(self.t)+1, min(self.x), max(self.x)+1),
+                        norm=norm,
                        )
             axis.quiver(self.T, self.X, 1, 0, color='white', **zorder, **links)
             axis.quiver(self.T, self.X, 0, 1, color='white', **zorder, **links)
