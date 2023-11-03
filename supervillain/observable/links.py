@@ -23,7 +23,7 @@ class Links(Observable):
         return L.d(0, phi) - 2*np.pi*n
 
     @staticmethod
-    def Worldline(S, m):
+    def Worldline(S, m, v):
         r'''
         .. math ::
             \texttt{Links}_{\ell} = m
@@ -31,4 +31,7 @@ class Links(Observable):
         '''
 
         L = S.Lattice
-        return m
+        if S.W == 1:
+            return m
+        else:
+            return m - L.delta(2, v) / S.W
