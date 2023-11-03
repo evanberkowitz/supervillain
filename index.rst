@@ -11,6 +11,7 @@ supervillain
    :caption: Contents:
 
    supervillain/action
+   supervillain/worldline
    supervillain/lattice
    supervillain/ensemble
    supervillain/generator
