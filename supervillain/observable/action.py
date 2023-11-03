@@ -38,7 +38,7 @@ class ActionDensity(Observable):
 
         .. math ::
            \begin{align}
-            \mathcal{S} &= \left\langle \kappa \partial_\kappa S \right\rangle = - \frac{1}{2\kappa} \sum_{\ell} m_\ell^2 + \frac{|\ell|}{2}.
+            \mathcal{S} &= \left\langle \kappa \partial_\kappa S \right\rangle = - \frac{1}{2\kappa} \sum_{\ell} (m-\delta v/W)_\ell^2 + \frac{|\ell|}{2}.
            \end{align}
 
         '''
@@ -110,8 +110,8 @@ class ActionTwoPoint(Observable):
         .. math ::
             \left.(\kappa_y \partial_{\kappa_y} S) (\kappa_x \partial_{\kappa_x} S)\right|_{\kappa_{x,y} = \kappa}
             =
-            \left(1 - \frac{1}{2\kappa} \sum_{\ell \text{ from } y} m_\ell^2 \right)
-            \left(1 - \frac{1}{2\kappa} \sum_{\ell \text{ from } x} m_\ell^2 \right)
+            \left(1 - \frac{1}{2\kappa} \sum_{\ell \text{ from } y} (m-\delta v/W)_\ell^2 \right)
+            \left(1 - \frac{1}{2\kappa} \sum_{\ell \text{ from } x} (m-\delta v/W)_\ell^2 \right)
 
         while
         
@@ -119,7 +119,7 @@ class ActionTwoPoint(Observable):
             \left.\delta_{xy} \kappa_x \partial_{\kappa_x} S \right|_{\kappa_x = \kappa}
             =
             \delta_{xy} \left(
-                1 - \frac{1}{2\kappa} \sum_{\ell \text{ from } x} m_\ell^2
+                1 - \frac{1}{2\kappa} \sum_{\ell \text{ from } x} (m-\delta v/W)_\ell^2
             \right)
 
         and
@@ -127,7 +127,7 @@ class ActionTwoPoint(Observable):
         .. math ::
             \left.\kappa_y \kappa_x \partial_{\kappa_y} \partial_{\kappa_x} S\right|_{\kappa_{x,y} = \kappa}
             =
-            \delta_{xy} \left(-1 + \frac{1}{\kappa} \sum_{\ell \text{ from } x} m_\ell^2\right).
+            \delta_{xy} \left(-1 + \frac{1}{\kappa} \sum_{\ell \text{ from } x} (m-\delta v/W)_\ell^2\right).
 
         '''
         
@@ -142,7 +142,7 @@ class ActionTwoPoint(Observable):
         # The averaging over x of the δ terms just modifies Δx=0.
         # We can simplify 1/Λ ∑_x δ_{x,x-Δx} f_x = δ_{Δx, 0} 1/Λ ∑_x f_x which means the Δx=0
         # piece of the correlator needs adjustment by the average f.
-        # In this case f = m^2 / 2κ,
+        # In this case f = (m-δv/W)^2 / 2κ,
         # what is left from cancelling the local one-derivative against the two-derivative term.
 
         delta = m_squared / 2 / kappa

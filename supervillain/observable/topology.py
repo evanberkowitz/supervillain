@@ -41,7 +41,7 @@ class WindingSquared(Observable):
 
         .. math::
 
-            w_p =  \frac{1}{\pi^2 \kappa}-\frac{1}{(2\pi \kappa)^2}\left\langle (dm)_p^2 \right\rangle.
+            w_p =  \frac{1}{\pi^2 \kappa}-\frac{1}{(2\pi \kappa)^2}\left\langle [d(m-\delta v/W)]_p^2 \right\rangle.
 
         because $\delta / \delta J_p ( d \delta J_p) = 4$.
         '''
@@ -85,11 +85,11 @@ class Winding_Winding(Observable):
             .. math::
                 \begin{align}
                 S_J[m, v]
-                    &= \frac{1}{2\kappa} \sum_\ell \left(m - \frac{\delta J}{2\pi}\right)_\ell^2 + \text{constants}
+                    &= \frac{1}{2\kappa} \sum_\ell \left((m-\delta v/W) - \frac{\delta J}{2\pi}\right)_\ell^2 + \text{constants}
                     \\
-                    &= \frac{1}{2\kappa} \sum_\ell \left(m_\ell^2 - \frac{1}{\pi} m_\ell (\delta J)_\ell + \frac{1}{4\pi^2} (\delta J)_\ell^2 \right)+ \text{constants}
+                    &= \frac{1}{2\kappa} \sum_\ell \left((m-\delta v/W)_\ell^2 - \frac{1}{\pi} (m-\delta v/W)_\ell (\delta J)_\ell + \frac{1}{4\pi^2} (\delta J)_\ell^2 \right)+ \text{constants}
                     \\
-                    &= \frac{1}{2\kappa} \left(\sum_\ell m_\ell^2 + \sum_p - \frac{1}{\pi} (dm)_p J_p + \frac{1}{4\pi^2} J_p (d \delta J)_p \right)+ \text{constants}
+                    &= \frac{1}{2\kappa} \left(\sum_\ell (m-\delta v/W)_\ell^2 + \sum_p - \frac{1}{\pi} (d(m-\delta v/W))_p J_p + \frac{1}{4\pi^2} J_p (d \delta J)_p \right)+ \text{constants}
                 \end{align}
 
             where we integrated two terms by parts to get $J$ undecorated.
@@ -101,7 +101,7 @@ class Winding_Winding(Observable):
                 \frac{\delta}{\delta J_p} \log Z
                     &= -\frac{1}{Z} \sum Dm\; Dv\; [\delta m = 0] e^{-S_J[m, v]} \frac{\delta S}{\delta J_p}
                     \\
-                    &= \frac{1}{Z} \sum Dm\; Dv\; [\delta m = 0] e^{-S_J[m, v]} \frac{-1}{2\kappa}\left( -\frac{1}{\pi} (dm)_p + \frac{2}{4\pi^2} (d\delta J)_p \right)
+                    &= \frac{1}{Z} \sum Dm\; Dv\; [\delta m = 0] e^{-S_J[m, v]} \frac{-1}{2\kappa}\left( -\frac{1}{\pi} (d(m-\delta v/W))_p + \frac{2}{4\pi^2} (d\delta J)_p \right)
                 \end{align}
 
             where the factor of 2 on the $d \delta J$ term comes from the fact that $J d \delta J$ is quadratic in $J$.
@@ -111,17 +111,17 @@ class Winding_Winding(Observable):
             .. math::
                 \begin{align}
                 \frac{\delta}{\delta J_q}\frac{\delta}{\delta J_p} \log Z
-                    =& \frac{\delta}{\delta J_q} \left[\frac{1}{Z} \sum Dm\; Dv\; [\delta m = 0] e^{-S_J[m,v]} \frac{-1}{2\kappa}\left( -\frac{1}{\pi} (dm)_p + \frac{1}{2\pi^2} (d\delta J)_p \right) \right]
+                    =& \frac{\delta}{\delta J_q} \left[\frac{1}{Z} \sum Dm\; Dv\; [\delta m = 0] e^{-S_J[m,v]} \frac{-1}{2\kappa}\left( -\frac{1}{\pi} (d(m-\delta v/W))_p + \frac{1}{2\pi^2} (d\delta J)_p \right) \right]
                     \\
-                    =& -\frac{1}{Z^2} \left[\sum Dm\; Dv\; [\delta m = 0] e^{-S_J[m,v]} \frac{-1}{2\kappa}\left( -\frac{1}{\pi} (dm)_p + \frac{1}{2\pi^2} (d\delta J)_p \right) \right]
+                    =& -\frac{1}{Z^2} \left[\sum Dm\; Dv\; [\delta m = 0] e^{-S_J[m,v]} \frac{-1}{2\kappa}\left( -\frac{1}{\pi} (d(m-\delta v/W))_p + \frac{1}{2\pi^2} (d\delta J)_p \right) \right]
                     \\
-                    & \phantom{-\frac{1}{Z^2}}\times \left[\sum Dm\; Dv\; [\delta m = 0] e^{-S_J[m,v]} \frac{-1}{2\kappa}\left( -\frac{1}{\pi} (dm)_q + \frac{1}{2\pi^2} (d\delta J)_q \right) \right]
+                    & \phantom{-\frac{1}{Z^2}}\times \left[\sum Dm\; Dv\; [\delta m = 0] e^{-S_J[m,v]} \frac{-1}{2\kappa}\left( -\frac{1}{\pi} (d(m-\delta v/W))_q + \frac{1}{2\pi^2} (d\delta J)_q \right) \right]
                     \\
                     &+ \frac{1}{Z} \sum Dm\; Dv\; [\delta m = 0] e^{-S_J[m,v]} \Bigg[
                     \\
-                    & \phantom{-\frac{1}{Z^2}} \left(\frac{-1}{2\kappa}\right)^2\left( -\frac{1}{\pi} (dm)_q + \frac{1}{2\pi^2} (d\delta J)_q \right)
+                    & \phantom{-\frac{1}{Z^2}} \left(\frac{-1}{2\kappa}\right)^2\left( -\frac{1}{\pi} (d(m-\delta v/W))_q + \frac{1}{2\pi^2} (d\delta J)_q \right)
                     \\
-                    & \phantom{-\frac{1}{Z^2}} \times\left( -\frac{1}{\pi} (dm)_p + \frac{1}{2\pi^2} (d\delta J)_p \right)
+                    & \phantom{-\frac{1}{Z^2}} \times\left( -\frac{1}{\pi} (d(m-\delta v/W))_p + \frac{1}{2\pi^2} (d\delta J)_p \right)
                     \\
                     & \phantom{-\frac{1}{Z^2}} +\frac{-1}{4\pi^2 \kappa}\frac{\delta}{\delta J_q} (d \delta J)_p 
                     \Bigg]
@@ -135,23 +135,23 @@ class Winding_Winding(Observable):
                 \begin{align}
                 -\left.\frac{\delta}{\delta J_q}\frac{\delta}{\delta J_p} \log Z \right|_{J=0}
                 = \left(\frac{1}{2\pi \kappa}\right)^2\Bigg\{&
-                \left\langle (dm)_p \right\rangle \left\langle (dm)_q \right\rangle
+                \left\langle (d(m-\delta v/W))_p \right\rangle \left\langle (d(m-\delta v/W))_q \right\rangle
                 \\
-                &- \left\langle (dm)_p (dm)_q \right\rangle
+                &- \left\langle (d(m-\delta v/W))_p (d(m-\delta v/W))_q \right\rangle
                 \\
                 & + \kappa \left.\frac{\delta}{\delta J_q} (d \delta J)_p\right|_{J=0} \Bigg\}
                 \end{align}
 
             because $d\delta 0 = 0$.
 
-            When $J=0$ the first (quantum-disconnected) term is proportional $\left\langle dm_p \right\rangle \left\langle dm_q \right\rangle$ and the individual expectation values vanish by symmetry so we are left with
+            When $J=0$ the first (quantum-disconnected) term is proportional $\left\langle d(m-\delta v/W)_p \right\rangle \left\langle d(m-\delta v/W)_q \right\rangle$ and the individual expectation values vanish by symmetry so we are left with
 
             .. math ::
                 \begin{align}
                 -\left.\frac{\delta}{\delta J_q}\frac{\delta}{\delta J_p} \log Z \right|_{J=0}
                 = \left(\frac{1}{2\pi \kappa}\right)^2\Bigg\{&
                 \kappa \left.\frac{\delta}{\delta J_q} (d \delta J)_p  \right|_{J=0}
-                - \left\langle (dm)_p (dm)_q \right\rangle\Bigg\}
+                - \left\langle (d(m-\delta v/W))_p (d(m-\delta v/W))_q \right\rangle\Bigg\}
                 \end{align}
 
             The remaining functional derivative is a displacement-dependent constant.
@@ -160,7 +160,7 @@ class Winding_Winding(Observable):
         At the end of the day all we are left with is
 
         .. math::
-            - \frac{\delta}{\delta J_p} \frac{\delta}{\delta J_q}\log Z = \frac{1}{(2\pi \kappa)^2}\left\{\kappa\left.\frac{\delta}{\delta J_q}(d \delta J_p)\right|_{J=0} - \left\langle (dm)_p (dm_q) \right\rangle\right\}
+            - \frac{\delta}{\delta J_p} \frac{\delta}{\delta J_q}\log Z = \frac{1}{(2\pi \kappa)^2}\left\{\kappa\left.\frac{\delta}{\delta J_q}(d \delta J_p)\right|_{J=0} - \left\langle (d(m-\delta v/W))_p (d(m-\delta v/W)_q) \right\rangle\right\}
 
         when $J=0$.  In 2D $\left.\frac{\delta}{\delta J_q}(d \delta J_p)\right|_{J=0} = 4 \delta_{pq} - \sum_{\hat{\mu}} \delta_{p+\hat{\mu},q}$ where $\hat{\mu}$ runs over the 4 cardinal directions, reproducing (minus) the standard `2D five-point Laplacian stencil <https://en.wikipedia.org/wiki/Five-point_stencil#In_two_dimensions>`_.
         '''
