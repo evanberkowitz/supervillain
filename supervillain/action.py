@@ -108,14 +108,14 @@ class Worldline(H5able):
 
     .. math::
        \begin{align}
-       Z[J] &= \sum Dm\; e^{-S_J[m]} \left[\delta m = 0\right]
-       &
-       S_J[m] &= \frac{1}{2\kappa} \sum_\ell \left(m - \frac{\delta J}{2\pi}\right)_\ell^2 + \frac{|\ell|}{2} \ln (2\pi \kappa) - |x| \ln 2\pi
+       Z[J] &= \sum Dm\; Dv\; e^{-S_J[m, v]} \left[\delta m = 0\right]
+       \\
+       S_J[m, v] &= \frac{1}{2\kappa} \sum_\ell \left(m - \delta\left(\frac{v}{W} + \frac{J}{2\pi} \right)\right)_\ell^2 + \frac{|\ell|}{2} \ln (2\pi \kappa) - |x| \ln 2\pi
        \end{align}
 
     In other words, it is a sum over all configurations where $\delta m$ vanishes on every site.
 
-    This formulation has no obvious sign problem when $J\neq 0 $, but maintaining the constraint $\delta m = 0$ requires a nontrivial algorithm.
+    This formulation has no obvious sign problem when $W\neq 1$, but maintaining the constraint $\delta m = 0$ requires a nontrivial algorithm.
 
     Parameters
     ----------
@@ -123,14 +123,17 @@ class Worldline(H5able):
         The lattice on which $m$ lives.
     kappa: float
         The $\kappa$ in the overall coefficient.
+    W: int
+        The winding symmetry is $\mathbb{Z}_W$.  If $W=1$ the vortices are completely unconstrained.
 
 
     '''
 
-    def __init__(self, lattice, kappa):
+    def __init__(self, lattice, kappa, W=1):
 
         self.Lattice = lattice
         self.kappa = kappa
+        self.W = W
         self._constant_offset = self.Lattice.links / 2 * np.log(2*np.pi*kappa) - self.Lattice.sites * np.log(2*np.pi)
 
     def __str__(self):
@@ -143,12 +146,14 @@ class Worldline(H5able):
 
         return (self.Lattice.delta(1, m) == 0).all()
 
-    def __call__(self, m, **kwargs):
+    def __call__(self, m, v, **kwargs):
         r'''
         Parameters
         ----------
         m: np.ndarray
             An integer-valued 1-form.
+        v: np.ndarray
+            An integer-valued 2-form.
 
         Returns
         -------
@@ -163,7 +168,7 @@ class Worldline(H5able):
 
         if not self.valid(m):
             raise ValueError(f'The one-form m does not satisfy the constraint δm = 0 everywhere.')
-        return 0.5 / self.kappa * np.sum(m**2) + self._constant_offset
+        return 0.5 / self.kappa * np.sum((m - self.Lattice.delta(2, v) / self.W)**2) + self._constant_offset
 
     def configurations(self, count):
         r'''
@@ -174,10 +179,11 @@ class Worldline(H5able):
 
         Returns
         -------
-        dict
-            A dictionary of zeroed arrays at key ``m`` holding ``count`` 1-forms.
+        Configurations
+            ``count`` configurations of a zeroed 1-form ``m`` a zeroed 2-form ``v``.
         '''
 
         return Configurations({
             'm': self.Lattice.form(1, count, dtype=int),
+            'v': self.Lattice.form(2, count, dtype=int),
             })

@@ -36,7 +36,6 @@ class PlaquetteUpdate(H5able):
         L = self.Action.Lattice
 
         m = cfg['m'].copy()
-        S_start = self.Action(m)
         
         for here, change_m, metropolis in zip(np.random.permutation(L.coordinates), self.rng.choice([-1, +1], L.sites), self.rng.uniform(0,1,L.sites)):
             
