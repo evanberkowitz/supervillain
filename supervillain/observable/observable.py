@@ -63,10 +63,10 @@ class Observable:
                     for obs in zip(*[getattr(obj, o) for o in inspect.getfullargspec(measure).args])
                     ])
             return obj.__dict__[name]
-        except:
-            raise NotImplemented(f'{name} not implemented for {class_name}')
+        except Exception as exception:
+            raise NotImplementedError(f'{name} not implemented for {class_name}') from exception
 
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def __set__(self, obj, value):
         setattr(obj, self.name, value)

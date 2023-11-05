@@ -31,6 +31,7 @@ class Links(Observable):
         return L.d(0, phi) - 2*np.pi*n
 
     @staticmethod
+
     def Worldline(S, m, v):
         r'''
         In the :class:`~.action.Worldline` action we always have the combination
@@ -39,7 +40,6 @@ class Links(Observable):
             \texttt{Links}_{\ell} = (m - \delta v / W)_\ell
 
         and observables are generically functions of this combination, though there are some exceptional observables like :class:`~.TorusWrapping` where the $\delta v$ pieces cancel exactly.
-
         '''
 
         L = S.Lattice

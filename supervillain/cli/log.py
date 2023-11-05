@@ -45,7 +45,7 @@ class StarStarSugar:
     # we make sure that we can **unpack StarStarSugar objects into parser.add_argument.
     def method(self, values):
         # Each child class needs to provide their own method.
-        raise NotImplemented()
+        raise NotImplementedError()
 
 def LogAction(action):
     '''Construct an argparse.Action on the fly with init and call determined by the passed action.'''
