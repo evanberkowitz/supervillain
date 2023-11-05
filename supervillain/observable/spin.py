@@ -199,7 +199,7 @@ class Spin_Spin(Observable):
 
 
     @staticmethod
-    def Worldline(S, m):
+    def Worldline(S, Links):
         r'''
         By starting in the Villain formulation with a modified action
 
@@ -226,11 +226,11 @@ class Spin_Spin(Observable):
                Z_J[x,y] &= \sum D\hat{m}\; e^{-S_J[\hat{m} + P_{xy}]} \left[\delta \hat{m} = 0 \text{ not on }x, y\right]\left[(\delta \hat{m})_x = 0 \right]\left[(\delta \hat{m})_y = 0 \right]
            \end{align}
 
-        with the same $S_J$.  Since in the hatted variables the constraint is satisfied, we can calculate this using constraint-obeying configurations and measuring the operator
+        with the same $S_J$.  Since in the hatted variables the constraint is satisfied, we can calculate this using constraint-obeying configurations (setting $J=2\pi v/W$ for the constraint) and measuring the operator
 
         .. math ::
 
-            \hat{V}_{xy} = \exp{\left[ - \frac{1}{2\kappa} \sum_{\ell \in P_{xy}} \left\{(\hat{m} + P_{xy})_\ell^2 - \hat{m}_\ell^2 \right\}\right]}
+            \hat{V}_{xy} = \exp{\left[ - \frac{1}{2\kappa} \sum_{\ell \in P_{xy}} \left\{(\hat{m} - \delta v / W + P_{xy})_\ell^2 - (\hat{m} - \delta v / W)_\ell^2 \right\}\right]}
 
         which is what we need to reweight to sampling according to $S[\hat{m}]$ with no defect.
 
@@ -340,6 +340,7 @@ class Spin_Spin(Observable):
             #
             #   (m+P)^2 - m^2 = 2Pm + P^2
             #
+            # (m really means m - δv/W in the constrained case.)
             # On our non-looping taxicab route P^2 = |P|,
             Psq = T+X
             # because P is ±1 on every nonzero link.
@@ -347,7 +348,7 @@ class Spin_Spin(Observable):
             # We can use the threaded indexing in numpy to pull out only the needed links
             # in the correct directions at the correct coordinates, and account for them with the
             # appropriate signs.
-            Pm = (sign * m[(direction, *coordinates)]).sum(axis=1)
+            Pm = (sign * Links[(direction, *coordinates)]).sum(axis=1)
             #
             # We summed over the links but we still have the volume averaging to accomplish.
             # However, the averaging has to be of the observable, meaning that we have to

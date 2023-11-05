@@ -37,7 +37,7 @@ class InternalEnergyDensity(Observable):
 
         .. math ::
            \begin{align}
-            U &= \left\langle \partial_\kappa S \right\rangle = - \frac{1}{2\kappa^2} \sum_{\ell} m_\ell^2 + \frac{|\ell|}{2 \kappa}.
+            U &= \left\langle \partial_\kappa S \right\rangle = - \frac{1}{2\kappa^2} \sum_{\ell} (m-\delta v/W)_\ell^2 + \frac{|\ell|}{2 \kappa}.
            \end{align}
 
         '''
@@ -88,9 +88,9 @@ class InternalEnergyDensitySquared(Observable):
 
         .. math ::
             \begin{align}
-                \partial_\kappa S &= - \frac{1}{2\kappa^2} \sum_{\ell} m_\ell^2 + \frac{|\ell|}{2 \kappa}
+                \partial_\kappa S &= - \frac{1}{2\kappa^2} \sum_{\ell} (m-\delta v/W)_\ell^2 + \frac{|\ell|}{2 \kappa}
                 &
-                \partial^2_\kappa S &= \frac{1}{\kappa} \sum_{\ell} m_\ell^2 - \frac{|\ell|}{2\kappa^2}.
+                \partial^2_\kappa S &= \frac{1}{\kappa} \sum_{\ell} (m-\delta v/W)_\ell^2 - \frac{|\ell|}{2\kappa^2}.
             \end{align}
 
         '''
