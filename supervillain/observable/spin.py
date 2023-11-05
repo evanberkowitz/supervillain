@@ -371,18 +371,6 @@ class SpinSusceptibility(Observable):
     def default(S, Spin_Spin):
         return np.sum(Spin_Spin.real)
     
-def _CriticalSpinScalingDimension(W):
-    r'''
-    W is the constraining integer which controls the allowed vorticity.
-    '''
-    # TODO: cache?
-    # TODO: W != 1
-    if W == 1:  # The BKT case, Δ = 1/8
-        return 0.125
-
-    else:
-        raise NotImplementedError(f'The constrained W≠1 scaling is not yet implemented so {W=} cannot be computed.')
-
 class SpinSusceptibilityScaled(Observable):
     r'''
     At the critical point and in the CFT the :class:`~.SpinSusceptibility` has a known expected scaling that comes from the scaling dimension $\Delta$ of $e^{i\phi}$
@@ -405,10 +393,19 @@ class SpinSusceptibilityScaled(Observable):
     '''
 
     @staticmethod
+    def CriticalSpinScalingDimension(W):
+        r'''
+        Setting the scaling dimension $(WR)^2 / 2$ of a charge-W vortex operator to 2 yields $R=2/W$.
+        The corresponding scaling dimension of the spin operator $e^{i\phi}$ is $\Delta = (1R)^{-2}/2 = W^2/8$.
+        '''
+
+        return W**2 / 8
+
+    @staticmethod
     def default(S, SpinSusceptibility):
 
         L = S.Lattice.nx
         # NOTE: implicitly assumes that the lattice is square!
         # TODO: Since we don't currently have any constraint implemented we hard-code W=1.
-        return SpinSusceptibility / L**(2-2*_CriticalSpinScalingDimension(1))
+        return SpinSusceptibility / L**(2-2*SpinSusceptibilityScaled.CriticalSpinScalingDimension(S.W))
 
