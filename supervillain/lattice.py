@@ -880,6 +880,9 @@ class Lattice2D(H5able):
             'linewidth': 2,
         }
         
+        import matplotlib.colors as colors
+        import matplotlib.pyplot as plt
+        norm = colors.CenteredNorm()
         no_arrowhead = {'headwidth': 0, 'headlength': 0, 'headaxislength': 0,}
         linkpadding = {'edgecolor': background, 'linewidth': 4}
         links = {
@@ -887,8 +890,9 @@ class Lattice2D(H5able):
             'width': linkwidth,
             **no_arrowhead,
             **linkpadding,
-            'clim': [vmin, vmax],
+            # 'clim': [vmin, vmax],
             'cmap': cmap,
+            'norm': norm
         }
 
         if p == 0:
