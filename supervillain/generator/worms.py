@@ -267,17 +267,13 @@ class UndirectedWorm(H5able):
     r'''
     '''
 
-    def __init__(self, action, interval_m = 1):
+    def __init__(self, action):
 
         if not isinstance(action, supervillain.action.Worldline):
             raise ValueError('The (undirected) worm algorithm update requires the Worldline action.')
         self.Action     = action
         self.kappa      = action.kappa
         self.Lattice    = action.Lattice
-
-        #In case we want to implement a generalized algorithm in the future.
-        #Unimportant now
-        self.interval_m = interval_m
 
         self.rng = np.random.default_rng()
 
@@ -349,14 +345,6 @@ class UndirectedWorm(H5able):
 
         #Normalization for the weighting of 4 directons
         N = np.sum(np.array([ASpT,ASmT,ASpX,ASmX]))
-        #I was running into errors where the normalization was 0, so this was to help debug that
-        #If anyone has suggestions about how to better do this using a logger please let me know
-        if(N == 0):
-            print('Error')
-            print([ASpT,ASmT,ASpX,ASmX])
-            print([deltaSpT,deltaSmT,deltaSpX,deltaSmX])
-            print(currentsite)
-            raise ValueError('N is 0')
         
         #The weights for each direction
         #+T
