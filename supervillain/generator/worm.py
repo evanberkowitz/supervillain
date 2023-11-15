@@ -265,6 +265,7 @@ class SlowUndirectedWorm(H5able):
 
 class UndirectedWorm(H5able):
     r'''
+    This is class-wide documentation where you explain the point of the class and how it might work so that people understand the point of the methods.
     '''
 
     def __init__(self, action):
@@ -305,6 +306,9 @@ class UndirectedWorm(H5able):
         self.avg_length_nontriv = max(1,self.total_length)/max(1,self.worm_count)
 
     def burrow(self, cfg, currentsite):
+        r'''
+        Documentation string for burrow.
+        '''
         # Takes in the current position of the worm, returns the new configuration after the worm has moved and the coordinate to which it has burrowed.
         pT, mT, mX, pX = self.Lattice.mod(currentsite + np.array([[+1,0],[-1,0],[0,-1],[0,+1]]))
         
@@ -387,6 +391,9 @@ class UndirectedWorm(H5able):
         return [newconfig,newsite,[PpT,PmT,PpX,PmX],N]
 
     def step(self, cfg):
+        r'''
+        Here we explain what a worm step is and how it works, any references, etc.
+        '''
         # Step encapsulates one iteration of a worm to completion, either with acceptance or erasure
         
         # Structure: 

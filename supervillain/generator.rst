@@ -66,7 +66,11 @@ To have a fully ergodic algorithm we will also need to update the holonomies.
 .. autoclass :: supervillain.generator.constraint.HolonomyUpdate
    :members:
 
-foo bar baz
+Another class of constraint-maintaining algorithms are *worm algorithms*.
+They explicitly allow the configuration to change in the larger space of constraint-violating configurations and when the worm closes the constraint is once again obeyed.
+
+.. autoclass :: supervillain.generator.worm.UndirectedWorm
+   :members:
 
 
 --------------------
