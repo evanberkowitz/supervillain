@@ -1,4 +1,5 @@
 import argparse
+import supervillain.meta
 
 import logging
 logger = logging.getLogger(__name__)
@@ -39,7 +40,7 @@ class ArgumentParser(argparse.ArgumentParser):
             k['parents'] += defaults()
         else:
             k['parents'] = defaults()
-        super().__init__(*args, **k)
+        super().__init__(*args, **k, epilog=f'Built on the supervillain library from {supervillain.meta.authors}.')
 
     def parse_args(self, args=None, namespace=None):
         r'''

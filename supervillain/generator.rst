@@ -78,3 +78,8 @@ One simple combination is just the sequential application.
 
 .. autoclass :: supervillain.generator.combining.Sequentially
    :members:
+
+Another (trivial) combination is a decorrelating application.
+
+.. autoclass :: supervillain.generator.combining.KeepEvery
+   :members:

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import numpy as np
+from functools import partial
 import inspect
 
 import supervillain.analysis
@@ -39,44 +40,29 @@ class DerivedQuantity:
         # Just call the measurement and cache the result.
         class_name = obj.Ensemble.Action.__class__.__name__
         try:
-            measure = getattr(self, class_name)
+            # DQs can have action-dependent implementations
+            # and a fall-back default which is convenient when dqs depend
+            # depend simply on observables or other dqs.  For example, a global
+            # charge might just sum up a density, regardless of formulation.
+            try:
+                measure = getattr(self, class_name)
+            except AttributeError as e:
+                if hasattr(self, 'default'):
+                    measure = getattr(self, 'default')
+                else:
+                    raise e from None
+            
+            # All dqs must take the action as the first argument.
+            measure = partial(measure, obj.Ensemble.Action)
+
+            # DQs can depend on other DQs and expectation values of Observables.
+            # We look up the arguments as attributes of the bootstrap.
+            # Since primary Observables are automatically bootstrapped by the Bootstrap
+            # object, at this point the loop is over expectation values.
             with Timer(self._logger, f'Bootstrapping of {name}', per=len(obj)):
-                # The main difference between a DerivedQuantity and an Observable is that a DQ needs
-                # expectation values---attributes of the Bootstrap, not just the field variables in
-                # configurations.  Therefore, the arguments might other than eg. phi and n (Villain) or m (Worldline)
-                #
-                # A DerivedQuantity method always gets the action as the first parameter (so that if the lattice is needed for
-                # correlation, or if κ is needed, or whatever, it is available) and subsequent parameters can be 
-                #   Observables         (which already get forwarded to the Ensemble observable by Bootstrap.__getattr__) or 
-                #   DerivedQuantities   (which if not already evaluated will be evaluated now).
-                #
-                #
-                # So, dumb example DerivedQuantities might look like
-                #
-                # class TwiceInternalEnergyDensity(DerivedQuantity):
-                #
-                #     @staticmethod
-                #     def Villain(Action, InternalEnergyDensity):
-                #         return 2*InternalEnergyDensity
-                #
-                # class ThriceInternalEnergyDensity(DerivedQuantity):
-                #
-                #     @staticmethod
-                #     def Villain(Action, InternalEnergyDensity, TwiceInternalEnergyDensity):
-                #         return InternalEnergyDensity + TwiceInternalEnergyDensity
-                #
-                # where (aside from the fact that we could always just multiply by 2 or 3) we compute 3*u in a funny way,
-                # by summing u + 2u, just to show that one DerivedQuantity can depend on another DerivedQuantity.
-                # If you construct some horrible loop that cannot be resolved, god save you.
-                #
-                # The user would NOT have to evaluate TwiceInternalEnergyDensity themselves before evaluating Thrice.
-                # The inspect module is used to look at the arguments and evaluate those attributes of the bootstrap,
-                # so TwiceInternalEnergyDensity will be evaluated and cached under the hood.
-                #
-                # NB this requires the parameters' names to EXACTLY MATCH the corresponding Observables or DerivedQuantities!
                 obj.__dict__[name]= np.array([
-                    measure(obj.Ensemble.Action, *obs)
-                    for obs in zip(*[getattr(obj, o) for o in inspect.getfullargspec(measure).args[1:]])
+                    measure(*expectation)
+                    for expectation in zip(*[getattr(obj, o) for o in inspect.getfullargspec(measure).args])
                 ])
             return obj.__dict__[name]
         except:

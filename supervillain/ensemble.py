@@ -178,3 +178,25 @@ class Ensemble(H5able):
         e.index = self.index[::stride]
         e.weight = self.weight[::stride]
         return e
+
+    def plot_history(self, axes, observable, label=None,
+                     bins=31, density=True,
+                     alpha=0.5, color=None,
+                     ):
+
+        data = getattr(self, observable)
+        axes[0].plot(self.index, data, color=color)
+        axes[1].hist(data, label=label,
+                     orientation='horizontal',
+                     bins=bins, density=density,
+                     color=color, alpha=alpha,
+                     )
+ 
+    def __getattr__(self, name):
+        # It is particularly useful to expose fields as ensemble attributes
+        # because that helps unify the Observable's application to both
+        # fields and other primary observables.
+        try:
+            return getattr(self.configurations, name)
+        except Exception as e:
+            raise e

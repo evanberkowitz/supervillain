@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from functools import cached_property
+import matplotlib.colors as colors
 import numpy as np
 
 from supervillain.h5 import H5able
@@ -24,7 +25,7 @@ class Lattice2D(H5able):
 
     def __init__(self, n):
         self.nt = n
-        self.nx = n
+        self.nx = n 
 
         self.dims = (self.nx, self.nt)
         r'''
@@ -855,10 +856,9 @@ class Lattice2D(H5able):
         return  self.fft( self.fft(f, axes=axes).conj() * self.fft(g, axes=axes), axes=axes) / np.sqrt(self.sites)
 
     def plot_form(self, p, form, axis, label=None, zorder=None,
-                  cmap=None, cbar_kw=dict(), norm=None,
-                  vmin=None, vmax=None,
-                  pointsize=200, linkwidth=0.05,
-                  background='white',
+                  cmap=None, cbar_kw=dict(), norm=colors.CenteredNorm(),
+                  pointsize=200, linkwidth=0.025,
+                  background='white', 
                  ):
         r'''
         Plots the p-form on the axis.
@@ -896,8 +896,6 @@ class Lattice2D(H5able):
             A `matplotlib color normalization <https://matplotlib.org/stable/users/explain/colors/colormapnorms.html>`_.
         '''
         zorder = {'zorder': -p if zorder is None else zorder}
-        vmin = form.min() if vmin is None else vmin
-        vmax = form.max() if vmax is None else vmax
         
         marker = {
             's': pointsize,
@@ -905,10 +903,6 @@ class Lattice2D(H5able):
             'linewidth': 2,
             'norm': norm,
         }
-        
-        import matplotlib.colors as colors
-        import matplotlib.pyplot as plt
-        norm = colors.CenteredNorm()
         no_arrowhead = {'headwidth': 0, 'headlength': 0, 'headaxislength': 0,}
         linkpadding = {'edgecolor': background, 'linewidth': 4}
         links = {
@@ -916,9 +910,8 @@ class Lattice2D(H5able):
             'width': linkwidth,
             **no_arrowhead,
             **linkpadding,
-            # 'clim': [vmin, vmax],
             'cmap': cmap,
-            'norm': norm
+            'norm': norm,
         }
 
         if p == 0:
@@ -1049,6 +1042,7 @@ class Lattice2D(H5able):
 
         return self.coordinatize(temp, dims=dims)
     
+    #TODO: Move this method to Worldline Action
     def count_loops(self, cfg):
         cfgabs = np.abs(cfg)
         #Takes the absolute value of a configuration's links to determine where a worm perturbation is

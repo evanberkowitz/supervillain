@@ -69,8 +69,78 @@ class Bootstrap(H5able):
 
             try:
                 forward = getattr(self.Ensemble, name)
-            except:
-                raise AttributeError(f"... and so 'Bootstrap' object has no attribute '{name}'")
+            except Exception as e:
+                raise AttributeError(f"... and so 'Bootstrap' object has no attribute '{name}'") from e
 
             self.__dict__[name] = self._resample(forward)
             return self.__dict__[name]
+
+    def plot_band(self, axis, observable, color=None):
+        r'''
+        Plots the single-number-valued observable as a horizontal band.
+
+        Parameters
+        ----------
+        axis: matplotlib.pyplot.axis
+            The axis on which to plot.
+        observable: string
+            Name of the observable or derived quantity.
+        color: matplotlib color
+            See the `matplotlib color API <https://matplotlib.org/stable/api/colors_api.html#module-matplotlib.colors>`_\. Defaults to the previously-used color.
+
+        '''
+        data = getattr(self, observable)
+        mean = data.mean(axis=0)
+        err  = data.std (axis=0)
+
+        if mean.shape != ():
+            raise ValueError(f'{observable} has shape {mean.shape}')
+
+        if color is None:
+            color = axis.get_lines()[-1].get_color()
+        axis.axhspan(mean-err, mean+err, color=color, alpha=0.5, linestyle='none')
+
+    def plot_correlator(self, axis, correlator, offset=0., linestyle='none', marker='o', markerfacecolor='none', **kwargs):
+        r'''
+        Plots the space-dependent correlator against $\Delta x$ on the axis.
+        Plotting options and kwargs are forwarded.
+
+        Parameters
+        ----------
+        axis: matplotlib.pyplot.axis
+            The axis on which to plot.
+        correlator: string
+            Name of the observable or derived quantity.
+        offset: float
+            Horizontal displacement, good for visually separating two correlators.
+        '''
+        
+        L = self.Ensemble.Action.Lattice
+        Δx = L.linearize(L.T**2 + L.X**2)**0.5
+        C = getattr(self, correlator).real
+
+        axis.errorbar(
+                Δx+offset,
+                L.linearize(C.mean(axis=0)),
+                L.linearize(C.std(axis=0)),
+                linestyle=linestyle,
+                marker=marker,
+                markerfacecolor=markerfacecolor,
+                **kwargs
+                )
+        axis.set_xlabel('∆x')
+
+    def estimate(self, observable):
+        r'''
+        Parameters
+        ----------
+        observable: string
+            Name of the observable or derived quantity
+
+        Returns
+        -------
+        tuple:
+            A tuple with the central value and uncertainty estimate for the observable.  Need not be scalars, if the observable has other indices, the pieces of the tuples have those indices.
+        '''
+        o = getattr(self, observable)
+        return (np.mean(o), np.std(o))
