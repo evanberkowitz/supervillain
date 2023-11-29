@@ -278,17 +278,6 @@ class UndirectedWorm(H5able):
 
         self.rng = np.random.default_rng()
 
-        #Debugging lists to diagnose a worm ensemble
-        self.startpointlist = []
-        self.lastconfigslist = []
-        self.endconfiglist = []
-        self.endconfiglist_before_erasure = []
-        self.lastsiteslist = []
-        self.lengthslist = []
-        self.lastprobslist = []
-        self.erasedlist = []
-
-
         #TODO: Implement statistics monitors
         self.accepted = 0
         self.proposed = 0
@@ -296,14 +285,8 @@ class UndirectedWorm(H5able):
         #Count of how many worms have been attempted (including erased/trivial worms)
         self.sweeps = 0
         #Counter for total length of all worms
-        #Calculated by taking the abs of the worm (difference of new vs old config) and totalling.
-        self.total_length = 0
         #Counts total number of accepted, non-zero worms (Not accounting for disconnected steps)
         self.worm_count = 0
-        self.erasure_Ns = []
-        self.avg_length_all = max(1,self.total_length)/max(1,self.sweeps)
-        self.avg_length_accepted = max(1,self.total_length)/max(1,self.accepted)
-        self.avg_length_nontriv = max(1,self.total_length)/max(1,self.worm_count)
 
     def burrow(self, cfg, currentsite):
         r'''
@@ -412,20 +395,11 @@ class UndirectedWorm(H5able):
 
         #At each step, randomly choose a first site for the worm
         startpoint = self.rng.choice(self.Lattice.coordinates)
-        self.startpoint = startpoint
-        self.startpointlist.append(startpoint)
         #Initializing value for endpoint so that the loop runs
         endpoint = np.empty_like(startpoint)
         #The 'head' of the worm
         currentpoint = startpoint.copy()
-        #Storage for each worm's history
-        configlist = []
-        probslist = []
-        siteslist = []
-        
         burrows=0
-        length = 0
-
         currentconfig = cfg['m']
         initconfig = currentconfig.copy()
         while (endpoint != startpoint).any():
@@ -433,19 +407,11 @@ class UndirectedWorm(H5able):
             #Updates position of the head of the worm
             currentpoint = endpoint.copy()
             currentconfig = newconfig.copy()
-            configlist.append(currentconfig)
-            siteslist.append(endpoint)
-            probslist.append(probs)
             burrows += 1
-            self.lastsiteslist = siteslist
-            self.lastconfigslist = configlist
-            self.lastprobslist = probslist
             
 
         #Calculates the total length of all worm(s) proposed in a step
         length = np.sum(np.abs(currentconfig-initconfig))
-        self.lengthslist.append(length)
-        self.endconfiglist_before_erasure.append(currentconfig)
         #Worm erasure step
         #N_no_worm
         _,_,_,nwN = self.burrow(cfg['m'],startpoint)
@@ -456,30 +422,19 @@ class UndirectedWorm(H5able):
         self.acceptance += 1-erasure_prob
         if(erasure_metropolis <= erasure_prob):
             currentconfig = cfg['m'].copy()
-            logger.debug('Worm erased')
-            self.erasedlist.append(True)
             if length != 0:
             #TODO: For steps that create two disconnected worms, it may be necessary to count each separately
                 self.worm_count += 1
         else:
-            logger.debug('Worm not erased')
             self.accepted += 1
-            self.erasedlist.append(False)
-            self.total_length += length
             if length != 0:
             #TODO: For steps that create two disconnected worms, it may be necessary to count each separately
                 self.worm_count += 1
-        logger.debug(f'Burrows: {burrows}')
-        logger.debug(f'Length: {length}')
         current = {}
         self.sweeps += 1
 
         #Updates average length
-        self.avg_length_all = max(1,self.total_length)/max(1,self.sweeps)
-        self.avg_length_accepted = max(1,self.total_length)/max(1,self.accepted)
-        self.avg_length_nontriv = max(1,self.total_length)/max(1,self.worm_count)
         current['m'] = currentconfig
-        self.endconfiglist.append(currentconfig)
         return current
     
     def report(self):
