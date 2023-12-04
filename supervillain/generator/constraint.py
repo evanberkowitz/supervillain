@@ -33,21 +33,28 @@ class PlaquetteUpdate(H5able):
         '''
         
         kappa = self.Action.kappa
+        W     = self.Action.W
         L = self.Action.Lattice
 
         m = cfg['m'].copy()
+        v = cfg['v'].copy()
         
-        for here, change_m, metropolis in zip(np.random.permutation(L.coordinates), self.rng.choice([-1, +1], L.sites), self.rng.uniform(0,1,L.sites)):
+        for here, change_m, change_v, metropolis in zip(
+                np.random.permutation(L.coordinates),
+                self.rng.choice([-1, +1], L.sites),
+                self.rng.choice([-1, 0, +1], L.sites),
+                self.rng.uniform(0,1,L.sites)
+                ):
             
-            north = L.mod(here + np.array([1,0]))
-            west  = L.mod(here + np.array([0,1]))
+            north, west, south, east = L.mod(here + np.array([[+1,0], [0,+1], [-1,0], [0,-1]]))
             
-            dS = change_m / kappa * (
-                + m[0][here [0], here [1]]
-                - m[1][here [0], here [1]]
-                + m[1][north[0], north[1]]
-                - m[0][west [0], west [1]]
-                + 2 * change_m
+            δv = L.δ(2, v)
+            ds = (change_m - change_v/W) / kappa * (
+                + ((m-δv/W)[0][here [0], here [1]])
+                - ((m-δv/W)[1][here [0], here [1]])
+                + ((m-δv/W)[1][north[0], north[1]])
+                - ((m-δv/W)[0][west [0], west [1]])
+                + 2 * (change_m - change_v/W)
             )
             acceptance = np.clip(np.exp(-dS), a_min=0, a_max=1)
 
@@ -59,6 +66,7 @@ class PlaquetteUpdate(H5able):
                 m[1][here [0], here [1]] -= change_m
                 m[1][north[0], north[1]] += change_m
                 m[0][west [0], west [1]] -= change_m
+                v[here[0], here[1]]      += change_v
                 self.accepted+=1
 
             else:
@@ -66,7 +74,7 @@ class PlaquetteUpdate(H5able):
                 pass
         
         self.proposed += L.sites
-        return {'m': m}
+        return {'m': m, 'v': v}
 
     def report(self):
         return (
