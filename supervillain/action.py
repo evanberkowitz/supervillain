@@ -28,12 +28,18 @@ class Villain(H5able):
         The lattice on which $\phi$ and $n$ live.
     kappa: float
         The $\kappa$ in the overall coefficient.
+    W: int
+        The :ref:`constraint integer <constrained>` $W$.  For the Villain action we restrict to $W=1$ to avoid a horrible sign problem.
     '''
 
-    def __init__(self, lattice, kappa):
+    def __init__(self, lattice, kappa, W=1):
 
         self.Lattice = lattice
         self.kappa = kappa
+        self.W = W
+
+        if self.W != 1:
+            raise ValueError(f'The Villain action has a horrible sign problem when W≠1; you picked {W=}.')
 
     def __str__(self):
         return f'Villain({self.Lattice}, κ={self.kappa})'
