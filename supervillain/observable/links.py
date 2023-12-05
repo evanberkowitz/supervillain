@@ -43,7 +43,4 @@ class Links(Observable):
         '''
 
         L = S.Lattice
-        if S.W == 1:
-            return m
-        else:
-            return m - L.delta(2, v) / S.W
+        return m - L.delta(2, v) / S.W
