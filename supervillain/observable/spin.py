@@ -406,6 +406,5 @@ class SpinSusceptibilityScaled(Observable):
 
         L = S.Lattice.nx
         # NOTE: implicitly assumes that the lattice is square!
-        # TODO: Since we don't currently have any constraint implemented we hard-code W=1.
         return SpinSusceptibility / L**(2-2*SpinSusceptibilityScaled.CriticalSpinScalingDimension(S.W))
 
