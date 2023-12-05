@@ -48,12 +48,11 @@ class PlaquetteUpdate(H5able):
             
             north, west, south, east = L.mod(here + np.array([[+1,0], [0,+1], [-1,0], [0,-1]]))
             
-            δv = L.δ(2, v)
-            ds = (change_m - change_v/W) / kappa * (
-                + ((m-δv/W)[0][here [0], here [1]])
-                - ((m-δv/W)[1][here [0], here [1]])
-                + ((m-δv/W)[1][north[0], north[1]])
-                - ((m-δv/W)[0][west [0], west [1]])
+            dS = (change_m - change_v/W) / kappa * (
+                + (m[0][here [0], here [1]] - (v[here [0], here [1]] - v[east [0], east [1]])/W)
+                - (m[1][here [0], here [1]] - (v[south[0], south[1]] - v[here [0], here [1]])/W)
+                + (m[1][north[0], north[1]] - (v[here [0], here [1]] - v[north[0], north[1]])/W)
+                - (m[0][west [0], west [1]] - (v[west [0], west [1]] - v[here [0], here [1]])/W)
                 + 2 * (change_m - change_v/W)
             )
             acceptance = np.clip(np.exp(-dS), a_min=0, a_max=1)
