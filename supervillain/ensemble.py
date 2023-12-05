@@ -180,13 +180,20 @@ class Ensemble(H5able):
         return e
 
     def plot_history(self, axes, observable, label=None,
+                     history_label=None,
+                     histogram_label=None,
                      bins=31, density=True,
                      alpha=0.5, color=None,
                      ):
 
+        if history_label is None:
+            history_label=label
+        if histogram_label is None:
+            histogram_label=label
+
         data = getattr(self, observable)
-        axes[0].plot(self.index, data, color=color)
-        axes[1].hist(data, label=label,
+        axes[0].plot(self.index, data, color=color, label=history_label)
+        axes[1].hist(data, label=histogram_label,
                      orientation='horizontal',
                      bins=bins, density=density,
                      color=color, alpha=alpha,
