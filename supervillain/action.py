@@ -42,7 +42,7 @@ class Villain(H5able):
             raise ValueError(f'The Villain action has a horrible sign problem when W≠1; you picked {W=}.')
 
     def __str__(self):
-        return f'Villain({self.Lattice}, κ={self.kappa})'
+        return f'Villain({self.Lattice}, κ={self.kappa}, W={self.W})'
 
     def __call__(self, phi, n, **kwargs):
         r'''
@@ -143,7 +143,7 @@ class Worldline(H5able):
         self._constant_offset = self.Lattice.links / 2 * np.log(2*np.pi*kappa) - self.Lattice.sites * np.log(2*np.pi)
 
     def __str__(self):
-        return f'Worldline({self.Lattice}, κ={self.kappa})'
+        return f'Worldline({self.Lattice}, κ={self.kappa}, W={self.W})'
 
     def valid(self, m):
         r'''
