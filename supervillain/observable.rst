@@ -180,6 +180,22 @@ Spin Correlations
    :members:
    :show-inheritance:
 
+-------------------
+Vortex Correlations
+-------------------
+
+.. autoclass :: supervillain.observable.Vortex_Vortex
+   :members:
+   :show-inheritance:
+
+.. autoclass :: supervillain.observable.VortexSusceptibility
+   :members:
+   :show-inheritance:
+
+.. autoclass :: supervillain.observable.VortexSusceptibilityScaled
+   :members:
+   :show-inheritance:
+
 
 
 .. _staticmethod: https://docs.python.org/3/library/functions.html#staticmethod
