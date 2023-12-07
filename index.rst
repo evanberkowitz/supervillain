@@ -15,6 +15,7 @@ supervillain
    supervillain/lattice
    supervillain/ensemble
    supervillain/generator
+   supervillain/measurement
    supervillain/observable
    supervillain/analysis
    supervillain/h5
