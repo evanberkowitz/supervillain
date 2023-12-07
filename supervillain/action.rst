@@ -23,17 +23,6 @@ The model has a gauge symmetry
 
 for an integer-valued 0-form $k$.
 
-Computationally we can study this model in a variety of formulations.
-
-.. autoclass :: supervillain.action.Villain
-   :members:
-
-.. _constrained:
-
-=============================
-The Constrained Villain Model
-=============================
-
 If we integrate over particular values of $J_p$ we can project out values of the winding $dn$.
 For example, if we integrate $J$ over the reals the simplicity of the action allows us to find a constraint
 
@@ -48,17 +37,18 @@ but we may also set $J = 2\pi v / W$ for any positive integer $W$ and sum over i
    \begin{align}
    Z[J] &= \sum\hspace{-1.33em}\int D\phi\; Dn\; Dv\; e^{-S_J[\phi, n, v]}
    \\
-   S_J[\phi, n, v] &= \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + 2\pi i \sum_p (v/W + J/2\pi) (dn)_p
+   S_J[\phi, n, v] &= \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + 2\pi i \sum_p (v/W + J/2\pi) (dn)_p,
    \end{align}
 
-This model has a gauge symmetry $v \rightarrow v \pm W$ because with integer-valued $dn$ the phase
+keeping the external $J$ for functional differentiation.
+The constrained model has a gauge symmetry $v \rightarrow v \pm W$ because with integer-valued $dn$ the phase
 
 .. math::
     e^{2\pi i \sum_p v_p (dn)_p / W}
 
-and the path integral are invariant under that transformation.
+and the path integral are invariant under that transformation.  When $W=1$ the ...constraint... does not constrain $dn$.
 
-This model has a $\mathbb{Z}_W$ winding symmetry WHICH DESERVES A LOT MORE DISCUSSION HERE.
+The constrained model has a $\mathbb{Z}_W$ winding symmetry WHICH DESERVES A LOT MORE DISCUSSION HERE.
 
 But for the unconstrained $W=1$, the obvious reading of this model has a horrible sign problem.
 However, the sign problem can be traded for a constraint,
@@ -72,6 +62,11 @@ However, the sign problem can be traded for a constraint,
 This constraint might be implemented with careful Monte Carlo updates.
 
 Remarkably, we will see that the worldline formulation is naturally sign-problem free.
+
+Computationally we can study this model in a variety of formulations.  The most straightforwardly obvious is the literal one.
+
+.. autoclass :: supervillain.action.Villain
+   :members:
 
 .. _Iverson bracket: https://en.wikipedia.org/wiki/Iverson_bracket
 

@@ -25,6 +25,9 @@ class SlowNeighborhoodUpdate(H5able):
 
     for the $\phi$ on $x$ and $n$ on links $\ell$ which touch $x$.
 
+    .. warning ::
+        Because we currently restrict to $W=1$ for the Villain formulation we do not update $v$.
+
     Parameters
     ----------
     action: Villain
@@ -181,6 +184,9 @@ class NeighborhoodUpdate(H5able):
     .. note ::
        On a small 5×5 example this generator yields about three times as many updates per second than :class:`SlowNeighborhoodUpdate <supervillain.generator.metropolis.SlowNeighborhoodUpdate>` on my machine!
        This ratio should *improve* for larger lattices because the change in action is computed directly and is of fixed cost, rather than scaling with the volume.
+
+    .. warning ::
+        Because we currently restrict to $W=1$ for the Villain formulation we do not update $v$.
     '''
 
     def __init__(self, action, interval_phi=np.pi, interval_n=1):

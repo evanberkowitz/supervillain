@@ -13,14 +13,18 @@ class Villain(H5able):
 
     .. math::
        \begin{align}
-       Z[J] &= \sum\hspace{-1.33em}\int D\phi\; Dn\; e^{-S_J[\phi, n]}
-       &
-       S_J[\phi, n] &= \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + i \sum_p J_p (dn)_p
+       Z[J] &= \sum\hspace{-1.33em}\int D\phi\; Dn\; e^{-S_J[\phi, n, v]}
+       \\
+       S_J[\phi, n, v] &= \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + 2\pi i \sum_p \left(v/W + J/2\pi \right)_p (dn)_p
        \end{align}
 
     with $\phi$ a real-valued 0-form that lives on sites, $n$ an integer-valued one form that lives on links $l$, and $J$ a two-form that lives on plaquettes $p$.
 
     In this formulation, if $J$ is real and nonzero we expect a sign problem because the action is complex.  However, we can think of $J$ as an external source, take functional derivatives to get observables, and then set $J$ to zero so that we only need sample according to the first term.
+
+    .. warning::
+        Because $W\neq1$ suffers from a sign problem without a clever algorithm that maintains the constraint, we currently restrict to $W=1$.
+        Then we may as well let $v=0$, since $\exp(2\pi i v_p (dn)_p) = 1$ for integer $v$ and $dn$.
 
     Parameters
     ----------
@@ -29,7 +33,7 @@ class Villain(H5able):
     kappa: float
         The $\kappa$ in the overall coefficient.
     W: int
-        The :ref:`constraint integer <constrained>` $W$.  For the Villain action we restrict to $W=1$ to avoid a horrible sign problem.
+        The constraint integer $W$.  For the Villain action we restrict to $W=1$ to avoid a horrible sign problem.
     '''
 
     def __init__(self, lattice, kappa, W=1):
@@ -56,9 +60,9 @@ class Villain(H5able):
         Returns
         -------
         float
-            $S_0[\phi, n]$
+            $S_0[\phi, n, v=0]$.  We restrict to the $v=0$ simplification because we restrict to $W=1$.
         '''
-        return self.kappa / 2 * np.sum((self.Lattice.d(0, phi) - 2*np.pi*n)**2)
+        return self.kappa / 2 * np.sum((self.Lattice.d(0, phi) - 2*np.pi*n)**2) # + nothing that depends on v since W=1.
 
     def configurations(self, count):
         r'''
@@ -74,6 +78,7 @@ class Villain(H5able):
         return Configurations({
             'phi': self.Lattice.form(0, count),
             'n':   self.Lattice.form(1, count, dtype=int),
+            'v':   self.Lattice.form(2, count, dtype=int),
             })
 
     def gauge_transform(self, configuration, k):

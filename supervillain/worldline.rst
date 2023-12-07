@@ -61,6 +61,7 @@ We can cast the dimensionless constants up into the action
    S_J[m, v] &= \frac{1}{2\kappa} \sum_\ell \left(m - \delta\left(\frac{v}{W} + \frac{J}{2\pi} \right)\right)_\ell^2 + \frac{|\ell|}{2} \ln (2\pi \kappa) - |x| \ln 2\pi
    \end{align}
 
+which will make functional differentiation more straightforward.
 
 .. autoclass :: supervillain.action.Worldline
    :members:

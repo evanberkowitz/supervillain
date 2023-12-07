@@ -66,8 +66,6 @@ To have a fully ergodic algorithm we will also need to update the holonomies.
 .. autoclass :: supervillain.generator.constraint.HolonomyUpdate
    :members:
 
-foo bar baz
-
 
 --------------------
 Combining Generators
