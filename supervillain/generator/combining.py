@@ -11,8 +11,8 @@ class Sequentially(H5able):
 
     For example we can get an ergodic :class:`~.Worldline` update scheme by combining the :class:`~.PlaquetteUpdate` and :class:`~.HolonomyUpdate`.
 
-    >>> p = supervillain.generator.constraint.PlaquetteUpdate(S)
-    >>> h = supervillain.generator.constraint.HolonomyUpdate(S)
+    >>> p = supervillain.generator.worldline.PlaquetteUpdate(S)
+    >>> h = supervillain.generator.worldline.HolonomyUpdate(S)
     >>> g = supervillain.generator.combining.Sequentially((p, h))
 
     Parameters
@@ -51,7 +51,7 @@ class KeepEvery(H5able):
         The number of updates per second will decrease by a factor of n, but the autocorrelation time should be n less.
         Generating a fixed number of configurations will take n times longer.
 
-    >>> p = supervillain.generator.constraint.PlaquetteUpdate(S)
+    >>> p = supervillain.generator.worldline.PlaquetteUpdate(S)
     >>> g = supervillain.generator.combining.KeepEvery(10, p)
 
 

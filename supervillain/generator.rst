@@ -58,12 +58,12 @@ In the :class:`~.Worldline` formulation the constraint $\delta m = 0$ restricts 
 For example, changing only a single link is *guaranteed* to break the constraint on both ends.
 So, we need clever generators to maintain the constraint.
 
-.. autoclass :: supervillain.generator.constraint.PlaquetteUpdate
+.. autoclass :: supervillain.generator.worldline.PlaquetteUpdate
    :members:
 
 To have a fully ergodic algorithm we will also need to update the holonomies.
 
-.. autoclass :: supervillain.generator.constraint.HolonomyUpdate
+.. autoclass :: supervillain.generator.worldline.HolonomyUpdate
    :members:
 
 

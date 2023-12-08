@@ -32,8 +32,8 @@ with logging_redirect_tqdm():
 
 with logging_redirect_tqdm():
     g = supervillain.generator.combining.Sequentially((
-            supervillain.generator.constraint.PlaquetteUpdate(W),
-            supervillain.generator.constraint.HolonomyUpdate(W)
+            supervillain.generator.worldline.PlaquetteUpdate(W),
+            supervillain.generator.worldline.HolonomyUpdate(W)
         ))
     w = supervillain.Ensemble(W).generate(args.configurations, g, start='cold', progress=tqdm)
 

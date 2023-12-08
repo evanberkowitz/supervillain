@@ -2,5 +2,5 @@
 
 from .example import DoNothing
 from .metropolis import NeighborhoodUpdate
-import supervillain.generator.constraint
+import supervillain.generator.worldline
 import supervillain.generator.combining

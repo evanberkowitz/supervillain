@@ -53,8 +53,8 @@ if args.action == 'villain':
     G = supervillain.generator.NeighborhoodUpdate(S)
 elif args.action == 'worldline':
     S = supervillain.action.Worldline(L, args.kappa)
-    p = supervillain.generator.constraint.PlaquetteUpdate(S)
-    h = supervillain.generator.constraint.HolonomyUpdate(S)
+    p = supervillain.generator.worldline.PlaquetteUpdate(S)
+    h = supervillain.generator.worldline.HolonomyUpdate(S)
     G = supervillain.generator.combining.Sequentially((p, h))
 
 with logging_redirect_tqdm():
