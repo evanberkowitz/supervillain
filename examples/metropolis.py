@@ -50,7 +50,7 @@ L = supervillain.Lattice2D(args.N)
 
 if args.action == 'villain':
     S = supervillain.action.Villain(L, args.kappa)
-    G = supervillain.generator.NeighborhoodUpdate(S)
+    G = supervillain.generator.villain.NeighborhoodUpdate(S)
 elif args.action == 'worldline':
     S = supervillain.action.Worldline(L, args.kappa)
     p = supervillain.generator.worldline.PlaquetteUpdate(S)

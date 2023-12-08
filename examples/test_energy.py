@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 # Villain Setup
 # L = supervillain.Lattice2D(args.N)
 # S = supervillain.action.Villain(L, args.kappa)
-# G = supervillain.generator.NeighborhoodUpdate(S)
+# G = supervillain.generator.villain.NeighborhoodUpdate(S)
 
 # Worldline Setup
 L = supervillain.Lattice2D(args.N)

@@ -27,7 +27,7 @@ W = supervillain.action.Worldline(L, args.kappa)
 
 # Now sample each action.
 with logging_redirect_tqdm():
-    g = supervillain.generator.NeighborhoodUpdate(V)
+    g = supervillain.generator.villain.NeighborhoodUpdate(V)
     v = supervillain.Ensemble(V).generate(args.configurations, g, start='cold', progress=tqdm)
 
 with logging_redirect_tqdm():

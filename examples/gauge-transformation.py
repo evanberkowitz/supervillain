@@ -48,7 +48,7 @@ correlators = (
 L = supervillain.Lattice2D(args.N)
 
 S = supervillain.action.Villain(L, args.kappa)
-G = supervillain.generator.NeighborhoodUpdate(S)
+G = supervillain.generator.villain.NeighborhoodUpdate(S)
 
 with logging_redirect_tqdm():
     E = supervillain.Ensemble(S).generate(args.configurations, G, start='cold', progress=tqdm)
