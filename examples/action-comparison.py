@@ -27,13 +27,13 @@ W = supervillain.action.Worldline(L, args.kappa)
 
 # Now sample each action.
 with logging_redirect_tqdm():
-    g = supervillain.generator.NeighborhoodUpdate(V)
+    g = supervillain.generator.villain.NeighborhoodUpdate(V)
     v = supervillain.Ensemble(V).generate(args.configurations, g, start='cold', progress=tqdm)
 
 with logging_redirect_tqdm():
     g = supervillain.generator.combining.Sequentially((
-            supervillain.generator.constraint.PlaquetteUpdate(W),
-            supervillain.generator.constraint.HolonomyUpdate(W)
+            supervillain.generator.worldline.PlaquetteUpdate(W),
+            supervillain.generator.worldline.WrappingUpdate(W)
         ))
     w = supervillain.Ensemble(W).generate(args.configurations, g, start='cold', progress=tqdm)
 
@@ -90,9 +90,8 @@ plot_history(ax[0], w.index, w.InternalEnergyDensity, label='Worldline')
 # Now let's cut and decorrelate
 v_autocorrelation = max([supervillain.analysis.autocorrelation_time(o) for o in (v.InternalEnergyDensity, v.WindingSquared)])
 w_autocorrelation = max([supervillain.analysis.autocorrelation_time(o) for o in (w.InternalEnergyDensity,
-                                                                                 # Holonomies:
-                                                                                 w.configurations.m[:,0].sum(axis=2).sum(axis=1),
-                                                                                 w.configurations.m[:,1].sum(axis=2).sum(axis=1),
+                                                                                 w.TWrapping,
+                                                                                 w.XWrapping,
                                                                                  )])
 print(f'Autocorrelation time')
 print(f'--------------------')

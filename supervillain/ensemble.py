@@ -38,7 +38,7 @@ class Ensemble(H5able):
             The ensemble itself, so that one can do ``ensemble = Ensemble(action).from_configurations(cfgs)``.
         '''
 
-        self.configurations = configurations
+        self.configuration = configurations
 
         return self
 
@@ -67,7 +67,7 @@ class Ensemble(H5able):
         .. _tqdm.notebook: https://tqdm.github.io/docs/notebook/
         '''
 
-        self.configurations = self.Action.configurations(steps)
+        self.configuration = self.Action.configurations(steps)
         self.index = starting_index + np.arange(steps)
         self.weight = np.ones(steps)
 
@@ -80,10 +80,10 @@ class Ensemble(H5able):
 
         with Timer(logger.info, f'Generation of {steps} configurations', per=steps):
 
-            self.configurations[0] = generator.step(seed)
+            self.configuration[0] = generator.step(seed)
 
             for mcmc_step in progress(range(1,steps)):
-                self.configurations[mcmc_step] = generator.step(self.configurations[mcmc_step-1])
+                self.configuration[mcmc_step] = generator.step(self.configuration[mcmc_step-1])
 
             self.start = start
             self.generator = generator
@@ -122,7 +122,7 @@ class Ensemble(H5able):
         try:
             generator = e.generator
             action    = e.Action
-            last      = e.configurations[-1]
+            last      = e.configuration[-1]
             index     = e.index[-1] + 1
         except:
             raise ValueError('The ensemble must provide a generator, an Action, and at least one configuration.')
@@ -130,7 +130,7 @@ class Ensemble(H5able):
         return Ensemble(action).generate(steps, generator, last, progress=progress, starting_index=index)
 
     def __len__(self):
-        return len(self.configurations)
+        return len(self.configuration)
 
     def cut(self, start):
         r'''
@@ -150,7 +150,7 @@ class Ensemble(H5able):
         Ensemble
             An ensemble with fewer configurations.
         '''
-        e = Ensemble(self.Action).from_configurations(self.configurations[start:])
+        e = Ensemble(self.Action).from_configurations(self.configuration[start:])
         e.index = self.index[start:]
         e.weight = self.weight[start:]
         return e
@@ -174,7 +174,7 @@ class Ensemble(H5able):
             An ensemble with fewer configurations.
         '''
 
-        e = Ensemble(self.Action).from_configurations(self.configurations[::stride])
+        e = Ensemble(self.Action).from_configurations(self.configuration[::stride])
         e.index = self.index[::stride]
         e.weight = self.weight[::stride]
         return e
@@ -204,6 +204,6 @@ class Ensemble(H5able):
         # because that helps unify the Observable's application to both
         # fields and other primary observables.
         try:
-            return getattr(self.configurations, name)
+            return getattr(self.configuration, name)
         except Exception as e:
             raise e
