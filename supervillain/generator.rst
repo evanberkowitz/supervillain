@@ -28,12 +28,22 @@ It has an infinitely bad ergodicity problem!
 The Villain Formulation
 -----------------------
 
-A less dumb algorithm is a local update,
+A less dumb algorithm is a local update, which changes only fields in some small area of the lattice.
 
-.. autoclass :: supervillain.generator.reference_implementation.villain.NeighborhoodUpdateSlow
-   :members:
+As an example, we can formulate an update scheme offering localized changes to the $\phi$ and $n$ fields in the :class:`~.Villain` formulation.
 
-The :class:`NeighborhoodUpdateSlow <supervillain.generator.reference_implementation.villain.NeighborhoodUpdateSlow>` generator suffers from a variety of defects.
+Picking a site $x$ at random and proposing a change 
+
+.. math ::
+    
+    \begin{align}
+    \Delta\phi_x    &\sim \text{uniform}(-\texttt{interval_phi}, +\texttt{interval_phi})
+    \\
+    \Delta n_\ell   &\sim [-\texttt{interval_n}, +\texttt{interval_n}]
+    \end{align}
+
+for the $\phi$ on $x$ and $n$ on links $\ell$ which touch $x$ is ergodic (once swept over the lattice) and satisfies detailed balance so long as we accept the proposal based on the change of action.
+The :class:`NeighborhoodUpdateSlow <supervillain.generator.reference_implementation.villain.NeighborhoodUpdateSlow>` generator implements this update algorithm but suffers from a variety of defects.
 
 First, its *implementation* makes a lot of calls.
 We could 'unfactor' the proposal, single-site accept/reject, and sweep of the lattice for some benefits in speed.
