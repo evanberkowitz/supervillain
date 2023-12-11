@@ -91,8 +91,8 @@ plot_history(ax[0], w.index, w.InternalEnergyDensity, label='Worldline')
 v_autocorrelation = max([supervillain.analysis.autocorrelation_time(o) for o in (v.InternalEnergyDensity, v.WindingSquared)])
 w_autocorrelation = max([supervillain.analysis.autocorrelation_time(o) for o in (w.InternalEnergyDensity,
                                                                                  # Holonomies:
-                                                                                 w.configurations.m[:,0].sum(axis=2).sum(axis=1),
-                                                                                 w.configurations.m[:,1].sum(axis=2).sum(axis=1),
+                                                                                 w.configuration.m[:,0].sum(axis=2).sum(axis=1),
+                                                                                 w.configuration.m[:,1].sum(axis=2).sum(axis=1),
                                                                                  )])
 print(f'Autocorrelation time')
 print(f'--------------------')

@@ -54,7 +54,7 @@ with logging_redirect_tqdm():
     E = supervillain.Ensemble(S).generate(args.configurations, G, start='cold', progress=tqdm)
 
 transformed = S.configurations(len(E))
-for i, c in enumerate(E.configurations):
+for i, c in enumerate(E.configuration):
     k = np.random.randint(-10,10, L.dims)
     transformed[i] = S.gauge_transform(c, k)
 

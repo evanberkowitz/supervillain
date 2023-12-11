@@ -46,7 +46,7 @@ class Bootstrap(H5able):
         r'''The action underlying the ensemble.'''
         self.draws = draws
         r'''The number of resamplings.'''
-        cfgs = len(ensemble.configurations)
+        cfgs = len(ensemble.configuration)
         self.indices = np.random.randint(0, cfgs, (cfgs, draws))
         r'''The random draws themselves; configurations × draws.'''
         

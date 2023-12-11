@@ -30,7 +30,7 @@ fig, ax = plt.subplots(1,1,
 
 ax.set_title(f'{S}', fontsize=16)
 
-cfg = e.configurations[-1]
+cfg = e.configuration[-1]
 phi = cfg['phi']
 n   = cfg['n']
 
