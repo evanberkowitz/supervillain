@@ -237,7 +237,7 @@ class Spin_Spin(Observable):
         .. note ::
             The actual path $P_{xy}$ used is irrelevant in expectation, though of course on a fixed configuration you get different measurements if you pick different paths.
             An implementation detail is that the fixed chosen path is the taxicab path that first covers the whole time separation and then the whole space separation.
-            The point is that any other path can be reached by making a combination of :class:`~.PlaquetteUpdate`\s and :class:`~.HolonomyUpdate`\s.
+            The point is that any other path can be reached by making a combination of :class:`~.PlaquetteUpdate`\s and :class:`~.WrappingUpdate`\s.
 
         '''
 

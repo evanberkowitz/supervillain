@@ -9,10 +9,10 @@ class Sequentially(H5able):
     r'''
     Sequentially applies the list of generators as a single step.
 
-    For example we can get an ergodic :class:`~.Worldline` update scheme by combining the :class:`~.PlaquetteUpdate` and :class:`~.HolonomyUpdate`.
+    For example we can get an ergodic :class:`~.Worldline` update scheme by combining the :class:`~.PlaquetteUpdate` and :class:`~.WrappingUpdate`.
 
     >>> p = supervillain.generator.worldline.PlaquetteUpdate(S)
-    >>> h = supervillain.generator.worldline.HolonomyUpdate(S)
+    >>> h = supervillain.generator.worldline.WrappingUpdate(S)
     >>> g = supervillain.generator.combining.Sequentially((p, h))
 
     Parameters

@@ -13,8 +13,8 @@ class PlaquetteUpdate(H5able):
 
     .. warning::
         HOWEVER this algorithm is not ergodic on its own.
-        The issue is that no proposal can change the holonomies.
-        Instead, if you start cold with $m=0$, which has global winding of (0,0) you stay in the (0,0) sector.
+        The issue is that no proposal can change the worldline :class:`~.TorusWrapping`.
+        Instead, if you start cold with $m=0$, which has global wrapping of (0,0) you stay in the (0,0) sector.
 
     '''
     
@@ -84,9 +84,9 @@ class PlaquetteUpdate(H5able):
                 f'    {self.acceptance / self.proposed :.6f} average Metropolis acceptance probability.'
             )
 
-class HolonomyUpdate(H5able):
+class WrappingUpdate(H5able):
     r'''
-    Because :class:`~.PlaquetteUpdate` fails to change the holonomies, we should separately offer holonomy-changing proposals.
+    Because :class:`~.PlaquetteUpdate` fails to change the wrapping, we should separately offer wrapping-changing proposals.
 
     We propose coordinated changes on all the x-direction links on a single timeslice and coordinated changes on all the t-direction links on a single spatial slice.
 
@@ -96,13 +96,13 @@ class HolonomyUpdate(H5able):
 
     .. warning::
         HOWEVER this algorithm is not ergodic on its own.
-        The issue is that no proposal can generate holonomy-preserving changes.
+        The issue is that no proposal can generate wrapping-preserving changes.
 
     '''
 
     def __init__(self, action):
         if not isinstance(action, supervillain.action.Worldline):
-            raise ValueError('The HolonomyUpdate requires the Worldline action.')
+            raise ValueError('The WrappingUpdate requires the Worldline action.')
         self.Action = action
 
         self.accepted = 0
@@ -168,7 +168,7 @@ class HolonomyUpdate(H5able):
 
     def report(self):
         return (
-                f'There were {self.accepted} single-holonomy proposals accepted of {self.proposed} proposed updates.'
+                f'There were {self.accepted} single-wrapping proposals accepted of {self.proposed} proposed updates.'
                 +'\n'+
                 f'    {self.accepted   / self.proposed :.6f} acceptance rate' 
                 +'\n'+

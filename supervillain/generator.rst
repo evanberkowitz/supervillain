@@ -61,9 +61,9 @@ So, we need clever generators to maintain the constraint.
 .. autoclass :: supervillain.generator.worldline.PlaquetteUpdate
    :members:
 
-To have a fully ergodic algorithm we will also need to update the holonomies.
+To have a fully ergodic algorithm we will also need to update the :class:`~.TorusWrapping` of the worldlines.
 
-.. autoclass :: supervillain.generator.worldline.HolonomyUpdate
+.. autoclass :: supervillain.generator.worldline.WrappingUpdate
    :members:
 
 

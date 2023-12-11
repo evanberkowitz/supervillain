@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 L = supervillain.Lattice2D(args.N)
 S = supervillain.action.Worldline(L, args.kappa)
 p = supervillain.generator.constraint.PlaquetteUpdate(S)
-h = supervillain.generator.constraint.HolonomyUpdate(S)
+h = supervillain.generator.constraint.WrappingUpdate(S)
 G = supervillain.generator.combining.Sequentially((p, h))
 
 
