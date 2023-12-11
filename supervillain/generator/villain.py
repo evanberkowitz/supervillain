@@ -11,12 +11,13 @@ class NeighborhoodUpdate(H5able):
     r'''
     This performs the same update as :class:`NeighborhoodUpdateSlow <supervillain.generator.reference_implementation.villain.NeighborhoodUpdateSlow>` but is streamlined to eliminate calls, to calculate the change in action directly, and to avoid data movement.
 
-    .. note ::
-       On a small 5×5 example this generator yields about three times as many updates per second than :class:`NeighborhoodUpdateSlow <supervillain.generator.villain.NeighborhoodUpdateSlow>` on my machine!
+    .. warning ::
+        Because we currently restrict to $W=1$ for the :class:`~.Villain` formulation we do not update $v$.
+
+    .. seealso ::
+       On a small 5×5 example this generator yields about three times as many updates per second than :class:`NeighborhoodUpdateSlow <supervillain.generator.reference_implementation.villain.NeighborhoodUpdateSlow>` on my machine.
        This ratio should *improve* for larger lattices because the change in action is computed directly and is of fixed cost, rather than scaling with the volume.
 
-    .. warning ::
-        Because we currently restrict to $W=1$ for the Villain formulation we do not update $v$.
     '''
 
     def __init__(self, action, interval_phi=np.pi, interval_n=1):
