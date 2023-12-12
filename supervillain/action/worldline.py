@@ -92,3 +92,40 @@ class Worldline(H5able):
             'm': self.Lattice.form(1, count, dtype=int),
             'v': self.Lattice.form(2, count, dtype=int),
             })
+
+    def equivalence_class_v(self, configuration):
+        r'''
+        The constrained model has a gauge symmetry $v \rightarrow v \pm W$ with the gauge-invariant combination $m-\delta v / W$.
+
+        We can take any configuration and send
+
+        .. math ::
+            \begin{align}
+                v &\rightarrow v + \lambda W
+                &
+                m &\rightarrow m - \delta \lambda
+            \end{align}
+
+        for integer $\lambda$.  We fix $\lambda$ on every plaquette so that after the transformation $v\in[0,W)$.
+
+        .. seealso ::
+            examples/equivalence-class-v.py
+
+        Parameters
+        ----------
+        configuration: dict
+            A dictionary with a one-form ``m`` and two-form ``v``.
+
+        Returns
+        -------
+        dict:
+            A dictionary with the equivalent fields but with $v \in [0, W)$.
+
+        '''
+
+        L = self.Lattice
+
+        return {
+                'm': configuration['m'] - L.delta(2, np.floor_divide(configuration['v'], self.W)),
+                'v': np.mod(configuration['v'], self.W),
+        }
