@@ -36,9 +36,9 @@ class Spin_Spin(Observable):
 
         L = S.Lattice
 
-        exp_i_phi = np.exp(1.j * phi)
+        spin = np.exp(1.j * phi)
 
-        return L.correlation(exp_i_phi, exp_i_phi)
+        return L.correlation(spin, spin)
 
     _signs = dict()
     _directions = dict()

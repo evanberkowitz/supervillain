@@ -23,9 +23,9 @@ class Vortex_Vortex(Observable):
 
         L = S.Lattice
 
-        exp = np.exp(2j*np.pi * v / S.W)
+        vortex = np.exp(2j*np.pi * v / S.W)
 
-        return L.correlation(exp, exp)
+        return L.correlation(vortex, vortex)
 
 
 class VortexSusceptibility(Observable):
