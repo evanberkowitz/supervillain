@@ -240,7 +240,7 @@ class SpinSusceptibilityScaled(Observable):
     '''
 
     @staticmethod
-    def CriticalSpinScalingDimension(W):
+    def CriticalScalingDimension(W):
         r'''
         Setting the scaling dimension $(WR)^2 / 2$ of a charge-W vortex operator to 2 yields $R=2/W$.
         The corresponding scaling dimension of the spin operator $e^{i\phi}$ is $\Delta = (1R)^{-2}/2 = W^2/8$.
@@ -253,5 +253,5 @@ class SpinSusceptibilityScaled(Observable):
 
         L = S.Lattice.nx
         # NOTE: implicitly assumes that the lattice is square!
-        return SpinSusceptibility / L**(2-2*SpinSusceptibilityScaled.CriticalSpinScalingDimension(S.W))
+        return SpinSusceptibility / L**(2-2*SpinSusceptibilityScaled.CriticalScalingDimension(S.W))
 
