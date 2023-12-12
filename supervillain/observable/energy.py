@@ -1,4 +1,4 @@
-from supervillain.observable import Observable
+from supervillain.observable import Observable, DerivedQuantity
 import numpy as np
 
 class InternalEnergyDensity(Observable):
@@ -100,3 +100,20 @@ class InternalEnergyDensitySquared(Observable):
         partial_2_kappa_S = ((Links**2).sum() - L.links / S.kappa) / S.kappa
         
         return (partial_kappa_S**2 - partial_2_kappa_S) / L.sites**2
+
+class InternalEnergyDensityVariance(DerivedQuantity):
+    r'''
+    .. math ::
+        
+        \begin{align}
+        \texttt{InternalEnergyDensityVariance} &= \left\langle U^2/\Lambda^2 \right\rangle - \left\langle U/\Lambda \right\rangle^2
+        \end{align}
+
+    which can be computed from expectation values of :class:`~.InternalEnergyDensitySquared` and :class:`~.InternalEnergyDensity`.
+
+    '''
+
+    @staticmethod
+    def default(S, InternalEnergyDensitySquared, InternalEnergyDensity):
+        return InternalEnergyDensitySquared - InternalEnergyDensity**2
+

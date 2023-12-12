@@ -27,6 +27,10 @@ Internal Energy Density
    :members:
    :show-inheritance:
 
+.. autoclass :: supervillain.observable.InternalEnergyDensityVariance
+   :members:
+   :show-inheritance:
+
 ======
 Action
 ======
