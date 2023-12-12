@@ -51,7 +51,7 @@ class VortexSusceptibilityScaled(Observable):
 
     where the scaling at the critical coupling $\kappa_c$ is known and depends on the constraint integer $W$.
 
-    So, we cale the susceptibility,
+    So, we scale the susceptibility,
 
     .. math::
 
