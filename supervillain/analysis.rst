@@ -39,7 +39,7 @@ One draws, with replacement, from a sample drawn according to the distribution o
 The idea is that each draw *could* have been what your samples were with the same likelihood as the ensemble you actually have, and that we can estimate uncertainties by looking at distributions of means of observables from these fictitious Markov chains.
 
 .. autoclass:: supervillain.analysis.Bootstrap
-   :members:
+   :members: plot_band, plot_correlator, estimate
 
 .. _autocorrelation: https://en.wikipedia.org/wiki/Autocorrelation
 .. _bootstrapping: https://en.wikipedia.org/wiki/Bootstrapping_(statistics)
