@@ -50,11 +50,11 @@ L = supervillain.Lattice2D(args.N)
 
 if args.action == 'villain':
     S = supervillain.action.Villain(L, args.kappa)
-    G = supervillain.generator.NeighborhoodUpdate(S)
+    G = supervillain.generator.villain.NeighborhoodUpdate(S)
 elif args.action == 'worldline':
     S = supervillain.action.Worldline(L, args.kappa)
-    p = supervillain.generator.constraint.PlaquetteUpdate(S)
-    h = supervillain.generator.constraint.HolonomyUpdate(S)
+    p = supervillain.generator.worldline.PlaquetteUpdate(S)
+    h = supervillain.generator.worldline.WrappingUpdate(S)
     G = supervillain.generator.combining.Sequentially((p, h))
 
 with logging_redirect_tqdm():

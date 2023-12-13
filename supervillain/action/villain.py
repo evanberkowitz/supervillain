@@ -13,14 +13,18 @@ class Villain(H5able):
 
     .. math::
        \begin{align}
-       Z[J] &= \sum\hspace{-1.33em}\int D\phi\; Dn\; e^{-S_J[\phi, n]}
-       &
-       S_J[\phi, n] &= \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + i \sum_p J_p (dn)_p
+       Z[J] &= \sum\hspace{-1.33em}\int D\phi\; Dn\; e^{-S_J[\phi, n, v]}
+       \\
+       S_J[\phi, n, v] &= \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + 2\pi i \sum_p \left(v/W + J/2\pi \right)_p (dn)_p
        \end{align}
 
     with $\phi$ a real-valued 0-form that lives on sites, $n$ an integer-valued one form that lives on links $l$, and $J$ a two-form that lives on plaquettes $p$.
 
     In this formulation, if $J$ is real and nonzero we expect a sign problem because the action is complex.  However, we can think of $J$ as an external source, take functional derivatives to get observables, and then set $J$ to zero so that we only need sample according to the first term.
+
+    .. warning::
+        Because $W\neq1$ suffers from a sign problem without a clever algorithm that maintains the constraint, we currently restrict to $W=1$.
+        Then we may as well let $v=0$, since $\exp(2\pi i v_p (dn)_p) = 1$ for integer $v$ and $dn$.
 
     Parameters
     ----------
@@ -28,15 +32,21 @@ class Villain(H5able):
         The lattice on which $\phi$ and $n$ live.
     kappa: float
         The $\kappa$ in the overall coefficient.
+    W: int
+        The constraint integer $W$.  For the Villain action we restrict to $W=1$ to avoid a horrible sign problem.
     '''
 
-    def __init__(self, lattice, kappa):
+    def __init__(self, lattice, kappa, W=1):
 
         self.Lattice = lattice
         self.kappa = kappa
+        self.W = W
+
+        if self.W != 1:
+            raise ValueError(f'The Villain action has a horrible sign problem when W≠1; you picked {W=}.')
 
     def __str__(self):
-        return f'Villain({self.Lattice}, κ={self.kappa})'
+        return f'Villain({self.Lattice}, κ={self.kappa}, W={self.W})'
 
     def __call__(self, phi, n, **kwargs):
         r'''
@@ -50,9 +60,9 @@ class Villain(H5able):
         Returns
         -------
         float
-            $S_0[\phi, n]$
+            $S_0[\phi, n, v=0]$.  We restrict to the $v=0$ simplification because we restrict to $W=1$.
         '''
-        return self.kappa / 2 * np.sum((self.Lattice.d(0, phi) - 2*np.pi*n)**2)
+        return self.kappa / 2 * np.sum((self.Lattice.d(0, phi) - 2*np.pi*n)**2) # + nothing that depends on v since W=1.
 
     def configurations(self, count):
         r'''
@@ -68,6 +78,7 @@ class Villain(H5able):
         return Configurations({
             'phi': self.Lattice.form(0, count),
             'n':   self.Lattice.form(1, count, dtype=int),
+            'v':   self.Lattice.form(2, count, dtype=int),
             })
 
     def gauge_transform(self, configuration, k):
@@ -102,82 +113,3 @@ class Villain(H5able):
             'n':   configuration['n']   + self.Lattice.d(0, k),
         }
 
-class Worldline(H5able):
-    r'''
-    The dual (worldline) action is
-
-    .. math::
-       \begin{align}
-       Z[J] &= \sum Dm\; e^{-S_J[m]} \left[\delta m = 0\right]
-       &
-       S_J[m] &= \frac{1}{2\kappa} \sum_\ell \left(m - \frac{\delta J}{2\pi}\right)_\ell^2 + \frac{|\ell|}{2} \ln (2\pi \kappa) - |x| \ln 2\pi
-       \end{align}
-
-    In other words, it is a sum over all configurations where $\delta m$ vanishes on every site.
-
-    This formulation has no obvious sign problem when $J\neq 0 $, but maintaining the constraint $\delta m = 0$ requires a nontrivial algorithm.
-
-    Parameters
-    ----------
-    lattice: supervillain.Lattice2D
-        The lattice on which $m$ lives.
-    kappa: float
-        The $\kappa$ in the overall coefficient.
-
-
-    '''
-
-    def __init__(self, lattice, kappa):
-
-        self.Lattice = lattice
-        self.kappa = kappa
-        self._constant_offset = self.Lattice.links / 2 * np.log(2*np.pi*kappa) - self.Lattice.sites * np.log(2*np.pi)
-
-    def __str__(self):
-        return f'Worldline({self.Lattice}, κ={self.kappa})'
-
-    def valid(self, m):
-        r'''
-        Returns true if the constraint $[\delta m = 0]$ is satisfied everywhere and false otherwise.
-        '''
-
-        return (self.Lattice.delta(1, m) == 0).all()
-
-    def __call__(self, m, **kwargs):
-        r'''
-        Parameters
-        ----------
-        m: np.ndarray
-            An integer-valued 1-form.
-
-        Returns
-        -------
-        float:
-            $S_0[m]$
-
-        Raises
-        ------
-        ValueError
-            If $m$ does not satisfy the constraint.
-        '''
-
-        if not self.valid(m):
-            raise ValueError(f'The one-form m does not satisfy the constraint δm = 0 everywhere.')
-        return 0.5 / self.kappa * np.sum(m**2) + self._constant_offset
-
-    def configurations(self, count):
-        r'''
-        Parameters
-        ----------
-        count: int
-            How many configurations to return.
-
-        Returns
-        -------
-        dict
-            A dictionary of zeroed arrays at key ``m`` holding ``count`` 1-forms.
-        '''
-
-        return Configurations({
-            'm': self.Lattice.form(1, count, dtype=int),
-            })

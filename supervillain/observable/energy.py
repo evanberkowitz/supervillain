@@ -1,4 +1,4 @@
-from supervillain.observable import Observable
+from supervillain.observable import Observable, DerivedQuantity
 import numpy as np
 
 class InternalEnergyDensity(Observable):
@@ -31,19 +31,19 @@ class InternalEnergyDensity(Observable):
 
 
     @staticmethod
-    def Worldline(S, m):
+    def Worldline(S, Links):
         r'''
         In the :class:`~.Worldline` formulation we differentiate to find
 
         .. math ::
            \begin{align}
-            U &= \left\langle \partial_\kappa S \right\rangle = - \frac{1}{2\kappa^2} \sum_{\ell} m_\ell^2 + \frac{|\ell|}{2 \kappa}.
+            U &= \left\langle \partial_\kappa S \right\rangle = - \frac{1}{2\kappa^2} \sum_{\ell} (m-\delta v/W)_\ell^2 + \frac{|\ell|}{2 \kappa}.
            \end{align}
 
         '''
 
         L = S.Lattice
-        return (L.links / 2 - 0.5 / S.kappa * (m**2).sum()) / (L.sites * S.kappa)
+        return (L.links / 2 - 0.5 / S.kappa * (Links**2).sum()) / (L.sites * S.kappa)
 
 class InternalEnergyDensitySquared(Observable):
     r'''
@@ -82,21 +82,38 @@ class InternalEnergyDensitySquared(Observable):
 
 
     @staticmethod
-    def Worldline(S, m):
+    def Worldline(S, Links):
         r'''
         In the :class:`~.Worldline` formulation we differentiate to find
 
         .. math ::
             \begin{align}
-                \partial_\kappa S &= - \frac{1}{2\kappa^2} \sum_{\ell} m_\ell^2 + \frac{|\ell|}{2 \kappa}
+                \partial_\kappa S &= - \frac{1}{2\kappa^2} \sum_{\ell} (m-\delta v/W)_\ell^2 + \frac{|\ell|}{2 \kappa}
                 &
-                \partial^2_\kappa S &= \frac{1}{\kappa} \sum_{\ell} m_\ell^2 - \frac{|\ell|}{2\kappa^2}.
+                \partial^2_\kappa S &= \frac{1}{\kappa} \sum_{\ell} (m-\delta v/W)_\ell^2 - \frac{|\ell|}{2\kappa^2}.
             \end{align}
 
         '''
 
         L = S.Lattice
-        partial_kappa_S = (L.links / 2 - 0.5 / S.kappa * (m**2).sum()) / S.kappa
-        partial_2_kappa_S = ((m**2).sum() - L.links / S.kappa) / S.kappa
+        partial_kappa_S = (L.links / 2 - 0.5 / S.kappa * (Links**2).sum()) / S.kappa
+        partial_2_kappa_S = ((Links**2).sum() - L.links / S.kappa) / S.kappa
         
         return (partial_kappa_S**2 - partial_2_kappa_S) / L.sites**2
+
+class InternalEnergyDensityVariance(DerivedQuantity):
+    r'''
+    .. math ::
+        
+        \begin{align}
+        \texttt{InternalEnergyDensityVariance} &= \left\langle U^2/\Lambda^2 \right\rangle - \left\langle U/\Lambda \right\rangle^2
+        \end{align}
+
+    which can be computed from expectation values of :class:`~.InternalEnergyDensitySquared` and :class:`~.InternalEnergyDensity`.
+
+    '''
+
+    @staticmethod
+    def default(S, InternalEnergyDensitySquared, InternalEnergyDensity):
+        return InternalEnergyDensitySquared - InternalEnergyDensity**2
+
