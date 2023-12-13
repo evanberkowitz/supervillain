@@ -213,3 +213,18 @@ class Action_Action(DerivedQuantity):
     @staticmethod
     def default(S, ActionTwoPoint, ActionDensity):
         return ActionTwoPoint - ActionDensity**2
+
+class ActionDensityVariance(DerivedQuantity):
+    r'''
+    The variance
+
+    .. math ::
+
+        \texttt{ActionDensityVariance} = \left\langle (\mathcal{S}/\Lambda)^2 \right\rangle - \left\langle \mathcal{S} / \Lambda \right\rangle^2.
+
+    Since :class:`~.Action_Action` is the correlation function of local densities, we can compute the variance by taking the average over $\Delta x$.
+    '''
+
+    @staticmethod
+    def default(S, Action_Action):
+        return Action_Action.mean()
