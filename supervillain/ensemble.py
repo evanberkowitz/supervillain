@@ -6,6 +6,7 @@ from supervillain import _no_op
 import supervillain
 from supervillain.h5 import H5able
 from supervillain.performance import Timer
+from supervillain.analysis import autocorrelation_time
 import supervillain.h5
 
 import logging
@@ -131,6 +132,45 @@ class Ensemble(H5able):
 
     def __len__(self):
         return len(self.configuration)
+
+    @property
+    def measured(self):
+        r'''
+        A set of strings naming measured observables.
+        '''
+
+        return self.__dict__.keys() & supervillain.observables.keys()
+
+    def autocorrelation_time(self, observables=None, every=False):
+        r'''
+        Compute the autocorrelation time for the ensemble's measurements.
+        However, the autocorrelation time for any observable is only computed if that observable's
+        :py:meth:`~.Observable.autocorrelation` is true for this ensemble.
+        
+        .. note ::
+            This does *not* trigger the measurement of any observable unless explicitly asked for in the ``observables`` parameter.
+
+        Parameters
+        ----------
+        observables: ``None`` or iterable of strings naming observables.
+            Which observables to consider.  If ``None``, consider all previously-measured observables.
+
+        every: boolean
+            If ``True`` returns a dictionary with keys given by observable names and values the computed autocorrelation times.
+        '''
+
+        if observables is None:
+            observables = self.measured
+
+        auto = {
+                name: autocorrelation_time(getattr(self, name))
+                for name in observables
+                if supervillain.observables[name].autocorrelation(self)
+                }
+        if every:
+            return auto
+        else:
+            return max(auto.values())
 
     def cut(self, start):
         r'''

@@ -1,5 +1,4 @@
 from .observable import Observable
-from .observable import registry as observables
 from .derived import DerivedQuantity
 
 from .links import Links

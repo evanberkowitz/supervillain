@@ -75,3 +75,19 @@ class Observable:
     def __set__(self, obj, value):
         setattr(obj, self.name, value)
 
+    @classmethod
+    def autocorrelation(cls, ensemble):
+        r'''
+        Deciding whether an observable is included in an ensemble's :py:meth:`~.Ensemble.autocorrelation_time` computation is ensemble-dependent.
+
+        For example, if $W=1$ then certain vortex observables are independent of configuration and thus look like
+        they have an infinite autocorrelation time.  However, that's expected and not an ergodicity problem.  That's
+        real physics!
+
+        So, to decide whether an observable should be included in the ensemble's autocorrelation time requires in general
+        evaluating a function on the observable itself and the ensemble.
+
+        By default observables just return ``False`` but observables can override this function to make more clever decisions.
+        '''
+        return False
+
