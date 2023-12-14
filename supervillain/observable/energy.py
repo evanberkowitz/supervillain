@@ -1,7 +1,7 @@
-from supervillain.observable import Observable, DerivedQuantity
+from supervillain.observable import Scalar, Observable, DerivedQuantity
 import numpy as np
 
-class InternalEnergyDensity(Observable):
+class InternalEnergyDensity(Scalar, Observable):
     r'''If we think of $\kappa$ like a thermodynamic $\beta$, then we may compute the internal energy $U$
 
     .. math::
@@ -45,7 +45,7 @@ class InternalEnergyDensity(Observable):
         L = S.Lattice
         return (L.links / 2 - 0.5 / S.kappa * (Links**2).sum()) / (L.sites * S.kappa)
 
-class InternalEnergyDensitySquared(Observable):
+class InternalEnergyDensitySquared(Scalar, Observable):
     r'''
     If we think of $\kappa$ as a thermodynamic $\beta$, then we
     may compute the expectation value of the square of the internal

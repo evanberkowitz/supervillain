@@ -1,4 +1,4 @@
-from .observable import Observable
+from .observable import Observable, Scalar, Constrained
 from .derived import DerivedQuantity
 
 from .links import Links

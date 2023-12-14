@@ -31,6 +31,8 @@ Some simple ways of decreasing autocorrelation are to decimate your Markov Chain
 The :class:`~.Ensemble` provides the :func:`every <supervillain.ensemble.Ensemble.every>` method, which returns another :class:`~.Ensemble` ensemble keeping configurations evenly spaced by n.
 A natural choice for n is the autocorrelation time.
 
+Ensembles also have an :meth:`~.Ensemble.autocorrelation_time`, which leverages the above :py:func:`~.analysis.autocorrelation_time` and understands which observables to include.
+
 The Bootstrap
 -------------
 

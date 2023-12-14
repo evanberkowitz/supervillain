@@ -10,6 +10,8 @@ from supervillain.performance import Timer
 import logging
 logger = logging.getLogger(__name__)
 
+registry=dict()
+
 class Observable:
 
     def __init_subclass__(cls, intermediate=False):
@@ -17,6 +19,8 @@ class Observable:
         # Upon registration, Ensemble gets an attribute with the appropriate name.
 
         name = cls.__name__
+
+        registry[name] = cls
 
         cls._logger = (logger.debug if name[0] == '_' else logger.info)
         cls._debug  = logger.debug
@@ -71,3 +75,40 @@ class Observable:
     def __set__(self, obj, value):
         setattr(obj, self.name, value)
 
+    @classmethod
+    def autocorrelation(cls, ensemble):
+        r'''
+        Deciding whether an observable is included in an ensemble's :py:meth:`~.Ensemble.autocorrelation_time` computation is ensemble-dependent.
+
+        For example, if $W=1$ then certain vortex observables are independent of configuration and thus look like
+        they have an infinite autocorrelation time.  However, that's expected and not an ergodicity problem.  That's
+        real physics!
+
+        So, to decide whether an observable should be included in the ensemble's autocorrelation time requires in general
+        evaluating a function on the observable itself and the ensemble.
+
+        By default observables just return ``False`` but observables can override this function to make more clever decisions.
+        '''
+        return False
+
+class Scalar:
+
+    @classmethod
+    def autocorrelation(cls, ensemble):
+        r'''
+        Scalars are simple to understand and can be included in the autocorrelation computation.
+
+        Returns ``True``.
+        '''
+        return True
+
+class Constrained:
+
+    @classmethod
+    def autocorrelation(cls, ensemble):
+        r'''
+        If $W=1$ the observable should not be included in the autocorrelation computation.
+
+        If $W\neq 1$ then use all other considerations to decide.
+        '''
+        return (ensemble.Action.W != 1) and super().autocorrelation(ensemble)

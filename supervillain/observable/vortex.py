@@ -1,7 +1,7 @@
 import numpy as np
-from supervillain.observable import Observable, DerivedQuantity
+from supervillain.observable import Observable, Scalar, Constrained
 
-class Vortex_Vortex(Observable):
+class Vortex_Vortex(Constrained, Observable):
     r'''
 
     In the constrained model the vortex correlations are given by
@@ -28,7 +28,7 @@ class Vortex_Vortex(Observable):
         return L.correlation(vortex, vortex)
 
 
-class VortexSusceptibility(Observable):
+class VortexSusceptibility(Constrained, Scalar, Observable):
     r'''
     The *vortex susceptibility* is the spacetime integral of the :class:`~.Vortex_Vortex` correlator $V_{\Delta x}$,
 
@@ -41,7 +41,7 @@ class VortexSusceptibility(Observable):
     def default(S, Vortex_Vortex):
         return np.sum(Vortex_Vortex.real)
 
-class VortexSusceptibilityScaled(Observable):
+class VortexSusceptibilityScaled(Constrained, Scalar, Observable):
     r'''
     At the critical point and in the CFT the :class:`~.VortexSusceptibility` has a known expected scaling that comes from the scaling dimension $\Delta$ of $e^{2\pi i v/W}$.
 

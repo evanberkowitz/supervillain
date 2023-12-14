@@ -53,6 +53,36 @@ For example, the :class:`~.SpinSusceptibility` is just the sum of the :class:`~.
 .. literalinclude:: observable/spin.py
    :pyobject: SpinSusceptibility
 
+Scalar observables are good candidates for consideration in the autocorrelation time
+
+.. autoclass :: supervillain.observable.Scalar
+    :members:
+
+but, as advertised some observables only make sense when $W\neq 1$.
+
+.. autoclass :: supervillain.observable.Constrained
+    :members:
+
+We can use these to control the inclusion in an ensemble's autocorrelation computation.
+For example, :class:`~.Spin_Spin` is a two-point function, the :class:`~.InternalEnergyDensity` is a scalar, and the :class:`~.VortexSusceptibility` is a constrained scalar that only makes sense when $W\neq 1$.
+
+.. literalinclude :: observable/spin.py
+   :pyobject: Spin_Spin
+   :lines: 1
+
+.. literalinclude :: observable/energy.py
+   :pyobject: InternalEnergyDensity
+   :lines: 1
+
+.. literalinclude :: observable/vortex.py
+   :pyobject: VortexSusceptibility
+   :lines: 1
+
+
+Different considerations override one another in accordance with the python `method resolution order`_; very roughly speaking, left-most first.
+
+.. _method resolution order: https://docs.python.org/3/glossary.html#term-method-resolution-order
+
 .. _derived quantities:
 
 ==================
