@@ -133,6 +133,28 @@ class Ensemble(H5able):
     def __len__(self):
         return len(self.configuration)
 
+    def measure(self, observables=None):
+        r'''
+        If ``observables`` is None, measure every known primary observable on this ensemble.
+        Otherwise measure only those observables named.
+        If an observable is already computed, no new computation occurs.
+
+        Parameters
+        ----------
+        observables: ``None`` or iterable of strings naming observables.
+            Observables to compute on this ensemble.
+
+        Returns
+        -------
+        dict:
+            Keys are observable names, values are the measurements.
+        '''
+
+        if observables is None:
+            observables = supervillain.observables.keys()
+
+        return {o: getattr(self, o) for o in observables}
+
     @property
     def measured(self):
         r'''
