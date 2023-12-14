@@ -25,6 +25,9 @@ class Sequentially(H5able):
         
         self.generators = generators
         
+    def __str__(self):
+        return f'Sequentially((' + ', '.join(f'{str(g)}' for g in self.generators) + '))'
+
     def step(self, cfg):
         r'''
         Apply each generator's ``step`` one after the next and return the final configuration.
@@ -67,6 +70,9 @@ class KeepEvery(H5able):
 
         self.stride = n
         self.generator = generator
+
+    def __str__(self):
+        return f'KeepEvery({self.stride}, {str(self.generator)})'
 
     def step(self, cfg):
         r'''
