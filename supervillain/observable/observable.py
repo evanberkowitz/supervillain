@@ -10,6 +10,8 @@ from supervillain.performance import Timer
 import logging
 logger = logging.getLogger(__name__)
 
+registry=dict()
+
 class Observable:
 
     def __init_subclass__(cls, intermediate=False):
@@ -17,6 +19,8 @@ class Observable:
         # Upon registration, Ensemble gets an attribute with the appropriate name.
 
         name = cls.__name__
+
+        registry[name] = cls
 
         cls._logger = (logger.debug if name[0] == '_' else logger.info)
         cls._debug  = logger.debug
