@@ -43,7 +43,7 @@ class Ensemble(H5able):
 
         return self
 
-    def generate(self, steps, generator, start='cold', progress=_no_op, starting_index=0):
+    def generate(self, steps, generator, start='cold', progress=_no_op, starting_index=0, index_stride=1):
         r'''
         Parameters
         ----------
@@ -58,7 +58,9 @@ class Ensemble(H5able):
                 In a script you might use `tqdm.tqdm`_, and in a notebook `tqdm.notebook`_.
                 Defaults to no progress reporting.
             starting_index: int
-                An ensemble has a ``.index`` which is an array of sequential integers labeling the configurations; this sets the lower value.
+                An ensemble has a ``.index`` which is an array of regularly-spaced integers labeling the configurations; this sets the lower value.
+            index_stride: int
+                The increment of the ``.index`` for each call of the generator.
 
         Returns
         -------
@@ -69,7 +71,8 @@ class Ensemble(H5able):
         '''
 
         self.configuration = self.Action.configurations(steps)
-        self.index = starting_index + np.arange(steps)
+        self.index_stride = index_stride
+        self.index = starting_index + self.index_stride * np.arange(steps)
         self.weight = np.ones(steps)
 
         if start == 'cold':
@@ -214,6 +217,7 @@ class Ensemble(H5able):
         '''
         e = Ensemble(self.Action).from_configurations(self.configuration[start:])
         e.index = self.index[start:]
+        e.index_stride = self.index_stride
         e.weight = self.weight[start:]
 
         for o in self.measured:
@@ -242,6 +246,7 @@ class Ensemble(H5able):
 
         e = Ensemble(self.Action).from_configurations(self.configuration[::stride])
         e.index = self.index[::stride]
+        e.index_stride = self.index_stride * stride
         e.weight = self.weight[::stride]
 
         for o in self.measured:
