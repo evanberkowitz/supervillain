@@ -1,5 +1,5 @@
 import numpy as np
-from supervillain.observable import Observable
+from supervillain.observable import Scalar, Observable
 
 class Spin_Spin(Observable):
     r'''
@@ -205,7 +205,7 @@ class Spin_Spin(Observable):
         return result
 
 
-class SpinSusceptibility(Observable):
+class SpinSusceptibility(Scalar, Observable):
     r'''
     The *spin susceptibility* is the spacetime integral of the :class:`~.Spin_Spin` correlator $S_{\Delta x}$,
 
@@ -218,7 +218,7 @@ class SpinSusceptibility(Observable):
     def default(S, Spin_Spin):
         return np.sum(Spin_Spin.real)
     
-class SpinSusceptibilityScaled(Observable):
+class SpinSusceptibilityScaled(Scalar, Observable):
     r'''
     At the critical point and in the CFT the :class:`~.SpinSusceptibility` has a known expected scaling that comes from the scaling dimension $\Delta$ of $e^{i\phi}$
 

@@ -64,6 +64,20 @@ but, as advertised some observables only make sense when $W\neq 1$.
     :members:
 
 We can use these to control the inclusion in an ensemble's autocorrelation computation.
+For example, :class:`~.Spin_Spin` is a two-point function, the :class:`~.InternalEnergyDensity` is a scalar, and the :class:`~.VortexSusceptibility` is a constrained scalar that only makes sense when $W\neq 1$.
+
+.. literalinclude :: observable/spin.py
+   :pyobject: Spin_Spin
+   :lines: 1
+
+.. literalinclude :: observable/energy.py
+   :pyobject: InternalEnergyDensity
+   :lines: 1
+
+.. literalinclude :: observable/vortex.py
+   :pyobject: VortexSusceptibility
+   :lines: 1
+
 
 Different considerations override one another in accordance with the python `method resolution order`_; very roughly speaking, left-most first.
 
