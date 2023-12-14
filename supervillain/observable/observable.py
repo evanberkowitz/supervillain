@@ -73,7 +73,7 @@ class Observable:
         raise NotImplementedError()
 
     def __set__(self, obj, value):
-        setattr(obj, self.name, value)
+        obj.__dict__[self.__class__.__name__] = value
 
     @classmethod
     def autocorrelation(cls, ensemble):

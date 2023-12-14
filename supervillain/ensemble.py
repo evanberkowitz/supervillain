@@ -215,6 +215,10 @@ class Ensemble(H5able):
         e = Ensemble(self.Action).from_configurations(self.configuration[start:])
         e.index = self.index[start:]
         e.weight = self.weight[start:]
+
+        for o in self.measured:
+            setattr(e, o, getattr(self, o)[start:])
+
         return e
 
     def every(self, stride):
@@ -239,6 +243,10 @@ class Ensemble(H5able):
         e = Ensemble(self.Action).from_configurations(self.configuration[::stride])
         e.index = self.index[::stride]
         e.weight = self.weight[::stride]
+
+        for o in self.measured:
+            setattr(e, o, getattr(self, o)[::stride])
+
         return e
 
     def plot_history(self, axes, observable, label=None,
