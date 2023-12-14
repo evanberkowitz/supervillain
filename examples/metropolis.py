@@ -26,20 +26,18 @@ logger = logging.getLogger(__name__)
 ####
 
 # Each observable whose history and histogram you want to see can be put into this list.
-observables = (
-    'XWrapping', 'TWrapping',
-    'InternalEnergyDensity',
-    'InternalEnergyDensitySquared',
-    'WindingSquared',
-    'ActionDensity',
-    'SpinSusceptibilityScaled',
-    )
+observables = tuple(o for o, c in supervillain.observables.items()
+                    if  issubclass(c, supervillain.observable.Scalar)
+                    and ('Vortex' not in o) # This script does W=1
+                    and ('Scaled' not in o) # The scaled observables are directly proportional to the non-scaled ones, a waste to show.
+                    )
 
 # We can also visualize the space-dependent correlators.
 correlators = (
     'Winding_Winding', # the zero correlator?
     'Spin_Spin',
     'Action_Action',
+    'Vortex_Vortex',
     )
 
 ####
@@ -81,7 +79,8 @@ histories.suptitle(f'{S}', fontsize=16)
 
 # To get good error estimates we should make a thermalization cut and then decorrelate.
 # We calculate the autocorrelation time for each observable.
-autocorrelation = max([supervillain.analysis.autocorrelation_time(getattr(E, O)) for O in observables])
+E.measure()
+autocorrelation = E.autocorrelation_time()
 
 # Now let's cut and decorrelate
 print(f'Autocorrelation time = {autocorrelation}')
