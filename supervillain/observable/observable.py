@@ -91,3 +91,24 @@ class Observable:
         '''
         return False
 
+class Scalar:
+
+    @classmethod
+    def autocorrelation(cls, ensemble):
+        r'''
+        Scalars are simple to understand and can be included in the autocorrelation computation.
+
+        Returns ``True``.
+        '''
+        return True
+
+class Constrained:
+
+    @classmethod
+    def autocorrelation(cls, ensemble):
+        r'''
+        If $W=1$ the observable should not be included in the autocorrelation computation.
+
+        If $W\neq 1$ then use all other considerations to decide.
+        '''
+        return (ensemble.Action.W != 1) and super().autocorrelation(ensemble)
