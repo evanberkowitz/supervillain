@@ -175,3 +175,6 @@ cython_debug/
 
 # Practice workbooks
 # workbooks/
+
+#Data from csvs
+*.csvtyt
