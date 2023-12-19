@@ -27,6 +27,9 @@ class PlaquetteUpdate(H5able):
         self.rng = np.random.default_rng()
         self.acceptance = 0.
 
+    def __str__(self):
+        return f'PlaquetteUpdate'
+
     def step(self, cfg):
         r'''
         Performs a sweep of the plaquettes in a randomized order.
@@ -109,6 +112,9 @@ class WrappingUpdate(H5able):
         self.proposed = 0
         self.acceptance = 0.
         self.rng = np.random.default_rng()
+
+    def __str__(self):
+        return f'WrappingUpdate'
 
     def step(self, cfg):
         '''

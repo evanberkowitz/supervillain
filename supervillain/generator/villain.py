@@ -38,6 +38,9 @@ class NeighborhoodUpdate(H5able):
         self.acceptance = 0.
         self.sweeps = 0
 
+    def __str__(self):
+        return 'NeighborhoodUpdate'
+
     def step(self, cfg):
         r'''
         Make volume's worth of random single-site updates.

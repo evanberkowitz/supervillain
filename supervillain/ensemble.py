@@ -43,7 +43,7 @@ class Ensemble(H5able):
 
         return self
 
-    def generate(self, steps, generator, start='cold', progress=_no_op, starting_index=0):
+    def generate(self, steps, generator, start='cold', progress=_no_op, starting_index=0, index_stride=1):
         r'''
         Parameters
         ----------
@@ -58,7 +58,9 @@ class Ensemble(H5able):
                 In a script you might use `tqdm.tqdm`_, and in a notebook `tqdm.notebook`_.
                 Defaults to no progress reporting.
             starting_index: int
-                An ensemble has a ``.index`` which is an array of sequential integers labeling the configurations; this sets the lower value.
+                An ensemble has a ``.index`` which is an array of regularly-spaced integers labeling the configurations; this sets the lower value.
+            index_stride: int
+                The increment of the ``.index`` for each call of the generator.
 
         Returns
         -------
@@ -69,7 +71,8 @@ class Ensemble(H5able):
         '''
 
         self.configuration = self.Action.configurations(steps)
-        self.index = starting_index + np.arange(steps)
+        self.index_stride = index_stride
+        self.index = starting_index + self.index_stride * np.arange(steps)
         self.weight = np.ones(steps)
 
         if start == 'cold':
@@ -124,11 +127,11 @@ class Ensemble(H5able):
             generator = e.generator
             action    = e.Action
             last      = e.configuration[-1]
-            index     = e.index[-1] + 1
+            index     = e.index[-1] + e.index_stride
         except:
             raise ValueError('The ensemble must provide a generator, an Action, and at least one configuration.')
 
-        return Ensemble(action).generate(steps, generator, last, progress=progress, starting_index=index)
+        return Ensemble(action).generate(steps, generator, last, progress=progress, starting_index=index, index_stride=e.index_stride)
 
     def __len__(self):
         return len(self.configuration)
@@ -214,12 +217,21 @@ class Ensemble(H5able):
         '''
         e = Ensemble(self.Action).from_configurations(self.configuration[start:])
         e.index = self.index[start:]
+        e.index_stride = self.index_stride
         e.weight = self.weight[start:]
+
+        for o in self.measured:
+            setattr(e, o, getattr(self, o)[start:])
+
+        e.generator = self.generator
+
         return e
 
     def every(self, stride):
         r'''
         Good for decorrelation.
+
+        The generator is wrapped in :class:`~.KeepEvery` so that :py:meth:`~.continue_from` produces a strided follow-on ensemble.
 
         .. code::
 
@@ -238,7 +250,14 @@ class Ensemble(H5able):
 
         e = Ensemble(self.Action).from_configurations(self.configuration[::stride])
         e.index = self.index[::stride]
+        e.index_stride = self.index_stride * stride
         e.weight = self.weight[::stride]
+
+        for o in self.measured:
+            setattr(e, o, getattr(self, o)[::stride])
+
+        e.generator = supervillain.generator.combining.KeepEvery(stride, self.generator)
+
         return e
 
     def plot_history(self, axes, observable, label=None,
