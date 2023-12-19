@@ -127,11 +127,11 @@ class Ensemble(H5able):
             generator = e.generator
             action    = e.Action
             last      = e.configuration[-1]
-            index     = e.index[-1] + 1
+            index     = e.index[-1] + e.index_stride
         except:
             raise ValueError('The ensemble must provide a generator, an Action, and at least one configuration.')
 
-        return Ensemble(action).generate(steps, generator, last, progress=progress, starting_index=index)
+        return Ensemble(action).generate(steps, generator, last, progress=progress, starting_index=index, index_stride=e.index_stride)
 
     def __len__(self):
         return len(self.configuration)
@@ -223,6 +223,8 @@ class Ensemble(H5able):
         for o in self.measured:
             setattr(e, o, getattr(self, o)[start:])
 
+        e.generator = self.generator
+
         return e
 
     def every(self, stride):
@@ -251,6 +253,8 @@ class Ensemble(H5able):
 
         for o in self.measured:
             setattr(e, o, getattr(self, o)[::stride])
+
+        e.generator = supervillain.generator.combining.KeepEvery(stride, self.generator)
 
         return e
 
