@@ -231,6 +231,8 @@ class Ensemble(H5able):
         r'''
         Good for decorrelation.
 
+        The generator is wrapped in :class:`~.KeepEvery` so that :py:meth:`~.continue_from` produces a strided follow-on ensemble.
+
         .. code::
 
            decorrelated = thermalized.every(stride)
