@@ -8,7 +8,7 @@ Navigate to the cloned repo and try
 
 ```
 pip install .  # for development use pip install -e . 
-./example/end-to-end.py
+./test/end-to-end.py
 ```
 
 If pip installation succeeds so too should the example script, which by default samples the (φ, n) formulation of the model on a small lattice.
