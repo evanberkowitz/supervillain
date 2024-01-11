@@ -859,6 +859,7 @@ class Lattice2D(H5able):
                   cmap=None, cbar_kw=dict(), norm=colors.CenteredNorm(),
                   pointsize=200, linkwidth=0.025,
                   background='white', 
+                  markerstyle = 'o'
                  ):
         r'''
         Plots the p-form on the axis.
@@ -902,6 +903,7 @@ class Lattice2D(H5able):
             'edgecolor': background,
             'linewidth': 2,
             'norm': norm,
+            'marker' : markerstyle
         }
         no_arrowhead = {'headwidth': 0, 'headlength': 0, 'headaxislength': 0,}
         linkpadding = {'edgecolor': background, 'linewidth': 4}

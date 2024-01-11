@@ -181,3 +181,53 @@ class Worldline(H5able):
         return Configurations({
             'm': self.Lattice.form(1, count, dtype=int),
             })
+    
+    def count_loops(self, cfg):
+        cfgabs = np.abs(cfg)
+        #Takes the absolute value of a configuration's links to determine where a worm perturbation is
+        #This must be applied to a worm on a zero background field, (or just subtract out the background field from before the worm)
+        #Here I am checking each site for whether it lies on the worm (has an adjacent non-zero link),
+        #and if so then give it an integer value. This is basically just a unique identifier, so the integer value 
+        #increments each time
+        q = 1
+        ledger = self.Lattice.form(0)
+        for i in range(self.Lattice.dims[0]):
+            for j in range(self.Lattice.dims[1]):
+                if (np.array([cfgabs[0,i,j],cfgabs[1,i,j],cfgabs[0,i-1,j],cfgabs[1,i,j-1]])>0).any():
+                    ledger[i,j]=q
+                    q+=1
+
+        oldledger = np.empty_like(ledger)
+        while (ledger != oldledger).any():  #As long as we are not in a steady state
+            oldledger = ledger.copy()
+            for i in range(ledger.shape[0]):
+                for j in range(ledger.shape[1]):
+                    if ledger[i,j] != 0:
+                        for adj in [1,2,3,4]:   #Sift through each non-zero point in the ledger and its 
+                            #adjacent links
+                            #[1,2,3,4] -> [East,N,W,S]
+                            if adj == 1:
+                                test_link = cfgabs[0,i,j]
+                                if test_link > 0:
+                                    #Here we check if the worm passes through a neighboring link, and if so we take
+                                    #the maximum of the two points connected by that link and adopt that for both
+                                    ledger[i,j] = max(ledger[i,j],ledger[self.Lattice.mod([i+1,j])[0],self.Lattice.mod([i+1,j])[1]])
+                                    ledger[self.Lattice.mod([i+1,j])[0],self.Lattice.mod([i+1,j])[1]] = ledger[i,j]
+                            if adj == 2:
+                                test_link = cfgabs[1,i,j]
+                                if test_link > 0:
+                                    ledger[i,j] = max(ledger[i,j],ledger[self.Lattice.mod([i,j+1])[0],self.Lattice.mod([i,j+1])[1]])
+                                    ledger[self.Lattice.mod([i,j+1])[0],self.Lattice.mod([i,j+1])[1]] = ledger[i,j]
+                            if adj == 3:
+                                test_link = cfgabs[0,i-1,j]
+                                if test_link > 0:
+                                    ledger[i,j] = max(ledger[i,j],ledger[self.Lattice.mod([i-1,j])[0],self.Lattice.mod([i-1,j])[1]])
+                                    ledger[self.Lattice.mod([i-1,j])[0],self.Lattice.mod([i-1,j])[1]] = ledger[i,j]
+                            if adj == 4:
+                                test_link = cfgabs[1,i,j-1]
+                                if test_link > 0:
+                                    ledger[i,j] = max(ledger[i,j],ledger[self.Lattice.mod([i,j-1])[0],self.Lattice.mod([i,j-1])[1]])
+                                    ledger[self.Lattice.mod([i,j-1])[0],self.Lattice.mod([i,j-1])[1]] = ledger[i,j]
+        #Once the process reaches a steady state, ie. the maximums in all connected loops have proliferated
+        #we can just count the number of unique maximums that we obtain (other than 0)
+        return np.sum(np.unique(ledger) > 0)
