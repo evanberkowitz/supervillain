@@ -56,7 +56,7 @@ class Ensemble(H5able):
                 If a dictionary is passed it is used as the zeroeth configuration.
             progress: something which wraps an iterator and provides a progress bar.
                 In a script you might use `tqdm.tqdm`_, and in a notebook `tqdm.notebook`_.
-                Defaults to no progress reporting.
+                Defaults to no progress reporting.  Must accept a `desc` keyword argument.
             starting_index: int
                 An ensemble has a ``.index`` which is an array of regularly-spaced integers labeling the configurations; this sets the lower value.
             index_stride: int
@@ -86,7 +86,7 @@ class Ensemble(H5able):
 
             self.configuration[0] = generator.step(seed)
 
-            for mcmc_step in progress(range(1,steps)):
+            for mcmc_step in progress(range(1,steps), desc='Generation'):
                 self.configuration[mcmc_step] = generator.step(self.configuration[mcmc_step-1])
 
             self.start = start
@@ -105,6 +105,9 @@ class Ensemble(H5able):
                 The ensemble to continue.  Raises a ValueError if it is not a `supervillain.Ensemble` or an `h5py.Group` with an action, generator, and at least one configuration.
             steps: int
                 Number of configurations to generate.
+
+            progress:
+                As in :py:meth:`~.generate`.
 
         Returns
         -------
