@@ -9,6 +9,7 @@ from supervillain.performance import Timer
 
 import logging
 logger = logging.getLogger(__name__)
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 registry=dict()
 
@@ -62,10 +63,13 @@ class Observable:
             # Observables can depend on field variables and other Observables.
             # We look up the arguments as attributes of the ensemble.
             with Timer(self._logger, f'Measurement of {name}', per=len(obj)):
-                obj.__dict__[name]= np.array([
-                    measure(*obs)
-                    for obs in zip(*[getattr(obj, o) for o in inspect.getfullargspec(measure).args])
-                    ])
+                with logging_redirect_tqdm():
+                    obj.__dict__[name]= np.array([
+                        measure(*obs)
+                        for obs in supervillain.observable.progress(
+                            zip(*[getattr(obj, o) for o in inspect.getfullargspec(measure).args]),
+                            desc=f'{name:{max([len(k) for k in registry])}s}', leave=True, total=len(obj))
+                        ])
             return obj.__dict__[name]
         except Exception as exception:
             raise NotImplementedError(f'{name} not implemented for {class_name}') from exception

@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 
 import supervillain
 from supervillain.analysis import Uncertain
+supervillain.observable.progress=tqdm
 
 parser = supervillain.cli.ArgumentParser(description = 'The goal is to compute the same observables using both the Villain and Worldline actions and to check that they agree.')
 parser.add_argument('--N', type=int, default=5, help='Sites on a side.')
