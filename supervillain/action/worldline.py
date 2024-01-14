@@ -109,7 +109,7 @@ class Worldline(H5able):
         for integer $\lambda$.  We fix $\lambda$ on every plaquette so that after the transformation $v\in[0,W)$.
 
         .. seealso ::
-            examples/equivalence-class-v.py
+            test/equivalence-class-v.py
 
         Parameters
         ----------
