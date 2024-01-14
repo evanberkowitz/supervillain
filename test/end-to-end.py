@@ -11,6 +11,7 @@ import supervillain
 parser = supervillain.cli.ArgumentParser()
 parser.add_argument('--N', type=int, default=5, help='Sites on a side.')
 parser.add_argument('--kappa', type=float, default=0.5, help='κ.')
+parser.add_argument('--W', type=int, default=1, help='The constraint integer W.')
 parser.add_argument('--configurations', type=int, default=1000)
 parser.add_argument('--action', type=str, default='villain', choices=['villain', 'worldline'])
 parser.add_argument('--bootstraps', default=100, type=int, help='Number of bootstrap resamplings.')
@@ -28,17 +29,9 @@ logger = logging.getLogger(__name__)
 # Each observable whose history and histogram you want to see can be put into this list.
 observables = tuple(o for o, c in supervillain.observables.items()
                     if  issubclass(c, supervillain.observable.Scalar)
-                    and ('Vortex' not in o) # This script does W=1
+                    and (args.W != 1 or 'Vortex' not in o) # Vortex observabes are trivial when W=1.
                     and ('Scaled' not in o) # The scaled observables are directly proportional to the non-scaled ones, a waste to show.
                     )
-
-# We can also visualize the space-dependent correlators.
-correlators = (
-    'Winding_Winding', # the zero correlator?
-    'Spin_Spin',
-    'Action_Action',
-    'Vortex_Vortex',
-    )
 
 ####
 #### Monte Carlo generation
@@ -47,10 +40,10 @@ correlators = (
 L = supervillain.Lattice2D(args.N)
 
 if args.action == 'villain':
-    S = supervillain.action.Villain(L, args.kappa)
+    S = supervillain.action.Villain(L, args.kappa, args.W)
     G = supervillain.generator.villain.NeighborhoodUpdate(S)
 elif args.action == 'worldline':
-    S = supervillain.action.Worldline(L, args.kappa)
+    S = supervillain.action.Worldline(L, args.kappa, args.W)
     p = supervillain.generator.worldline.PlaquetteUpdate(S)
     h = supervillain.generator.worldline.WrappingUpdate(S)
     G = supervillain.generator.combining.Sequentially((p, h))
@@ -85,6 +78,7 @@ autocorrelation = E.autocorrelation_time()
 # Now let's cut and decorrelate
 print(f'Autocorrelation time = {autocorrelation}')
 e = E.cut(10*autocorrelation).every(2*autocorrelation)
+print(f'After decorrelation    {e.autocorrelation_time()}')
 bootstrap = supervillain.analysis.Bootstrap(e, args.bootstraps)
 
 for a, O in zip(ax, observables):
@@ -101,23 +95,5 @@ for a, O in zip(ax, observables):
 
 ax[-1,0].set_xlabel('Monte Carlo time')
 histories.tight_layout()
-
-correlations, ax = plt.subplots(len(correlators),1,
-    figsize=(12, 3*len(correlators)),
-    sharex='col',
-    squeeze=False
-)
-
-correlations.suptitle(f'{S}', fontsize=16)
-
-for a, c in zip(ax, correlators):
-    # We get the bootstrap estimates for each correlator
-    bootstrap.plot_correlator(a[0], c)
-    a[0].set_ylabel(c)
-    a[0].set_yscale('log')
-
-if S.kappa > 0.74: # just an estimate of κ critical
-    ax[-1, 0].set_xscale('log')
-correlations.tight_layout()
 
 plt.show()

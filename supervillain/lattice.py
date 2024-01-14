@@ -866,7 +866,7 @@ class Lattice2D(H5able):
         The following figure shows a 0-form plotted on sites, a 1-form on links, and a 2-form on plaquettes.
         See the source for details.
 
-        .. plot:: examples/plot-forms.py
+        .. plot:: example/plot/forms.py
 
         Parameters
         ----------
@@ -1013,7 +1013,7 @@ class Lattice2D(H5able):
 
         The point group of a 2D lattice is $D_4$ and the structure and irreps are detailed in `https://two-dimensional-gasses.readthedocs.io/en/latest/computational-narrative/D4.html <the tdg documentation>`_\, where the spatial lattice is 2D.
 
-        .. plot:: examples/plot-D4-irreps.py
+        .. plot:: example/plot/D4-irreps.py
 
         .. note::
             Currently we only know how project scalar correlators that depend on a single spatial separation.
