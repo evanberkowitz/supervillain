@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-def _no_op(x):
+def _no_op(x, **kwargs):
     return x
 
 import supervillain.cli as cli
