@@ -81,6 +81,17 @@ For example, :class:`~.Spin_Spin` is a two-point function, the :class:`~.Interna
 
 Different considerations override one another in accordance with the python `method resolution order`_; very roughly speaking, left-most first.
 
+Monitoring Progress
+===================
+
+Ensemble :py:meth:`generation <supervillain.ensemble.Ensemble.generate>` can be monitored with a progress bar.
+For large ensembles and slow observables it might be desirable to monitor the progress of the computation of observables.
+Since observables are properties of ensembles they accept no arguments and therefore unlike :py:meth:`~.Ensemble.generate` cannot take a similar progress keyword argument.
+
+Instead, we reluctantly introduce a little bit of module-level state.
+
+.. autofunction :: supervillain.observable.progress
+
 .. _method resolution order: https://docs.python.org/3/glossary.html#term-method-resolution-order
 
 .. _derived quantities:
