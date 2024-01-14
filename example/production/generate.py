@@ -7,6 +7,7 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 
 import supervillain
 import example
+supervillain.observable.progress=tqdm
 
 import logging
 logger = logging.getLogger(__name__)
