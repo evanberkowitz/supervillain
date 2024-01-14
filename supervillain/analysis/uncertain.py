@@ -173,7 +173,7 @@ To mandate a sign even for positive numbers, add a ``+``.
             if f_precision:
                 return f'({self.mean:{f_sign}.{f_precision}f} ± {self.uncertainty:.{f_precision}f})'
             else:
-                return f'({self.mean:{f_sign}} ± {self.uncertainty})'
+                return f'({self.mean:{f_sign}.2f} ± {self.uncertainty:.2f})'
 
 
         # Otherwise, the uncertainty expresses uncertainty about some of the digits
