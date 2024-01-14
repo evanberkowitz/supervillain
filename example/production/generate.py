@@ -17,10 +17,13 @@ logger = logging.getLogger(__name__)
 
 def generate(args):
 
-    with h5.File(example.h5, 'r') as h:
-        if (e:=example.decorrelated(args)) in h:
-            logger.info(f'{e} already exists.')
-            return
+    try:
+        with h5.File(example.h5, 'r') as h:
+            if (e:=example.decorrelated(args)) in h:
+                logger.info(f'{e} already exists.')
+                return
+    except:
+        pass
 
     L = supervillain.Lattice2D(args.N)
 
