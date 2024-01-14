@@ -44,5 +44,11 @@ The idea is that each draw *could* have been what your samples were with the sam
    :no-special-members:
    :members: plot_band, plot_correlator, estimate
 
+Uncertainty
+-----------
+
+.. autoclass:: supervillain.analysis.uncertain.Uncertain
+   :members:
+
 .. _autocorrelation: https://en.wikipedia.org/wiki/Autocorrelation
 .. _bootstrapping: https://en.wikipedia.org/wiki/Bootstrapping_(statistics)

@@ -7,6 +7,7 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 import matplotlib.pyplot as plt
 
 import supervillain
+from supervillain.analysis import Uncertain
 
 parser = supervillain.cli.ArgumentParser()
 parser.add_argument('--N', type=int, default=5, help='Sites on a side.')
@@ -55,12 +56,6 @@ with logging_redirect_tqdm():
 #### Analysis + Visualization
 ####
 
-def error_format(estimate):
-    mean = estimate[0]
-    err  = estimate[1]
-    return f'{mean:+.5f} ± {err:.5f}'
-
-
 # First we'll construct a figure with one row per scalar observable, with room for the history and histogram.
 histories, ax = plt.subplots(len(observables),2,
     figsize=(12, 2*len(observables)),
@@ -87,9 +82,9 @@ for a, O in zip(ax, observables):
     E.plot_history(a, O)
     # estimate the central value from the bootstrap of the decorrelated ensemble,
     o = bootstrap.estimate(O)
-    print(f'{O:40s} {error_format(o)}')
+    print(f'{O:40s} {Uncertain(*o)}')
     # and plot the decorrelated ensemble with the estimate.
-    e.plot_history(a, O, label=error_format(o))
+    e.plot_history(a, O, label=Uncertain(*o))
     bootstrap.plot_band(a[0], O)
     a[1].legend()
 

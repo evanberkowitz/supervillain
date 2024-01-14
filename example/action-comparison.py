@@ -7,6 +7,7 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 import matplotlib.pyplot as plt
 
 import supervillain
+from supervillain.analysis import Uncertain
 
 parser = supervillain.cli.ArgumentParser(description = 'The goal is to compute the same observables using both the Villain and Worldline actions and to check that they agree.')
 parser.add_argument('--N', type=int, default=5, help='Sites on a side.')
@@ -77,20 +78,15 @@ fig, ax = plt.subplots(len(args.observables), 2,
 
 fig.suptitle(f'N={args.N} κ={args.kappa} W={args.W}')
 
-def error_format(estimate):
-    mean = estimate[0]
-    err  = estimate[1]
-    return f'{mean:.3f} ± {err:.3f}'
-
 for a, o in zip(ax, args.observables):
     # The worldline tends to be much more decorrelated, so plot it behind the Villain for visual clarity.
 
     w.plot_history(a, o, label='Worldline', alpha=0.5)
-    w_decorrelated.plot_history(a, o, label='Worldline decorrelated', alpha=0.5, histogram_label=f'Worldline {error_format(w_bootstrap.estimate(o))}')
+    w_decorrelated.plot_history(a, o, label='Worldline decorrelated', alpha=0.5, histogram_label=f'Worldline {Uncertain(*w_bootstrap.estimate(o))}')
     w_bootstrap.plot_band(a[0], o)
 
     v.plot_history(a, o, label='Villain')
-    v_decorrelated.plot_history(a, o, label='Villain decorrelated', histogram_label=f'Villain {error_format(v_bootstrap.estimate(o))}')
+    v_decorrelated.plot_history(a, o, label='Villain decorrelated', histogram_label=f'Villain {Uncertain(*v_bootstrap.estimate(o))}')
     v_bootstrap.plot_band(a[0], o)
 
     a[0].set_ylabel(o)
