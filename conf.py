@@ -23,6 +23,7 @@ extensions = [
         'sphinx_toolbox.collapse',
         'sphinx_toolbox.github',
         'sphinx_toolbox.sidebar_links',
+        'sphinx_favicon',
         'sphinxcontrib.bibtex',
         'sphinx_git',
         'matplotlib.sphinxext.plot_directive',
@@ -52,6 +53,18 @@ html_theme = 'sphinx_rtd_theme'
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+
+favicons = [
+        'favicon/favicon.ico',
+        'favicon/favicon-16x16.png',
+        'favicon/favicon-32x32.png',
+        {
+            'rel':  'apple-touch-icon',
+            'href': 'favicon/apple-touch-icon.png',
+        },
+        'favicon/android-chrome-192x192.png',
+        'favicon/android-chrome-512x512.png',
+    ]
 
 bibtex_bibfiles = ['master.bib']
 bibtex_default_style = 'unsrt'
