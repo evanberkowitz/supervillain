@@ -10,76 +10,33 @@ However, more complex data structures have no native support for H5ing; a variet
 Any python object can be `pickled`_ and stored as a binary blob in HDF5, but the resulting blobs are not usable outside of python.
 The `pandas`_ data analysis module can `read_hdf`_ and export `to_hdf`_, but even though the data is written in a usable way, the data layouts are nontrivial to read without pandas.
 
-We aim for a happy medium, by providing a class, :class:`~.H5able`, from which other python classes, which contain a variety of data fields, can inherit to allow them to be easily written to HDF5.
+We aim for a happy medium, by providing a class, :class:`~.H5able`, from which other python classes, which contain a variety of data fields, can inherit to allow them to be easily serialized to and from HDF5.
 An H5able object will be saved as a `group`_ that contains properties written into groups and `datasets`_, with the same name as the property itself.
 If a property is one of a slew of known types then it will be written natively as an H5 field, otherwise it will be pickled.
+
+The data types that are not pickled are
+ - ``H5able`` or anything that inherits from H5able.
+ - ``bool``, ``int``, ``float``, and ``complex``.
+ - ``tuple``, ``list``, ``dict`` (`with some limitations on valid keys <https://github.com/evanberkowitz/supervillain/issues/65>`_)
+ - ``numpy.ndarray``
+
+H5able objects inherit methods
 
 .. autoclass:: supervillain.h5.H5able
    :members:
    :undoc-members:
    :show-inheritance:
 
-The data types that are not pickled are
- - ``H5able`` or anything that inherits from H5able.
- - ``int``
- - ``float``
- - ``dict``, ``list``
- - ``numpy.ndarray``
- - ``torch.tensor``, ``torch.Size``
- - A subset of other torch objects; including ``torch.distributions.Distribution``.
-
 To provide custom methods for H5ing otherwise-unknown types that cannot be made H5able, a user can write a small strategy.
 A strategy is an instance-free class with just static methods ``applies``, ``write``, and ``read``.
-Suppose the user had an ``Example`` class; a strategy might look like
+For example, the strategy for writing a single integer is
 
-.. code-block:: python
-   
-   class ExampleStrategy(H5Data, name='example'):
-        '''
-        The name is stored as metadata and then used to look up this strategy
-        '''
-
-        @staticmethod
-        def applies(value):
-            r'''
-            Parameters
-            ----------
-                value: any value at all
-
-            Returns
-            -------
-                bool: is ``value`` H5able using this interface?
-            '''
-            return isinstance(value, Example)
-
-        @staticmethod
-        def write(group, key, value):
-            r'''
-            Parameters
-            ----------
-                group: an H5py group in which to store the Example object in value
-                key:   a string to name the object
-                value: an Example to store into ``group/key``.
-            '''
-            group['property'] = value.example_property
-
-        @staticmethod
-        def read(group):
-            r'''
-            Parameters
-            ----------
-                group: an H5py group
-
-            Returns
-            -------
-                Example: that was previously written with write.
-            '''
-            example_property = group['property']
-            return Example(example_property)
+.. literalinclude:: h5/strategy/int.py
+   :caption:
 
 However, it is probably simplest in most circumstances to just inherit from ``H5able``.
-See **supervillain/h5.py** for the strategies that for ``int``, ``float``, ``dict``, ``numpy.ndarray``, ``torch.tensor``, ``torch.Size``, and ``H5able``.
-If the H5able strategy is desired but the class cannot be made to inherit from ``H5able``, just create a new strategy that inherits from ``H5ableStrategy`` and overwrites the ``applies`` method.
+See **supervillain/h5/strategy/** for the default strategies.
+If the H5able strategy is desired but the class cannot be made to inherit from ``H5able``, just create a new strategy that inherits from ``h5.strategy.H5able`` and overwrites the ``applies`` method.
 
 One can also provide custom strategies and ``to_h5`` and ``from_h5`` methods.
 
