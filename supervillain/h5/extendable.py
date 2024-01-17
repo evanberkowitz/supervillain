@@ -22,7 +22,12 @@ class strategy(base_strategy, name='extendable'):
 
     @staticmethod
     def applies(value):
-        return isinstance(value, array)
+        # Annoyingly scalars reduced from extendable arrays might themselves be extendable.
+        # Therefore, we also check that they have dimension (and are indeed an array).
+        # TODO: Upon the resolution of https://github.com/numpy/numpy/issues/25606
+        # we can either adapt the array class or keep this workaround.
+
+        return isinstance(value, array) and value.shape
 
     @staticmethod
     def write(group, key, value):
