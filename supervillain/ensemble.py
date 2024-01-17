@@ -4,7 +4,7 @@ import h5py as h5
 
 from supervillain import _no_op
 import supervillain
-from supervillain.h5 import H5able
+from supervillain.h5 import H5Extendable
 from supervillain.performance import Timer
 from supervillain.analysis import autocorrelation_time
 import supervillain.h5
@@ -13,7 +13,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class Ensemble(H5able):
+class Ensemble(H5Extendable):
     r'''An ensemble of configurations importance-sampled according to the ``action``.
 
     Parameters
@@ -72,8 +72,8 @@ class Ensemble(H5able):
 
         self.configuration = self.Action.configurations(steps)
         self.index_stride = index_stride
-        self.index = starting_index + self.index_stride * np.arange(steps)
-        self.weight = np.ones(steps)
+        self.index = starting_index + self.index_stride * supervillain.h5.extendable.array(np.arange(steps))
+        self.weight = supervillain.h5.extendable.array(np.ones(steps))
 
         if start == 'cold':
             seed = self.Action.configurations(1)[0]
