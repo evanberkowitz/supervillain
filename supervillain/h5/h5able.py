@@ -13,9 +13,6 @@ logger = logging.getLogger(__name__)
 # be treated with the H5ableData strategy.
 class H5able:
 
-    def __init__(self):
-        super().__init__()
-
     # Each instance gets a to_h5 method that stores the object's __dict__
     # Therefore, cached properties might be saved.
     # Fields whose names start with _ are considered private and hidden one

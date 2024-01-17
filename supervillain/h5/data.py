@@ -7,8 +7,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 class Data:
-    # H5Data provides an extensible interface for writing and reading to H5.
-    # The H5able class (below) uses H5Data.{read,write}.
+    # Data provides an extensible interface for writing and reading to H5.
+    # The H5able class (below) uses Data.{read,write}.
     # No object instance is needed, so all methods are @staticmethod
 
     # However, we need a class-level registry to store strategies.
@@ -31,7 +31,7 @@ class Data:
     # amount of reproducibility and data provenance.
     @staticmethod
     def _mark_metadata(group, strategy):
-        # That metadata, however, cannot be its own H5Data (because we wouldn't know the
+        # That metadata, however, cannot be its own Data (because we wouldn't know the
         # correct strategy to read it).  Therefore we just pickle it up.
         group.attrs['H5Data_metadata'] = np.void(pickle.dumps(strategy.metadata))
     # When we read, we check the written metadata to the strategy's current metadata,
@@ -60,7 +60,7 @@ class Data:
 
     @staticmethod
     def write(group, key, value):
-        for name, strategy in Data._strategies.items():
+        for name, strategy in reversed(Data._strategies.items()):
             try:
                 if strategy.applies(value):
                     logger.debug(f"Writing {group.name}/{key} as {name}.")
