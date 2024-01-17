@@ -2,6 +2,7 @@
 
 import numpy as np
 from supervillain.h5 import H5able
+import supervillain.h5.extendable as extendable
 from supervillain.configurations import Configurations
 
 import logging
@@ -89,8 +90,8 @@ class Worldline(H5able):
         '''
 
         return Configurations({
-            'm': self.Lattice.form(1, count, dtype=int),
-            'v': self.Lattice.form(2, count, dtype=int),
+            'm': extendable.array(self.Lattice.form(1, count, dtype=int)),
+            'v': extendable.array(self.Lattice.form(2, count, dtype=int)),
             })
 
     def equivalence_class_v(self, configuration):

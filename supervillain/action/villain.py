@@ -2,6 +2,7 @@
 
 import numpy as np
 from supervillain.h5 import H5able
+import supervillain.h5.extendable as extendable
 from supervillain.configurations import Configurations
 
 import logging
@@ -76,9 +77,9 @@ class Villain(H5able):
             A dictionary of zeroed arrays at keys ``phi`` and ``n``, holding ``count`` 0- and 1-forms respectively.
         '''
         return Configurations({
-            'phi': self.Lattice.form(0, count),
-            'n':   self.Lattice.form(1, count, dtype=int),
-            'v':   self.Lattice.form(2, count, dtype=int),
+            'phi': extendable.array(self.Lattice.form(0, count)),
+            'n':   extendable.array(self.Lattice.form(1, count, dtype=int)),
+            'v':   extendable.array(self.Lattice.form(2, count, dtype=int)),
             })
 
     def gauge_transform(self, configuration, k):
