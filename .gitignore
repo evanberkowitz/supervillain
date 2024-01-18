@@ -4,6 +4,7 @@
 *.png
 *.log
 .DS_Store
+.ipynb
 
 # Docs
 _build/
