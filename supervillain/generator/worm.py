@@ -19,6 +19,7 @@ class SimpleWorm(H5able):
 
 class SlowUndirectedWorm(H5able):
     r'''
+    Same algorithm as UndirectedWorm, but with logging capabilities to help with statistics management and diagnostics.
     '''
 
     def __init__(self, action, interval_m = 1):
@@ -73,7 +74,6 @@ class SlowUndirectedWorm(H5able):
         currentlink = proposedconfigpT[0,currentsite[0],currentsite[1]]
         #When travelling along the positive axis, increase the link value
         proposedlink = currentlink + 1
-        proposedconfigpT[0,currentsite[0],currentsite[1]] += 1
         #Difference in Action (Energy in literature) between proposition and current state
         deltaSpT = 1/(2*self.kappa)*(proposedlink**2 - currentlink**2)
         ASpT = min(1,np.exp(-deltaSpT))
@@ -82,7 +82,6 @@ class SlowUndirectedWorm(H5able):
         proposedconfigmT = cfg.copy()
         currentlink = proposedconfigmT[0,mT[0],mT[1]]
         proposedlink = currentlink - 1
-        proposedconfigmT[0,currentsite[0],currentsite[1]] -= 1
         deltaSmT = 1/(2*self.kappa)*(proposedlink**2 - currentlink**2)
         ASmT = min(1,np.exp(-deltaSmT))
         
@@ -90,7 +89,6 @@ class SlowUndirectedWorm(H5able):
         proposedconfigpX = cfg.copy()
         currentlink = proposedconfigpX[1,currentsite[0],currentsite[1]]
         proposedlink = currentlink + 1
-        proposedconfigpX[1,currentsite[0],currentsite[1]] += 1
         deltaSpX = 1/(2*self.kappa)*(proposedlink**2 - currentlink**2)
         ASpX = min(1,np.exp(-deltaSpX))
         
@@ -98,7 +96,6 @@ class SlowUndirectedWorm(H5able):
         proposedconfigmX = cfg.copy()
         currentlink = proposedconfigmX[1,mX[0],mX[1]]
         proposedlink = currentlink - 1
-        proposedconfigmX[1,currentsite[0],currentsite[1]] -= 1
         deltaSmX = 1/(2*self.kappa)*(proposedlink**2 - currentlink**2)
         ASmX = min(1,np.exp(-deltaSmX))
 
@@ -129,26 +126,21 @@ class SlowUndirectedWorm(H5able):
 
         #+T
         if chosenDirection==1:
-            #Grabs the site necessary to add changes
-            linksite = currentsite.copy()
             #For movement with +T, increase the link
-            newconfig[0,linksite[0],linksite[1]] += 1
+            newconfig[0,currentsite[0],currentsite[1]] += 1
             #Updates the location of the head of the worm
             newsite = pT
         #-T
         if chosenDirection==2:
-            linksite = mT.copy()
-            newconfig[0,linksite[0],linksite[1]] -= 1
+            newconfig[0,mT[0],mT[1]] -= 1
             newsite = mT
         #+X
         if chosenDirection==3:
-            linksite = currentsite.copy()
-            newconfig[1,linksite[0],linksite[1]] += 1
+            newconfig[1,currentsite[0],currentsite[1]] += 1
             newsite = pX
         #-X
         if chosenDirection==4:
-            linksite = mX.copy()
-            newconfig[1,linksite[0],linksite[1]] -= 1
+            newconfig[1,mX[0],mX[1]] -= 1
             newsite = mX
 
         return [newconfig,newsite,[PpT,PmT,PpX,PmX],N]
@@ -265,7 +257,14 @@ class SlowUndirectedWorm(H5able):
 
 class UndirectedWorm(H5able):
     r'''
-    This is class-wide documentation where you explain the point of the class and how it might work so that people understand the point of the methods.
+    Ref. :cite:`PhysRevE.67.015701` gives us an ergotic and balanced worm algorithm in the context of the quantum rotor model. The quantum rotor model is of a similar class to our worldline formulation, requiring divergenceless currents, so the implementation of this worm is straightforward.
+    The meat and potatos of this algorithm are contained within the :func:`~burrow` and :func:`~step` methods, with the step method repeatedly referring to burrow.
+    
+    Much like every other generator explained thus far, the worm updates in steps, where in this case a step corresponds to a closed-loop worm. 
+    It is important that these worms are closed, for this preserves the value of $\delta m$ throughout the lattice. For the :class:`~.Worldline` action, we aim to sample only configurations with $\delta m = 0$.
+    A worm is generated through the repeated use of :func:`~burrow`. Starting from a random location on the lattice, a :func:`~burrow` is performed in one of the four directions from the stencil, where the direction traveled depends on the action difference. Burrows are then continually performed until the 'head' of the worm returns to its 'tail'. At this point the worm is then tested for "erasure" to preserve detailed balance. Erasure probabilities remain low and have little impact on the efficiency of the algorithm, since worms are rarely erased.
+    
+    According to Ref. :cite:`PhysRevE.67.015701`, this algorithm gives a power law relation between autocorrelation times and lattice size whereas a scheme similar to our combined :class:'~.PlaquetteUpdate' and :class:'~.HolonomyUpdate' gives either an exponentially increasing relationship, or a power law of notably higher degree. This has not been reflected thus far in our tests, but further work is being done to examine the efficiency of the worm in different sectors of the parameter space. A *directed* worm algorithm also exists that is soon to be implemented.
     '''
 
     def __init__(self, action):
@@ -290,7 +289,25 @@ class UndirectedWorm(H5able):
 
     def burrow(self, cfg, currentsite):
         r'''
-        Documentation string for burrow.
+        Each burrow step moves the 'head' of the worm to a semi-random neighboring lattice site weighted according to the change in action generated by that move.
+        A single burrow of the worm in the positive X or T direction will increment the value of the $m$ field that lives on the link it moves across by 1, and likewise decrement $m$ when it moves in the negative X or T direction.
+        The probability of moving in a direction is given by $\frac{A_\ell}{N}$ where
+        $$ A_{\ell}^\sigma=\min(1,\exp{-\Delta S_{\ell}^\sigma/\kappa} $$
+        and 
+        $$ N = \sum_{+T,-T,+X,-X} A_{\ell} $$
+        for each link $\ell$ in the stencil around the current head of the worm.
+
+        ----------
+        Parameters
+        ----------
+        
+
+        -------
+        Returns
+        -------
+
+        
+
         '''
         # Takes in the current position of the worm, returns the new configuration after the worm has moved and the coordinate to which it has burrowed.
         pT, mT, mX, pX = self.Lattice.mod(currentsite + np.array([[+1,0],[-1,0],[0,-1],[0,+1]]))
@@ -301,7 +318,6 @@ class UndirectedWorm(H5able):
         currentlink = proposedconfigpT[0,currentsite[0],currentsite[1]]
         #When travelling along the positive axis, increase the link value
         proposedlink = currentlink + 1
-        proposedconfigpT[0,currentsite[0],currentsite[1]] += 1
         #Difference in Action (Energy in literature) between proposition and current state
         deltaSpT = 1/(2*self.kappa)*(proposedlink**2 - currentlink**2)
         ASpT = min(1,np.exp(-deltaSpT))
@@ -310,7 +326,6 @@ class UndirectedWorm(H5able):
         proposedconfigmT = cfg.copy()
         currentlink = proposedconfigmT[0,mT[0],mT[1]]
         proposedlink = currentlink - 1
-        proposedconfigmT[0,currentsite[0],currentsite[1]] -= 1
         deltaSmT = 1/(2*self.kappa)*(proposedlink**2 - currentlink**2)
         ASmT = min(1,np.exp(-deltaSmT))
         
@@ -318,7 +333,6 @@ class UndirectedWorm(H5able):
         proposedconfigpX = cfg.copy()
         currentlink = proposedconfigpX[1,currentsite[0],currentsite[1]]
         proposedlink = currentlink + 1
-        proposedconfigpX[1,currentsite[0],currentsite[1]] += 1
         deltaSpX = 1/(2*self.kappa)*(proposedlink**2 - currentlink**2)
         ASpX = min(1,np.exp(-deltaSpX))
         
@@ -326,7 +340,6 @@ class UndirectedWorm(H5able):
         proposedconfigmX = cfg.copy()
         currentlink = proposedconfigmX[1,mX[0],mX[1]]
         proposedlink = currentlink - 1
-        proposedconfigmX[1,currentsite[0],currentsite[1]] -= 1
         deltaSmX = 1/(2*self.kappa)*(proposedlink**2 - currentlink**2)
         ASmX = min(1,np.exp(-deltaSmX))
 
@@ -349,33 +362,28 @@ class UndirectedWorm(H5able):
 
         #+T
         if chosenDirection==1:
-            #Grabs the site necessary to add changes
-            linksite = currentsite.copy()
             #For movement with +T, increase the link
-            newconfig[0,linksite[0],linksite[1]] += 1
+            newconfig[0,currentsite[0],currentsite[1]] += 1
             #Updates the location of the head of the worm
             newsite = pT
         #-T
         if chosenDirection==2:
-            linksite = mT.copy()
-            newconfig[0,linksite[0],linksite[1]] -= 1
+            newconfig[0,mT[0],mT[1]] -= 1
             newsite = mT
         #+X
         if chosenDirection==3:
-            linksite = currentsite.copy()
-            newconfig[1,linksite[0],linksite[1]] += 1
+            newconfig[1,currentsite[0],currentsite[1]] += 1
             newsite = pX
         #-X
         if chosenDirection==4:
-            linksite = mX.copy()
-            newconfig[1,linksite[0],linksite[1]] -= 1
+            newconfig[1,mX[0],mX[1]] -= 1
             newsite = mX
 
         return [newconfig,newsite,[PpT,PmT,PpX,PmX],N]
 
     def step(self, cfg):
         r'''
-        Here we explain what a worm step is and how it works, any references, etc.
+        :class:`~.Ensembles` uses this method as it does with other generators. 
         '''
         # Step encapsulates one iteration of a worm to completion, either with acceptance or erasure
         
@@ -408,7 +416,6 @@ class UndirectedWorm(H5able):
             currentpoint = endpoint.copy()
             currentconfig = newconfig.copy()
             burrows += 1
-            
 
         #Calculates the total length of all worm(s) proposed in a step
         length = np.sum(np.abs(currentconfig-initconfig))
@@ -416,7 +423,6 @@ class UndirectedWorm(H5able):
         #N_no_worm
         _,_,_,nwN = self.burrow(cfg['m'],startpoint)
         _,_,_,wN = self.burrow(currentconfig,startpoint)
-        self.erasure_Ns.append([nwN,wN])
         erasure_metropolis = self.rng.uniform(0,1)
         erasure_prob = 1-min([1,nwN/wN])
         self.acceptance += 1-erasure_prob
@@ -448,3 +454,25 @@ class UndirectedWorm(H5able):
             +'\n'+
             f'    {self.acceptance / self.sweeps:.6f} average Metropolis acceptance probability.'
         )
+
+class GeometricWorm(H5able):
+    def __init__(self, action):
+        if not isinstance(action, supervillain.action.Worldline):
+            raise ValueError('The Directed Geometric Worm algorithm requires the Worldline action.')
+        self.Action     = action
+        self.kappa      = action.kappa
+        self.Lattice    = action.Lattice
+
+        self.rng = np.random.default_rng()
+
+        #TODO: Implement statistics monitors
+        self.accepted = 0
+        self.proposed = 0
+        self.acceptance = 0.
+        #Count of how many worms have been attempted (including erased/trivial worms)
+        self.sweeps = 0
+        #Counter for total length of all worms
+        #Counts total number of accepted, non-zero worms (Not accounting for disconnected steps)
+        self.worm_count = 0
+    def burrow(self, ):
+        pass
