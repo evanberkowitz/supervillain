@@ -2,6 +2,9 @@
 I/O with HDF5
 *************
 
+Background
+==========
+
 `HDF5`_ is a format often used in computational physics and other data-science applications, because of its ability to store huge amounts of structured numerical data.
 Many datasets can be stored in a single file, categorized, linked together, and so on.
 A variety of python modules leverage HDF5 for input and output; often they rely on `h5py`_ or `PyTables`, pythonic interfaces  interoperabale with `numpy`_, and no native support of python objects.
@@ -20,12 +23,27 @@ The data types that are not pickled are
  - ``tuple``, ``list``, ``dict`` (`with some limitations on valid keys <https://github.com/evanberkowitz/supervillain/issues/65>`_)
  - ``numpy.ndarray``
 
+
+Serializing Objects
+===================
+
 H5able objects inherit methods
 
 .. autoclass:: supervillain.h5.H5able
    :members:
    :undoc-members:
    :show-inheritance:
+
+.. literalinclude :: h5/h5able.py
+   :pyobject: _example_readwrite
+   :caption:
+
+One can also provide custom strategies and ``to_h5`` and ``from_h5`` methods.  It is nevertheless advisable to inherit from :class:`~.H5able` for typechecking purposes.
+
+
+
+Serializing Raw Data
+====================
 
 To provide custom methods for H5ing otherwise-unknown types that cannot be made H5able, a user can write a small strategy.
 A strategy is an instance-free class with just static methods ``applies``, ``write``, and ``read``.
@@ -38,7 +56,33 @@ However, it is probably simplest in most circumstances to just inherit from ``H5
 See **supervillain/h5/strategy/** for the default strategies.
 If the H5able strategy is desired but the class cannot be made to inherit from ``H5able``, just create a new strategy that inherits from ``h5.strategy.H5able`` and overwrites the ``applies`` method.
 
-One can also provide custom strategies and ``to_h5`` and ``from_h5`` methods.
+Extendable Data and Objects
+===========================
+
+Certain data can meaningfully be extended.
+For example, you might do Monte Carlo generation, make measurements, and realize you don't have enough for your desired precision.
+In that case you might want to extend the ensemble, adding new configurations and measurements to disk.
+There is a datatype for wrapping numpy arrays,
+
+.. autoclass:: supervillain.h5.extendable.array
+   :members:
+   :show-inheritance:
+
+which indicates that the array should be written with its zeroeth (batch) dimension `resizable <https://docs.h5py.org/en/stable/high/dataset.html#resizable-datasets>`_.
+When an :class:`~.Observable` is attached to an ensemble it is automatically an extendable array.
+
+An object which contains extendable data won't know how to extend itself unless it inherits from
+
+.. autoclass:: supervillain.h5.H5Extendable
+   :members:
+   :show-inheritance:
+
+.. literalinclude :: h5/extendable.py
+   :pyobject: _example_extend
+   :caption:
+
+The ``extend_h5`` method can be overwritten if custom handling is needed; the object should still inherit from H5Extendable for typechecking purposes.
+
 
 .. _HDF5: https://www.hdfgroup.org/solutions/hdf5/
 .. _h5py: https://docs.h5py.org/en/stable/index.html

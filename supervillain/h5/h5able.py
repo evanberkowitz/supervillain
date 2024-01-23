@@ -75,3 +75,60 @@ class H5able:
             else:
                 o.__dict__[field] = Data.read(group[field], strict)
         return o
+
+
+
+
+def _example_readwrite(cls, filename, original):
+    with h5.File(filename, 'w') as f:
+        original.to_h5(f.create_group('object'))
+        from_disk = cls.from_h5(f['object'])
+
+    return from_disk
+
+
+def _test():
+
+    import numpy as np
+
+    from pathlib import Path
+    test_file = Path(f'{__file__}').parent/'h5able.h5'
+
+    class C(H5able):
+        def __init__(self):
+            self.string = 'foo'
+            self.integer = 17
+            self.lst = [1.2, 2.3, 3.4]
+            self.tpl = (4.5, 5.6, 6.7)
+            self.numpy = np.arange(10)
+
+        def __eq__(self, other):
+            if not (self.string == other.string): return False
+            if not (self.integer == other.integer): return False
+            if not (self.lst == other.lst): return False
+            if not (self.tpl == other.tpl): return False
+            if not (self.numpy== other.numpy).all(): return False
+            return True
+
+    original = C()
+    from_disk = _example_readwrite(C, test_file, original)
+    test_file.unlink()
+
+    # To fail, try any of these:
+
+    #from_disk.string += 'bar'
+    #from_disk.integer += 1
+    #from_disk.lst +=[7.8,]
+    #from_disk.lst[0] = 7.8
+    #from_disk.tpl+=(7.8,)
+    #from_disk.numpy *= 2
+
+    if original == from_disk:
+        logger.info(f'PASSED')
+        return 0
+    else:
+        logger.error(f'FAILED')
+        return 1
+
+if __name__ == '__main__':
+    exit(_test())

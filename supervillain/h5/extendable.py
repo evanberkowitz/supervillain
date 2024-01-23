@@ -1,4 +1,5 @@
 import numpy as np
+import h5py as h5
 
 from supervillain.h5.strategy.np import ndarray as base_strategy
 from supervillain.h5 import Data, H5able
@@ -68,3 +69,44 @@ class H5Extendable(H5able):
                 value.extend_h5(group[attr])
             elif isinstance(value, array):
                 strategy.extend(group, attr, value)
+
+def _example_extend(cls, first, then, filename):
+
+    with h5.File(filename, 'w') as f:
+        first.to_h5(f.create_group('object'))
+        then.extend_h5(f['object'])
+        result = cls.from_h5(f['object'])
+
+    return result
+
+def _test(l=10):
+
+    from pathlib import Path
+    test_file = Path(f'{__file__}').parent/'extendable.h5'
+
+    class C(H5Extendable):
+        def __init__(self, multiplier=1):
+            self.x = multiplier * array(np.arange(l))
+
+    c = C()
+    d = C(2)
+
+    combined = _example_extend(C, c, d, test_file)
+    test_file.unlink()
+
+    # To fail, try any of
+
+    #c.x[0] = 1
+    #d.x[-1] = 1
+    #combined.x *= 2
+
+    if (combined.x[:l] == c.x).all() and (combined.x[l:] == d.x).all():
+        logger.info('PASSED')
+        return 0
+    else:
+        logger.error('FAILED')
+        return 1
+
+
+if __name__ == '__main__':
+    exit(_test())
