@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 
 import numpy as np
-from supervillain.h5 import H5able
+from supervillain.h5 import ReadWriteable
 import supervillain.h5.extendable as extendable
 from supervillain.configurations import Configurations
 
 import logging
 logger = logging.getLogger(__name__)
 
-class Villain(H5able):
+class Villain(ReadWriteable):
     r'''
     'The' Villain action is just the straightforward
 

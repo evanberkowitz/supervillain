@@ -4,7 +4,7 @@ import h5py as h5
 
 from supervillain import _no_op
 import supervillain
-from supervillain.h5 import H5Extendable
+from supervillain.h5 import Extendable
 from supervillain.performance import Timer
 from supervillain.analysis import autocorrelation_time
 import supervillain.h5
@@ -13,7 +13,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class Ensemble(H5Extendable):
+class Ensemble(Extendable):
     r'''An ensemble of configurations importance-sampled according to the ``action``.
 
     Parameters

@@ -5,13 +5,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 ####
-#### H5able
+#### ReadWriteable
 ####
 
 # A class user-classes should inherit from.
 # Those classes will get the .to_h5 and .from_h5 methods and automatically
-# be treated with the H5ableData strategy.
-class H5able:
+# be treated with the ReadWriteable strategy.
+class ReadWriteable:
 
     # Each instance gets a to_h5 method that stores the object's __dict__
     # Therefore, cached properties might be saved.
@@ -92,9 +92,9 @@ def _test():
     import numpy as np
 
     from pathlib import Path
-    test_file = Path(f'{__file__}').parent/'h5able.h5'
+    test_file = Path(f'{__file__}').parent/'readwriteable.h5'
 
-    class C(H5able):
+    class C(ReadWriteable):
         def __init__(self):
             self.string = 'foo'
             self.integer = 17

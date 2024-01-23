@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 class Data:
     # Data provides an extensible interface for writing and reading to H5.
-    # The H5able class (below) uses Data.{read,write}.
+    # The ReadWriteable class uses Data.{read,write}.
     # No object instance is needed, so all methods are @staticmethod
 
     # However, we need a class-level registry to store strategies.

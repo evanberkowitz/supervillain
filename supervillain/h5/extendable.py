@@ -2,7 +2,7 @@ import numpy as np
 import h5py as h5
 
 from supervillain.h5.strategy.np import ndarray as base_strategy
-from supervillain.h5 import Data, H5able
+from supervillain.h5 import Data, ReadWriteable
 
 import logging
 logger = logging.getLogger(__name__)
@@ -59,13 +59,13 @@ class strategy(base_strategy, name='extendable'):
         group[key][-extension:] = value
         return group[key]
 
-class H5Extendable(H5able):
+class Extendable(ReadWriteable):
 
     def extend_h5(self, group, _top=True):
         logger.info(f'Extending h5 {group.name}.')
 
         for attr, value in self.__dict__.items():
-            if isinstance(value, H5Extendable):
+            if isinstance(value, Extendable):
                 value.extend_h5(group[attr])
             elif isinstance(value, array):
                 strategy.extend(group, attr, value)
@@ -84,7 +84,7 @@ def _test(l=10):
     from pathlib import Path
     test_file = Path(f'{__file__}').parent/'extendable.h5'
 
-    class C(H5Extendable):
+    class C(Extendable):
         def __init__(self, multiplier=1):
             self.x = multiplier * array(np.arange(l))
 

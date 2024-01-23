@@ -13,12 +13,12 @@ However, more complex data structures have no native support for H5ing; a variet
 Any python object can be `pickled`_ and stored as a binary blob in HDF5, but the resulting blobs are not usable outside of python.
 The `pandas`_ data analysis module can `read_hdf`_ and export `to_hdf`_, but even though the data is written in a usable way, the data layouts are nontrivial to read without pandas.
 
-We aim for a happy medium, by providing a class, :class:`~.H5able`, from which other python classes, which contain a variety of data fields, can inherit to allow them to be easily serialized to and from HDF5.
-An H5able object will be saved as a `group`_ that contains properties written into groups and `datasets`_, with the same name as the property itself.
+We aim for a happy medium, by providing a class, :class:`~.ReadWriteable`, from which other python classes, which contain a variety of data fields, can inherit to allow them to be easily serialized to and from HDF5.
+An ReadWriteable object will be saved as a `group`_ that contains properties written into groups and `datasets`_, with the same name as the property itself.
 If a property is one of a slew of known types then it will be written natively as an H5 field, otherwise it will be pickled.
 
 The data types that are not pickled are
- - ``H5able`` or anything that inherits from H5able.
+ - ``ReadWriteable`` or anything that inherits from ReadWriteable.
  - ``bool``, ``int``, ``float``, and ``complex``.
  - ``tuple``, ``list``, ``dict`` (`with some limitations on valid keys <https://github.com/evanberkowitz/supervillain/issues/65>`_)
  - ``numpy.ndarray``
@@ -27,34 +27,34 @@ The data types that are not pickled are
 Serializing Objects
 ===================
 
-H5able objects inherit methods
+ReadWriteable objects inherit methods
 
-.. autoclass:: supervillain.h5.H5able
+.. autoclass:: supervillain.h5.ReadWriteable
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. literalinclude :: h5/h5able.py
+.. literalinclude :: h5/readwriteable.py
    :pyobject: _example_readwrite
    :caption:
 
-One can also provide custom strategies and ``to_h5`` and ``from_h5`` methods.  It is nevertheless advisable to inherit from :class:`~.H5able` for typechecking purposes.
+One can also provide custom strategies and ``to_h5`` and ``from_h5`` methods.  It is nevertheless advisable to inherit from :class:`~.ReadWriteable` for typechecking purposes.
 
 
 
 Serializing Raw Data
 ====================
 
-To provide custom methods for H5ing otherwise-unknown types that cannot be made H5able, a user can write a small strategy.
+To provide custom methods for H5ing otherwise-unknown types that cannot be made ReadWriteable, a user can write a small strategy.
 A strategy is an instance-free class with just static methods ``applies``, ``write``, and ``read``.
 For example, the strategy for writing a single integer is
 
 .. literalinclude:: h5/strategy/int.py
    :caption:
 
-However, it is probably simplest in most circumstances to just inherit from ``H5able``.
+However, it is probably simplest in most circumstances to just inherit from ``ReadWriteable``.
 See **supervillain/h5/strategy/** for the default strategies.
-If the H5able strategy is desired but the class cannot be made to inherit from ``H5able``, just create a new strategy that inherits from ``h5.strategy.H5able`` and overwrites the ``applies`` method.
+If the ReadWriteable strategy is desired but the class cannot be made to inherit from ``ReadWriteable``, just create a new strategy that inherits from ``h5.strategy.ReadWriteable`` and overwrites the ``applies`` method.
 
 Extendable Data and Objects
 ===========================
@@ -73,7 +73,7 @@ When an :class:`~.Observable` is attached to an ensemble it is automatically an 
 
 An object which contains extendable data won't know how to extend itself unless it inherits from
 
-.. autoclass:: supervillain.h5.H5Extendable
+.. autoclass:: supervillain.h5.Extendable
    :members:
    :show-inheritance:
 
@@ -81,7 +81,7 @@ An object which contains extendable data won't know how to extend itself unless 
    :pyobject: _example_extend
    :caption:
 
-The ``extend_h5`` method can be overwritten if custom handling is needed; the object should still inherit from H5Extendable for typechecking purposes.
+The ``extend_h5`` method can be overwritten if custom handling is needed; the object should still inherit from :class:`~.Extendable` for typechecking purposes.
 
 
 .. _HDF5: https://www.hdfgroup.org/solutions/hdf5/

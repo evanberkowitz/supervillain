@@ -1,4 +1,4 @@
-from .h5able import H5able
+from .readwriteable import ReadWriteable
 
 from .bool import Boolean as bool
 from .int import Integer as int

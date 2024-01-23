@@ -2,9 +2,9 @@
 
 import numpy as np
 import supervillain
-from supervillain.h5 import H5able
+from supervillain.h5 import ReadWriteable
 
-class PlaquetteUpdate(H5able):
+class PlaquetteUpdate(ReadWriteable):
     r'''
     Ref. :cite:`Gattringer:2018dlw` suggests a simple update scheme where the links surrounding a single plaquette are updated in concert so that the :class:`~.Worldline` constraint is maintained.
 
@@ -87,7 +87,7 @@ class PlaquetteUpdate(H5able):
                 f'    {self.acceptance / self.proposed :.6f} average Metropolis acceptance probability.'
             )
 
-class WrappingUpdate(H5able):
+class WrappingUpdate(ReadWriteable):
     r'''
     Because :class:`~.PlaquetteUpdate` fails to change the wrapping, we should separately offer wrapping-changing proposals.
 

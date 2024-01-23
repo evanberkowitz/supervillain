@@ -3,7 +3,7 @@
 from functools import cached_property
 import numpy as np
 
-from supervillain.h5 import H5able
+from supervillain.h5 import ReadWriteable
 
 def _dimension(n):
     '''
@@ -20,7 +20,7 @@ def _dimension(n):
     '''
     return np.array(list(range(0, n // 2 + 1)) + list(range( - n // 2 + 1, 0)), dtype=int)
 
-class Lattice2D(H5able):
+class Lattice2D(ReadWriteable):
 
     def __init__(self, n):
         self.nt = n

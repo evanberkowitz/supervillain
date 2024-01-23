@@ -2,13 +2,13 @@
 
 import numpy as np
 
-from supervillain.h5 import H5able
+from supervillain.h5 import ReadWriteable
 from supervillain.performance import Timer
 
 import logging
 logger = logging.getLogger(__name__)
 
-class Bootstrap(H5able):
+class Bootstrap(ReadWriteable):
     r'''
     The bootstrap is a resampling technique for estimating uncertainties.
 

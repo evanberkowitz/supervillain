@@ -5,13 +5,13 @@ import numpy as np
 import pickle
 
 # A default strategy that just using pickling.
-class H5able(Data, name='h5able'):
+class ReadWriteable(Data, name='h5able'):
 
     metadata = {}
 
     @staticmethod
     def applies(value):
-        return isinstance(value, supervillain.h5.H5able)
+        return isinstance(value, supervillain.h5.ReadWriteable)
 
     @staticmethod
     def read(group, strict):
