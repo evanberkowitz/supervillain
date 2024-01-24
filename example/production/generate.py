@@ -71,6 +71,16 @@ def generate(args):
     with h5.File(example.h5, 'a') as h:
         decorrelated.to_h5(h.create_group(example.decorrelated(args)))
 
+    independent_samples = len(decorrelated)
+    target = args.independent_samples
+    if independent_samples < target:
+        with logging_redirect_tqdm():
+            with h5.File(example.h5, 'r') as h:
+                additional_statistics = supervillain.Ensemble.continue_from(h[example.decorrelated(args)], target-independent_samples, progress=tqdm)
+            additional_statistics.measure()
+        with h5.File(example.h5, 'a') as h:
+            additional_statistics.extend_h5(h[example.decorrelated(args)])
+
 if __name__ == '__main__':
     args = example.parser.parse_args()
     generate(args)
