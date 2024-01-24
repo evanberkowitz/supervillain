@@ -40,7 +40,10 @@ def generate(args):
     with logging_redirect_tqdm():
         E = supervillain.Ensemble(S).generate(args.configurations, G, start='cold', progress=tqdm)
 
-    E.measure()
+    # You might expect to
+    # E.measure()
+    # but to avoid the potentially-expensive calculation of the Spin_Spin correlator, we'll decorrelate first;
+    # See supervillain.observable.SpinSusceptibility.autocorrelation
 
     with h5.File(example.h5, 'a') as h:
         E.to_h5(h.create_group(example.ensemble(args)))
@@ -58,6 +61,12 @@ def generate(args):
     tau = thermalized.autocorrelation_time()
     logger.info(f'Estimated autocorrelation time={tau}')
     decorrelated = thermalized.every(tau)
+
+    # Now that we have decorrelated, let's do potentially-expensive measurements.
+    decorrelated.measure()
+    # If we have not sinned the decorrelated autocorrelation time ought to be very short.
+    tau = decorrelated.autocorrelation_time()
+    logger.info(f'Final decorrelated autocorrelation time={tau}')
 
     with h5.File(example.h5, 'a') as h:
         decorrelated.to_h5(h.create_group(example.decorrelated(args)))
