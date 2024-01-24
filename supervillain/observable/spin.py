@@ -1,5 +1,6 @@
 import numpy as np
 from supervillain.observable import Scalar, Observable
+import supervillain.action
 
 class Spin_Spin(Observable):
     r'''
@@ -214,11 +215,26 @@ class SpinSusceptibility(Scalar, Observable):
         \texttt{SpinSusceptibility} = \chi_S = \int d^2r\; S(r).
     '''
 
+    @classmethod
+    def autocorrelation(cls, ensemble):
+        r'''
+        As it currently stands, even though this is a scalar observable, in the Worldline case
+        the measurement cost is very high.  Since in all cases we've seen so far it fluctuates quickly
+        compared to the slower observables, it is okay to omit to save computational time.
+
+        Once we have a worm algorithm that measures the :class:`~.Spin_Spin` correlator on the fly, we can restore that case.
+        '''
+        
+        if isinstance(ensemble.Action, supervillain.action.Worldline):
+            return False
+        
+        return True
+
     @staticmethod
     def default(S, Spin_Spin):
         return np.sum(Spin_Spin.real)
     
-class SpinSusceptibilityScaled(Scalar, Observable):
+class SpinSusceptibilityScaled(SpinSusceptibility):
     r'''
     At the critical point and in the CFT the :class:`~.SpinSusceptibility` has a known expected scaling that comes from the scaling dimension $\Delta$ of $e^{i\phi}$
 

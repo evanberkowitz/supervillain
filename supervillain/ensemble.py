@@ -175,8 +175,13 @@ class Ensemble(Extendable):
         However, the autocorrelation time for any observable is only computed if that observable's
         :py:meth:`~.Observable.autocorrelation` is true for this ensemble.
         
+        However, if no measurements have been made so that :py:attr:`~.measured` is empty, try every observable with a true :py:meth:`~.Observable.autocorrelation`.
+        This may trigger measurement, and is usually what you want; after generation you want to thermalize or decorrelate.
+
         .. note ::
-            This does *not* trigger the measurement of any observable unless explicitly asked for in the ``observables`` parameter.
+            The measurement of some observables,
+            particularly those for which :py:meth:`~.Observable.autocorrelation` is false for this ensemble,
+            is not triggered automatically, unless it is a prerequisite for an observable for :py:meth:`~.Observable.autocorrelation` is true.
 
         Parameters
         ----------
@@ -189,6 +194,9 @@ class Ensemble(Extendable):
 
         if observables is None:
             observables = self.measured
+
+        if len(observables) == 0:
+            observables = tuple(supervillain.observables.keys())
 
         auto = {
                 name: autocorrelation_time(getattr(self, name))
