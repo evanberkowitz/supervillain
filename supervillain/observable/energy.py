@@ -90,14 +90,14 @@ class InternalEnergyDensitySquared(Scalar, Observable):
             \begin{align}
                 \partial_\kappa S &= - \frac{1}{2\kappa^2} \sum_{\ell} (m-\delta v/W)_\ell^2 + \frac{|\ell|}{2 \kappa}
                 &
-                \partial^2_\kappa S &= \frac{1}{\kappa} \sum_{\ell} (m-\delta v/W)_\ell^2 - \frac{|\ell|}{2\kappa^2}.
+                \partial^2_\kappa S &= \frac{1}{\kappa^3} \sum_{\ell} (m-\delta v/W)_\ell^2 - \frac{|\ell|}{2\kappa^2}.
             \end{align}
 
         '''
 
         L = S.Lattice
         partial_kappa_S = (L.links / 2 - 0.5 / S.kappa * (Links**2).sum()) / S.kappa
-        partial_2_kappa_S = ((Links**2).sum() - L.links / S.kappa) / S.kappa
+        partial_2_kappa_S = ((Links**2).sum() / S.kappa - L.links / 2) / S.kappa**2
         
         return (partial_kappa_S**2 - partial_2_kappa_S) / L.sites**2
 
