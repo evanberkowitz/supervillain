@@ -3,9 +3,9 @@
 
 import numpy as np
 import supervillain.action
-from supervillain.h5 import H5able
+from supervillain.h5 import ReadWriteable
 
-class Sequentially(H5able):
+class Sequentially(ReadWriteable):
     r'''
     Sequentially applies the list of generators as a single step.
 
@@ -45,7 +45,7 @@ class Sequentially(H5able):
         '''
         return '\n\n'.join(g.report() for g in self.generators)
 
-class KeepEvery(H5able):
+class KeepEvery(ReadWriteable):
     r'''
     To decorrelate and get honest error estimates it can be helpful to do MCMC but then only analyze evenly-spaced configurations.
     Rather than keep every single generated configuration and then throw a bunch away, we can keep only those we might analyze.

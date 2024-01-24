@@ -2,12 +2,12 @@
 
 import numpy as np
 import supervillain.action
-from supervillain.h5 import H5able
+from supervillain.h5 import ReadWriteable
 
 import logging
 logger = logging.getLogger(__name__)
 
-class NeighborhoodUpdateSlow(H5able):
+class NeighborhoodUpdateSlow(ReadWriteable):
     r'''
     A neighborhood update changes only fields in some small area of the lattice.
 

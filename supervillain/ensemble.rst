@@ -11,6 +11,7 @@ Ensembls are made up of configurations.
 .. autoclass :: supervillain.configurations.Configurations
    :members:
    :special-members: __getitem__, __setitem__
+   :show-inheritance:
 
 
 
