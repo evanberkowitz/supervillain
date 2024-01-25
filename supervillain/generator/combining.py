@@ -3,16 +3,16 @@
 
 import numpy as np
 import supervillain.action
-from supervillain.h5 import H5able
+from supervillain.h5 import ReadWriteable
 
-class Sequentially(H5able):
+class Sequentially(ReadWriteable):
     r'''
     Sequentially applies the list of generators as a single step.
 
-    For example we can get an ergodic :class:`~.Worldline` update scheme by combining the :class:`~.PlaquetteUpdate` and :class:`~.HolonomyUpdate`.
+    For example we can get an ergodic :class:`~.Worldline` update scheme by combining the :class:`~.PlaquetteUpdate` and :class:`~.WrappingUpdate`.
 
-    >>> p = supervillain.generator.constraint.PlaquetteUpdate(S)
-    >>> h = supervillain.generator.constraint.HolonomyUpdate(S)
+    >>> p = supervillain.generator.worldline.PlaquetteUpdate(S)
+    >>> h = supervillain.generator.worldline.WrappingUpdate(S)
     >>> g = supervillain.generator.combining.Sequentially((p, h))
 
     Parameters
@@ -25,6 +25,9 @@ class Sequentially(H5able):
         
         self.generators = generators
         
+    def __str__(self):
+        return f'Sequentially((' + ', '.join(f'{str(g)}' for g in self.generators) + '))'
+
     def step(self, cfg):
         r'''
         Apply each generator's ``step`` one after the next and return the final configuration.
@@ -42,7 +45,7 @@ class Sequentially(H5able):
         '''
         return '\n\n'.join(g.report() for g in self.generators)
 
-class KeepEvery(H5able):
+class KeepEvery(ReadWriteable):
     r'''
     To decorrelate and get honest error estimates it can be helpful to do MCMC but then only analyze evenly-spaced configurations.
     Rather than keep every single generated configuration and then throw a bunch away, we can keep only those we might analyze.
@@ -51,7 +54,7 @@ class KeepEvery(H5able):
         The number of updates per second will decrease by a factor of n, but the autocorrelation time should be n less.
         Generating a fixed number of configurations will take n times longer.
 
-    >>> p = supervillain.generator.constraint.PlaquetteUpdate(S)
+    >>> p = supervillain.generator.worldline.PlaquetteUpdate(S)
     >>> g = supervillain.generator.combining.KeepEvery(10, p)
 
 
@@ -67,6 +70,9 @@ class KeepEvery(H5able):
 
         self.stride = n
         self.generator = generator
+
+    def __str__(self):
+        return f'KeepEvery({self.stride}, {str(self.generator)})'
 
     def step(self, cfg):
         r'''

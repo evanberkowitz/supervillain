@@ -2,6 +2,9 @@
 I/O with HDF5
 *************
 
+Background
+==========
+
 `HDF5`_ is a format often used in computational physics and other data-science applications, because of its ability to store huge amounts of structured numerical data.
 Many datasets can be stored in a single file, categorized, linked together, and so on.
 A variety of python modules leverage HDF5 for input and output; often they rely on `h5py`_ or `PyTables`, pythonic interfaces  interoperabale with `numpy`_, and no native support of python objects.
@@ -10,78 +13,76 @@ However, more complex data structures have no native support for H5ing; a variet
 Any python object can be `pickled`_ and stored as a binary blob in HDF5, but the resulting blobs are not usable outside of python.
 The `pandas`_ data analysis module can `read_hdf`_ and export `to_hdf`_, but even though the data is written in a usable way, the data layouts are nontrivial to read without pandas.
 
-We aim for a happy medium, by providing a class, :class:`~.H5able`, from which other python classes, which contain a variety of data fields, can inherit to allow them to be easily written to HDF5.
-An H5able object will be saved as a `group`_ that contains properties written into groups and `datasets`_, with the same name as the property itself.
+We aim for a happy medium, by providing a class, :class:`~.ReadWriteable`, from which other python classes, which contain a variety of data fields, can inherit to allow them to be easily serialized to and from HDF5.
+An ReadWriteable object will be saved as a `group`_ that contains properties written into groups and `datasets`_, with the same name as the property itself.
 If a property is one of a slew of known types then it will be written natively as an H5 field, otherwise it will be pickled.
 
-.. autoclass:: supervillain.h5.H5able
+The data types that are not pickled are
+ - ``ReadWriteable`` or anything that inherits from ReadWriteable.
+ - ``bool``, ``int``, ``float``, and ``complex``.
+ - ``tuple``, ``list``, ``dict`` (`with some limitations on valid keys <https://github.com/evanberkowitz/supervillain/issues/65>`_)
+ - ``numpy.ndarray``
+
+
+Serializing Objects
+===================
+
+ReadWriteable objects inherit methods
+
+.. autoclass:: supervillain.h5.ReadWriteable
    :members:
    :undoc-members:
    :show-inheritance:
 
-The data types that are not pickled are
- - ``H5able`` or anything that inherits from H5able.
- - ``int``
- - ``float``
- - ``dict``, ``list``
- - ``numpy.ndarray``
- - ``torch.tensor``, ``torch.Size``
- - A subset of other torch objects; including ``torch.distributions.Distribution``.
+.. literalinclude :: h5/readwriteable.py
+   :pyobject: _example_readwrite
+   :caption:
 
-To provide custom methods for H5ing otherwise-unknown types that cannot be made H5able, a user can write a small strategy.
+One can also provide custom strategies and ``to_h5`` and ``from_h5`` methods.  It is nevertheless advisable to inherit from :class:`~.ReadWriteable` for typechecking purposes.
+
+
+
+Serializing Raw Data
+====================
+
+To provide custom methods for H5ing otherwise-unknown types that cannot be made ReadWriteable, a user can write a small strategy.
 A strategy is an instance-free class with just static methods ``applies``, ``write``, and ``read``.
-Suppose the user had an ``Example`` class; a strategy might look like
+For example, the strategy for writing a single integer is
 
-.. code-block:: python
-   
-   class ExampleStrategy(H5Data, name='example'):
-        '''
-        The name is stored as metadata and then used to look up this strategy
-        '''
+.. literalinclude:: h5/strategy/int.py
+   :caption:
 
-        @staticmethod
-        def applies(value):
-            r'''
-            Parameters
-            ----------
-                value: any value at all
+However, it is probably simplest in most circumstances to just inherit from ``ReadWriteable``.
+See **supervillain/h5/strategy/** for the default strategies.
+If the ReadWriteable strategy is desired but the class cannot be made to inherit from ``ReadWriteable``, just create a new strategy that inherits from ``h5.strategy.ReadWriteable`` and overwrites the ``applies`` method.
 
-            Returns
-            -------
-                bool: is ``value`` H5able using this interface?
-            '''
-            return isinstance(value, Example)
+Extendable Data and Objects
+===========================
 
-        @staticmethod
-        def write(group, key, value):
-            r'''
-            Parameters
-            ----------
-                group: an H5py group in which to store the Example object in value
-                key:   a string to name the object
-                value: an Example to store into ``group/key``.
-            '''
-            group['property'] = value.example_property
+Certain data can meaningfully be extended.
+For example, you might do Monte Carlo generation, make measurements, and realize you don't have enough for your desired precision.
+In that case you might want to extend the ensemble, adding new configurations and measurements to disk.
+There is a datatype for wrapping numpy arrays,
 
-        @staticmethod
-        def read(group):
-            r'''
-            Parameters
-            ----------
-                group: an H5py group
+.. autoclass:: supervillain.h5.extendable.array
+   :members:
+   :show-inheritance:
 
-            Returns
-            -------
-                Example: that was previously written with write.
-            '''
-            example_property = group['property']
-            return Example(example_property)
+which indicates that the array should be written with its zeroeth (batch) dimension `resizable <https://docs.h5py.org/en/stable/high/dataset.html#resizable-datasets>`_.
+When an :class:`~.Observable` is attached to an ensemble it is automatically an extendable array.
 
-However, it is probably simplest in most circumstances to just inherit from ``H5able``.
-See **supervillain/h5.py** for the strategies that for ``int``, ``float``, ``dict``, ``numpy.ndarray``, ``torch.tensor``, ``torch.Size``, and ``H5able``.
-If the H5able strategy is desired but the class cannot be made to inherit from ``H5able``, just create a new strategy that inherits from ``H5ableStrategy`` and overwrites the ``applies`` method.
+An object which contains extendable data won't know how to extend itself unless it inherits from
 
-One can also provide custom strategies and ``to_h5`` and ``from_h5`` methods.
+.. autoclass:: supervillain.h5.Extendable
+   :members:
+   :show-inheritance:
+
+.. literalinclude :: h5/extendable.py
+   :pyobject: _example_extend
+   :caption:
+
+The ``extend_h5`` method can be overwritten if custom handling is needed; the object should still inherit from :class:`~.Extendable` for typechecking purposes.
+
 
 .. _HDF5: https://www.hdfgroup.org/solutions/hdf5/
 .. _h5py: https://docs.h5py.org/en/stable/index.html

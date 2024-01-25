@@ -4,7 +4,7 @@ from functools import cached_property
 import matplotlib.colors as colors
 import numpy as np
 
-from supervillain.h5 import H5able
+from supervillain.h5 import ReadWriteable
 
 def _dimension(n):
     '''
@@ -21,7 +21,7 @@ def _dimension(n):
     '''
     return np.array(list(range(0, n // 2 + 1)) + list(range( - n // 2 + 1, 0)), dtype=int)
 
-class Lattice2D(H5able):
+class Lattice2D(ReadWriteable):
 
     def __init__(self, n):
         self.nt = n
@@ -867,7 +867,7 @@ class Lattice2D(H5able):
         The following figure shows a 0-form plotted on sites, a 1-form on links, and a 2-form on plaquettes.
         See the source for details.
 
-        .. plot:: examples/plot-forms.py
+        .. plot:: example/plot/forms.py
 
         Parameters
         ----------
@@ -1011,7 +1011,7 @@ class Lattice2D(H5able):
 
         The point group of a 2D lattice is $D_4$ and the structure and irreps are detailed in `https://two-dimensional-gasses.readthedocs.io/en/latest/computational-narrative/D4.html <the tdg documentation>`_\, where the spatial lattice is 2D.
 
-        .. plot:: examples/plot-D4-irreps.py
+        .. plot:: example/plot/D4-irreps.py
 
         .. note::
             Currently we only know how project scalar correlators that depend on a single spatial separation.
