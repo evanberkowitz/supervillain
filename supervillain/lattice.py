@@ -931,6 +931,8 @@ class Lattice2D(ReadWriteable):
             V = np.concatenate((np.zeros_like(self.T.flatten()), np.ones_like (self.T.flatten())))
             # and then we can plot the whole form together.
             f = axis.quiver(T, X, U, V, form.flatten(), **zorder, **links)
+            # TODO: squash warning in example/plot/forms.py
+            # UserWarning: No data for colormapping provided via 'c'. Parameters 'norm' will be ignored axis.scatter(self.T, self.X, color=background, **zorder, **marker)
             axis.scatter(self.T, self.X, color=background, **zorder, **marker)
 
         if p == 2:
@@ -941,6 +943,8 @@ class Lattice2D(ReadWriteable):
                         origin='lower', extent=(min(self.t), max(self.t)+1, min(self.x), max(self.x)+1),
                         norm=norm,
                        )
+            # TODO: squash warning in example/plot/forms.py
+            # UserWarning: No data for colormapping provided via 'c'. Parameters 'norm' will be ignored axis.scatter(self.T, self.X, color=background, **zorder, **marker)
             axis.quiver(self.T, self.X, 1, 0, color='white', **zorder, **links)
             axis.quiver(self.T, self.X, 0, 1, color='white', **zorder, **links)
             axis.scatter(self.T, self.X, color=background, **zorder, **marker)
