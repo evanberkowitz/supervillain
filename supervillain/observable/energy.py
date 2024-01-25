@@ -119,11 +119,11 @@ class InternalEnergyDensityVariance(DerivedQuantity):
 
 class SpecificHeatCapacity(DerivedQuantity):
     r'''
-    The specific heat $c$ is given by
+    The (intensive) specific heat capacity $c$ is given by
 
     .. math ::
 
-        c = \frac{\langle U^2 \rangle - \langle U \rangle^2}{\Lambda} = \Lambda \times \texttt{InternalEnergyDensityVariance}.
+        c = \frac{\langle U^2 \rangle - \langle U \rangle^2}{\Lambda T^2} = \kappa^2 \Lambda \times \texttt{InternalEnergyDensityVariance}.
 
     Naively, since both $\langle U^2 \rangle$ and $\langle U \rangle^2$ scale like $\Lambda^2$ their difference ought to also scale
     like $\Lambda^2$.  However, we learn from thermodynamics that actually their difference is one order lower, which explains
@@ -133,4 +133,4 @@ class SpecificHeatCapacity(DerivedQuantity):
 
     @staticmethod
     def default(S, InternalEnergyDensityVariance):
-        return InternalEnergyDensityVariance * S.Lattice.sites
+        return InternalEnergyDensityVariance * S.Lattice.sites * S.kappa**2
