@@ -84,13 +84,13 @@ for a, o in zip(ax, args.observables):
     # The worm tends to be much more decorrelated, so plot it behind the Villain for visual clarity.
 
     tau = supervillain.analysis.autocorrelation_time(getattr(n_thermalized, o))
-    n.plot_history(a, o, label=f'Worm τ={tau}', alpha=0.5)
-    n_decorrelated.plot_history(a, o, label='Worm', alpha=0.5, histogram_label=f'Worm {Uncertain(*n_bootstrap.estimate(o))}')
+    n.plot_history(a, o, label=f'Local τ={tau}', alpha=0.5)
+    n_decorrelated.plot_history(a, o, label='Local', alpha=0.5, histogram_label=f'Local {Uncertain(*n_bootstrap.estimate(o))}')
     n_bootstrap.plot_band(a[0], o)
 
     tau = supervillain.analysis.autocorrelation_time(getattr(w_thermalized, o))
-    w.plot_history(a, o, label=f'Local τ={n_autocorrelation}', alpha=0.5)
-    w_decorrelated.plot_history(a, o, label='Local', alpha=0.5, histogram_label=f'Local {Uncertain(*w_bootstrap.estimate(o))}')
+    w.plot_history(a, o, label=f'Worm τ={tau}', alpha=0.5)
+    w_decorrelated.plot_history(a, o, label='Worm', alpha=0.5, histogram_label=f'Worm {Uncertain(*w_bootstrap.estimate(o))}')
     w_bootstrap.plot_band(a[0], o)
 
     a[0].set_ylabel(o)
