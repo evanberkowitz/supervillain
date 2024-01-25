@@ -56,7 +56,7 @@ However, the sign problem can be traded for a constraint,
 .. math::
         \sum Dv\; e^{2\pi i \sum_p v_p (dn)_p / W}
         =
-        \prod_p 2\pi\; [dn_p \equiv 0 \text{ mod }W]
+        \prod_p [dn_p \equiv 0 \text{ mod }W]
 
 (where $[dn_p \equiv 0 \text{ mod } W]$ is the `Iverson bracket`_).
 This constraint might be implemented with careful Monte Carlo updates.
