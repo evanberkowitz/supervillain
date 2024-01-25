@@ -2,7 +2,7 @@
 
 import numpy as np
 import supervillain.action
-from supervillain.h5 import H5able
+from supervillain.h5 import ReadWriteable
 
 import logging
 logger = logging.getLogger(__name__)
@@ -13,11 +13,11 @@ logger = logging.getLogger(__name__)
 
 #Try larger kappas?
 
-class SimpleWorm(H5able):
+class SimpleWorm(ReadWriteable):
     pass
 #?
 
-class SlowUndirectedWorm(H5able):
+class SlowUndirectedWorm(ReadWriteable):
     r'''
     Same algorithm as UndirectedWorm, but with logging capabilities to help with statistics management and diagnostics.
     '''
@@ -255,7 +255,7 @@ class SlowUndirectedWorm(H5able):
             f'    {self.total_burrows} total burrows'
         )
 
-class UndirectedWorm(H5able):
+class UndirectedWorm(ReadWriteable):
     r'''
     Ref. :cite:`PhysRevE.67.015701` gives us an ergotic and balanced worm algorithm in the context of the quantum rotor model. The quantum rotor model is of a similar class to our worldline formulation, requiring divergenceless currents, so the implementation of this worm is straightforward.
     The meat and potatos of this algorithm are contained within the :func:`~burrow` and :func:`~step` methods, with the step method repeatedly referring to burrow.
@@ -455,7 +455,7 @@ class UndirectedWorm(H5able):
             f'    {self.acceptance / self.sweeps:.6f} average Metropolis acceptance probability.'
         )
 
-class GeometricWorm(H5able):
+class GeometricWorm(ReadWriteable):
     def __init__(self, action):
         if not isinstance(action, supervillain.action.Worldline):
             raise ValueError('The Directed Geometric Worm algorithm requires the Worldline action.')
