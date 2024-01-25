@@ -31,6 +31,10 @@ Internal Energy Density
    :members:
    :show-inheritance:
 
+.. autoclass :: supervillain.observable.SpecificHeatCapacity
+   :members:
+   :show-inheritance:
+
 ======
 Action
 ======
