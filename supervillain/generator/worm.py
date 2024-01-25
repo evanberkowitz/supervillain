@@ -307,6 +307,11 @@ class UndirectedWorm(ReadWriteable):
 
         Parameters
         ----------
+
+        cfg:
+            cfg
+        currentsite:
+            currentsite
         
         Returns
         -------
