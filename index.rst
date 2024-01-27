@@ -32,6 +32,16 @@ Version Information
    :uncommitted:
    :untracked:
 
+License
+=======
+
+.. toctree::
+   license
+
+.. literalinclude:: LICENSE
+   :language: none
+   :lines: 4-23
+
 Indices and tables
 ==================
 
