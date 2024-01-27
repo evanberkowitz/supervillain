@@ -1,9 +1,11 @@
 *.h5
+*.csv
 *.pkl
 *.pdf
 *.png
 *.log
 .DS_Store
+*.ipynb
 
 # Docs
 _build/

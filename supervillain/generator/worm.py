@@ -2,7 +2,7 @@
 
 import numpy as np
 import supervillain.action
-from supervillain.h5 import H5able
+from supervillain.h5 import ReadWriteable
 
 import logging
 logger = logging.getLogger(__name__)
@@ -13,11 +13,11 @@ logger = logging.getLogger(__name__)
 
 #Try larger kappas?
 
-class SimpleWorm(H5able):
+class SimpleWorm(ReadWriteable):
     pass
 #?
 
-class SlowUndirectedWorm(H5able):
+class SlowUndirectedWorm(ReadWriteable):
     r'''
     Same algorithm as UndirectedWorm, but with logging capabilities to help with statistics management and diagnostics.
     '''
@@ -255,7 +255,7 @@ class SlowUndirectedWorm(H5able):
             f'    {self.total_burrows} total burrows'
         )
 
-class UndirectedWorm(H5able):
+class UndirectedWorm(ReadWriteable):
     r'''
     Ref. :cite:`PhysRevE.67.015701` gives us an ergotic and balanced worm algorithm in the context of the quantum rotor model. The quantum rotor model is of a similar class to our worldline formulation, requiring divergenceless currents, so the implementation of this worm is straightforward.
     The meat and potatos of this algorithm are contained within the :func:`~burrow` and :func:`~step` methods, with the step method repeatedly referring to burrow.
@@ -264,6 +264,7 @@ class UndirectedWorm(H5able):
     It is important that these worms are closed, for this preserves the value of $\delta m$ throughout the lattice. For the :class:`~.Worldline` action, we aim to sample only configurations with $\delta m = 0$.
     A worm is generated through the repeated use of :func:`~burrow`. Starting from a random location on the lattice, a :func:`~burrow` is performed in one of the four directions from the stencil, where the direction traveled depends on the action difference. Burrows are then continually performed until the 'head' of the worm returns to its 'tail'. At this point the worm is then tested for "erasure" to preserve detailed balance. Erasure probabilities remain low and have little impact on the efficiency of the algorithm, since worms are rarely erased.
     
+
     According to Ref. :cite:`PhysRevE.67.015701`, this algorithm gives a power law relation between autocorrelation times and lattice size whereas a scheme similar to our combined :class:`~.PlaquetteUpdate` and :class:`~.HolonomyUpdate` gives either an exponentially increasing relationship, or a power law of notably higher degree.
     Our specific tests show that the worm (when accounting for autocorrelation times due to the *wrapping* holonomies) reduces the explosion of autocorrelation times dramatically, particularly with larger lattices.
     Even near critical $\kappa$ autocorrelation times remain on the order of 10s for $L=50$ lattices, whereas traditional algorithms yield autocorrelation times on the order of 100s.
@@ -475,7 +476,7 @@ class UndirectedWorm(H5able):
             f'    {self.acceptance / self.sweeps:.6f} average Metropolis acceptance probability.'
         )
 
-class GeometricWorm(H5able):
+class GeometricWorm(ReadWriteable):
     def __init__(self, action):
         if not isinstance(action, supervillain.action.Worldline):
             raise ValueError('The Directed Geometric Worm algorithm requires the Worldline action.')

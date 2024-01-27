@@ -4,7 +4,7 @@ from functools import cached_property
 import matplotlib.colors as colors
 import numpy as np
 
-from supervillain.h5 import H5able
+from supervillain.h5 import ReadWriteable
 
 def _dimension(n):
     '''
@@ -21,7 +21,7 @@ def _dimension(n):
     '''
     return np.array(list(range(0, n // 2 + 1)) + list(range( - n // 2 + 1, 0)), dtype=int)
 
-class Lattice2D(H5able):
+class Lattice2D(ReadWriteable):
 
     def __init__(self, n):
         self.nt = n
@@ -867,7 +867,7 @@ class Lattice2D(H5able):
         The following figure shows a 0-form plotted on sites, a 1-form on links, and a 2-form on plaquettes.
         See the source for details.
 
-        .. plot:: examples/plot-forms.py
+        .. plot:: example/plot/forms.py
 
         Parameters
         ----------
@@ -931,6 +931,8 @@ class Lattice2D(H5able):
             V = np.concatenate((np.zeros_like(self.T.flatten()), np.ones_like (self.T.flatten())))
             # and then we can plot the whole form together.
             f = axis.quiver(T, X, U, V, form.flatten(), **zorder, **links)
+            # TODO: squash warning in example/plot/forms.py
+            # UserWarning: No data for colormapping provided via 'c'. Parameters 'norm' will be ignored axis.scatter(self.T, self.X, color=background, **zorder, **marker)
             axis.scatter(self.T, self.X, color=background, **zorder, **marker)
 
         if p == 2:
@@ -941,6 +943,8 @@ class Lattice2D(H5able):
                         origin='lower', extent=(min(self.t), max(self.t)+1, min(self.x), max(self.x)+1),
                         norm=norm,
                        )
+            # TODO: squash warning in example/plot/forms.py
+            # UserWarning: No data for colormapping provided via 'c'. Parameters 'norm' will be ignored axis.scatter(self.T, self.X, color=background, **zorder, **marker)
             axis.quiver(self.T, self.X, 1, 0, color='white', **zorder, **links)
             axis.quiver(self.T, self.X, 0, 1, color='white', **zorder, **links)
             axis.scatter(self.T, self.X, color=background, **zorder, **marker)
@@ -1011,7 +1015,7 @@ class Lattice2D(H5able):
 
         The point group of a 2D lattice is $D_4$ and the structure and irreps are detailed in `https://two-dimensional-gasses.readthedocs.io/en/latest/computational-narrative/D4.html <the tdg documentation>`_\, where the spatial lattice is 2D.
 
-        .. plot:: examples/plot-D4-irreps.py
+        .. plot:: example/plot/D4-irreps.py
 
         .. note::
             Currently we only know how project scalar correlators that depend on a single spatial separation.
@@ -1043,55 +1047,3 @@ class Lattice2D(H5able):
             temp += w * np.take(C, p, -1)
 
         return self.coordinatize(temp, dims=dims)
-    
-    #TODO: Move this method to Worldline Action
-    def count_loops(self, cfg):
-        cfgabs = np.abs(cfg)
-        #Takes the absolute value of a configuration's links to determine where a worm perturbation is
-        #This must be applied to a worm on a zero background field, (or just subtract out the background field from before the worm)
-        
-        #Here I am checking each site for whether it lies on the worm (has an adjacent non-zero link),
-        #and if so then give it an integer value. This is basically just a unique identifier, so the integer value 
-        #increments each time
-        q = 1
-        ledger = self.form(0)
-        for i in range(self.dims[0]):
-            for j in range(self.dims[1]):
-                if (np.array([cfgabs[0,i,j],cfgabs[1,i,j],cfgabs[0,i-1,j],cfgabs[1,i,j-1]])>0).any():
-                    ledger[i,j]=q
-                    q+=1
-
-        oldledger = np.empty_like(ledger)
-        while (ledger != oldledger).any():  #As long as we are not in a steady state
-            oldledger = ledger.copy()
-            for i in range(ledger.shape[0]):
-                for j in range(ledger.shape[1]):
-                    if ledger[i,j] != 0:
-                        for adj in [1,2,3,4]:   #Sift through each non-zero point in the ledger and its 
-                            #adjacent links
-                            #[1,2,3,4] -> [East,N,W,S]
-                            if adj == 1:
-                                test_link = cfgabs[0,i,j]
-                                if test_link > 0:
-                                    #Here we check if the worm passes through a neighboring link, and if so we take
-                                    #the maximum of the two points connected by that link and adopt that for both
-                                    ledger[i,j] = max(ledger[i,j],ledger[self.mod([i+1,j])[0],self.mod([i+1,j])[1]])
-                                    ledger[self.mod([i+1,j])[0],self.mod([i+1,j])[1]] = ledger[i,j]
-                            if adj == 2:
-                                test_link = cfgabs[1,i,j]
-                                if test_link > 0:
-                                    ledger[i,j] = max(ledger[i,j],ledger[self.mod([i,j+1])[0],self.mod([i,j+1])[1]])
-                                    ledger[self.mod([i,j+1])[0],self.mod([i,j+1])[1]] = ledger[i,j]
-                            if adj == 3:
-                                test_link = cfgabs[0,i-1,j]
-                                if test_link > 0:
-                                    ledger[i,j] = max(ledger[i,j],ledger[self.mod([i-1,j])[0],self.mod([i-1,j])[1]])
-                                    ledger[self.mod([i-1,j])[0],self.mod([i-1,j])[1]] = ledger[i,j]
-                            if adj == 4:
-                                test_link = cfgabs[1,i,j-1]
-                                if test_link > 0:
-                                    ledger[i,j] = max(ledger[i,j],ledger[self.mod([i,j-1])[0],self.mod([i,j-1])[1]])
-                                    ledger[self.mod([i,j-1])[0],self.mod([i,j-1])[1]] = ledger[i,j]
-        #Once the process reaches a steady state, ie. the maximums in all connected loops have proliferated
-        #we can just count the number of unique maximums that we obtain (other than 0)
-        return np.sum(np.unique(ledger) > 0)

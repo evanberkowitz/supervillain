@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from .example import DoNothing
-from .metropolis import NeighborhoodUpdate
-import supervillain.generator.constraint
+import supervillain.generator.villain
+import supervillain.generator.worldline
 import supervillain.generator.combining
 import supervillain.generator.worm

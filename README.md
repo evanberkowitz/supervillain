@@ -8,10 +8,10 @@ Navigate to the cloned repo and try
 
 ```
 pip install .  # for development use pip install -e . 
-./examples/villain-metropolis.py
+./test/end-to-end.py
 ```
 
-If pip installation succeeds so too should the example script, which performs a simple Metropolis algorithm on the (φ, n) formulation of the model.
+If pip installation succeeds so too should the example script, which by default samples the (φ, n) formulation of the model on a small lattice.
 
 supervillain has documentation built with [sphinx](https://www.sphinx-doc.org/en/master/).
 To build the documentation once you 

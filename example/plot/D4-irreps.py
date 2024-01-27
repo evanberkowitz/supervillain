@@ -14,7 +14,7 @@ ax[0,0].set_title('Correlator(Δx)')
 [a.remove() for a in ax[0,1:]]
 
 for a, irrep in zip(ax[1], ('A1', 'A2', 'B1', 'B2')):
-    L.plot_form(0, L.irrep(c, irrep), a)
+    L.plot_form(0, L.irrep(c, irrep).real, a)
     a.set_title(irrep)
 
 for re, im, irrep in zip(ax[2], ax[3], ('E+', 'E-', "E'+", "E'-")):

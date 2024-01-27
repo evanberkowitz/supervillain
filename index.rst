@@ -11,14 +11,17 @@ supervillain
    :caption: Contents:
 
    supervillain/action
+   supervillain/worldline
    supervillain/lattice
    supervillain/ensemble
    supervillain/generator
+   supervillain/measurement
    supervillain/observable
    supervillain/analysis
    supervillain/h5
    todo
    bibliography
+   supervillain/reference_implementations
 
 Version Information
 ===================
@@ -33,7 +36,6 @@ Indices and tables
 ==================
 
 * :ref:`genindex`
-* :ref:`modindex`
 * :ref:`search`
 
 .. sidebar-links::

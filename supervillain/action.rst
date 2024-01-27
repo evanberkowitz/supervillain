@@ -23,72 +23,50 @@ The model has a gauge symmetry
 
 for an integer-valued 0-form $k$.
 
-Computationally we can study this model in a variety of formulations.
+If we integrate over particular values of $J_p$ we can project out values of the winding $dn$.
+For example, if we integrate $J$ over the reals the simplicity of the action allows us to find a constraint
+
+.. math::
+   \begin{align}
+        \int DJ\; e^{i \sum_p J_p (dn)_p} = \prod_p 2\pi \delta(dn_p)
+   \end{align}
+
+but we may also set $J = 2\pi v / W$ for any positive integer $W$ and sum over integer-valued plaquette variables $v$,
+
+.. math::
+   \begin{align}
+   Z[J] &= \sum\hspace{-1.33em}\int D\phi\; Dn\; Dv\; e^{-S_J[\phi, n, v]}
+   \\
+   S_J[\phi, n, v] &= \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + 2\pi i \sum_p (v/W + J/2\pi) (dn)_p,
+   \end{align}
+
+keeping the external $J$ for functional differentiation.
+The constrained model has a gauge symmetry $v \rightarrow v \pm W$ because with integer-valued $dn$ the phase
+
+.. math::
+    e^{2\pi i \sum_p v_p (dn)_p / W}
+
+and the path integral are invariant under that transformation.  When $W=1$ the ...constraint... does not constrain $dn$.
+
+The constrained model has a $\mathbb{Z}_W$ winding symmetry WHICH DESERVES A LOT MORE DISCUSSION HERE.
+
+But for the unconstrained $W=1$, the obvious reading of this model has a horrible sign problem.
+However, the sign problem can be traded for a constraint,
+
+.. math::
+        \sum Dv\; e^{2\pi i \sum_p v_p (dn)_p / W}
+        =
+        \prod_p [dn_p \equiv 0 \text{ mod }W]
+
+(where $[dn_p \equiv 0 \text{ mod } W]$ is the `Iverson bracket`_).
+This constraint might be implemented with careful Monte Carlo updates.
+
+Remarkably, we will see that the worldline formulation is naturally sign-problem free.
+
+Computationally we can study this model in a variety of formulations.  The most straightforwardly obvious is the literal one.
 
 .. autoclass :: supervillain.action.Villain
    :members:
-
-We can find an exact rewriting by first 'integrating' by parts,
-
-.. math::
-   \begin{align}
-   S_J[\phi, n] &= \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + i \sum_\ell (\delta J)_\ell n_\ell
-   \end{align}
-
-and applying the Poisson summation formula
-
-.. math::
-   \sum_n \exp\left\{- \frac{\kappa}{2} (\theta - 2\pi n)^2 + i n \tilde{\theta}\right\}
-   =
-   \frac{1}{\sqrt{2\pi\kappa}} \sum_m \exp\left\{ - \frac{1}{2\kappa} \left(m - \frac{\tilde{\theta}}{2\pi}\right)^2 - i \left(m - \frac{\tilde{\theta}}{2\pi}\right) \theta\right\}
-
-with $\theta \rightarrow\; d\phi$ and $\tilde{\theta} \rightarrow\; \delta J$ to find
-
-.. math::
-   \begin{align}
-   Z[J] &=  (2\pi\kappa)^{-|\ell|/2}\sum\hspace{-1.33em}\int D\phi\; Dm\; e^{-S_J[\phi, m]}
-   \\
-   S_J[\phi, m] &= \frac{1}{2\kappa} \sum_\ell \left(m - \frac{\delta J}{2\pi}\right)_\ell^2 - i \sum_\ell \left(m - \frac{\delta J}{2\pi}\right)_\ell (d\phi)_\ell.
-   \end{align}
-
-'Integrating' by parts again transforms the action to
-
-.. math::
-   S_J[\phi, m] = \frac{1}{2\kappa} \sum_\ell \left(m - \frac{\delta J}{2\pi}\right)_\ell^2 - i \sum_x \left(\delta m - \frac{\delta^2 J}{2\pi}\right)_x \phi_x
-
-and we may drop the $\delta^2 J$ term because $\delta^2=0$.
-That leaves us with 
-
-.. math::
-   \begin{align}
-   Z[J] &= (2\pi\kappa)^{-|\ell|/2} \sum\hspace{-1.33em}\int D\phi\; Dm\; e^{-S_J[\phi, m]}
-   &
-   S_J[\phi, m] &= \frac{1}{2\kappa} \sum_\ell \left(m - \frac{\delta J}{2\pi}\right)_\ell^2 - i \sum_x \delta m _x \phi_x
-   \end{align}
-
-However, we can now execute the integral over $\phi$, which just sets $\delta m=0$ everywhere,
-
-.. math::
-   \begin{align}
-   Z[J] &= (2\pi)^{|x|}(2\pi\kappa)^{-|\ell|/2} \sum Dm\; e^{-S_J[m]} \left[\delta m = 0\right]
-   &
-   S_J[m] &= \frac{1}{2\kappa} \sum_\ell \left(m - \frac{\delta J}{2\pi}\right)_\ell^2 
-   \end{align}
-
-where $[\delta m = 0]$ is the `Iverson bracket`_ and we picked up a $2\pi$ for every site since $\int d\phi\; e^{i o \phi} = 2\pi \delta(o)$.
-We can cast the dimensionless constants up into the action
-
-.. math::
-   \begin{align}
-   Z[J] &= \sum Dm\; e^{-S_J[m]} \left[\delta m = 0\right]
-   &
-   S_J[m] &= \frac{1}{2\kappa} \sum_\ell \left(m - \frac{\delta J}{2\pi}\right)_\ell^2 + \frac{|\ell|}{2} \ln (2\pi \kappa) - |x| \ln 2\pi
-   \end{align}
-
-
-.. autoclass :: supervillain.action.Worldline
-   :members:
-
 
 .. _Iverson bracket: https://en.wikipedia.org/wiki/Iverson_bracket
 
