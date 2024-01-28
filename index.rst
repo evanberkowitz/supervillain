@@ -36,6 +36,7 @@ License
 =======
 
 .. toctree::
+   contributors
    license
 
 .. literalinclude:: LICENSE
