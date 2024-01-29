@@ -41,7 +41,7 @@ with logging_redirect_tqdm():
     n = supervillain.Ensemble(S).generate(args.configurations, g, start='cold', progress=tqdm)
     n.measure()
 
-    W = supervillain.generator.worm.UndirectedWorm(S)
+    W = supervillain.generator.worldline.UndirectedWorm(S)
     w = supervillain.Ensemble(S).generate(args.configurations, W, start='cold', progress=tqdm)
     w.measure()
 
