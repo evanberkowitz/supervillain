@@ -84,7 +84,7 @@ Another class of constraint-maintaining algorithms are *worm algorithms*.
 They explicitly allow the configuration to change in the larger space of constraint-violating configurations and when the worm closes the constraint is once again obeyed.
 Worm algorithms are purportedly less punishing with regards to autocorrelation times, and are also efficent tools for calculating *correlations* at the same time as generating configurations.
 
-.. autoclass :: supervillain.generator.worm.UndirectedWorm
+.. autoclass :: supervillain.generator.worldline.UndirectedWorm
    :members:
 
 
