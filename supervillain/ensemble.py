@@ -198,11 +198,15 @@ class Ensemble(Extendable):
         if len(observables) == 0:
             observables = tuple(supervillain.observables.keys())
 
-        auto = {
-                name: autocorrelation_time(getattr(self, name))
-                for name in observables
-                if supervillain.observables[name].autocorrelation(self)
-                }
+        auto = dict()
+        for name in observables:
+            if not supervillain.observables[name].autocorrelation(self):
+                continue
+            try:
+                auto[name] = autocorrelation_time(getattr(self, name))
+            except Exception as E:
+                raise ValueError(f'{name} does not fluctuate enough') from E
+
         if every:
             return auto
         else:
