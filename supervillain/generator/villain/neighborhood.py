@@ -11,8 +11,18 @@ class NeighborhoodUpdate(ReadWriteable):
     r'''
     This performs the same update as :class:`NeighborhoodUpdateSlow <supervillain.generator.reference_implementation.villain.NeighborhoodUpdateSlow>` but is streamlined to eliminate calls, to calculate the change in action directly, and to avoid data movement.
 
-    .. warning ::
-        Because we currently restrict to $W=1$ for the :class:`~.Villain` formulation we do not update $v$.
+    Updates are drawn according to
+
+    .. math ::
+    
+        \begin{align}
+        \Delta\phi_x    &\sim \text{uniform}(-\texttt{interval_phi}, +\texttt{interval_phi})
+        \\
+        \Delta n_\ell   &\sim W \times [-\texttt{interval_n}, +\texttt{interval_n}]
+        \end{align}
+
+    We pick :math:`\Delta n_\ell` to be a multiple of the constraint integer $W$ so that if the adjacent plaquettes satisfy the :ref:`winding constraint <winding constraint>` $dn \equiv 0 \text{ mod }W$
+    before the update they satisfy it after as well.
 
     .. seealso ::
        On a small 5×5 example this generator yields about three times as many updates per second than :class:`NeighborhoodUpdateSlow <supervillain.generator.reference_implementation.villain.NeighborhoodUpdateSlow>` on my machine.
@@ -76,8 +86,9 @@ class NeighborhoodUpdate(ReadWriteable):
             north, south, east, west = self.Lattice.mod(here + np.array([[+1,0],[-1,0],[0,-1],[0,+1]]))
                 # Since time is the zeroeth axis, *west* is the positive space direction.
 
-            change_phi = self.rng.uniform(-self.interval_phi,+self.interval_phi,None)
-            change_n = self.rng.choice(self.n_changes,4)
+            # TODO: consider drawing the change in phi from W * the below interval
+            change_phi =          self.rng.uniform(-self.interval_phi,+self.interval_phi,None)
+            change_n   = self.W * self.rng.choice(self.n_changes,4)
 
             # We don't even construct a new field until we know whether we know we'll accept or reject.
             # We can calculate dS directly from just the previous values and the proposed changes.
