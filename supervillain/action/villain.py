@@ -24,8 +24,8 @@ class Villain(ReadWriteable):
     In this formulation, if $J$ is real and nonzero we expect a sign problem because the action is complex.  However, we can think of $J$ as an external source, take functional derivatives to get observables, and then set $J$ to zero so that we only need sample according to the first term.
 
     .. warning::
-        Because $W\neq1$ suffers from a sign problem without a clever algorithm that maintains the constraint, we currently restrict to $W=1$.
-        Then we may as well let $v=0$, since $\exp(2\pi i v_p (dn)_p) = 1$ for integer $v$ and $dn$.
+        Because $W\neq1$ suffers from a sign problem if we try to sample $v$, we assume an ensemble will be generated
+        with a clever algorithm that that maintains :ref:`the winding constraint <winding constraint>`, so that $v$ need not be included in the field content.
 
     Parameters
     ----------
@@ -43,9 +43,6 @@ class Villain(ReadWriteable):
         self.kappa = kappa
         self.W = W
 
-        if self.W != 1:
-            raise ValueError(f'The Villain action has a horrible sign problem when W≠1; you picked {W=}.')
-
     def __str__(self):
         return f'Villain({self.Lattice}, κ={self.kappa}, W={self.W})'
 
@@ -61,9 +58,10 @@ class Villain(ReadWriteable):
         Returns
         -------
         float
-            $S_0[\phi, n, v=0]$.  We restrict to the $v=0$ simplification because we restrict to $W=1$.
+            $S_0[\phi, n]$.  We assume the path integration over $v$ implements :ref:`the winding constraint <winding constraint>` in some clever way,
+            so the action does not depend on $v$.
         '''
-        return self.kappa / 2 * np.sum((self.Lattice.d(0, phi) - 2*np.pi*n)**2) # + nothing that depends on v since W=1.
+        return self.kappa / 2 * np.sum((self.Lattice.d(0, phi) - 2*np.pi*n)**2) # + nothing that depends on v since we will implement the constraint directly.
 
     def configurations(self, count):
         r'''
@@ -79,7 +77,6 @@ class Villain(ReadWriteable):
         return Configurations({
             'phi': extendable.array(self.Lattice.form(0, count)),
             'n':   extendable.array(self.Lattice.form(1, count, dtype=int)),
-            'v':   extendable.array(self.Lattice.form(2, count, dtype=int)),
             })
 
     def gauge_transform(self, configuration, k):
