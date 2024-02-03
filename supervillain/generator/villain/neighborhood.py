@@ -87,8 +87,8 @@ class NeighborhoodUpdate(ReadWriteable):
                 # Since time is the zeroeth axis, *west* is the positive space direction.
 
             # TODO: consider drawing the change in phi from W * the below interval
-            change_phi =          self.rng.uniform(-self.interval_phi,+self.interval_phi,None)
-            change_n   = self.W * self.rng.choice(self.n_changes,4)
+            change_phi =                 self.rng.uniform(-self.interval_phi,+self.interval_phi,None)
+            change_n   = self.Action.W * self.rng.choice(self.n_changes,4)
 
             # We don't even construct a new field until we know whether we know we'll accept or reject.
             # We can calculate dS directly from just the previous values and the proposed changes.
