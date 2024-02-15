@@ -3,6 +3,7 @@
 from functools import partial
 import inspect
 
+import supervillain.action
 import supervillain.ensemble
 from supervillain.performance import Timer
 import supervillain.h5.extendable
@@ -116,3 +117,40 @@ class Constrained:
         If $W\neq 1$ then use all other considerations to decide.
         '''
         return (ensemble.Action.W != 1) and super().autocorrelation(ensemble)
+
+class OnlyVillain:
+
+    @classmethod
+    def autocorrelation(cls, ensemble):
+        r'''
+        True if the ensemble's action is Villain and all other considerations are true.
+        '''
+
+        return (isinstance(ensemble.Action, supervillain.action.Villain)) and super().autocorrelation(ensemble)
+
+class OnlyWorldline:
+
+    @classmethod
+    def autocorrelation(cls, ensemble):
+        r'''
+        True if the ensemble's action is :class:`~.action.Worldline` and all other considerations are true.
+        '''
+        return (isinstance(ensemble.Action, supervillain.action.Worldline)) and super().autocorrelation(ensemble)
+
+class NotVillain:
+    @classmethod
+    def autocorrelation(cls, ensemble):
+        r'''
+        False if the ensemble's action is Villain, otherwise use all other considerations.
+        '''
+        return (not isinstance(ensemble.Action, supervillain.action.Villain)) and super().autocorrelation(ensemble)
+
+class NotWorldline:
+
+    @classmethod
+    def autocorrelation(cls, ensemble):
+        r'''
+        False if the ensemble's action is :class:`~.action.Worldline`, otherwise use all other considerations.
+        '''
+        return (not isinstance(ensemble.Action, supervillain.action.Worldline)) and super().autocorrelation(ensemble)
+

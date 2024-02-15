@@ -53,6 +53,9 @@ For example, the :class:`~.SpinSusceptibility` is just the sum of the :class:`~.
 .. literalinclude:: observable/spin.py
    :pyobject: SpinSusceptibility
 
+Inclusion in Autocorrelation Computation
+========================================
+
 Scalar observables are good candidates for consideration in the autocorrelation time
 
 .. autoclass :: supervillain.observable.Scalar
@@ -61,6 +64,17 @@ Scalar observables are good candidates for consideration in the autocorrelation 
 but, as advertised some observables only make sense when $W\neq 1$.
 
 .. autoclass :: supervillain.observable.Constrained
+    :members:
+
+We can restrict observables to only one action if need be. (Usually this only makes sense as a stop-gap while the observable is implemented for that action.)
+
+.. autoclass :: supervillain.observable.NotVillain
+    :members:
+.. autoclass :: supervillain.observable.OnlyVillain
+    :members:
+.. autoclass :: supervillain.observable.NotWorldline
+    :members:
+.. autoclass :: supervillain.observable.OnlyWorldline
     :members:
 
 We can use these to control the inclusion in an ensemble's autocorrelation computation.
