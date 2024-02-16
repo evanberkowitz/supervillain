@@ -82,50 +82,21 @@ n_bootstrap = supervillain.analysis.Bootstrap(n_decorrelated)
 w_bootstrap = supervillain.analysis.Bootstrap(w_decorrelated)
 
 # The rest is show business!
+import comparison_plot
 
-fig, ax = plt.subplots(len(args.observables), 3,
-    figsize=(12, 2.5*len(args.observables)),
-    gridspec_kw={'width_ratios': [4, 1, 1], 'wspace': 0, 'hspace': 0},
-    sharey='row',
-    squeeze=False
-)
+fig, ax = comparison_plot.setup(args.observables)
+comparison_plot.bootstraps(ax,
+        (n_bootstrap, w_bootstrap),
+        ('No worm', '+worm'),
+        observables=args.observables
+        )
+comparison_plot.histories(ax,
+        (n, w),
+        ('No worm', '+worm'),
+        observables=args.observables
+        )
 
 fig.suptitle(f'Villain N={args.N} κ={args.kappa} W=1')
-
-for a, o in zip(ax, args.observables):
-    # The worm tends to be much more decorrelated, so plot it behind the Villain for visual clarity.
-
-    n_decorrelated.plot_history(a, o, label='No worm', alpha=0.5, history_kwargs={'zorder': 1})#, histogram_label=f'No worm {Uncertain(*n_bootstrap.estimate(o))}')
-    n_bootstrap.plot_band(a[0], o)
-
-    w_decorrelated.plot_history(a, o, label='+Worm', alpha=0.5, history_kwargs={'zorder': 1})#, histogram_label=f'+Worm {Uncertain(*w_bootstrap.estimate(o))}')
-    w_bootstrap.plot_band(a[0], o)
-
-    tau = supervillain.analysis.autocorrelation_time(getattr(n_thermalized, o))
-    n.plot_history(a, o, alpha=0.5, history_kwargs={'zorder': -1, 'label': f'No worm τ={tau}',})
-
-    tau = supervillain.analysis.autocorrelation_time(getattr(w_thermalized, o))
-    w.plot_history(a, o, alpha=0.5, history_kwargs={'zorder': -1, 'label': f'+Worm τ={tau}'})
-
-    a[2].hist((
-            getattr(n_bootstrap, o),
-            getattr(w_bootstrap, o),
-        ),
-        density=True,
-        orientation='horizontal', alpha=0.5, bins=25,
-        label=tuple(f'{name} {Uncertain(*boot.estimate(o))}' for name, boot in zip(('No worm', '+Worm'), (n_bootstrap, w_bootstrap,)))
-    )
-
-
-    a[0].set_ylabel(o)
-    a[0].legend()
-    a[2].legend()
-
-ax[-1,0].set_xlabel('Monte Carlo time')
-ax[-1,1].set_xticks([])
-ax[-1,1].set_xlabel('Measurements')
-ax[-1,2].set_xlabel('Bootstraps')
-
 fig.tight_layout()
 
 if args.figure:

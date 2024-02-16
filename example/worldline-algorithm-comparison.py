@@ -70,36 +70,22 @@ n_bootstrap = supervillain.analysis.Bootstrap(n_decorrelated)
 w_bootstrap = supervillain.analysis.Bootstrap(w_decorrelated)
 
 # The rest is show business!
+import comparison_plot
 
-fig, ax = plt.subplots(len(args.observables), 2,
-    figsize=(10, 2.5*len(args.observables)),
-    gridspec_kw={'width_ratios': [4, 1], 'wspace': 0, 'hspace': 0},
-    sharey='row',
-    squeeze=False
-)
+fig, ax = comparison_plot.setup(args.observables)
+comparison_plot.bootstraps(ax,
+        (n_bootstrap, w_bootstrap),
+        ('Plaquette+Wrapping', 'Worm'),
+        observables=args.observables
+        )
+comparison_plot.histories(ax,
+        (n, w),
+        ('Plaquette+Wrapping', 'Worm'),
+        observables=args.observables
+        )
+
 
 fig.suptitle(f'Worldline N={args.N} κ={args.kappa} W={args.W}')
-
-for a, o in zip(ax, args.observables):
-    # The worm tends to be much more decorrelated, so plot it behind the Villain for visual clarity.
-
-    tau = supervillain.analysis.autocorrelation_time(getattr(n_thermalized, o))
-    n.plot_history(a, o, label=f'Local τ={tau}', alpha=0.5)
-    n_decorrelated.plot_history(a, o, label='Local', alpha=0.5, histogram_label=f'Local {Uncertain(*n_bootstrap.estimate(o))}')
-    n_bootstrap.plot_band(a[0], o)
-
-    tau = supervillain.analysis.autocorrelation_time(getattr(w_thermalized, o))
-    w.plot_history(a, o, label=f'Worm τ={tau}', alpha=0.5)
-    w_decorrelated.plot_history(a, o, label='Worm', alpha=0.5, histogram_label=f'Worm {Uncertain(*w_bootstrap.estimate(o))}')
-    w_bootstrap.plot_band(a[0], o)
-
-    a[0].set_ylabel(o)
-    a[1].legend()
-
-ax[-1,0].set_xlabel('Monte Carlo time')
-ax[-1,1].set_xticks([])
-ax[-1,1].set_xlabel('Density')
-
 fig.tight_layout()
 
 if args.figure:

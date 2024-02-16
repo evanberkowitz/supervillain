@@ -80,35 +80,21 @@ v_bootstrap = supervillain.analysis.Bootstrap(v_decorrelated)
 w_bootstrap = supervillain.analysis.Bootstrap(w_decorrelated)
 
 # The rest is show business!
+import comparison_plot
 
-fig, ax = plt.subplots(len(args.observables), 2,
-    figsize=(10, 2.5*len(args.observables)),
-    gridspec_kw={'width_ratios': [4, 1], 'wspace': 0, 'hspace': 0},
-    sharey='row',
-    squeeze=False
-)
+fig, ax = comparison_plot.setup(args.observables)
+comparison_plot.bootstraps(ax,
+        (v_bootstrap, w_bootstrap),
+        ('Villain', 'Worldline'),
+        observables=args.observables
+        )
+comparison_plot.histories(ax,
+        (v, w),
+        ('Villain', 'Worldline'),
+        observables=args.observables
+        )
 
 fig.suptitle(f'N={args.N} κ={args.kappa} W={args.W}')
-
-for a, o in zip(ax, args.observables):
-    # The worldline tends to be much more decorrelated, so plot it behind the Villain for visual clarity.
-
-    w.plot_history(a, o, label='Worldline', alpha=0.5)
-    w_decorrelated.plot_history(a, o, label='Worldline decorrelated', alpha=0.5, histogram_label=f'Worldline {Uncertain(*w_bootstrap.estimate(o))}')
-    w_bootstrap.plot_band(a[0], o)
-
-    v.plot_history(a, o, label='Villain')
-    v_decorrelated.plot_history(a, o, label='Villain decorrelated', histogram_label=f'Villain {Uncertain(*v_bootstrap.estimate(o))}')
-    v_bootstrap.plot_band(a[0], o)
-
-    a[0].set_ylabel(o)
-    a[1].legend()
-
-ax[0,0].legend()
-ax[-1,0].set_xlabel('Monte Carlo time')
-ax[-1,1].set_xticks([])
-ax[-1,1].set_xlabel('Density')
-
 fig.tight_layout()
 
 if args.figure:
