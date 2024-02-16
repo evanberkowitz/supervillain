@@ -10,7 +10,7 @@ import supervillain
 from supervillain.analysis import Uncertain
 supervillain.observable.progress=tqdm
 
-parser = supervillain.cli.ArgumentParser(description = 'The goal is to compute the same observables using both the Villain and Worldline actions and to check that they agree.')
+parser = supervillain.cli.ArgumentParser(description = 'The goal is to compute the same observables using both the Villain and Worldline actions and to check that they agree.  When W>1 the Villain action is sampled with a combination of NeighborhoodUpdates and the Geometric worm.')
 parser.add_argument('--N', type=int, default=5, help='Sites on a side.')
 parser.add_argument('--kappa', type=float, default=0.5, help='κ.  Defaults to 0.5.')
 parser.add_argument('--W', type=int, default=1, help='Constraint integer W.  Defaults to 1')
@@ -27,14 +27,25 @@ logger = logging.getLogger(__name__)
 # First create the lattices and the two dual actions.
 L = supervillain.lattice.Lattice2D(args.N)
 
-V = supervillain.action.Villain(L, args.kappa)
-W = supervillain.action.Worldline(L, args.kappa)
+V = supervillain.action.Villain(L, args.kappa, W=args.W)
+W = supervillain.action.Worldline(L, args.kappa, W=args.W)
 
 # Now sample each action.
 with logging_redirect_tqdm():
-    g = supervillain.generator.villain.NeighborhoodUpdate(V)
+    if args.W == 1:
+        g = supervillain.generator.villain.NeighborhoodUpdate(V)
+    else:
+        g = supervillain.generator.combining.Sequentially((
+                # When W>1 the neighborhood update proposes large constraint-preserving changes (which is any change to n when W=1).
+                # These large changes are often rejected, so it can be beneficial to propose updates to phi
+                supervillain.generator.villain.NeighborhoodUpdate(V, interval_n = 0),
+                # separately from the large updates.
+                supervillain.generator.villain.NeighborhoodUpdate(V, interval_n = 1, interval_phi=0.001),
+                # Δn=±1 changes are made by the worm in a dn=0 way.
+                supervillain.generator.villain.worm.Geometric(V),
+            ))
     v = supervillain.Ensemble(V).generate(args.configurations, g, start='cold', progress=tqdm)
-    v.measure()
+    print(g.report())
 
 with logging_redirect_tqdm():
     g = supervillain.generator.combining.Sequentially((
@@ -42,7 +53,7 @@ with logging_redirect_tqdm():
             supervillain.generator.worldline.WrappingUpdate(W)
         ))
     w = supervillain.Ensemble(W).generate(args.configurations, g, start='cold', progress=tqdm)
-    w.measure()
+    print(g.report())
 
 # A first computation of the autocorrelation time will have effects from thermalization.
 v_autocorrelation = v.autocorrelation_time()
