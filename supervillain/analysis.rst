@@ -52,3 +52,15 @@ Uncertainty
 
 .. _autocorrelation: https://en.wikipedia.org/wiki/Autocorrelation
 .. _bootstrapping: https://en.wikipedia.org/wiki/Bootstrapping_(statistics)
+
+Comparing Results
+-----------------
+
+We can get at-a-glance comparisons between ensembles.
+In this example we generate two ensembles from the same action and algorithm and compare their results (which ought to match, with sufficient statistics!).
+
+.. plot:: example/plot/comparison.py
+ 
+
+.. automodule:: supervillain.analysis.comparison_plot
+   :members:

@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 
 import supervillain
 from supervillain.analysis import Uncertain
+import supervillain.analysis.comparison_plot as comparison_plot
 supervillain.observable.progress=tqdm
 
 parser = supervillain.cli.ArgumentParser(description = '''
@@ -82,8 +83,6 @@ n_bootstrap = supervillain.analysis.Bootstrap(n_decorrelated)
 w_bootstrap = supervillain.analysis.Bootstrap(w_decorrelated)
 
 # The rest is show business!
-import comparison_plot
-
 fig, ax = comparison_plot.setup(args.observables)
 comparison_plot.bootstraps(ax,
         (n_bootstrap, w_bootstrap),

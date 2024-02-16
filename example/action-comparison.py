@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 
 import supervillain
 from supervillain.analysis import Uncertain
+import supervillain.analysis.comparison_plot as comparison_plot
 supervillain.observable.progress=tqdm
 
 parser = supervillain.cli.ArgumentParser(description = 'The goal is to compute the same observables using both the Villain and Worldline actions and to check that they agree.  When W>1 the Villain action is sampled with a combination of NeighborhoodUpdates and the Geometric worm.')
@@ -80,8 +81,6 @@ v_bootstrap = supervillain.analysis.Bootstrap(v_decorrelated)
 w_bootstrap = supervillain.analysis.Bootstrap(w_decorrelated)
 
 # The rest is show business!
-import comparison_plot
-
 fig, ax = comparison_plot.setup(args.observables)
 comparison_plot.bootstraps(ax,
         (v_bootstrap, w_bootstrap),
