@@ -95,5 +95,5 @@ def histories(ax, ensembles, labels=None, observables=_default_observables):
                                'zorder': -1,
                                'label': f'{label} τ={tau}'
                             })
-        a[0].legend()
+        a[0].legend(loc='upper left')
 
