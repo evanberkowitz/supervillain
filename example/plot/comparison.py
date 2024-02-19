@@ -12,7 +12,7 @@ import supervillain.analysis.comparison_plot as comparison_plot
 parser = supervillain.cli.ArgumentParser(description='Generate two Villain ensembles the same way and compare their results.')
 parser.add_argument('--N', type=int, default=5, help='Sites on a side.')
 parser.add_argument('--kappa', type=float, default=0.1, help='κ.')
-parser.add_argument('--configurations', type=int, default=1000)
+parser.add_argument('--configurations', type=int, default=10000)
 
 args = parser.parse_args()
 
