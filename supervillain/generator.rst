@@ -124,7 +124,7 @@ Unlike the Villain formulation, the Worldline formulation has a constraint even 
 As in the Villain case, we can formulate a worm algorithm through configurations which purposefully and explicitly break the constraint.
 Worm algorithms are purportedly less punishing with regards to autocorrelation times, and are also efficent tools for calculating *correlations* at the same time as generating configurations.
 
-.. autoclass :: supervillain.generator.worldline.UndirectedWorm
+.. autoclass :: supervillain.generator.worldline.worm.Geometric
    :members:
 
 
