@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from collections import deque
 import numpy as np
 import supervillain.action
 from supervillain.h5 import ReadWriteable
@@ -89,6 +90,8 @@ class Geometric(ReadWriteable):
 
         S = self.Action
         L = S.Lattice
+
+        m = configuration['m'].copy()
 
         # This algorithm will not update v; but it is useful to precompute δv
         # which is used in the evaluation of the changes in action.
