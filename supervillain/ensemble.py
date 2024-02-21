@@ -159,7 +159,14 @@ class Ensemble(Extendable):
         if observables is None:
             observables = supervillain.observables.keys()
 
-        return {o: getattr(self, o) for o in observables}
+        result = dict()
+        for o in observables:
+            try:
+                result[o] = getattr(self, o)
+            except NotImplementedError:
+                logger.info(f'{o} is not implemented for {self.Action}')
+
+        return result
 
     @property
     def measured(self):
