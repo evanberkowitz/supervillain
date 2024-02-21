@@ -42,7 +42,7 @@ with logging_redirect_tqdm():
     n = supervillain.Ensemble(S).generate(args.configurations, g, start='cold', progress=tqdm)
     n.measure()
 
-    W = supervillain.generator.worldline.UndirectedWorm(S)
+    W = supervillain.generator.worldline.Geometric(S)
     w = supervillain.Ensemble(S).generate(args.configurations, W, start='cold', progress=tqdm)
     w.measure()
 
@@ -61,7 +61,7 @@ w_autocorrelation = w_thermalized.autocorrelation_time()
 print(f'Autocorrelation time')
 print(f'--------------------')
 print(f'Local Updates   {n_autocorrelation}')
-print(f'Undirected Worm {w_autocorrelation}')
+print(f'Worm            {w_autocorrelation}')
 
 n_decorrelated = n_thermalized.every(n_autocorrelation)
 w_decorrelated = w_thermalized.every(w_autocorrelation)
