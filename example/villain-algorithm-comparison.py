@@ -11,10 +11,12 @@ from supervillain.analysis import Uncertain
 import supervillain.analysis.comparison_plot as comparison_plot
 supervillain.observable.progress=tqdm
 
-parser = supervillain.cli.ArgumentParser(description = 'The goal is to compute the same observables using both the Villain and Worldline actions and to check that they agree.')
-parser.add_argument('--N', type=int, default=5, help='Sites on a side.')
-parser.add_argument('--kappa', type=float, default=0.5, help='κ.  Defaults to 0.5.')
-parser.add_argument('--W', type=int, default=1, help='Constraint integer W.  Defaults to 1')
+parser = supervillain.cli.ArgumentParser(description = '''
+    The goal is to compute the same observables using the Villain action with and without the worm update and to check that the worm does not change any observable meaningfully.
+    Since without the worm we have no W>1 algorithm, we restrict our attention to W=1.
+    ''')
+parser.add_argument('--N', type=int, default=5, help='Sites on a side.  Defaults to 5.')
+parser.add_argument('--kappa', type=float, default=0.25, help='κ.  Defaults to 0.25.')
 parser.add_argument('--configurations', type=int, default=100000, help='Defaults to 100000.  You need a good deal of configurations with κ=0.5 because of autocorrelations in the Villain sampling.')
 parser.add_argument('--figure', default=False, type=str)
 parser.add_argument('--observables', nargs='*', help='Names of observables to compare.  Defaults to a list of 7 observables.',
@@ -32,19 +34,29 @@ logger = logging.getLogger(__name__)
 
 # First create the lattices and the action.
 L = supervillain.lattice.Lattice2D(args.N)
-S = supervillain.action.Worldline(L, args.kappa)
+S = supervillain.action.Villain(L, args.kappa, W=1)
 
 with logging_redirect_tqdm():
-    g = supervillain.generator.combining.Sequentially((
-            supervillain.generator.worldline.PlaquetteUpdate(S),
-            supervillain.generator.worldline.WrappingUpdate(S)
-        ))
-    n = supervillain.Ensemble(S).generate(args.configurations, g, start='cold', progress=tqdm)
-    n.measure()
+    g = supervillain.generator.villain.NeighborhoodUpdate(S)
+    n = supervillain.Ensemble(S).generate(
+            args.configurations,
+            g,
+            start='cold',
+            progress=tqdm)
 
-    W = supervillain.generator.worldline.UndirectedWorm(S)
-    w = supervillain.Ensemble(S).generate(args.configurations, W, start='cold', progress=tqdm)
-    w.measure()
+    print(g.report())
+
+    G = supervillain.generator.combining.Sequentially((
+            supervillain.generator.villain.NeighborhoodUpdate(S),
+            supervillain.generator.villain.worm.Geometric(S)
+    ))
+    w = supervillain.Ensemble(S).generate(
+            args.configurations,
+            G,
+            progress=tqdm)
+
+    print(G.report())
+
 
 # A first computation of the autocorrelation time will have effects from thermalization.
 n_autocorrelation = n.autocorrelation_time()
@@ -60,8 +72,8 @@ w_autocorrelation = w_thermalized.autocorrelation_time()
 
 print(f'Autocorrelation time')
 print(f'--------------------')
-print(f'Local Updates   {n_autocorrelation}')
-print(f'Undirected Worm {w_autocorrelation}')
+print(f'Local Updates       {n_autocorrelation}')
+print(f'With Villain Worm   {w_autocorrelation}')
 
 n_decorrelated = n_thermalized.every(n_autocorrelation)
 w_decorrelated = w_thermalized.every(w_autocorrelation)
@@ -74,17 +86,16 @@ w_bootstrap = supervillain.analysis.Bootstrap(w_decorrelated)
 fig, ax = comparison_plot.setup(args.observables)
 comparison_plot.bootstraps(ax,
         (n_bootstrap, w_bootstrap),
-        ('Plaquette+Wrapping', 'Worm'),
+        ('No worm', '+worm'),
         observables=args.observables
         )
 comparison_plot.histories(ax,
         (n, w),
-        ('Plaquette+Wrapping', 'Worm'),
+        ('No worm', '+worm'),
         observables=args.observables
         )
 
-
-fig.suptitle(f'Worldline N={args.N} κ={args.kappa} W={args.W}')
+fig.suptitle(f'Villain N={args.N} κ={args.kappa} W=1')
 fig.tight_layout()
 
 if args.figure:

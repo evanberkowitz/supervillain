@@ -1,4 +1,5 @@
 from .observable import Observable, Scalar, Constrained
+from .observable import OnlyVillain, NotVillain, OnlyWorldline, NotWorldline
 from .derived import DerivedQuantity
 
 from .links import Links
