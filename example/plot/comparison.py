@@ -47,5 +47,4 @@ comparison_plot.histories(ax,
 
 fig.suptitle(f'Villain N={args.N} κ={args.kappa} W=1')
 fig.tight_layout()
-
-
+plt.show()
