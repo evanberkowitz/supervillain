@@ -41,7 +41,6 @@ License
 
 .. literalinclude:: LICENSE
    :language: none
-   :lines: 4-23
 
 Indices and tables
 ==================
