@@ -32,17 +32,20 @@ logger = logging.getLogger(__name__)
 
 # First create the lattices and the action.
 L = supervillain.lattice.Lattice2D(args.N)
-S = supervillain.action.Worldline(L, args.kappa)
+S = supervillain.action.Worldline(L, args.kappa, W=args.W)
 
 with logging_redirect_tqdm():
     g = supervillain.generator.combining.Sequentially((
             supervillain.generator.worldline.PlaquetteUpdate(S),
-            supervillain.generator.worldline.WrappingUpdate(S)
+            supervillain.generator.worldline.WrappingUpdate(S),
         ))
     n = supervillain.Ensemble(S).generate(args.configurations, g, start='cold', progress=tqdm)
     n.measure()
 
-    W = supervillain.generator.worldline.Geometric(S)
+    W = supervillain.generator.combining.Sequentially((
+            supervillain.generator.worldline.PlaquetteUpdate(S),
+            supervillain.generator.worldline.Geometric(S),
+        ))
     w = supervillain.Ensemble(S).generate(args.configurations, W, start='cold', progress=tqdm)
     w.measure()
 
