@@ -153,4 +153,3 @@ class NotWorldline:
         False if the ensemble's action is :class:`~.action.Worldline`, otherwise use all other considerations.
         '''
         return (not isinstance(ensemble.Action, supervillain.action.Worldline)) and super().autocorrelation(ensemble)
-

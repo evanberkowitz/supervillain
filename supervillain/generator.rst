@@ -116,6 +116,7 @@ To have a fully ergodic algorithm we will also need to update the :class:`~.Toru
 .. autoclass :: supervillain.generator.worldline.WrappingUpdate
    :members:
 
+
 ^^^^^^^^^^^^^^^
 Worm Algorithms
 ^^^^^^^^^^^^^^^
@@ -126,7 +127,6 @@ Worm algorithms are purportedly less punishing with regards to autocorrelation t
 
 .. autoclass :: supervillain.generator.worldline.worm.Geometric
    :members:
-
 
 --------------------
 Combining Generators

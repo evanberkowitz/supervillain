@@ -198,6 +198,7 @@ class Ensemble(Extendable):
         if len(observables) == 0:
             observables = tuple(supervillain.observables.keys())
 
+
         auto = dict()
         for name in observables:
             if not supervillain.observables[name].autocorrelation(self):
@@ -284,6 +285,7 @@ class Ensemble(Extendable):
 
         if 'label' not in history_kwargs:
             history_kwargs['label']=label
+
         if histogram_label is None:
             histogram_label=label
 

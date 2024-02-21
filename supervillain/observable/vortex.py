@@ -19,7 +19,7 @@ class Vortex_Vortex(NotVillain, Constrained, Observable):
     @staticmethod
     def Worldline(S, v):
         r'''
-        $v$ is accessible in either formulation, though sampling $W\neq1$ in the Villain formulation is currently not possible.
+        $v$ is accessible only in the Worldline formulation.
         '''
 
         L = S.Lattice
@@ -27,6 +27,7 @@ class Vortex_Vortex(NotVillain, Constrained, Observable):
         vortex = np.exp(2j*np.pi * v / S.W)
 
         return L.correlation(vortex, vortex)
+
 
 
 class VortexSusceptibility(NotVillain, Constrained, Scalar, Observable):
@@ -41,6 +42,7 @@ class VortexSusceptibility(NotVillain, Constrained, Scalar, Observable):
     @staticmethod
     def default(S, Vortex_Vortex):
         return np.sum(Vortex_Vortex.real)
+
 
 class VortexSusceptibilityScaled(VortexSusceptibility):
     r'''

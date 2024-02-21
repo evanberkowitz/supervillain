@@ -43,6 +43,9 @@ class Villain(ReadWriteable):
         self.kappa = kappa
         self.W = W
 
+        if self.W != 1:
+            raise ValueError(f'The Villain action has a horrible sign problem when W≠1; you picked {W=}.')
+
     def __str__(self):
         return f'Villain({self.Lattice}, κ={self.kappa}, W={self.W})'
 

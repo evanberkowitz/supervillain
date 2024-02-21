@@ -53,6 +53,7 @@ For example, the :class:`~.SpinSusceptibility` is just the sum of the :class:`~.
 .. literalinclude:: observable/spin.py
    :pyobject: SpinSusceptibility
 
+
 Inclusion in Autocorrelation Computation
 ========================================
 
