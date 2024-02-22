@@ -22,6 +22,9 @@ class LinkUpdate(ReadWriteable):
     We pick :math:`\Delta n_\ell` to be a multiple of the constraint integer $W$ so that if the adjacent plaquettes satisfy the :ref:`winding constraint <winding constraint>` $dn \equiv 0 \text{ mod }W$
     before the update they satisfy it after as well.
 
+    .. note ::
+        You can run ``python supervillain/generator/villain/link.py`` to compare a pure $W=1$ :class:`~.NeighborhoodUpdate` ensemble against an ensemble which also does :class:`LinkUpdates <LinkUpdate>`.
+        Note that adding the :class:`LinkUpdate` costs essentially 0 time because all the links are done in parallel and there are no python-level for loops.
     '''
 
     def __init__(self, action, interval_n=1):
