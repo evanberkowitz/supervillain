@@ -433,6 +433,70 @@ class Lattice2D(ReadWriteable):
     Alias for :func:`delta <supervillain.lattice.Lattice2D.delta>`.
     '''
 
+    @cached_property
+    def checkerboarding(self):
+        r'''
+        On a square lattice of even size both the sites and plaquettes can bipartitioned so that no
+        simplex of one color has a neighbor of the same color.  In the left panel of the figure below,
+        that's shown as grey and green plaquettes, and no plaquette shares an edge with a plaquette of
+        the same color.
+
+        .. plot:: example/plot/checkerboarding.py
+
+        On an odd-sized lattice the periodic boundary conditions makes it impossible to accomplish this
+        partitioning with only 2 colors.  But, as shown in the right panel of the figure, a similar
+        construction where no plaquette has a neighbor of the same color is possible with 4 colors.
+
+        The checkerboarding is a tuple of `index arrays <https://numpy.org/doc/stable/user/basics.indexing.html#integer-array-indexing>`_
+        which correspond to the coloring. For each color you get 2 arrays which give the t- and x- indices, respectively.
+        But, because numpy arrays have fancy indexing, you can use each pair very straightforwardly, as in the above example
+
+        .. literalinclude:: ../example/plot/checkerboarding.py
+            :lines: 19-22
+
+        .. warning ::
+            No promise is made about the future behavior of the partitioning.
+            For example, it might be wiser for performance to split the 4 colors less evenly.
+            All that is promised is that within each color no site (or plaquette) will have a neighbor of the same color.
+        '''
+        parity = np.mod(self.dims, 2)
+
+        red = (np.mod(self.X+self.T,2) == 0)
+        black = (np.mod(self.X+self.T,2) == 1)
+
+        if (parity == 0).all():
+            # No problem with periodic boundaries, can just use the two colors.
+            return (np.where(red), np.where(black))
+
+        if (parity == 1).all():
+            # The periodic boundaries would put sites of the same color next to one another.
+            # Therefore we need to add additional colors.
+            left   = self.T >= 0
+            right  = self.T < 0
+            top    = self.X >= 0
+            bottom = self.X < 0
+            return (
+                    np.where(red    & ((left & top) | (right & bottom))),
+                    np.where(black  & ((left & top) | (right & bottom))),
+                    np.where(red    & ((left & bottom) | (right & top))),
+                    np.where(black  & ((left & bottom) | (right & top))),
+                    )
+
+            # Here is the first pass implementation, where the 2 colors were only on a single strip in
+            # each direction, proportional to self.nx and self.nt in size,
+            # while the other 2 colors grew in proportion to self.sites.
+
+            #corner   = ((self.X == (self.nx // 2)) & (self.T == (self.nt // 2)))
+            #boundary = ((self.X == (self.nx // 2)) | (self.T == (self.nt // 2))) ^ corner
+            #bulk = 1-boundary
+
+            #return (np.where(red & bulk),      np.where(black & bulk),
+            #        np.where(red & boundary),  np.where(black & boundary),
+            #       )
+
+
+        raise ValueError('Non-square lattices are not supported.')
+
     def t_fft(self, form, axis=-2):
         r'''
         Fourier transforms the form in the time direction,
