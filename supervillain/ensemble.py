@@ -159,7 +159,14 @@ class Ensemble(Extendable):
         if observables is None:
             observables = supervillain.observables.keys()
 
-        return {o: getattr(self, o) for o in observables}
+        result = dict()
+        for o in observables:
+            try:
+                result[o] = getattr(self, o)
+            except NotImplementedError:
+                logger.info(f'{o} is not implemented for {self.Action}')
+
+        return result
 
     @property
     def measured(self):
@@ -198,11 +205,16 @@ class Ensemble(Extendable):
         if len(observables) == 0:
             observables = tuple(supervillain.observables.keys())
 
-        auto = {
-                name: autocorrelation_time(getattr(self, name))
-                for name in observables
-                if supervillain.observables[name].autocorrelation(self)
-                }
+
+        auto = dict()
+        for name in observables:
+            if not supervillain.observables[name].autocorrelation(self):
+                continue
+            try:
+                auto[name] = autocorrelation_time(getattr(self, name))
+            except Exception as E:
+                raise ValueError(f'{name} does not fluctuate enough') from E
+
         if every:
             return auto
         else:
@@ -272,19 +284,20 @@ class Ensemble(Extendable):
         return e
 
     def plot_history(self, axes, observable, label=None,
-                     history_label=None,
                      histogram_label=None,
                      bins=31, density=True,
                      alpha=0.5, color=None,
+                     history_kwargs=dict(),
                      ):
 
-        if history_label is None:
-            history_label=label
+        if 'label' not in history_kwargs:
+            history_kwargs['label']=label
+
         if histogram_label is None:
             histogram_label=label
 
         data = getattr(self, observable)
-        axes[0].plot(self.index, data, color=color, label=history_label)
+        axes[0].plot(self.index, data, color=color, **history_kwargs)
         axes[1].hist(data, label=histogram_label,
                      orientation='horizontal',
                      bins=bins, density=density,

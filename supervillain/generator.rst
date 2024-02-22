@@ -60,6 +60,46 @@ It was easy to write the :class:`NeighborhoodUpdateSlow <supervillain.generator.
 
 But, also, as an *algorithm* the neighborhood update suffers because it can only make small changes in a local area.  Smarter algorithms can make high-acceptance updates to many variables across the lattice, which can help overcome *critical slowing down*.
 
+^^^^^^^^^^^^^^^
+Worm Algorithms
+^^^^^^^^^^^^^^^
+
+With the constraint integer $W$, the flux is required to satisfy $dn \equiv 0 \text{ mod }W$ on every plaquette.
+This can make it difficult to make local updates.  For example, changing any link by $1$ can change a plaquette which satisfies the constraint to one that breaks it.
+The :class:`~.NeighborhoodUpdate` handles the constraint by only proposing changes to $n$ that would leave the constraint satisfied.
+But this is not the only way to think.  Prokof'ev and Svistunov invented *worm algorithms* :cite:`PhysRevLett.87.160601` which operate by introducing defects
+where constraints may be broken, propagating those defects, and when they meet and annihilate the configuration again obeys the constraint.
+
+The way to think is that there are two sets of configurations, sometimes called $\{z\}$ (which satisfy the constraint and contribute to the path integral $Z$) and $\{g\}$ (which need not obey the constraint but contribute to a two-point Green's function).
+A worm algorithm produces a Markov process on the set $\{z\} \cup \{g\}$ weighted by the unconstrained action; when the Markov chain visits a $z$ configuration we add that to the samples that will contribute to the path integral $Z$.
+
+Starting from some $z$ we put a worm on a single location (in this case, a plaquette), taking us to an identical configuration of fields but now in the $g$ sector 'with a worm' which makes no change to the action at first.
+The worm has a head which will move around and a tail which will stay fixed for simplicity.
+The head can be thought of as inserting $\exp(-2\pi i v_h/W)$ into the path integral while the tail inserts $\exp(+2\pi i v_t/W)$ at locations $h$ and $t$ respectively.
+These insertions shift :ref:`the winding constraint <winding constraint>` to account for those defects,
+
+.. math ::
+   :name: worm constraint
+
+    dn_p \equiv (+ \delta_{ph} - \delta_{pt}) \text{ mod } W.
+
+The exception is that when $h$ and $t$ coincide, the configuration with the worm accidentally satisfies the constraint, which is why we can always go from a configuration in $z$ to a configuration in $g$: just add the worm, changing nothing physical.
+So, $g$ contains the set of constraint-satisfying configurations as well as configurations that violate the constraint in exactly two places, in opposite ways.
+
+The $g$ configurations include all configurations so long as they satisfy the winding constraint except at the head and the tail, where they violate it by ±1, which we will call :ref:`the worm constraint <worm constraint>`.
+Starting from a 'diagonal' configuration which has $h=t$, we can move the head by one plaquette.
+As the head moves it changes the $n$ on the link it crosses so that it changes $dn$ on *both* adjacent plaquettes.
+This change of $n$ changes the action, and so the moves need to be Metropolis-tested in some sense.
+
+With a clever choice we can ensure that as the head leaves a plaquette it restores the constraint there and breaks it on the destination plaquette.
+In this way the head moves around the lattice.
+Finally, when the head reaches the tail, the constraint is restored everywhere, and we have a $g$ configuration in the diagonal sector.
+Now we might possibly transition to a $z$ configuration, finally adding that configuration to our samples of for the path integral $Z$.
+*There is typically no direct way to go from any $z$ configuration to any other; the only way is through $g$.*
+
+.. autoclass :: supervillain.generator.villain.worm.Geometric
+   :members:
+
 -------------------------
 The Worldline Formulation
 -------------------------
@@ -76,6 +116,17 @@ To have a fully ergodic algorithm we will also need to update the :class:`~.Toru
 .. autoclass :: supervillain.generator.worldline.WrappingUpdate
    :members:
 
+
+^^^^^^^^^^^^^^^
+Worm Algorithms
+^^^^^^^^^^^^^^^
+
+Unlike the Villain formulation, the Worldline formulation has a constraint even when :math:`W=1`, :math:`\delta m = 0` everywhere.
+As in the Villain case, we can formulate a worm algorithm through configurations which purposefully and explicitly break the constraint.
+Worm algorithms are purportedly less punishing with regards to autocorrelation times, and are also efficent tools for calculating *correlations* at the same time as generating configurations.
+
+.. autoclass :: supervillain.generator.worldline.worm.Geometric
+   :members:
 
 --------------------
 Combining Generators

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from functools import cached_property
+import matplotlib.colors as colors
 import numpy as np
 
 from supervillain.h5 import ReadWriteable
@@ -24,7 +25,7 @@ class Lattice2D(ReadWriteable):
 
     def __init__(self, n):
         self.nt = n
-        self.nx = n
+        self.nx = n 
 
         self.dims = (self.nx, self.nt)
         r'''
@@ -855,10 +856,10 @@ class Lattice2D(ReadWriteable):
         return  self.fft( self.fft(f, axes=axes).conj() * self.fft(g, axes=axes), axes=axes) / np.sqrt(self.sites)
 
     def plot_form(self, p, form, axis, label=None, zorder=None,
-                  cmap=None, cbar_kw=dict(), norm=None,
-                  vmin=None, vmax=None,
+                  cmap=None, cbar_kw=dict(), norm=colors.CenteredNorm(),
                   pointsize=200, linkwidth=0.025,
-                  background='white',
+                  background='white', 
+                  markerstyle = 'o'
                  ):
         r'''
         Plots the p-form on the axis.
@@ -896,16 +897,14 @@ class Lattice2D(ReadWriteable):
             A `matplotlib color normalization <https://matplotlib.org/stable/users/explain/colors/colormapnorms.html>`_.
         '''
         zorder = {'zorder': -p if zorder is None else zorder}
-        vmin = form.min() if vmin is None else vmin
-        vmax = form.max() if vmax is None else vmax
         
         marker = {
             's': pointsize,
             'edgecolor': background,
             'linewidth': 2,
             'norm': norm,
+            'marker' : markerstyle
         }
-
         no_arrowhead = {'headwidth': 0, 'headlength': 0, 'headaxislength': 0,}
         linkpadding = {'edgecolor': background, 'linewidth': 4}
         links = {
@@ -913,7 +912,6 @@ class Lattice2D(ReadWriteable):
             'width': linkwidth,
             **no_arrowhead,
             **linkpadding,
-            'clim': [vmin, vmax],
             'cmap': cmap,
             'norm': norm,
         }
@@ -933,6 +931,8 @@ class Lattice2D(ReadWriteable):
             V = np.concatenate((np.zeros_like(self.T.flatten()), np.ones_like (self.T.flatten())))
             # and then we can plot the whole form together.
             f = axis.quiver(T, X, U, V, form.flatten(), **zorder, **links)
+            # TODO: squash warning in example/plot/forms.py
+            # UserWarning: No data for colormapping provided via 'c'. Parameters 'norm' will be ignored axis.scatter(self.T, self.X, color=background, **zorder, **marker)
             axis.scatter(self.T, self.X, color=background, **zorder, **marker)
 
         if p == 2:
@@ -943,6 +943,8 @@ class Lattice2D(ReadWriteable):
                         origin='lower', extent=(min(self.t), max(self.t)+1, min(self.x), max(self.x)+1),
                         norm=norm,
                        )
+            # TODO: squash warning in example/plot/forms.py
+            # UserWarning: No data for colormapping provided via 'c'. Parameters 'norm' will be ignored axis.scatter(self.T, self.X, color=background, **zorder, **marker)
             axis.quiver(self.T, self.X, 1, 0, color='white', **zorder, **links)
             axis.quiver(self.T, self.X, 0, 1, color='white', **zorder, **links)
             axis.scatter(self.T, self.X, color=background, **zorder, **marker)

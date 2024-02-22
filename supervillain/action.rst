@@ -7,6 +7,8 @@ The Villain Model
 We are interested in studying the Villain model with partition function $Z$ and action $S$ given by
 
 .. math::
+   :name: villain model
+
    \begin{align}
    Z[J] &= \sum\hspace{-1.33em}\int D\phi\; Dn\; e^{-S_J[\phi, n]}
    &
@@ -17,6 +19,8 @@ where $\phi$ is a real-valued 0-form that lives on sites $x$, $n$ is an integer-
 The model has a gauge symmetry
 
 .. math::
+   :label: gauge symmetry
+
    \phi &\rightarrow\; \phi + 2\pi k
    \\
    n &\rightarrow\; n + dk
@@ -34,10 +38,12 @@ For example, if we integrate $J$ over the reals the simplicity of the action all
 but we may also set $J = 2\pi v / W$ for any positive integer $W$ and sum over integer-valued plaquette variables $v$,
 
 .. math::
+   :name: constrained villain model
+
    \begin{align}
    Z[J] &= \sum\hspace{-1.33em}\int D\phi\; Dn\; Dv\; e^{-S_J[\phi, n, v]}
    \\
-   S_J[\phi, n, v] &= \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + 2\pi i \sum_p (v/W + J/2\pi) (dn)_p,
+   S_J[\phi, n, v] &= \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + 2\pi i \sum_p (v/W + J/2\pi)_p (dn)_p,
    \end{align}
 
 keeping the external $J$ for functional differentiation.
@@ -54,6 +60,8 @@ But for the unconstrained $W=1$, the obvious reading of this model has a horribl
 However, the sign problem can be traded for a constraint,
 
 .. math::
+   :name: winding constraint
+
         \sum Dv\; e^{2\pi i \sum_p v_p (dn)_p / W}
         =
         \prod_p [dn_p \equiv 0 \text{ mod }W]

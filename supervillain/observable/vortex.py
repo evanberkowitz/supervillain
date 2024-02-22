@@ -1,7 +1,8 @@
 import numpy as np
-from supervillain.observable import Observable, Scalar, Constrained
+from supervillain.observable import Observable, Scalar, Constrained, NotVillain
+import supervillain.action
 
-class Vortex_Vortex(Constrained, Observable):
+class Vortex_Vortex(NotVillain, Constrained, Observable):
     r'''
 
     In the constrained model the vortex correlations are given by
@@ -16,9 +17,9 @@ class Vortex_Vortex(Constrained, Observable):
     '''
 
     @staticmethod
-    def default(S, v):
+    def Worldline(S, v):
         r'''
-        $v$ is accessible in either formulation, though sampling $W\neq1$ in the Villain formulation is currently not possible.
+        $v$ is accessible only in the Worldline formulation.
         '''
 
         L = S.Lattice
@@ -28,7 +29,8 @@ class Vortex_Vortex(Constrained, Observable):
         return L.correlation(vortex, vortex)
 
 
-class VortexSusceptibility(Constrained, Scalar, Observable):
+
+class VortexSusceptibility(NotVillain, Constrained, Scalar, Observable):
     r'''
     The *vortex susceptibility* is the spacetime integral of the :class:`~.Vortex_Vortex` correlator $V_{\Delta x}$,
 
@@ -41,7 +43,8 @@ class VortexSusceptibility(Constrained, Scalar, Observable):
     def default(S, Vortex_Vortex):
         return np.sum(Vortex_Vortex.real)
 
-class VortexSusceptibilityScaled(Constrained, Scalar, Observable):
+
+class VortexSusceptibilityScaled(VortexSusceptibility):
     r'''
     At the critical point and in the CFT the :class:`~.VortexSusceptibility` has a known expected scaling that comes from the scaling dimension $\Delta$ of $e^{2\pi i v/W}$.
 
