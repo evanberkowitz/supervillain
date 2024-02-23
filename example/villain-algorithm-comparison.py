@@ -47,8 +47,8 @@ with logging_redirect_tqdm():
     print(g.report())
 
     G = supervillain.generator.combining.Sequentially((
-            supervillain.generator.villain.NeighborhoodUpdate(S),
-            supervillain.generator.villain.worm.Geometric(S)
+            supervillain.generator.villain.LinkUpdate(S),
+            supervillain.generator.villain.SiteUpdate(S),
     ))
     w = supervillain.Ensemble(S).generate(
             args.configurations,

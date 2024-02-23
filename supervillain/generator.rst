@@ -64,6 +64,9 @@ We can decouple these proposals.
 .. autoclass :: supervillain.generator.villain.LinkUpdate
    :members:
 
+.. autoclass :: supervillain.generator.villain.SiteUpdate
+   :members:
+
 But, also, as an *algorithm* the neighborhood update also suffers because it can only make small changes in a local area.  Smarter algorithms can make high-acceptance updates to many variables across the lattice, which can help overcome *critical slowing down*.
 
 
