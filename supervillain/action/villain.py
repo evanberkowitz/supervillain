@@ -111,3 +111,9 @@ class Villain(ReadWriteable):
             'n':   configuration['n']   + self.Lattice.d(0, k),
         }
 
+    def valid(self, n):
+        r'''
+        Returns true if the constraint $[dn \equiv 0 \text{ mod } W]$ is satisfied everywhere.
+        '''
+
+        return (np.mod(self.Lattice.d(1, n), self.W) == 0).all()
