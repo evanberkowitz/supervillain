@@ -16,7 +16,7 @@ class LinkUpdate(ReadWriteable):
     .. math ::
 
         \begin{align}
-        \Delta n_\ell   &\sim W \times [-\texttt{interval_n}, +\texttt{interval_n}]
+        \Delta n_\ell   &\sim W \times [-\texttt{interval_n}, +\texttt{interval_n}] \setminus \{0\}
         \end{align}
 
     We pick :math:`\Delta n_\ell` to be a multiple of the constraint integer $W$ so that if the adjacent plaquettes satisfy the :ref:`winding constraint <winding constraint>` $dn \equiv 0 \text{ mod }W$
@@ -38,7 +38,7 @@ class LinkUpdate(ReadWriteable):
         self.interval_n   = interval_n
 
         self.rng = np.random.default_rng()
-        self.n_changes = np.arange(-interval_n, 1+interval_n)
+        self.n_changes = tuple(n for n in range(-interval_n, 0)) + tuple(n for n in range(1, interval_n+1))
 
         self.accepted = 0
         self.proposed = 0
@@ -46,7 +46,7 @@ class LinkUpdate(ReadWriteable):
         self.sweeps = 0
 
     def __str__(self):
-        return 'NeighborhoodUpdate'
+        return 'LinkUpdate'
 
     def step(self, cfg):
         r'''
@@ -104,7 +104,7 @@ class LinkUpdate(ReadWriteable):
         Returns a string with some summarizing statistics.
         '''
         return (
-            f'There were {self.accepted} single-site proposals accepted of {self.proposed} proposed updates.'
+            f'There were {self.accepted} single-link proposals accepted of {self.proposed} proposed updates.'
             +'\n'+
             f'    {self.accepted/self.proposed:.6f} acceptance rate'
             +'\n'+

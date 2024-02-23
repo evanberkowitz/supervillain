@@ -61,10 +61,13 @@ It was easy to write the :class:`NeighborhoodUpdateSlow <supervillain.generator.
 One reason the NeighborhoodUpdate suffers is that offering updates to 5 fields at onces ($\phi$ and the 4 ns that touch it) means that the change in action can be large.
 We can decouple these proposals.
 
+.. autoclass :: supervillain.generator.villain.SiteUpdate
+   :members:
+
 .. autoclass :: supervillain.generator.villain.LinkUpdate
    :members:
 
-.. autoclass :: supervillain.generator.villain.SiteUpdate
+.. autoclass :: supervillain.generator.villain.FlatUpdate
    :members:
 
 But, also, as an *algorithm* the neighborhood update also suffers because it can only make small changes in a local area.  Smarter algorithms can make high-acceptance updates to many variables across the lattice, which can help overcome *critical slowing down*.
