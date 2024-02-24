@@ -9,12 +9,12 @@ logger = logging.getLogger(__name__)
 
 class HolonomyUpdate:
     r'''
-    The :class:`~.villain.FlatUpdate` can change $n$ by ±1 (even when $W>1$), but it does it in a coordinated way---the changes offered are exact, d(a zero form).
-    No combination of flat updates, however, can create a net winding around the torus.
+    The :class:`~.villain.ExactUpdate` can change $n$ by ±1 (even when $W>1$), but it does it in a coordinated way---the changes offered are exact, d(a zero form).
+    No combination of exact updates, however, can create a net winding around the torus.
 
     This update offers a $dn$-preserving update by changing all of the links in a parallel strip around the lattice (see Fig. 2 of Ref. :cite:`Berkowitz:2023pnz`).
 
-    A whole strip of links are simultaneously changed by 
+    Proposals change a whole strip of links simultaneously by
 
     .. math ::
 

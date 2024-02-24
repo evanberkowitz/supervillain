@@ -7,7 +7,7 @@ from supervillain.h5 import ReadWriteable
 import logging
 logger = logging.getLogger(__name__)
 
-class FlatUpdate:
+class ExactUpdate:
     r'''
     The :class:`~.villain.LinkUpdate` only updates n by multiples of $W$ in order to preserve the constraint $dn = 0\; (\text{mod } W$).
     Another way to preserve the constraint is to update n around a given site in a coordinated way so that $dn$ is not changed on any of the
@@ -15,7 +15,7 @@ class FlatUpdate:
 
     One way to accomplish this coordinated change is to start with a zero-form $z$ and update $n$ by $dz$.  Then, $dn = d^2z = 0$.
 
-    Updates are drawn according to
+    Proposals are drawn according to
 
     .. math ::
 
@@ -47,7 +47,7 @@ class FlatUpdate:
 
     def step(self, cfg):
         r'''
-        Make a volume's worth of locally-flat updates to n.
+        Make a volume's worth of locally-exact updates to n.
 
         Parameters
         ----------
@@ -75,8 +75,8 @@ class FlatUpdate:
         total_accepted = 0
         total_acceptance = 0
 
-        # The idea is to make coordinated changes to n that keep dn flat.  We can do that by letting the change in n
-        # be dz with z a zero form so that the change in dn is d^2z = 0.
+        # The idea is to make coordinated changes to n that keep dn=0.  We can do that by letting the change in n
+        # be an exact form dz with z a zero form so that the change in dn is d^2z = 0.
         # However, rather than a python-level for loop over space, we can accomplish a lot more at the numpy level,
         # as in the villain.LinkUpdate.
 
@@ -128,7 +128,7 @@ class FlatUpdate:
 
     def report(self):
         return (
-            f'There were {self.accepted} flat proposals accepted of {self.proposed} proposed updates.'
+            f'There were {self.accepted} exact proposals accepted of {self.proposed} proposed updates.'
             +'\n'+
             f'    {self.accepted/self.proposed:.6f} acceptance rate'
             +'\n'+

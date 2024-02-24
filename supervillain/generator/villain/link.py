@@ -11,7 +11,7 @@ class LinkUpdate(ReadWriteable):
     r'''
     This performs the same update to $n$ as :class:`NeighborhoodUpdateSlow <supervillain.generator.reference_implementation.villain.NeighborhoodUpdateSlow>` but leaves $\phi$ untouched.
 
-    Updates are drawn according to
+    Proposals are drawn according to
 
     .. math ::
 

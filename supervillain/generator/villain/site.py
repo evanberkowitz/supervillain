@@ -11,13 +11,11 @@ class SiteUpdate:
     r'''
     This performs the same update to $\phi$ as :class:`NeighborhoodUpdate <supervillain.generator.villain.NeighborhoodUpdate>` but leaves $n$ untouched.
 
-    Updates are drawn according to
+    Proposals are drawn according to
 
     .. math ::
 
-        \begin{align}
-        \Delta \phi_x   &\sim [-\texttt{interval_phi}, +\texttt{interval_phi}]
-        \end{align}
+        \Delta \phi_x   \sim \text{uniform}(-\texttt{interval_phi}, +\texttt{interval_phi})
     '''
 
     def __init__(self, action, interval_phi = np.pi):
