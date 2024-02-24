@@ -11,7 +11,7 @@ class NeighborhoodUpdate(ReadWriteable):
     r'''
     This performs the same update as :class:`NeighborhoodUpdateSlow <supervillain.generator.reference_implementation.villain.NeighborhoodUpdateSlow>` but is streamlined to eliminate calls, to calculate the change in action directly, and to avoid data movement.
 
-    Updates are drawn according to
+    Proposals are drawn according to
 
     .. math ::
     
