@@ -11,7 +11,7 @@ from supervillain.analysis import Uncertain
 import supervillain.analysis.comparison_plot as comparison_plot
 supervillain.observable.progress=tqdm
 
-parser = supervillain.cli.ArgumentParser(description = 'The goal is to compute the same observables using both the Villain and Worldline actions and to check that they agree.  When W>1 the Villain action is sampled with a combination of NeighborhoodUpdates and the Geometric worm.')
+parser = supervillain.cli.ArgumentParser(description = 'The goal is to compute the same observables using both the Villain and Worldline actions and to check that they agree.  The Villain action is sampled with a combination of Site and Link Updates and, when W>1, the Geometric worm.')
 parser.add_argument('--N', type=int, default=5, help='Sites on a side.')
 parser.add_argument('--kappa', type=float, default=0.5, help='κ.  Defaults to 0.5.')
 parser.add_argument('--W', type=int, default=1, help='Constraint integer W.  Defaults to 1')
@@ -34,14 +34,14 @@ W = supervillain.action.Worldline(L, args.kappa, W=args.W)
 # Now sample each action.
 with logging_redirect_tqdm():
     if args.W == 1:
-        g = supervillain.generator.villain.NeighborhoodUpdate(V)
+        g = supervillain.generator.combining.Sequentially((
+                supervillain.generator.villain.SiteUpdate(V),
+                supervillain.generator.villain.LinkUpdate(V),
+            ))
     else:
         g = supervillain.generator.combining.Sequentially((
-                # When W>1 the neighborhood update proposes large constraint-preserving changes (which is any change to n when W=1).
-                # These large changes are often rejected, so it can be beneficial to propose updates to phi
-                supervillain.generator.villain.NeighborhoodUpdate(V, interval_n = 0),
-                # separately from the large updates.
-                supervillain.generator.villain.NeighborhoodUpdate(V, interval_n = 1, interval_phi=0.001),
+                supervillain.generator.villain.SiteUpdate(V),
+                supervillain.generator.villain.LinkUpdate(V),
                 # Δn=±1 changes are made by the worm in a dn=0 way.
                 supervillain.generator.villain.worm.Geometric(V),
             ))
