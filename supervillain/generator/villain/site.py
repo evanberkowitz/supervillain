@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class SiteUpdate:
     r'''
-    This performs the same update to $n$ as :class:`NeighborhoodUpdateSlow <supervillain.generator.reference_implementation.villain.NeighborhoodUpdateSlow>` but leaves $\phi$ untouched.
+    This performs the same update to $\phi$ as :class:`NeighborhoodUpdate <supervillain.generator.villain.NeighborhoodUpdate>` but leaves $n$ untouched.
 
     Updates are drawn according to
 

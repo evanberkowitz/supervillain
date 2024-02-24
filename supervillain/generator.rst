@@ -67,10 +67,22 @@ We can decouple these proposals.
 .. autoclass :: supervillain.generator.villain.LinkUpdate
    :members:
 
+When $W=1$ the combination of the :class:`~.SiteUpdate` and :class:`~.LinkUpdate` are ergodic.
+But when $W>1$ the :class:`~.LinkUpdate` only offers changes to $n$ by multiples of $W$ to preserve the constraint $dn = 0 \text{ mod }W$.
+For an ergodic algorithm when $W>1$ we need to offer ways to change $n$ by 1 (less than $W$) while maintaining the constraint.
+We need to make closed updates to $n$, which can be broken up into :class:`~.villain.ExactUpdate`\ s (which are automatically closed) and :class:`~.villain.HolonomyUpdate`\ s.
+
 .. autoclass :: supervillain.generator.villain.FlatUpdate
    :members:
 
-But, also, as an *algorithm* the neighborhood update also suffers because it can only make small changes in a local area.  Smarter algorithms can make high-acceptance updates to many variables across the lattice, which can help overcome *critical slowing down*.
+.. autoclass :: supervillain.generator.villain.HolonomyUpdate
+   :members:
+
+The combination of the :class:`~.SiteUpdate`, :class:`~.LinkUpdate`, :class:`~.FlatUpdate`, and :class:`~.HolonomyUpdate` is ergodic even when $W>1$.
+But it can be slow to decorrelate.
+As mentioned, the :class:`~.HolonomyUpdate` often rejects because it touches a macroscopic number of variables.
+A major issue is that the route across the torus is very rigid: it's just a straight shot.
+Smarter *worm algorithms* can make high-acceptance updates to many variables across the lattice, which can help overcome *critical slowing down*.
 
 
 ^^^^^^^^^^^^^^^
@@ -112,6 +124,15 @@ Now we might possibly transition to a $z$ configuration, finally adding that con
 
 .. autoclass :: supervillain.generator.villain.worm.Geometric
    :members:
+
+The worm is not ergodic on its own---it doesn't update $\phi$, for example, and it cannot change a link by ±W.
+But, in combination of with :class:`~.villain.SiteUpdate` and :class:`~.villain.LinkUpdate` it is ergodic;
+the worm can replace the combination of :class:`~.villain.FlatUpdate` and :class:`~.villain.HolonomyUpdate`.
+The :class:`~.villain.FlatUpdate` can be understood as a very simple worm that takes the tightest nontrivial path,
+while the :class:`~.villain.HolonomyUpdate` can be understood as a worm that goes once around the world.
+The worm offers *dynamically determined constraint-preserving updates* and is much more flexible.
+In can change the holonomy, for example, by finding a route around the torus that isn't a straight shot but
+runs through the valley of the action.
 
 -------------------------
 The Worldline Formulation
