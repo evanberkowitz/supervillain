@@ -1002,7 +1002,7 @@ class Lattice2D(ReadWriteable):
         if p == 2:
             # We roll the form because the figure should have (0,0) in the middle but the form has (0,0) in the corner.
             # We transpose because imshow goes in the 'other order'.
-            form = self.roll(form, (self.nt // 2, self.nx // 2)).transpose()
+            form = self.roll(form, ((self.nt-1) // 2, (self.nx-1) // 2)).transpose()
             f = axis.imshow(form, **zorder, cmap=cmap,
                         origin='lower', extent=(min(self.t), max(self.t)+1, min(self.x), max(self.x)+1),
                         norm=norm,
