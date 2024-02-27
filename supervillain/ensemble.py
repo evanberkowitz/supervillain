@@ -201,6 +201,7 @@ class Ensemble(Extendable):
 
         if observables is None:
             observables = self.measured
+            observables = set((o for o in observables if supervillain.observables[o].autocorrelation(self)))
 
         if len(observables) == 0:
             observables = tuple(supervillain.observables.keys())
