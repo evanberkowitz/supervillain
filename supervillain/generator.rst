@@ -145,10 +145,22 @@ So, we need clever generators to maintain the constraint.
 .. autoclass :: supervillain.generator.worldline.PlaquetteUpdate
    :members:
 
+We can decouple the proposals in the :class:`~.worldline.PlaquetteUpdate`, and update the vortex fields and the worldlines independently.
+
+.. autoclass :: supervillain.generator.worldline.VortexUpdate
+   :members:
+
+.. autoclass :: supervillain.generator.worldline.CoexactUpdate
+   :members:
+
 To have a fully ergodic algorithm we will also need to update the :class:`~.TorusWrapping` of the worldlines.
 
 .. autoclass :: supervillain.generator.worldline.WrappingUpdate
    :members:
+
+The combination of the :class:`~.worldline.VortexUpdate`, :class:`~.CoexactUpdate`, and :class:`~.WrappingUpdate` are ergodic.
+However, the may be suboptimal.  In particular the :class:`~.worldline.WrappingUpdate` touches a large number of links which often leads to very large changes in action
+and rejection.  Just as in the Villain case we can make smarter updates to a dynamically-determined set of variables with high acceptance by using a *worm algorithm*.
 
 
 ^^^^^^^^^^^^^^^
