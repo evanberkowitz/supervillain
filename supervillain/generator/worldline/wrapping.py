@@ -6,27 +6,32 @@ from supervillain.h5 import ReadWriteable
 
 class WrappingUpdate(ReadWriteable):
     r'''
-    Because :class:`~.PlaquetteUpdate` fails to change the wrapping, we should separately offer wrapping-changing proposals.
+    Because :class:`~.CoexactUpdate` fails to change the wrapping, we should separately offer wrapping-changing proposals.
 
     We propose coordinated changes on all the x-direction links on a single timeslice and coordinated changes on all the t-direction links on a single spatial slice.
 
-    The coordinated change of $m$ is randomly chosen from ±1 (the same on each link).
-    
-    The 2-form constraint field $v$ contributes to the action as $\delta v$ and has no nontrivial winding around the torus, so it is not changed by this update.
+    That is, on all the $m$ on a cycle around the torus we propose to change $m$ according to
+
+    .. math ::
+        \Delta m \sim [-\texttt{interval_w}, +\texttt{interval_w}] \setminus \{0\}
 
     .. warning::
-        HOWEVER this algorithm is not ergodic on its own.
-        The issue is that no proposal can generate wrapping-preserving changes.
+        This algorithm is not ergodic on its own.
+        The issue is that no proposal can generate coexact changes.
 
     '''
 
-    def __init__(self, action):
+    def __init__(self, action, interval_w):
         if not isinstance(action, supervillain.action.Worldline):
             raise ValueError('The WrappingUpdate requires the Worldline action.')
         self.Action = action
 
+        self.interval_w = interval_w
+        self.w = tuple(h for h in range(-interval_w, 0)) + tuple(h for h in range(1, interval_w+1))
+
         self.accepted = 0
         self.proposed = 0
+        self.sweeps = 0
         self.acceptance = 0.
         self.rng = np.random.default_rng()
 
@@ -39,55 +44,57 @@ class WrappingUpdate(ReadWriteable):
 
         In principle all the proposals may be made in parallel but we just do them sequentially.
         '''
-        kappa = self.Action.kappa
-        W     = self.Action.W
+
         L = self.Action.Lattice
 
         m = cfg['m'].copy()
         v = cfg['v'].copy()
 
-        # One might worry that we really need to recompute some elements of this inside the loop,
-        # since m gets updated in the loops. However, the changes do not influence one another;
-        # we could parallelize the update on each torus wrapping.
-        #
-        # Therefore we can get a speedup by vectorizing the needed differences.
-        #
-        # TODO: in fact, it may be possible to completely vectorize this update.
-        link = m - L.δ(2, v) / W
+        # The main idea is that each straight-shot cycle around the torus changes the action only on the links it traverses.
+        # The cycles are independent.  So we can accept or reject them independently---changes on one cycle don't talk to changes on another.
+        # We can fill a whole 1-form with changes to m that satisfy δm=0 along every cycle.
+        change_m = L.form(1, dtype=int)
+        change_m[0] = self.rng.choice(self.w, L.nx)[None,:]
+        change_m[1] = self.rng.choice(self.w, L.nt)[:,None]
+        #assert self.Action.valid(change_m)
 
-        # First try updating all the x-direction links on a timeslice t.
-        for t, change_m, metropolis, in zip(L.t, np.random.choice([-1,+1], L.nt), self.rng.uniform(0,1,L.nt)):
-            
-            # Directly evaluate ∆S = S_proposal - S_current, which is the difference of squares on every link.
-            # That difference simplifies dramatically.
-            dS = change_m / kappa * ( link[1][t,:].sum() + L.nt * change_m / 2)
+        # Now we compute the change in action on every link, which we will reduce along different directions
+        # to get the change in action from each cycle.
+        dS_link = 0.5 / self.Action.kappa * change_m * (2*(m - L.δ(2, v) / self.Action.W) + change_m)
 
-            acceptance = np.clip(np.exp(-dS), a_min=0, a_max=1)
-            self.acceptance += acceptance
+        # First the temporal cycles.
+        dS = dS_link[0].sum(axis=0)
+        # Now we Metropolize
+        acceptance = np.clip( np.exp(-dS), a_min=0, a_max=1)
+        metropolis = self.rng.uniform(0, 1, acceptance.shape)
+        accepted = metropolis < acceptance
+        # and zero out the rejected changes.
+        change_m[0] *= accepted[None,:]
 
-            if metropolis < acceptance:
-                # Accept :)
-                m[1][t,:] += change_m
-                self.accepted+=1
+        total_acceptance = acceptance.sum()
+        total_accepted   = accepted.sum()
 
-        # Then try updating all the t-direction links on a spatial slice x.
-        for x, change_m, metropolis, in zip(L.x, np.random.choice([-1,+1], L.nx), self.rng.uniform(0,1,L.nx)):
+        # Now the spatial links
+        dS = dS_link[1].sum(axis=1)
+        # Now we Metropolize
+        acceptance = np.clip( np.exp(-dS), a_min=0, a_max=1)
+        metropolis = self.rng.uniform(0, 1, acceptance.shape)
+        accepted = metropolis < acceptance
+        # and zero out the rejected changes.
+        change_m[1] *= accepted[:,None]
 
-            # Directly evaluate ∆S = S_proposal - S_current, which is the difference of squares on every link.
-            # That difference simplifies dramatically.
-            dS = change_m / kappa * ( link[0][:,x].sum() + L.nx * change_m / 2)
+        total_acceptance += acceptance.sum()
+        total_accepted   += accepted.sum()
 
-            acceptance = np.clip(np.exp(-dS), a_min=0, a_max=1)
-            self.acceptance += acceptance
+        self.proposed += L.nx + L.nt
+        self.acceptance += total_acceptance / (L.nx + L.nt)
+        self.accepted += total_accepted
+        self.sweeps += 1
 
-            if metropolis < acceptance:
-                # Accept :)
-                m[0][:,x] += change_m
-                self.accepted+=1
+        #assert self.Action.valid(change_m)
+        #assert self.Action.valid(m+change_m)
 
-
-        self.proposed += L.nt + L.nx
-        return {'m': m, 'v': v}
+        return {'m': m + change_m, 'v': v}
 
     def report(self):
         return (
@@ -95,5 +102,5 @@ class WrappingUpdate(ReadWriteable):
                 +'\n'+
                 f'    {self.accepted   / self.proposed :.6f} acceptance rate' 
                 +'\n'+
-                f'    {self.acceptance / self.proposed :.6f} average Metropolis acceptance probability.'
+                f'    {self.acceptance / self.sweeps :.6f} average Metropolis acceptance probability.'
             )
