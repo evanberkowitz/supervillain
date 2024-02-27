@@ -10,20 +10,24 @@ class WrappingUpdate(ReadWriteable):
 
     We propose coordinated changes on all the x-direction links on a single timeslice and coordinated changes on all the t-direction links on a single spatial slice.
 
-    The coordinated change of $m$ is randomly chosen from ±1 (the same on each link).
-    
-    The 2-form constraint field $v$ contributes to the action as $\delta v$ and has no nontrivial winding around the torus, so it is not changed by this update.
+    That is, on all the $m$ on a cycle around the torus we propose to change $m$ according to
+
+    .. math ::
+        \Delta m \sim [-\texttt{interval_w}, +\texttt{interval_w}] \setminus \{0\}
 
     .. warning::
-        HOWEVER this algorithm is not ergodic on its own.
-        The issue is that no proposal can generate wrapping-preserving changes.
+        This algorithm is not ergodic on its own.
+        The issue is that no proposal can generate coexact changes.
 
     '''
 
-    def __init__(self, action):
+    def __init__(self, action, interval_w):
         if not isinstance(action, supervillain.action.Worldline):
             raise ValueError('The WrappingUpdate requires the Worldline action.')
         self.Action = action
+
+        self.interval_w = interval_w
+        self.w = tuple(h for h in range(-interval_w, 0)) + tuple(h for h in range(1, interval_w+1))
 
         self.accepted = 0
         self.proposed = 0
@@ -50,8 +54,8 @@ class WrappingUpdate(ReadWriteable):
         # The cycles are independent.  So we can accept or reject them independently---changes on one cycle don't talk to changes on another.
         # We can fill a whole 1-form with changes to m that satisfy δm=0 along every cycle.
         change_m = L.form(1, dtype=int)
-        change_m[0] = self.rng.choice((-1,+1), L.nx)[None,:]
-        change_m[1] = self.rng.choice((-1,+1), L.nt)[:,None]
+        change_m[0] = self.rng.choice(self.w, L.nx)[None,:]
+        change_m[1] = self.rng.choice(self.w, L.nt)[:,None]
         #assert self.Action.valid(change_m)
 
         # Now we compute the change in action on every link, which we will reduce along different directions
