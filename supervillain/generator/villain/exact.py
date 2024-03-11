@@ -92,7 +92,7 @@ class ExactUpdate:
             # We only offer changes to z on a single color at once.  The benefit is that the surrounding sites
             # do not have updates.  So we know where any change in dz and therefore any change in the action on any link came from:
             # it came from the site in the partition (color) we are updating.
-            z = L.form(0)
+            z = L.form(0, dtype=int)
             z[color] = self.rng.choice(self.zs, len(color[0]))
 
             # To keep dn=0 we let the change in n be given by d(z), so that d(change_n) = 0, since it is d^2(z).
@@ -114,7 +114,7 @@ class ExactUpdate:
 
             # Finally, we update the n where the change is accepted.
             z[color] *= accepted
-            n += L.d(0, z).astype(int)
+            n += L.d(0, z)
 
         self.proposed += L.sites
         self.acceptance += total_acceptance / L.sites

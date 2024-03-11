@@ -21,7 +21,7 @@ class WrappingUpdate(ReadWriteable):
 
     '''
 
-    def __init__(self, action, interval_w):
+    def __init__(self, action, interval_w=1):
         if not isinstance(action, supervillain.action.Worldline):
             raise ValueError('The WrappingUpdate requires the Worldline action.')
         self.Action = action
