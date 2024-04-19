@@ -10,7 +10,7 @@ def skip_on(exception, explanation):
         def decorated_f(*args, **kwargs):
             try:
                 return f(*args, **kwargs)
-            except:
+            except exception:
                 pytest.skip(explanation)
 
         return decorated_f
