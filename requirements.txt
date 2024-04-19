@@ -8,6 +8,11 @@ scipy>=1.8
 h5py>=3.7
 tqdm>=4.64
 
+# TESTING
+
+pytest >= 8.0.0
+pytest-cov >= 4.0.0
+
 # DOCS
 
 sphinx
