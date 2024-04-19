@@ -1,7 +1,0 @@
-Generator,N,Configurations,Kappa,Autocorrelation,Internal Energy,IE Error,Winding,Winding Error
-<supervillain.generator.combining.Sequentially object at 0x000001FB61B35E10>,40,10000,0.7,13.0000,0.6084,0.0031,0.0120,0.0004
-<supervillain.generator.worms.SlowUndirectedWorm object at 0x000001FB61B35F00>,40,10000,0.7,31.0000,0.6135,0.0054,0.0126,0.0007
-<supervillain.generator.combining.Sequentially object at 0x000001FB61B360E0>,40,10000,0.7,18.0000,0.6073,0.0039,0.0119,0.0005
-<supervillain.generator.worms.SlowUndirectedWorm object at 0x000001FB61B361D0>,40,10000,0.7,29.0000,0.6084,0.0045,0.0117,0.0006
-<supervillain.generator.combining.Sequentially object at 0x000001FB61B363B0>,40,10000,0.7,10.0000,0.6039,0.0029,0.0115,0.0004
-<supervillain.generator.worms.SlowUndirectedWorm object at 0x000001FB61B364A0>,40,10000,0.7,36.0000,0.6126,0.0041,0.0126,0.0006
