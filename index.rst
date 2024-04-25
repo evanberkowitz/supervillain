@@ -21,6 +21,7 @@ supervillain
    supervillain/h5
    todo
    bibliography
+   test/index.rst
    supervillain/reference_implementations
 
 Version Information
