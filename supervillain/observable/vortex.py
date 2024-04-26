@@ -87,3 +87,22 @@ class VortexSusceptibilityScaled(VortexSusceptibility):
         # NOTE: implicitly assumes that the lattice is square!
         return VortexSusceptibility / L**(2-2*supervillain.observable.Vortex_Vortex.CriticalScalingDimension(S.W))
 
+class VortexCriticalMoment(NotVillain, Constrained, Scalar, Observable):
+    r'''
+    The *critical moment* of the vortex correlator :math:`C_V` is the volume-average of the correlator multiplied by its long-distance critical behavior,
+
+    .. math::
+        C_V = \frac{1}{L^2} \int d^2r\; r^{2\Delta_V(\kappa_c, W)}\; V(r)
+
+    At the critical $\kappa$ the long-distance behavior of the :class:`~.Vortex_Vortex` correlator :math:`V` decays with exactly the required power to cancel the explicit power of $r$ and the integral cancels the normalization, giving 1 in the large-$L$ limit.
+
+    In the gapped phase $V$ decays exponentially with $r$ and the integral converges, so $C_V$ goes to 0 in the large-$L$ limit.
+
+    In the CFT, $V$ decays polynomially, but faster than the weight from the moment grows.  The integral scales with a power less than 2 and $C_V$ again goes to 0 in the large-$L$ limit.
+    '''
+ 
+    @staticmethod
+    def default(S, Vortex_Vortex):
+
+        L = S.Lattice
+        return np.sum(L.R_squared**(supervillain.observable.Vortex_Vortex.CriticalScalingDimension(S.W)) * Vortex_Vortex) / L.sites
