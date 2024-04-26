@@ -103,6 +103,10 @@ Spin Correlations
    :members:
    :show-inheritance:
 
+.. autoclass :: supervillain.observable.SpinCriticalMoment
+   :members:
+   :show-inheritance:
+
 ===================
 Vortex Correlations
 ===================

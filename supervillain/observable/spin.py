@@ -205,6 +205,17 @@ class Spin_Spin(Observable):
 
         return result
 
+    @staticmethod
+    def CriticalScalingDimension(W):
+        r'''
+        Setting the scaling dimension $(WR)^2 / 2$ of a charge-W vortex operator to 2 yields $R=2/W$.
+        The corresponding scaling dimension of the spin operator $e^{i\phi}$ is $\Delta = (1R)^{-2}/2 = W^2/8$.
+
+        This is the critical scaling dimension of a *single* insertion, so the two-point :class:`~.Spin_Spin` scales with twice this dimension at the critical point.
+        '''
+
+        return W**2 / 8
+
 
 class SpinSusceptibility(Scalar, Observable):
     r'''
@@ -244,7 +255,7 @@ class SpinSusceptibilityScaled(SpinSusceptibility):
 
     where the scaling dimension at the critical coupling $\kappa_c$ is known and depends on the constraint integer $W$.
 
-    So, we scale the susceptibility,
+    So, we scale the susceptibility by the :py:meth:`~.Spin_Spin.CriticalScalingDimension`,
 
     .. math::
         \texttt{SpinSusceptibilityScaled} = \chi_S / L^{2-2\Delta(\kappa_c)}
@@ -256,18 +267,9 @@ class SpinSusceptibilityScaled(SpinSusceptibility):
     '''
 
     @staticmethod
-    def CriticalScalingDimension(W):
-        r'''
-        Setting the scaling dimension $(WR)^2 / 2$ of a charge-W vortex operator to 2 yields $R=2/W$.
-        The corresponding scaling dimension of the spin operator $e^{i\phi}$ is $\Delta = (1R)^{-2}/2 = W^2/8$.
-        '''
-
-        return W**2 / 8
-
-    @staticmethod
     def default(S, SpinSusceptibility):
 
         L = S.Lattice.nx
         # NOTE: implicitly assumes that the lattice is square!
-        return SpinSusceptibility / L**(2-2*SpinSusceptibilityScaled.CriticalScalingDimension(S.W))
+        return SpinSusceptibility / L**(2-2*Spin_Spin.CriticalScalingDimension(S.W))
 
