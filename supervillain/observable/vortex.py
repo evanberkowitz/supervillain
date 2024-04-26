@@ -28,6 +28,20 @@ class Vortex_Vortex(NotVillain, Constrained, Observable):
 
         return L.correlation(vortex, vortex)
 
+    @staticmethod
+    def CriticalScalingDimension(W):
+        r'''
+        The critical scaling dimension of the winding-$w$ operator is $R^2 w^2 / 2$.
+        With the constraint that only charge $W$ vortices are allowed as propagating excitations,
+        at the phase transition $R^2 W^2 / 2 = 2$, so that the critical $R=2/W$.
+
+        What we want to know is the scaling dimension of the $w=1$ operator, which at the phase transition is $\Delta = (1R)^2/2 = 2/W^2$.
+
+        This is the critical scaling dimension of a *single* insertion, so the two-point :class:`~.Vortex_Vortex` scales with twice this dimension at the critical point.
+        '''
+
+        return 2/W**2
+
 
 
 class VortexSusceptibility(NotVillain, Constrained, Scalar, Observable):
@@ -67,21 +81,9 @@ class VortexSusceptibilityScaled(VortexSusceptibility):
     '''
 
     @staticmethod
-    def CriticalScalingDimension(W):
-        r'''
-        The critical scaling dimension of the winding-$w$ operator is $R^2 w^2 / 2$.
-        With the constraint that only charge $W$ vortices are allowed as propagating excitations,
-        at the phase transition $R^2 W^2 / 2 = 2$, so that the critical $R=2/W$.
-
-        What we want to know is the scaling dimension of the $w=1$ operator, which at the phase transition is $\Delta = (1R)^2/2 = 2/W^2$.
-        '''
-
-        return 2/W**2
-
-    @staticmethod
     def default(S, VortexSusceptibility):
 
         L = S.Lattice.nx
         # NOTE: implicitly assumes that the lattice is square!
-        return VortexSusceptibility / L**(2-2*VortexSusceptibilityScaled.CriticalScalingDimension(S.W))
+        return VortexSusceptibility / L**(2-2*supervillain.observable.Vortex_Vortex.CriticalScalingDimension(S.W))
 
