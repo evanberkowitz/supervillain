@@ -78,7 +78,7 @@ class Spin_Spin(Observable):
 
         .. math ::
 
-            \hat{V}_{xy} = \exp{\left[ - \frac{1}{2\kappa} \sum_{\ell \in P_{xy}} \left\{(\hat{m} - \delta v / W + P_{xy})_\ell^2 - (\hat{m} - \delta v / W)_\ell^2 \right\}\right]}
+            \hat{S}_{xy} = \exp{\left[ - \frac{1}{2\kappa} \sum_{\ell \in P_{xy}} \left\{(\hat{m} - \delta v / W + P_{xy})_\ell^2 - (\hat{m} - \delta v / W)_\ell^2 \right\}\right]}
 
         which is what we need to reweight to sampling according to $S[\hat{m}]$ with no defect.
 
@@ -272,4 +272,25 @@ class SpinSusceptibilityScaled(SpinSusceptibility):
         L = S.Lattice.nx
         # NOTE: implicitly assumes that the lattice is square!
         return SpinSusceptibility / L**(2-2*Spin_Spin.CriticalScalingDimension(S.W))
+
+class SpinCriticalMoment(Scalar, Observable):
+    r'''
+    The *critical moment* of the spin correlator :math:`C_S` is the volume-average of the correlator multiplied by its long-distance critical behavior,
+
+    .. math::
+        C_S = \frac{1}{L^2} \int d^2r\; r^{2\Delta_S(\kappa_c, W)}\; S(r)
+
+    At the critical $\kappa$ the long-distance behavior of the :class:`~.Spin_Spin` correlator :math:`S` decays with exactly the required power to cancel the explicit power of $r$ and the integral cancels the normalization, giving 1 in the large-$L$ limit.
+
+    In the gapped phase $S$ decays exponentially with $r$ and the integral converges, so $C_S$ goes to 0 in the large-$L$ limit.
+
+    In the CFT, $S$ decays polynomially, but slower than the weight from the moment grows.  The integral scales with a power larger than 2 and $C_S$ diverges in the large-$L$ limit.
+    
+    '''
+
+    @staticmethod
+    def default(S, Spin_Spin):
+
+        L = S.Lattice
+        return np.sum(L.R_squared**(supervillain.observable.Spin_Spin.CriticalScalingDimension(S.W)) * Spin_Spin) / L.sites
 
