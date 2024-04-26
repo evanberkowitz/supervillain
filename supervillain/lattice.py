@@ -93,6 +93,19 @@ class Lattice2D(ReadWriteable):
                [ 0,  1,  2, -2, -1]])
         '''
 
+        self.R_squared = self.X**2 + self.T**2
+        r'''
+        An array of size ``dims`` which gives the square of the distance from the origin for each site.
+
+        >>> lattice = Lattice(5)
+        >>> lattice.R_squared
+        array([[ 0,  1,  4,  4,  1],
+               [ 1,  2,  5,  5,  2],
+               [ 4,  5,  8,  8,  5],
+               [ 4,  5,  8,  8,  5],
+               [ 1,  2,  5,  5,  2]])
+        '''
+
         # We also construct a linearized list of coordinates.
         # The order matches self.X.ravel() and self.Y.ravel()
         self.coordinates = np.stack((self.T.flatten(), self.X.flatten())).transpose()

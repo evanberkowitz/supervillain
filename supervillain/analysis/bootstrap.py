@@ -116,7 +116,7 @@ class Bootstrap(ReadWriteable):
         '''
         
         L = self.Ensemble.Action.Lattice
-        Δx = L.linearize(L.T**2 + L.X**2)**0.5
+        Δx = L.linearize(L.R_squared)**0.5
         C = getattr(self, correlator).real
 
         axis.errorbar(
