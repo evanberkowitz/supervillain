@@ -201,6 +201,7 @@ class Ensemble(Extendable):
 
         if observables is None:
             observables = self.measured
+            observables = set((o for o in observables if supervillain.observables[o].autocorrelation(self)))
 
         if len(observables) == 0:
             observables = tuple(supervillain.observables.keys())
@@ -289,6 +290,10 @@ class Ensemble(Extendable):
                      alpha=0.5, color=None,
                      history_kwargs=dict(),
                      ):
+        r'''
+        .. seealso ::
+            :py:meth:`Blocking.plot_history <~.Blocking.plot_history>`.
+        '''
 
         if 'label' not in history_kwargs:
             history_kwargs['label']=label
@@ -303,7 +308,7 @@ class Ensemble(Extendable):
                      bins=bins, density=density,
                      color=color, alpha=alpha,
                      )
- 
+
     def __getattr__(self, name):
         # It is particularly useful to expose fields as ensemble attributes
         # because that helps unify the Observable's application to both

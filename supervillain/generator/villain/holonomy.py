@@ -80,7 +80,8 @@ class HolonomyUpdate:
         # assert self.Action.valid(change_n)
 
         # The change in action on every link is simply
-        dS_link = 0.5 * self.Action.kappa * (-2*np.pi*change_n) * (2*(dphi - 2*np.pi*n) - 2*np.pi*change_n)
+        #dS_link = 0.5 * self.Action.kappa * (-2*np.pi*change_n) * (2*(dphi - 2*np.pi*n) - 2*np.pi*change_n)
+        dS_link = -2*np.pi * self.Action.kappa * change_n * ((dphi - 2*np.pi*n) - np.pi*change_n)
 
         # We need to Metropolis-accept or -reject the whole strip at once.
         # So, we sum the changes in action across the strips; first the temporal links.

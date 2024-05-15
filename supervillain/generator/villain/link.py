@@ -81,7 +81,8 @@ class LinkUpdate(ReadWriteable):
         # What lets us do this so simply is that this generator does not update phi.
         # So the change in action from changing n just depends on a fixed background dphi,
         # and on n itself---no n from any other link is involved.
-        dS = 0.5 * self.kappa * (-2*np.pi*change_n) * (2*(dphi - 2*np.pi*n) - 2*np.pi*change_n)
+        #dS = 0.5 * self.kappa * (-2*np.pi*change_n) * (2*(dphi - 2*np.pi*n) - 2*np.pi*change_n)
+        dS = -2*np.pi * self.kappa * change_n * (dphi - 2*np.pi*n - np.pi*change_n)
         # The point is, dS can really be evaluated link-by-link if we freeze phi;
         # we're not missing any pieces that come from changing n on two nearby links at once.
 

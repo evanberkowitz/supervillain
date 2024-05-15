@@ -33,6 +33,14 @@ A natural choice for n is the autocorrelation time.
 
 Ensembles also have an :meth:`~.Ensemble.autocorrelation_time`, which leverages the above :py:func:`~.analysis.autocorrelation_time` and understands which observables to include.
 
+Blocking
+--------
+
+.. autoclass:: supervillain.analysis.Blocking
+   :no-special-members:
+   :members:
+
+
 The Bootstrap
 -------------
 
