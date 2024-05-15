@@ -105,4 +105,4 @@ class VortexCriticalMoment(NotVillain, Constrained, Scalar, Observable):
     def default(S, Vortex_Vortex):
 
         L = S.Lattice
-        return np.sum(L.R_squared**(supervillain.observable.Vortex_Vortex.CriticalScalingDimension(S.W)) * Vortex_Vortex) / L.sites
+        return np.sum(L.R_squared**(supervillain.observable.Vortex_Vortex.CriticalScalingDimension(S.W)) * Vortex_Vortex.real) / L.sites

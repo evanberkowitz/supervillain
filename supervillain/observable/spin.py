@@ -292,5 +292,5 @@ class SpinCriticalMoment(Scalar, Observable):
     def default(S, Spin_Spin):
 
         L = S.Lattice
-        return np.sum(L.R_squared**(supervillain.observable.Spin_Spin.CriticalScalingDimension(S.W)) * Spin_Spin) / L.sites
+        return np.sum(L.R_squared**(supervillain.observable.Spin_Spin.CriticalScalingDimension(S.W)) * Spin_Spin.real) / L.sites
 
