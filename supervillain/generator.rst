@@ -4,8 +4,12 @@
 Sampling
 ********
 
-:class:`~.Ensemble`\ s can be :py:meth:`generated <supervillain.ensemble.Ensemble.generate>` using a *generator*.
-A generator is any object which has a class with a method that takes a configuration as a dictionary and returns a new configuration as a dictionary.
+:class:`~.Ensemble`\ s can be :py:meth:`generated <supervillain.ensemble.Ensemble.generate>` using a *Generator*.
+A generator is any object which has a class with a :meth:`~.Generator.step` method that takes a configuration as a dictionary and returns a new configuration as a dictionary.
+Some generators can measure observables as the step is taken and return them inside the step, in which case the :class:`~.Configurations` need a place to store them, which is created with the :meth:`~.Generator.inline_observables` method.
+
+.. autoclass :: supervillain.generator.Generator
+   :members:
 
 For example, a very dumb generator is
 
