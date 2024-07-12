@@ -2,12 +2,13 @@
 
 import numpy as np
 import supervillain.action
+from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
 
 import logging
 logger = logging.getLogger(__name__)
 
-class ExactUpdate:
+class ExactUpdate(ReadWriteable, Generator):
     r'''
     The :class:`~.villain.LinkUpdate` only updates n by multiples of $W$ in order to preserve the constraint $dn = 0\; (\text{mod } W$).
     Another way to preserve the constraint is to update n around a given site in a coordinated way so that $dn$ is not changed on any of the

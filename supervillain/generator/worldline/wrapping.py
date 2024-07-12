@@ -2,9 +2,10 @@
 
 import numpy as np
 import supervillain
+from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
 
-class WrappingUpdate(ReadWriteable):
+class WrappingUpdate(ReadWriteable, Generator):
     r'''
     Because :class:`~.CoexactUpdate` fails to change the wrapping, we should separately offer wrapping-changing proposals.
 

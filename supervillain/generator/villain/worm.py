@@ -3,12 +3,13 @@
 from collections import deque
 import numpy as np
 import supervillain.action
+from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
 
 import logging
 logger = logging.getLogger(__name__)
 
-class Geometric(ReadWriteable):
+class Geometric(ReadWriteable, Generator):
     r'''
 
     We adapt the undirected worm algorithm of Alet and Sørensen :cite:`PhysRevE.68.026702`.
@@ -81,6 +82,17 @@ class Geometric(ReadWriteable):
                 (0, west [0], west [1]), # t link to the west
                 (1, here [0], here [1])) # x link to the south
 
+    def inline_observables(self, steps):
+        r'''
+        The worm algorithm can measure the ``Vortex_Vortex`` correlator.
+        We also store the ``Worm_Length`` for each step.
+        '''
+
+        return {
+            'Vortex_Vortex': self.Action.Lattice.form(0, steps),
+            'Worm_Length':   np.zeros(steps),
+        }
+
     def step(self, configuration):
         r'''
         Given a constraint-satisfying configuration, returns another constraint-satisfying configuration udpated via worm as described above.
@@ -88,6 +100,8 @@ class Geometric(ReadWriteable):
 
         S = self.Action
         L = S.Lattice
+
+        displacements = L.form(0)
 
         # This algorithm will not update phi; but it is useful to precompute dphi
         # which is used in the evaluation of the changes in action.
@@ -119,6 +133,9 @@ class Geometric(ReadWriteable):
         # Now we are ready to start evolving in z union g.
 
         while True:
+            x, y = L.mod(head-tail)
+            displacements[x, y] += 1
+
             # There are 4 or 5 possible moves that we may make.
             # We may move the head to 1 of 4 neighboring plaquettes
             next = self._neighboring_plaquettes(head)
@@ -155,7 +172,7 @@ class Geometric(ReadWriteable):
             # We might transition to the z sector, in which case we have produced a configuration that can go into our Markov chain.
             if choice == -1:
                 self.worm_lengths.append(worm_length)
-                return {'n': n, 'phi': phi}
+                return {'n': n, 'phi': phi, 'Vortex_Vortex': displacements, 'Worm_Length': worm_length}
                 # Note!  We don't need to Metrpolis accept/reject.  That was built in when we included the g --> z update
                 # in the A amplitudes that went into the update probabilities.
                 # That is why we went through this whole story rigamarole of distinguishing z configurations from diagonal g configurations:

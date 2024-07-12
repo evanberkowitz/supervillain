@@ -2,12 +2,13 @@
 
 import numpy as np
 import supervillain.action
+from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
 
 import logging
 logger = logging.getLogger(__name__)
 
-class CoexactUpdate(ReadWriteable):
+class CoexactUpdate(ReadWriteable, Generator):
     r'''
     One way to guarantee that $\delta m = 0$ is to change $m$ by $\delta t$ where $t$ is an integer-valued two-form.
 
@@ -106,8 +107,8 @@ class CoexactUpdate(ReadWriteable):
             # is just the sum of all the changes from the adjacent links.  So we sum them up.
             dS = dS_link[0] + dS_link[1] + L.roll(dS_link[0], (0, -1)) + L.roll(dS_link[1], (-1, 0))
 
-            # Now dS is a 2-form encoding the changes in action from n = d(the zero form z).  But we should be careful:
-            # dS is not 0 on the off-color sites---those sites still have links that land us on the current color.
+            # Now dS is a 2-form encoding the changes in action from m = delta(the two-form t).  But we should be careful:
+            # dS is not 0 on the off-color plaquettes---those plaquettes still have links that land us on the current color.
             # We only want to accept/reject updates on the current color, so we restrict our attention when computing the acceptance.
             acceptance = np.clip( np.exp(-dS[color]), a_min=0, a_max=1)
             accepted = (metropolis[color] < acceptance)
@@ -115,7 +116,7 @@ class CoexactUpdate(ReadWriteable):
             total_accepted += accepted.sum()
             total_acceptance += acceptance.sum()
 
-            # Finally, we update the n where the change is accepted.
+            # Finally, we update the m where the change is accepted.
             t[color] *= accepted
             m += L.delta(2, t)
 

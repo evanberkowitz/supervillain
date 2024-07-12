@@ -2,14 +2,15 @@
 
 import numpy as np
 import supervillain.action
+from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
 
 import logging
 logger = logging.getLogger(__name__)
 
-class LinkUpdate(ReadWriteable):
+class LinkUpdate(ReadWriteable, Generator):
     r'''
-    This performs the same update to $n$ as :class:`NeighborhoodUpdateSlow <supervillain.generator.reference_implementation.villain.NeighborhoodUpdateSlow>` but leaves $\phi$ untouched.
+    This performs the same update to $n$ as :class:`NeighborhoodUpdate <supervillain.generator.villain.NeighborhoodUpdate>` but leaves $\phi$ untouched.
 
     Proposals are drawn according to
 

@@ -3,11 +3,12 @@
 import numpy as np
 import supervillain.action
 from supervillain.h5 import ReadWriteable
+from supervillain.generator import Generator
 
 import logging
 logger = logging.getLogger(__name__)
 
-class NeighborhoodUpdate(ReadWriteable):
+class NeighborhoodUpdate(ReadWriteable, Generator):
     r'''
     This performs the same update as :class:`NeighborhoodUpdateSlow <supervillain.generator.reference_implementation.villain.NeighborhoodUpdateSlow>` but is streamlined to eliminate calls, to calculate the change in action directly, and to avoid data movement.
 

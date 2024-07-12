@@ -2,9 +2,10 @@
 
 import numpy as np
 import supervillain
+from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
 
-class PlaquetteUpdate(ReadWriteable):
+class PlaquetteUpdate(ReadWriteable, Generator):
     r'''
     Ref. :cite:`Gattringer:2018dlw` suggests a simple update scheme where the links surrounding a single plaquette are updated in concert so that the :class:`~.Worldline` constraint is maintained.
 

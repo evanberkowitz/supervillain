@@ -3,12 +3,13 @@
 from collections import deque
 import numpy as np
 import supervillain.action
+from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
 
 import logging
 logger = logging.getLogger(__name__)
 
-class Geometric(ReadWriteable):
+class Geometric(ReadWriteable, Generator):
     r'''
     Unlike in :py:class:`the Villain case <supervillain.generator.villain.worm.Geometric>`, the constraint in the Worldline formulation is $\delta m = 0$ on every site,
     where $m$ is a link-valued integer field.
@@ -83,6 +84,17 @@ class Geometric(ReadWriteable):
                 (0, west [0], west [1]), # t link to the west
                 (1, south[0], south[1])) # x link to the south
 
+    def inline_observables(self, steps):
+        r'''
+        The worm algorithm can measure the ``Spin_Spin`` correlator.
+        We also store the ``Worm_Length`` for each step.
+        '''
+
+        return {
+            'Spin_Spin': self.Action.Lattice.form(0, steps),
+            'Worm_Length':   np.zeros(steps),
+        }
+
     def step(self, configuration):
         r'''
         Given a constraint-satisfying configuration, returns another constraint-satisfying configuration udpated via worm as described above.
@@ -91,12 +103,14 @@ class Geometric(ReadWriteable):
         S = self.Action
         L = S.Lattice
 
+        displacements = L.form(0)
+
         m = configuration['m'].copy()
 
         # This algorithm will not update v; but it is useful to precompute δv
         # which is used in the evaluation of the changes in action.
         v = configuration['v'].copy()
-        delta_v = L.delta(2, v)
+        delta_v_by_W = L.delta(2, v) / S.W
 
         # The contributions to the plaquette tell you how an n contributes to dn.
         # Opposite directions contribute oppositely, which is exactly what you want.
@@ -123,6 +137,9 @@ class Geometric(ReadWriteable):
         # Now we are ready to start evolving in z union g.
 
         while True:
+            x, y = L.mod(head-tail)
+            displacements[x, y] +=1
+            
             # There are 4 or 5 possible moves that we may make.
             # We may move the head to 1 of 4 neighboring plaquettes
             next = self._neighboring_sites(head)
@@ -130,7 +147,7 @@ class Geometric(ReadWriteable):
             link = self._adjacent_links(head)
 
             # Crossing the link changes m and therefore the action.
-            change_link = np.array([m[l] - delta_v[l]/S.W for l in link])
+            change_link = np.array([m[l] - delta_v_by_W[l] for l in link])
             change_S = (
                 (1 / (2*S.kappa)) *
                 change_m *
@@ -159,7 +176,7 @@ class Geometric(ReadWriteable):
             # We might transition to the z sector, in which case we have produced a configuration that can go into our Markov chain.
             if choice == -1:
                 self.worm_lengths.append(worm_length)
-                return {'m': m, 'v': v}
+                return {'m': m, 'v': v, 'Spin_Spin': displacements, 'Worm_Length': worm_length}
                 # Note!  We don't need to Metrpolis accept/reject.  That was built in when we included the g --> z update
                 # in the A amplitudes that went into the update probabilities.
                 # That is why we went through this whole story rigamarole of distinguishing z configurations from diagonal g configurations:
