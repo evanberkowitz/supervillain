@@ -71,6 +71,7 @@ class Ensemble(Extendable):
         '''
 
         self.configuration = self.Action.configurations(steps)
+        self.configuration |= generator.inline_observables(steps)
         self.index_stride = index_stride
         self.index = starting_index + self.index_stride * supervillain.h5.extendable.array(np.arange(steps))
         self.weight = supervillain.h5.extendable.array(np.ones(steps))
@@ -316,4 +317,4 @@ class Ensemble(Extendable):
         try:
             return getattr(self.configuration, name)
         except Exception as e:
-            raise e
+            raise e from None

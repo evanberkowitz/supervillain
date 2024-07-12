@@ -28,6 +28,9 @@ class Configurations(Extendable, ReadWriteable):
     def __str__(self):
         return str(self.fields)
 
+    def __contains__(self, name):
+        return (name in self.fields)
+
     def __getitem__(self, index):
         r'''
         Parameters
@@ -111,3 +114,7 @@ class Configurations(Extendable, ReadWriteable):
                 value.extend_h5(group['fields'][attr])
             elif isinstance(value, extendable.array):
                 extendable.strategy.extend(group['fields'], attr, value)
+
+    def __ior__(self, value):
+        self.fields |= value
+        return self
