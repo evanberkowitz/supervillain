@@ -27,19 +27,9 @@ def test_reference_observable(action, N, kappa, W, pair, configurations=1000, ):
     ensemble = generate.cached_ensemble(action, configurations, N, kappa, W)
 
     values = ()
-    for i, o in enumerate(pair):
-        # If the observable is measured inline it may not match the reference.
-        if o in ensemble.configuration.fields:
-            # Temporarily store inline observables...
-            tmp = ensemble.configuration.fields[o]
-            del ensemble.configuration.fields[o]
-            # ... measure the desired observable
-            values += (getattr(ensemble, o),)
-            # ... and restore the inline measurement.
-            ensemble.configuration.fields[o] = tmp
-        # But if the observable wasn't measured inline, measure it!
-        else:
-            values += (getattr(ensemble, o),)
+    for o in pair:
+        # If an observable was measured inline it likely doesn't match the reference.
+        values += (harness.measure_without_inline(ensemble, o), )
 
     difference = np.abs(values[0]-values[1])
 

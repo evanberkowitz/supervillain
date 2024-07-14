@@ -36,3 +36,21 @@ def for_each_observable(f):
         return f(*args, **kwargs)
 
     return decorated_f
+
+def measure_without_inline(ensemble, observable):
+    # If the observable is measured inline we need to prevent the short-circuiting.
+    if observable in ensemble.configuration.fields:
+        # Temporarily store inline observables...
+        tmp = ensemble.configuration.fields[observable]
+        del ensemble.configuration.fields[observable]
+        # ... measure the desired observable
+        value = getattr(ensemble, observable)
+        # ... and restore the inline measurement.
+        ensemble.configuration.fields[observable] = tmp
+    # But if the observable wasn't measured inline, measure it!
+    else:
+        value = getattr(ensemble, observable)
+
+    return value
+
+
