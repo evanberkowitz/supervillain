@@ -13,7 +13,7 @@ equality_threshold = 1e-12
 @cache
 def transform(E):
     S = E.Action
-    transformed = S.configurations(len(E))
+    transformed = E.configuration.copy()
     for i, c in enumerate(E.configuration):
         transformed[i] = S.equivalence_class_v(c)
 

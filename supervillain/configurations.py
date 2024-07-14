@@ -118,3 +118,6 @@ class Configurations(Extendable, ReadWriteable):
     def __ior__(self, value):
         self.fields |= value
         return self
+
+    def copy(self):
+        return Configurations(self.fields.copy())
