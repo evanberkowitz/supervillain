@@ -126,6 +126,25 @@ Finally, when the head reaches the tail, the constraint is restored everywhere, 
 Now we might possibly transition to a $z$ configuration, finally adding that configuration to our samples of for the path integral $Z$.
 *There is typically no direct way to go from any $z$ configuration to any other; the only way is through $g$.*
 
+As Prokof'ev and Svistunov explain :cite:`PhysRevLett.87.160601`, the diagonal $g$ configurations are exactly the same as the $z$ configurations, though the path integral normalization in the extended $g$ space differs from $Z$.
+But, for observables that depend on violating the constraint in the $z$ configurations, we can equivalently sample the $g$ configurations, so long as we normalize
+
+.. math ::
+   :name: worm expectation value
+
+    \left\langle \texttt{Vortex_Vortex}_{\Delta x=t-h}\right\rangle
+    =
+    \frac{1}{Z} \sum\hspace{-1.33em}\int D\phi\; Dn\; Dn\; e^{-S[\phi, n, v]} e^{+2\pi i (v_t-v_h) /W}
+    =
+    \frac{\left\langle g_{h-t} \right\rangle}{\left\langle g_{0} \right\rangle}
+
+where in the middle the path integration over $v$ implements the unshifted winding constraint :ref:`the winding constraint <winding constraint>` and on the right the angle brackets indicate expectation as we sample the larger $g$ space.
+This observable is exactly :class:`~.Vortex_Vortex`, though it requires a normalization by an expectation value.
+One way to measure $g_{\Delta x}$ is to simply make a histogram as the worm evolves, until we reach a $z$ configuration and save the histogram as a sample of $g_{\Delta x}$.
+The reason to save the histogram as a sample rather than to just accumulate a histogram for the whole worm's evolution is that once we reach a $z$ configuration we can update the other variables.
+So, the worm's displacement histogram can be saved inline as :class:`~.Vortex_Vortex`, as long as we remember to normalize any :class:`~.DerivedQuantity` that depends on it by the element of the expectation at the origin.
+
+
 .. autoclass :: supervillain.generator.villain.worm.Geometric
    :members:
 
@@ -174,6 +193,29 @@ Worm Algorithms
 Unlike the Villain formulation, the Worldline formulation has a constraint even when :math:`W=1`, :math:`\delta m = 0` everywhere.
 As in the Villain case, we can formulate a worm algorithm through configurations which purposefully and explicitly break the constraint.
 Worm algorithms are purportedly less punishing with regards to autocorrelation times, and are also efficent tools for calculating *correlations* at the same time as generating configurations.
+
+Just like the Villain case we can measure a two-point correlator inline, but in this case the constraint is $\delta m = 0$ everywhere and constraint-violating insertions are of $e^{\pm i \phi}$ (as in :meth:`~.Spin_Spin.Worldline`).
+Path integrating over $\phi$ yields a similarly modified constraint
+
+.. math ::
+
+    (\delta m)_s = \delta_{sh} - \delta_{st}
+
+When $h=t$ the configuration satisfies the original divergencelessness constraint.
+The worm we implement has exactly the same logical structure, where we enlarge the set of configurations we allow the worm to explore: those that violate the constrait at the head $h$ and tail $t$.
+When $h\neq t$ we move $h$ in a Metropolis-weighted way until $h=t$, when we consider also taking the worm away and moving back to a 'normal' $z$ configuration.
+
+In this case we get the estimator
+
+.. math ::
+
+    \left\langle \texttt{Spin_Spin}_{\Delta x} \right\rangle_Z
+    =
+    \frac{\left\langle g_{\Delta x} \right\rangle}{\left\langle g_{0} \right\rangle}
+
+where again the right-hand angle brackets mean sampling through the larger space (and also updating the usual variables).
+We can measure the right-hand side by making a histogram of the separation of head and tail as the worm evolves, so long as we remember to normalize in any expectation value or :class:`~.DerivedQuantity`.
+For this reason observables which depend on :class:`~.Spin_Spin` are derived quantities.
 
 .. autoclass :: supervillain.generator.worldline.worm.Geometric
    :members:

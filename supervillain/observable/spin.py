@@ -1,5 +1,5 @@
 import numpy as np
-from supervillain.observable import Scalar, Observable
+from supervillain.observable import Scalar, Observable, DerivedQuantity
 import supervillain.action
 
 class Spin_Spin(Observable):
@@ -87,6 +87,10 @@ class Spin_Spin(Observable):
             An implementation detail is that the fixed chosen path is the taxicab path that first covers the whole time separation and then the whole space separation.
             The point is that any other path can be reached by making a combination of :class:`~.PlaquetteUpdate`\s and :class:`~.WrappingUpdate`\s.
 
+        Clearly $S_{xx}=1$, and we can normalize so that $\texttt{Spin_Spin}_{\Delta x = 0} = 1$.
+        The method provided in this observable are already naturally normalized.
+        However, inline measurements like those provided by the :class:`worm <~.worldline.worm.Geometric>` are not,
+        and can only be normalized *after* the bootstrap, which is why anything that depends on this observable is a :class:`~.DerivedQuantity`.
         '''
 
         # Note: for a substantially similar but slower implementation see the Spin_SpinSlow observable.
@@ -217,7 +221,7 @@ class Spin_Spin(Observable):
         return W**2 / 8
 
 
-class SpinSusceptibility(Scalar, Observable):
+class SpinSusceptibility(DerivedQuantity):
     r'''
     The *spin susceptibility* is the spacetime integral of the :class:`~.Spin_Spin` correlator $S_{\Delta x}$,
 
@@ -226,24 +230,10 @@ class SpinSusceptibility(Scalar, Observable):
         \texttt{SpinSusceptibility} = \chi_S = \int d^2r\; S(r).
     '''
 
-    @classmethod
-    def autocorrelation(cls, ensemble):
-        r'''
-        As it currently stands, even though this is a scalar observable, in the Worldline case
-        the measurement cost is very high.  Since in all cases we've seen so far it fluctuates quickly
-        compared to the slower observables, it is okay to omit to save computational time.
-
-        Once we have a worm algorithm that measures the :class:`~.Spin_Spin` correlator on the fly, we can restore that case.
-        '''
-        
-        if isinstance(ensemble.Action, supervillain.action.Worldline):
-            return False
-        
-        return True
-
     @staticmethod
     def default(S, Spin_Spin):
-        return np.sum(Spin_Spin.real)
+        # If Spin_Spin was measured inline (by a worm, for example) then we need to normalize it.
+        return np.sum(Spin_Spin.real) / Spin_Spin[0,0]
     
 class SpinSusceptibilityScaled(SpinSusceptibility):
     r'''
@@ -273,7 +263,7 @@ class SpinSusceptibilityScaled(SpinSusceptibility):
         # NOTE: implicitly assumes that the lattice is square!
         return SpinSusceptibility / L**(2-2*Spin_Spin.CriticalScalingDimension(S.W))
 
-class SpinCriticalMoment(Scalar, Observable):
+class SpinCriticalMoment(DerivedQuantity):
     r'''
     The *critical moment* of the spin correlator :math:`C_S` is the volume-average of the correlator multiplied by its long-distance critical behavior,
 
@@ -292,5 +282,6 @@ class SpinCriticalMoment(Scalar, Observable):
     def default(S, Spin_Spin):
 
         L = S.Lattice
-        return np.sum(L.R_squared**(supervillain.observable.Spin_Spin.CriticalScalingDimension(S.W)) * Spin_Spin.real) / L.sites
+        # If Spin_Spin was measured inline (by a worm, for example) then we need to normalize it.
+        return np.sum(L.R_squared**(supervillain.observable.Spin_Spin.CriticalScalingDimension(S.W)) * Spin_Spin.real) / L.sites / Spin_Spin[0,0]
 

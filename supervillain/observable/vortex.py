@@ -1,5 +1,5 @@
 import numpy as np
-from supervillain.observable import Observable, Scalar, Constrained, NotVillain
+from supervillain.observable import Observable, DerivedQuantity, Constrained
 import supervillain.action
 
 class Vortex_Vortex(Constrained, Observable):
@@ -14,6 +14,7 @@ class Vortex_Vortex(Constrained, Observable):
 
     .. math ::
         \texttt{Vortex_Vortex}_{\Delta x} = V_{\Delta x} = \frac{1}{\Lambda} \sum_x V_{x,x-\Delta x}
+
     '''
 
     @staticmethod
@@ -103,6 +104,16 @@ class Vortex_Vortex(Constrained, Observable):
             \end{align}
 
         in our standard ensemble.
+
+        .. note ::
+            The actual path $P_{xy}$ used is irrelevant in expectation, though of course on a fixed configuration you get different measurements if you pick different paths.
+            An implementation detail is that the fixed chosen path is the taxicab path that first covers the whole time separation and then the whole space separation.
+            The point is that any other path can be reached by making a combination of :class:`~.ExactUpdate`\s and :class:`~.HolonomyUpdate`\s.
+
+        Clearly $V_{x,x}=1$, and we can normalize so that $\texttt{Vortex_Vortex}_{\Delta x = 0} = 1$.
+        The methods provided in this observable are already normalized.
+        However, inline measurements like those provided by a :class:`worm <supervillain.generator.villain.worm.Geometric>` are not,
+        and can only be normalized *after* the bootstrap, which is why anything that depends on this observable is a :class:`~.DerivedQuantity`.
         '''
 
         L = S.Lattice
@@ -151,7 +162,7 @@ class Vortex_Vortex(Constrained, Observable):
         return correlator
 
 
-class VortexSusceptibility(Constrained, Scalar, Observable):
+class VortexSusceptibility(DerivedQuantity):
     r'''
     The *vortex susceptibility* is the spacetime integral of the :class:`~.Vortex_Vortex` correlator $V_{\Delta x}$,
 
@@ -162,7 +173,8 @@ class VortexSusceptibility(Constrained, Scalar, Observable):
 
     @staticmethod
     def default(S, Vortex_Vortex):
-        return np.sum(Vortex_Vortex.real)
+        # If Vortex_Vortex was measured inline (by a worm, for example) then we need to normalize it.
+        return np.sum(Vortex_Vortex.real) / Vortex_Vortex[0,0]
 
 
 class VortexSusceptibilityScaled(VortexSusceptibility):
@@ -194,7 +206,7 @@ class VortexSusceptibilityScaled(VortexSusceptibility):
         # NOTE: implicitly assumes that the lattice is square!
         return VortexSusceptibility / L**(2-2*supervillain.observable.Vortex_Vortex.CriticalScalingDimension(S.W))
 
-class VortexCriticalMoment(Constrained, Scalar, Observable):
+class VortexCriticalMoment(DerivedQuantity):
     r'''
     The *critical moment* of the vortex correlator :math:`C_V` is the volume-average of the correlator multiplied by its long-distance critical behavior,
 
@@ -212,4 +224,5 @@ class VortexCriticalMoment(Constrained, Scalar, Observable):
     def default(S, Vortex_Vortex):
 
         L = S.Lattice
-        return np.sum(L.R_squared**(supervillain.observable.Vortex_Vortex.CriticalScalingDimension(S.W)) * Vortex_Vortex.real) / L.sites
+        # If Vortex_Vortex was measured inline (by a worm, for example) then we need to normalize it.
+        return np.sum(L.R_squared**(supervillain.observable.Vortex_Vortex.CriticalScalingDimension(S.W)) * Vortex_Vortex.real) / L.sites / Vortex_Vortex[0,0]
