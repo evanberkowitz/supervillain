@@ -18,7 +18,7 @@ parser.add_argument('--W', type=int, default=1, help='Constraint integer W.  Def
 parser.add_argument('--configurations', type=int, default=100000, help='Defaults to 100000.  You need a good deal of configurations with κ=0.5 because of autocorrelations in the Villain sampling.')
 parser.add_argument('--figure', default=False, type=str)
 parser.add_argument('--observables', nargs='*', help='Names of observables to compare.  Defaults to a list of 5 observables.',
-                    default=('ActionDensity', 'InternalEnergyDensity', 'InternalEnergyDensitySquared', 'SpinSusceptibility', 'WindingSquared'))
+                    default=('ActionDensity', 'InternalEnergyDensity', 'InternalEnergyDensitySquared', 'WindingSquared'))
 
 args = parser.parse_args()
 

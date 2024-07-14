@@ -89,10 +89,6 @@ For example, :class:`~.Spin_Spin` is a two-point function, the :class:`~.Interna
    :pyobject: InternalEnergyDensity
    :lines: 1
 
-.. literalinclude :: observable/vortex.py
-   :pyobject: VortexSusceptibility
-   :lines: 1
-
 
 Different considerations override one another in accordance with the python `method resolution order`_; very roughly speaking, left-most first.
 
