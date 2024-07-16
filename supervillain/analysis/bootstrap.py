@@ -100,7 +100,7 @@ class Bootstrap(ReadWriteable):
             color = axis.get_lines()[-1].get_color()
         axis.axhspan(mean-err, mean+err, color=color, alpha=0.5, linestyle='none')
 
-    def plot_correlator(self, axis, correlator, offset=0., linestyle='none', marker='o', markerfacecolor='none', **kwargs):
+    def plot_correlator(self, axis, correlator, offset=0., multiplier=1., linestyle='none', marker='o', markerfacecolor='none', **kwargs):
         r'''
         Plots the space-dependent correlator against $\Delta x$ on the axis.
         Plotting options and kwargs are forwarded.
@@ -113,6 +113,8 @@ class Bootstrap(ReadWriteable):
             Name of the observable or derived quantity.
         offset: float
             Horizontal displacement, good for visually separating two correlators.
+        multiplier: float
+            Rescales the observable by an overall constant.
         '''
         
         L = self.Ensemble.Action.Lattice
@@ -121,8 +123,8 @@ class Bootstrap(ReadWriteable):
 
         axis.errorbar(
                 Δx+offset,
-                L.linearize(C.mean(axis=0)),
-                L.linearize(C.std(axis=0)),
+                multiplier * L.linearize(C.mean(axis=0)),
+                multiplier * L.linearize(C.std(axis=0)),
                 linestyle=linestyle,
                 marker=marker,
                 markerfacecolor=markerfacecolor,
