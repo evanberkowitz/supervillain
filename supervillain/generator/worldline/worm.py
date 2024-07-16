@@ -137,9 +137,6 @@ class Geometric(ReadWriteable, Generator):
         # Now we are ready to start evolving in z union g.
 
         while True:
-            x, y = L.mod(head-tail)
-            displacements[x, y] +=1
-            
             # There are 4 or 5 possible moves that we may make.
             # We may move the head to 1 of 4 neighboring plaquettes
             next = self._neighboring_sites(head)
@@ -185,8 +182,11 @@ class Geometric(ReadWriteable, Generator):
             # Otherwise we need to cross the link,
             m[link[choice]] += change_m[choice]
             worm_length += 1
-            # move the head
+            # move the head,
             head = next[choice]
+            # tally the worm,
+            x, y = L.mod(head-tail)
+            displacements[x, y] +=1
             # and consider our next move.
 
     def report(self):
