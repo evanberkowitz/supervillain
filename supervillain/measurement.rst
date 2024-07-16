@@ -48,10 +48,13 @@ All of these nice features are accomplished using the `Descriptor`_ protocol but
 
 If the observable does not provide an implementation for the ensemble's action, asking for it will raise a `NotImplemented`_ exception.
 However, some observables can provide a ``default`` implementation, which is particularly useful for simple functions of other primary observables.
-For example, the :class:`~.SpinSusceptibility` is just the sum of the :class:`~.Spin_Spin` two-point function.
+For example, the :class:`~.TWrapping` is just the time component of the :class:`~.TorusWrapping`.
 
-.. literalinclude:: observable/spin.py
-   :pyobject: SpinSusceptibility
+.. literalinclude:: observable/wrapping.py
+   :pyobject: TWrapping
+
+:class:`Generator`\s may return inline measurements of some observables in the dictionary of field variables.
+If those observables match any particular observable, the inline measurements take precedence and short-circuit any other computation.
 
 
 Inclusion in Autocorrelation Computation
