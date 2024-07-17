@@ -5,6 +5,7 @@ import numpy as np
 import supervillain.action
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
+import supervillain.h5.extendable as extendable
 
 import logging
 logger = logging.getLogger(__name__)
@@ -91,8 +92,8 @@ class Geometric(ReadWriteable, Generator):
         '''
 
         return {
-            'Spin_Spin': self.Action.Lattice.form(0, steps),
-            'Worm_Length':   np.zeros(steps),
+            'Spin_Spin':    extendable.array(self.Action.Lattice.form(0, steps)),
+            'Worm_Length':  extendable.array(np.zeros(steps)),
         }
 
     def step(self, configuration):
