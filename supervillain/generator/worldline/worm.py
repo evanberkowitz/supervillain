@@ -15,7 +15,7 @@ class Classic(ReadWriteable, Generator):
     This implements the classic worm of Prokof'ev and Svistunov :cite:`PhysRevLett.87.160601` for the worldline links $m\in\mathbb{Z}$ which satisfy $\delta m = 0$ on every site.
 
     On top of a constraint-satisfying configuration we put down a worm and let the head move, changing the crossed links.
-    We uniformly propose a move in all 4 directions and Metropolis-test the change.
+    We uniformly propose a move in all 4 directions and Metropolize the change.
 
     Additionally, when the head and tail coincide, we allow a fifth possible move, where we remove the worm and emit the updated $z$ configuration into the Markov chain.
     
@@ -36,6 +36,13 @@ class Classic(ReadWriteable, Generator):
         self.rng = np.random.default_rng()
 
         self.worm_lengths = deque()
+
+        # The contributions to the divergence tell you how an m contributes to δm.
+        # Opposite directions contribute oppositely, which is exactly what you want.
+        # That way, if the worm moves north, you increase n by 1, but if the worm then
+        # immediately moves south it would cross the same link but decrease m by 1,
+        # so that the constraint on this cul-de-sac would be restored.
+        self.divergence = np.array([+1, +1, -1, -1]) # east, north, west, south
 
     def _neighboring_sites(self, here):
         # east, north, west, south
@@ -78,19 +85,13 @@ class Classic(ReadWriteable, Generator):
         v = configuration['v'].copy()
         delta_v_by_W = L.delta(2, v) / S.W
 
-        # The contributions to the plaquette tell you how an n contributes to dn.
-        # Opposite directions contribute oppositely, which is exactly what you want.
-        # That way, if the worm moves north, you increase n by 1, but if the worm then
-        # immediately moves south it would cross the same link but decrease n by 1,
-        # so that the constraint on this cul-de-sac would be restored.
-        divergence = np.array([+1, +1, -1, -1]) # east, north, west, south
         # The documentation gives a definitive statement about moving the head only.
         # But we could equally well move the tail, making the opposite moves in the opposite worm evolution.
         # This can be accomplished simply by multiplying the offered changes to the links by -1.
         # We can randomly decide this orientation of the worm
         orientation = self.rng.choice([-1, +1])
         # and then simply multiply it into the constraint-restoring proposals.
-        change_m = orientation * divergence
+        change_m = orientation * self.divergence
 
         # We start with a constraint-satisfying configuration of n that is in the z sector.
         # and insert both the head and tail onto any random site---because the head and the tail are
@@ -102,8 +103,9 @@ class Classic(ReadWriteable, Generator):
 
         while True:
             # In the general case we will uniformly choose between 4 moves,
-            # but if the head and tail are together, we add the 1 g--> z transition.
+            # but if the head and tail are together, we add the g--> z transition.
             # This has likelihood of 20%, conditioned on the worm being closed.
+            # If it is proposed, however, the change in action is 0 and it is automatically accepted as a z configuration.
             if (head == tail).all() and (self.rng.uniform(0, 1) >= 0.8):
                 wl = displacements.sum()
                 self.worm_lengths.append(wl)
