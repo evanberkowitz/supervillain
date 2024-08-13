@@ -112,7 +112,7 @@ class Vortex_Vortex(Constrained, Observable):
 
         Clearly $V_{x,x}=1$, and we can normalize so that $\texttt{Vortex_Vortex}_{\Delta x = 0} = 1$.
         The methods provided in this observable are already normalized.
-        However, inline measurements like those provided by a :class:`worm <supervillain.generator.villain.worm.Geometric>` are not,
+        However, inline measurements like those provided by a :class:`worm <supervillain.generator.villain.worm.Classic>` are not,
         and can only be normalized *after* the bootstrap, which is why anything that depends on this observable is a :class:`~.DerivedQuantity`.
         '''
 

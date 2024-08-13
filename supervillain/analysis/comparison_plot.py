@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import supervillain
 from supervillain.analysis import Uncertain
 
-_default_observables=('ActionDensity', 'InternalEnergyDensity', 'InternalEnergyDensitySquared', 'SpinSusceptibility', 'WindingSquared')
+_default_observables=('ActionDensity', 'InternalEnergyDensity', 'InternalEnergyDensitySquared', 'WindingSquared')
 
 def setup(observables=_default_observables):
     r'''

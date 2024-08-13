@@ -179,9 +179,6 @@ So, the worm's displacement histogram can be saved inline as :class:`~.Vortex_Vo
 .. autoclass :: supervillain.generator.villain.worm.Classic
    :members:
 
-.. autoclass :: supervillain.generator.villain.worm.Geometric
-   :members:
-
 The worm is not ergodic on its own---it doesn't update $\phi$, for example, and it cannot change a link by ±W.
 But, in combination of with :class:`~.villain.SiteUpdate` and :class:`~.villain.LinkUpdate` it is ergodic;
 the worm can replace the combination of :class:`~.villain.ExactUpdate` and :class:`~.villain.HolonomyUpdate`.
@@ -257,9 +254,6 @@ Just like the Villain case we can measure a two-point correlator inline, but in 
 which amounts to constructing a normalized histogram after ensemble averaging.
 
 .. autoclass :: supervillain.generator.worldline.worm.Classic
-   :members:
-
-.. autoclass :: supervillain.generator.worldline.worm.Geometric
    :members:
 
 --------------------

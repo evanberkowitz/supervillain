@@ -11,7 +11,7 @@ from supervillain.analysis import Uncertain
 import supervillain.analysis.comparison_plot as comparison_plot
 supervillain.observable.progress=tqdm
 
-parser = supervillain.cli.ArgumentParser(description = 'The goal is to compute the same observables using both the Villain and Worldline actions and to check that they agree.  The Villain action is sampled with a combination of Site and Link Updates and, when W>1, the Geometric worm.')
+parser = supervillain.cli.ArgumentParser(description = 'The goal is to compute the same observables using both the Villain and Worldline actions and to check that they agree.  The Villain action is sampled with a combination of Site and Link Updates and the worm.')
 parser.add_argument('--N', type=int, default=5, help='Sites on a side.')
 parser.add_argument('--kappa', type=float, default=0.5, help='κ.  Defaults to 0.5.')
 parser.add_argument('--W', type=int, default=1, help='Constraint integer W.  Defaults to 1')
@@ -43,7 +43,7 @@ with logging_redirect_tqdm():
                 supervillain.generator.villain.SiteUpdate(V),
                 supervillain.generator.villain.LinkUpdate(V),
                 # Δn=±1 changes are made by the worm in a dn=0 way.
-                supervillain.generator.villain.worm.Geometric(V),
+                supervillain.generator.villain.worm.Classic(V),
             ))
     v = supervillain.Ensemble(V).generate(args.configurations, g, start='cold', progress=tqdm)
     print(g.report())

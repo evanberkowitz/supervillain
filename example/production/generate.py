@@ -33,9 +33,13 @@ def generate(args):
         G = supervillain.generator.villain.NeighborhoodUpdate(S)
     elif args.action == 'worldline':
         S = supervillain.action.Worldline(L, args.kappa, args.W)
-        p = supervillain.generator.worldline.PlaquetteUpdate(S)
-        h = supervillain.generator.worldline.WrappingUpdate(S)
-        G = supervillain.generator.combining.Sequentially((p, h))
+        G = supervillain.generator.combining.Sequentially((
+            #supervillain.generator.worldline.PlaquetteUpdate(S),
+            supervillain.generator.worldline.VortexUpdate(S),
+            supervillain.generator.worldline.CoexactUpdate(S),
+            supervillain.generator.worldline.WrappingUpdate(S),
+            supervillain.generator.worldline.worm.Classic(S),
+            ))
 
     with logging_redirect_tqdm():
         E = supervillain.Ensemble(S).generate(args.configurations, G, start='cold', progress=tqdm)

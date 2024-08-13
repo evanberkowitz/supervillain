@@ -89,7 +89,7 @@ class Spin_Spin(Observable):
 
         Clearly $S_{xx}=1$, and we can normalize so that $\texttt{Spin_Spin}_{\Delta x = 0} = 1$.
         The method provided in this observable are already naturally normalized.
-        However, inline measurements like those provided by the :class:`worm <~.worldline.worm.Geometric>` are not,
+        However, inline measurements like those provided by the :class:`worm <supervillain.generator.worldline.worm.Classic>` are not,
         and can only be normalized *after* the bootstrap, which is why anything that depends on this observable is a :class:`~.DerivedQuantity`.
         '''
 

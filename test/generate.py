@@ -15,22 +15,13 @@ def villain(configurations, N, kappa, W=1):
     L = Lattice(N)
     S = supervillain.action.Villain(L, kappa, W=W)
 
-    if W == 1:
-        G = supervillain.generator.combining.Sequentially((
-                supervillain.generator.villain.SiteUpdate(S),
-                supervillain.generator.villain.LinkUpdate(S),
-                supervillain.generator.villain.ExactUpdate(S),
-                supervillain.generator.villain.HolonomyUpdate(S),
-            ))
-    else:
-        G = supervillain.generator.combining.Sequentially((
-                supervillain.generator.villain.SiteUpdate(S),
-                supervillain.generator.villain.LinkUpdate(S),
-                supervillain.generator.villain.ExactUpdate(S),
-                supervillain.generator.villain.HolonomyUpdate(S),
-                # Can also make Δn=±1 changes by the worm in a dn=0 way.
-                supervillain.generator.villain.worm.Geometric(S),
-            ))
+    G = supervillain.generator.combining.Sequentially((
+            supervillain.generator.villain.SiteUpdate(S),
+            supervillain.generator.villain.LinkUpdate(S),
+            supervillain.generator.villain.ExactUpdate(S),
+            supervillain.generator.villain.HolonomyUpdate(S),
+            supervillain.generator.villain.worm.Classic(S),
+        ))
 
     with logging_redirect_tqdm():
         ensemble = supervillain.Ensemble(S).generate(configurations, G, start='cold', progress=tqdm)
@@ -44,7 +35,7 @@ def worldline(configurations, N, kappa, W=1):
         supervillain.generator.worldline.VortexUpdate(S),
         supervillain.generator.worldline.CoexactUpdate(S),
         supervillain.generator.worldline.WrappingUpdate(S, 1),
-        supervillain.generator.worldline.worm.Geometric(S),
+        supervillain.generator.worldline.worm.Classic(S),
         ))
 
     with logging_redirect_tqdm():

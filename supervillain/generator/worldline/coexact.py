@@ -25,7 +25,7 @@ class CoexactUpdate(ReadWriteable, Generator):
     .. warning ::
         This algorithm is not ergodic on its own.  It does not change $v$ (see the :class:`~.worldline.VortexUpdate`)
         nor can it produce all coclosed changes---only coexact changes.
-        For a coïnexact coclosed update consider the :class:`~.worldline.WrappingUpdate` or the :class:`Geometric worm <supervillain.generator.worldline.worm.Geometric>`.
+        For a coïnexact coclosed update consider the :class:`~.worldline.WrappingUpdate` or the :class:`worm <supervillain.generator.worldline.worm.Classic>`.
     '''
 
     def __init__(self, action, interval_t = 1):

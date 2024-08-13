@@ -15,7 +15,7 @@ parser = supervillain.cli.ArgumentParser(description = 'The goal is to compute t
 parser.add_argument('--N', type=int, default=5, help='Sites on a side.')
 parser.add_argument('--kappa', type=float, default=0.5, help='κ.  Defaults to 0.5.')
 parser.add_argument('--W', type=int, default=1, help='Constraint integer W.  Defaults to 1')
-parser.add_argument('--configurations', type=int, default=100000, help='Defaults to 100000.  You need a good deal of configurations with κ=0.5 because of autocorrelations in the Villain sampling.')
+parser.add_argument('--configurations', type=int, default=10000, help='Defaults to 10000.  You need a good deal of configurations with κ=0.5 because of autocorrelations with simple sampling.')
 parser.add_argument('--figure', default=False, type=str)
 parser.add_argument('--observables', nargs='*', help='Names of observables to compare.  Defaults to a list of 7 observables.',
                     default=('ActionDensity',
@@ -36,6 +36,8 @@ S = supervillain.action.Worldline(L, args.kappa, W=args.W)
 with logging_redirect_tqdm():
     g = supervillain.generator.combining.Sequentially((
             supervillain.generator.worldline.PlaquetteUpdate(S),
+            supervillain.generator.worldline.VortexUpdate(S),
+            supervillain.generator.worldline.CoexactUpdate(S),
             supervillain.generator.worldline.WrappingUpdate(S),
         ))
     n = supervillain.Ensemble(S).generate(args.configurations, g, start='cold', progress=tqdm)
@@ -43,7 +45,10 @@ with logging_redirect_tqdm():
 
     W = supervillain.generator.combining.Sequentially((
             supervillain.generator.worldline.PlaquetteUpdate(S),
-            supervillain.generator.worldline.Geometric(S),
+            supervillain.generator.worldline.VortexUpdate(S),
+            supervillain.generator.worldline.CoexactUpdate(S),
+            supervillain.generator.worldline.WrappingUpdate(S),
+            supervillain.generator.worldline.worm.Classic(S),
         ))
     w = supervillain.Ensemble(S).generate(args.configurations, W, start='cold', progress=tqdm)
     w.measure()
@@ -62,8 +67,8 @@ w_autocorrelation = w_thermalized.autocorrelation_time()
 
 print(f'Autocorrelation time')
 print(f'--------------------')
-print(f'Local Updates   {n_autocorrelation}')
-print(f'Worm            {w_autocorrelation}')
+print(f'Updates         {n_autocorrelation}')
+print(f' + Worm         {w_autocorrelation}')
 
 n_decorrelated = n_thermalized.every(n_autocorrelation)
 w_decorrelated = w_thermalized.every(w_autocorrelation)
@@ -76,12 +81,12 @@ w_bootstrap = supervillain.analysis.Bootstrap(w_decorrelated)
 fig, ax = comparison_plot.setup(args.observables)
 comparison_plot.bootstraps(ax,
         (n_bootstrap, w_bootstrap),
-        ('Plaquette+Wrapping', 'Worm'),
+        ('Updates', ' + Worm'),
         observables=args.observables
         )
 comparison_plot.histories(ax,
         (n, w),
-        ('Plaquette+Wrapping', 'Worm'),
+        ('Updates', ' + Worm'),
         observables=args.observables
         )
 
