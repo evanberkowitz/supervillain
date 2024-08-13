@@ -22,7 +22,6 @@ parser.add_argument('--figure', default=False, type=str)
 parser.add_argument('--observables', nargs='*', help='Names of observables to compare.  Defaults to a list of 7 observables.',
                     default=('ActionDensity',
                              'InternalEnergyDensity', 'InternalEnergyDensitySquared',
-                             'SpinSusceptibility',
                              'WindingSquared',
                              'TWrapping', 'XWrapping',
                              ))
@@ -49,6 +48,9 @@ with logging_redirect_tqdm():
     G = supervillain.generator.combining.Sequentially((
             supervillain.generator.villain.LinkUpdate(S),
             supervillain.generator.villain.SiteUpdate(S),
+            supervillain.generator.villain.ExactUpdate(S),
+            supervillain.generator.villain.HolonomyUpdate(S),
+            supervillain.generator.villain.worm.Classic(S),
     ))
     w = supervillain.Ensemble(S).generate(
             args.configurations,

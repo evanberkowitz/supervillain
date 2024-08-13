@@ -2,9 +2,10 @@
 
 import numpy as np
 import supervillain
+from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
 
-class WrappingUpdate(ReadWriteable):
+class WrappingUpdate(ReadWriteable, Generator):
     r'''
     Because :class:`~.CoexactUpdate` fails to change the wrapping, we should separately offer wrapping-changing proposals.
 
@@ -21,7 +22,7 @@ class WrappingUpdate(ReadWriteable):
 
     '''
 
-    def __init__(self, action, interval_w):
+    def __init__(self, action, interval_w=1):
         if not isinstance(action, supervillain.action.Worldline):
             raise ValueError('The WrappingUpdate requires the Worldline action.')
         self.Action = action

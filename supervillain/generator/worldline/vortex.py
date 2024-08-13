@@ -2,12 +2,13 @@
 
 import numpy as np
 import supervillain
+from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
 
 import logging
 logger = logging.getLogger(__name__)
 
-class VortexUpdate(ReadWriteable):
+class VortexUpdate(ReadWriteable, Generator):
     r'''
     This performs the same update to $v$ as :class:`PlaquetteUpdate <supervillain.generator.worldline.PlaquetteUpdate>` but leaves $m$ untouched.
 

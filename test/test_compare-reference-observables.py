@@ -25,6 +25,14 @@ pairs = (
 @harness.for_each_test_ensemble
 def test_reference_observable(action, N, kappa, W, pair, configurations=1000, ):
     ensemble = generate.cached_ensemble(action, configurations, N, kappa, W)
-    difference = np.abs(getattr(ensemble, pair[0]) - getattr(ensemble, pair[1]))
+
+    values = ()
+    for o in pair:
+        # If an observable was measured inline it likely doesn't match the reference.
+        values += (harness.measure_without_inline(ensemble, o), )
+
+    difference = np.abs(values[0]-values[1])
+
+    
     assert (difference < equality_threshold).all().item()
 

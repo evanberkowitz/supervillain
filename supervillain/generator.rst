@@ -4,8 +4,12 @@
 Sampling
 ********
 
-:class:`~.Ensemble`\ s can be :py:meth:`generated <supervillain.ensemble.Ensemble.generate>` using a *generator*.
-A generator is any object which has a class with a method that takes a configuration as a dictionary and returns a new configuration as a dictionary.
+:class:`~.Ensemble`\ s can be :py:meth:`generated <supervillain.ensemble.Ensemble.generate>` using a *Generator*.
+A generator is any object which has a class with a :meth:`~.Generator.step` method that takes a configuration as a dictionary and returns a new configuration as a dictionary.
+Some generators can measure observables as the step is taken and return them inside the step, in which case the :class:`~.Configurations` need a place to store them, which is created with the :meth:`~.Generator.inline_observables` method.
+
+.. autoclass :: supervillain.generator.Generator
+   :members:
 
 For example, a very dumb generator is
 
@@ -89,40 +93,90 @@ Smarter *worm algorithms* can make high-acceptance updates to many variables acr
 Worm Algorithms
 ^^^^^^^^^^^^^^^
 
-With the constraint integer $W$, the flux is required to satisfy $dn \equiv 0 \text{ mod }W$ on every plaquette.
-This can make it difficult to make local updates.  For example, changing any link by $1$ can change a plaquette which satisfies the constraint to one that breaks it.
-The :class:`~.NeighborhoodUpdate` handles the constraint by only proposing changes to $n$ that would leave the constraint satisfied.
-But this is not the only way to think.  Prokof'ev and Svistunov invented *worm algorithms* :cite:`PhysRevLett.87.160601` which operate by introducing defects
-where constraints may be broken, propagating those defects, and when they meet and annihilate the configuration again obeys the constraint.
+Remember that in the :class:`~.Action.Villain` case we are trying to sample according to
 
-The way to think is that there are two sets of configurations, sometimes called $\{z\}$ (which satisfy the constraint and contribute to the path integral $Z$) and $\{g\}$ (which need not obey the constraint but contribute to a two-point Green's function).
-A worm algorithm produces a Markov process on the set $\{z\} \cup \{g\}$ weighted by the unconstrained action; when the Markov chain visits a $z$ configuration we add that to the samples that will contribute to the path integral $Z$.
+.. math ::
 
-Starting from some $z$ we put a worm on a single location (in this case, a plaquette), taking us to an identical configuration of fields but now in the $g$ sector 'with a worm' which makes no change to the action at first.
-The worm has a head which will move around and a tail which will stay fixed for simplicity.
-The head can be thought of as inserting $\exp(-2\pi i v_h/W)$ into the path integral while the tail inserts $\exp(+2\pi i v_t/W)$ at locations $h$ and $t$ respectively.
-These insertions shift :ref:`the winding constraint <winding constraint>` to account for those defects,
+   \begin{align}
+       Z &= \sum\hspace{-1.33em}\int D\phi\; Dn\; Dv\; e^{-S[\phi, n, v]}
+       \\
+       S[\phi, n, v] &= \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + 2\pi i \sum_p \left(v/W + J/2\pi \right)_p (dn)_p
+   \end{align}
+
+and that we may directly path-integrate out the Lagrange multiplier $v$ in favor of a constraint
+
+.. math ::
+
+   Z = \sum\hspace{-1.33em}\int D\phi\; Dn\; e^{-S[\phi, n, v]} \prod_p [dn_p \equiv 0 \text{ mod }{W}]
+
+One observable of interest is the :class:`~.Vortex_Vortex` correlation function,
+
+.. math ::
+
+   V_{x,y} = \left\langle e^{2\pi i (v_x - v_y) / W} \right\rangle
+
+which poses a tricky problem to evaluate, since if we sample configurations of $Z$ we integrate $v$ out first and cannot easily compute the observable.
+Instead, we can think of adding an insertion of the vortex creation and annihilation operators, and we can absorb them into the action *before* path-integrating out $v$ and use the insertions to shift the constraint at the insertions
 
 .. math ::
    :name: worm constraint
 
-    dn_p \equiv (+ \delta_{ph} - \delta_{pt}) \text{ mod } W.
+   S[\phi, n, v] - 2\pi i (v_x - v_y) / W
+   \rightarrow
+   V_{x,y} = \frac{1}{Z} \sum\hspace{-1.33em}\int D\phi\; Dn\; e^{-S[\phi, n, v]} \prod_p [dn_p \equiv \delta_{px} - \delta_{py} \text{ mod }{W}]
 
-The exception is that when $h$ and $t$ coincide, the configuration with the worm accidentally satisfies the constraint, which is why we can always go from a configuration in $z$ to a configuration in $g$: just add the worm, changing nothing physical.
-So, $g$ contains the set of constraint-satisfying configurations as well as configurations that violate the constraint in exactly two places, in opposite ways.
+where $x$ and $y$ label plaquettes.
+The built-in :class:`~.Vortex_Vortex` observable measures this by picking a path between $x$ and $y$ on which to change $n$ to satisfy the new shifted constraint.
+Depending on the parameters this inevitably hits an overlap problem, where we must change so many links between $x$ and $y$ that the change in action is very big and the correlator is naturally very small, except on rare configurations where it is big.
 
-The $g$ configurations include all configurations so long as they satisfy the winding constraint except at the head and the tail, where they violate it by ±1, which we will call :ref:`the worm constraint <worm constraint>`.
+To address overlap problems of this kind Prokof'ev and Svistunov invented worm algorithms :cite:`PhysRevLett.87.160601` which operate by introducing defects
+where constraints may be broken, propagating those defects, and when they meet and annihilate the configuration again obeys the constraint.
+Consider the mixed regular+path integral $G$ with unspecified normalization $N$ (that will cancel from all interesting quatities that follow) that integrates over all sectors of possible constraints
+
+.. math ::
+
+   G = \frac{1}{N} \sum\hspace{-1.33em}\int D\phi\; Dn\; dh\; dt\; e^{-S[\phi, n, v]} \prod_p [dn_p \equiv \delta_{ph} - \delta_{pt} \text{ mod }{W}].
+
+A configuration of $G$ consists of two plaquettes $h$ and $t$, $\phi\in\mathbb{R}$ on sites and $n\in\mathbb{Z}$ on links which satisfy the $(h, t)$ constraint.
+
+Worm algorithms sample from the larger space of configurations of $G$ and, when the *head* $h$ and *tail* $t$ coincide, each $G$ configuration is a valid $Z$ configuration appearing with the right relative frequency.
+This is very different from thinking that we need to carefully design updates to always maintain the constraint.
+No!
+Violate the constraint as part of the evolution!
+
+If we want to use a worm as an update in our Markov chain, we need to emit configurations that satisfy the original :ref:`winding constraint <winding constraint>`.
+We can imagine constructing a Markov chain to sample configurations of both $Z$ and $G$.
+To go from a $Z$ configuration insert the head and tail on the same randomly-chosen location (in this case, a plaquette); the change in action is 0 and this is automatically accepted.
+This configuration now 'has a worm' even though the fields have not changed.
+
+Next we evolve the configuration in the larger set of all $G$ configurations which need not satisfy the original :ref:`winding constraint <winding constraint>` but instead violates it in exactly two places (the head and the tail), in opposite ways.
 Starting from a 'diagonal' configuration which has $h=t$, we can move the head by one plaquette.
 As the head moves it changes the $n$ on the link it crosses so that it changes $dn$ on *both* adjacent plaquettes.
-This change of $n$ changes the action, and so the moves need to be Metropolis-tested in some sense.
-
 With a clever choice we can ensure that as the head leaves a plaquette it restores the constraint there and breaks it on the destination plaquette.
 In this way the head moves around the lattice.
-Finally, when the head reaches the tail, the constraint is restored everywhere, and we have a $g$ configuration in the diagonal sector.
-Now we might possibly transition to a $z$ configuration, finally adding that configuration to our samples of for the path integral $Z$.
-*There is typically no direct way to go from any $z$ configuration to any other; the only way is through $g$.*
+This change of $n$ changes the action $S$, and so the moves need to be Metropolis-tested in some sense.
 
-.. autoclass :: supervillain.generator.villain.worm.Geometric
+Finally, when the head reaches the tail, the constraint is restored everywhere.
+We might allow the worm to keep evolving, but since it satisfies the :ref:`winding constraint <winding constraint>` it is possible to reach a $Z$ configuration too.
+To go from a $G$ configuration to a $Z$ configuration we require the head and tail to coincide and satisfy the winding constraint; the change in action is 0 and the acceptance is likewise automatically accepted if this change is proposed.
+Now we have a $Z$ configuration and add it to our Markov chain (or update it with different generators first).
+Inside the worm algorithm we need not provide a direct route from any $Z$ configuration to any other; the only way between $Z$ configurations is through $G$, though nothing prevents us from using other generators to go directly from $Z$ configuration to $Z$ configuration.
+
+Notice that
+
+.. math ::
+   :name: worm histogram
+
+   V_{x,y} = \frac{\left\langle \delta_{xh} \delta_{yt} \right\rangle_G}{\left\langle \delta_{ht} \right\rangle_G}
+
+where the expectation values are with respect to configurations drawn from $G$ (not $Z$!).
+Let us understand this expression for the :ref:`vortex correlator <worm histogram>`.
+It says that if we draw from the larger space of $G$ configurations and make a histogram in $x$ and $y$, we can normalize that histogram by its value at zero displacement to get the $V_{x,y}$.
+We can measure the histogram as we go and report with the $\phi$ and $n$.
+The reason to save the histogram as a sample rather than to just accumulate a histogram for the whole worm's evolution is that once we reach a $Z$ configuration we update the other variables; that histogram is conditional on those variables; when they change the histogram will too.
+So, the worm's displacement histogram can be saved inline as :class:`~.Vortex_Vortex`, as long as we remember to normalize any :class:`~.DerivedQuantity` that depends on it by the element of the expectation at the origin.
+
+.. autoclass :: supervillain.generator.villain.worm.Classic
    :members:
 
 The worm is not ergodic on its own---it doesn't update $\phi$, for example, and it cannot change a link by ±W.
@@ -167,11 +221,39 @@ and rejection.  Just as in the Villain case we can make smarter updates to a dyn
 Worm Algorithms
 ^^^^^^^^^^^^^^^
 
-Unlike the Villain formulation, the Worldline formulation has a constraint even when :math:`W=1`, :math:`\delta m = 0` everywhere.
-As in the Villain case, we can formulate a worm algorithm through configurations which purposefully and explicitly break the constraint.
-Worm algorithms are purportedly less punishing with regards to autocorrelation times, and are also efficent tools for calculating *correlations* at the same time as generating configurations.
+Unlike the Villain formulation, the Worldline formulation has a constraint even when :math:`W=1`, :math:`\delta m = 0` everywhere, from path-integrating $\phi$
 
-.. autoclass :: supervillain.generator.worldline.worm.Geometric
+.. math ::
+   \begin{align}
+   Z &=  (2\pi\kappa)^{-|\ell|/2}\sum\hspace{-1.33em}\int D\phi\; Dm\; Dv\; e^{-S[\phi, m, v]}
+   \\
+   S[\phi, m, v] &= \frac{1}{2\kappa} \sum_\ell \left(m - \frac{\delta v}{W} \right)_\ell^2 - i \sum_x \left(\delta m\right)_x \phi_x
+   \end{align}
+
+Thinking about the :class:`~.Spin_Spin` correlation function, we want to insert $e^{i(\phi_x-\phi_y)}$, which shifts the constraint to
+
+.. math ::
+
+    (\delta m)_s = \delta_{sx} - \delta_{sy}
+
+and we can perform updates in the mixed regular+path integral $G$ that integrates over all sectors of possible constraints
+
+.. math ::
+
+   G = \frac{1}{N} (2\pi\kappa)^{-|\ell|/2} \sum\hspace{-1.33em}\int Dm\; Dv\; dh\; dt\; e^{-S[m, v]} \prod_s [\delta m = \delta_{sh} - \delta_{st}]
+
+As in the Villain case, when the head $h$ and tail $t$ coincide a configuration of $G$ is a valid $Z$ configuration and each appears with the correct relative frequency.
+Again, the philosophy is to evolve in a larger space with the constraint lifted and celebrate when we receive a constraint-satisfying configuration.
+
+Just like the Villain case we can measure a two-point correlator inline, but in this case the constraint is $\delta m = 0$ everywhere and constraint-violating insertions are of $e^{\pm i \phi}$ (as in :meth:`~.Spin_Spin.Worldline`),
+
+.. math ::
+
+   S_{x,y} = \frac{\left\langle \delta_{xh} \delta_{yt} \right\rangle}{\left\langle \delta_{ht} \right\rangle}
+
+which amounts to constructing a normalized histogram after ensemble averaging.
+
+.. autoclass :: supervillain.generator.worldline.worm.Classic
    :members:
 
 --------------------

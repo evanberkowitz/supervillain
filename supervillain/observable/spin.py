@@ -1,5 +1,5 @@
 import numpy as np
-from supervillain.observable import Scalar, Observable
+from supervillain.observable import Scalar, Observable, DerivedQuantity
 import supervillain.action
 
 class Spin_Spin(Observable):
@@ -78,7 +78,7 @@ class Spin_Spin(Observable):
 
         .. math ::
 
-            \hat{V}_{xy} = \exp{\left[ - \frac{1}{2\kappa} \sum_{\ell \in P_{xy}} \left\{(\hat{m} - \delta v / W + P_{xy})_\ell^2 - (\hat{m} - \delta v / W)_\ell^2 \right\}\right]}
+            \hat{S}_{xy} = \exp{\left[ - \frac{1}{2\kappa} \sum_{\ell \in P_{xy}} \left\{(\hat{m} - \delta v / W + P_{xy})_\ell^2 - (\hat{m} - \delta v / W)_\ell^2 \right\}\right]}
 
         which is what we need to reweight to sampling according to $S[\hat{m}]$ with no defect.
 
@@ -87,6 +87,10 @@ class Spin_Spin(Observable):
             An implementation detail is that the fixed chosen path is the taxicab path that first covers the whole time separation and then the whole space separation.
             The point is that any other path can be reached by making a combination of :class:`~.PlaquetteUpdate`\s and :class:`~.WrappingUpdate`\s.
 
+        Clearly $S_{xx}=1$, and we can normalize so that $\texttt{Spin_Spin}_{\Delta x = 0} = 1$.
+        The method provided in this observable are already naturally normalized.
+        However, inline measurements like those provided by the :class:`worm <supervillain.generator.worldline.worm.Classic>` are not,
+        and can only be normalized *after* the bootstrap, which is why anything that depends on this observable is a :class:`~.DerivedQuantity`.
         '''
 
         # Note: for a substantially similar but slower implementation see the Spin_SpinSlow observable.
@@ -205,8 +209,19 @@ class Spin_Spin(Observable):
 
         return result
 
+    @staticmethod
+    def CriticalScalingDimension(W):
+        r'''
+        Setting the scaling dimension $(WR)^2 / 2$ of a charge-W vortex operator to 2 yields $R=2/W$.
+        The corresponding scaling dimension of the spin operator $e^{i\phi}$ is $\Delta = (1R)^{-2}/2 = W^2/8$.
 
-class SpinSusceptibility(Scalar, Observable):
+        This is the critical scaling dimension of a *single* insertion, so the two-point :class:`~.Spin_Spin` scales with twice this dimension at the critical point.
+        '''
+
+        return W**2 / 8
+
+
+class SpinSusceptibility(DerivedQuantity):
     r'''
     The *spin susceptibility* is the spacetime integral of the :class:`~.Spin_Spin` correlator $S_{\Delta x}$,
 
@@ -215,24 +230,10 @@ class SpinSusceptibility(Scalar, Observable):
         \texttt{SpinSusceptibility} = \chi_S = \int d^2r\; S(r).
     '''
 
-    @classmethod
-    def autocorrelation(cls, ensemble):
-        r'''
-        As it currently stands, even though this is a scalar observable, in the Worldline case
-        the measurement cost is very high.  Since in all cases we've seen so far it fluctuates quickly
-        compared to the slower observables, it is okay to omit to save computational time.
-
-        Once we have a worm algorithm that measures the :class:`~.Spin_Spin` correlator on the fly, we can restore that case.
-        '''
-        
-        if isinstance(ensemble.Action, supervillain.action.Worldline):
-            return False
-        
-        return True
-
     @staticmethod
     def default(S, Spin_Spin):
-        return np.sum(Spin_Spin.real)
+        # If Spin_Spin was measured inline (by a worm, for example) then we need to normalize it.
+        return np.sum(Spin_Spin.real) / Spin_Spin[0,0]
     
 class SpinSusceptibilityScaled(SpinSusceptibility):
     r'''
@@ -244,7 +245,7 @@ class SpinSusceptibilityScaled(SpinSusceptibility):
 
     where the scaling dimension at the critical coupling $\kappa_c$ is known and depends on the constraint integer $W$.
 
-    So, we scale the susceptibility,
+    So, we scale the susceptibility by the :py:meth:`~.Spin_Spin.CriticalScalingDimension`,
 
     .. math::
         \texttt{SpinSusceptibilityScaled} = \chi_S / L^{2-2\Delta(\kappa_c)}
@@ -256,18 +257,31 @@ class SpinSusceptibilityScaled(SpinSusceptibility):
     '''
 
     @staticmethod
-    def CriticalScalingDimension(W):
-        r'''
-        Setting the scaling dimension $(WR)^2 / 2$ of a charge-W vortex operator to 2 yields $R=2/W$.
-        The corresponding scaling dimension of the spin operator $e^{i\phi}$ is $\Delta = (1R)^{-2}/2 = W^2/8$.
-        '''
-
-        return W**2 / 8
-
-    @staticmethod
     def default(S, SpinSusceptibility):
 
         L = S.Lattice.nx
         # NOTE: implicitly assumes that the lattice is square!
-        return SpinSusceptibility / L**(2-2*SpinSusceptibilityScaled.CriticalScalingDimension(S.W))
+        return SpinSusceptibility / L**(2-2*Spin_Spin.CriticalScalingDimension(S.W))
+
+class SpinCriticalMoment(DerivedQuantity):
+    r'''
+    The *critical moment* of the spin correlator :math:`C_S` is the volume-average of the correlator multiplied by its long-distance critical behavior,
+
+    .. math::
+        C_S = \frac{1}{L^2} \int d^2r\; r^{2\Delta_S(\kappa_c, W)}\; S(r)
+
+    At the critical $\kappa$ the long-distance behavior of the :class:`~.Spin_Spin` correlator :math:`S` decays with exactly the required power to cancel the explicit power of $r$ and the integral cancels the normalization, giving 1 in the large-$L$ limit.
+
+    In the gapped phase $S$ decays exponentially with $r$ and the integral converges, so $C_S$ goes to 0 in the large-$L$ limit.
+
+    In the CFT, $S$ decays polynomially, but slower than the weight from the moment grows.  The integral scales with a power larger than 2 and $C_S$ diverges in the large-$L$ limit.
+    
+    '''
+
+    @staticmethod
+    def default(S, Spin_Spin):
+
+        L = S.Lattice
+        # If Spin_Spin was measured inline (by a worm, for example) then we need to normalize it.
+        return np.sum(L.R_squared**(supervillain.observable.Spin_Spin.CriticalScalingDimension(S.W)) * Spin_Spin.real) / L.sites / Spin_Spin[0,0]
 

@@ -14,7 +14,7 @@ class Villain(ReadWriteable):
 
     .. math::
        \begin{align}
-       Z[J] &= \sum\hspace{-1.33em}\int D\phi\; Dn\; e^{-S_J[\phi, n, v]}
+       Z[J] &= \sum\hspace{-1.33em}\int D\phi\; Dn\; Dv\; e^{-S_J[\phi, n, v]}
        \\
        S_J[\phi, n, v] &= \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + 2\pi i \sum_p \left(v/W + J/2\pi \right)_p (dn)_p
        \end{align}

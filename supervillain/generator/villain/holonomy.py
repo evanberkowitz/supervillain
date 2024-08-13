@@ -2,12 +2,13 @@
 
 import numpy as np
 import supervillain.action
+from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
 
 import logging
 logger = logging.getLogger(__name__)
 
-class HolonomyUpdate:
+class HolonomyUpdate(ReadWriteable, Generator):
     r'''
     The :class:`~.villain.ExactUpdate` can change $n$ by ±1 (even when $W>1$), but it does it in a coordinated way---the changes offered are exact, d(a zero form).
     No combination of exact updates, however, can create a net winding around the torus.
@@ -80,7 +81,8 @@ class HolonomyUpdate:
         # assert self.Action.valid(change_n)
 
         # The change in action on every link is simply
-        dS_link = 0.5 * self.Action.kappa * (-2*np.pi*change_n) * (2*(dphi - 2*np.pi*n) - 2*np.pi*change_n)
+        #dS_link = 0.5 * self.Action.kappa * (-2*np.pi*change_n) * (2*(dphi - 2*np.pi*n) - 2*np.pi*change_n)
+        dS_link = -2*np.pi * self.Action.kappa * change_n * ((dphi - 2*np.pi*n) - np.pi*change_n)
 
         # We need to Metropolis-accept or -reject the whole strip at once.
         # So, we sum the changes in action across the strips; first the temporal links.

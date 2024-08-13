@@ -3,9 +3,10 @@
 
 import numpy as np
 import supervillain.action
+from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
 
-class Sequentially(ReadWriteable):
+class Sequentially(ReadWriteable, Generator):
     r'''
     Sequentially applies the list of generators as a single step.
 
@@ -38,6 +39,13 @@ class Sequentially(ReadWriteable):
             result = g.step(result)
             
         return result
+
+    def inline_observables(self, steps):
+        combined = dict()
+        for g in self.generators:
+            combined |= g.inline_observables(steps)
+
+        return combined
 
     def report(self):
         r'''
@@ -84,6 +92,9 @@ class KeepEvery(ReadWriteable):
             result = self.generator.step(result)
 
         return result
+
+    def inline_observables(self, steps):
+        return self.generator.inline_observables(steps)
 
     def report(self):
         r'''

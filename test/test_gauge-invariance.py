@@ -16,7 +16,7 @@ def transform(before):
     S = before.Action
     L = S.Lattice
 
-    transformed = S.configurations(len(before))
+    transformed = before.configuration.copy()
     for i, c in enumerate(before.configuration):
         k = np.random.randint(-10,10, L.dims)
         transformed[i] = S.gauge_transform(c, k)

@@ -2,14 +2,15 @@
 
 import numpy as np
 import supervillain.action
+from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
 
 import logging
 logger = logging.getLogger(__name__)
 
-class LinkUpdate(ReadWriteable):
+class LinkUpdate(ReadWriteable, Generator):
     r'''
-    This performs the same update to $n$ as :class:`NeighborhoodUpdateSlow <supervillain.generator.reference_implementation.villain.NeighborhoodUpdateSlow>` but leaves $\phi$ untouched.
+    This performs the same update to $n$ as :class:`NeighborhoodUpdate <supervillain.generator.villain.NeighborhoodUpdate>` but leaves $\phi$ untouched.
 
     Proposals are drawn according to
 
@@ -81,7 +82,8 @@ class LinkUpdate(ReadWriteable):
         # What lets us do this so simply is that this generator does not update phi.
         # So the change in action from changing n just depends on a fixed background dphi,
         # and on n itself---no n from any other link is involved.
-        dS = 0.5 * self.kappa * (-2*np.pi*change_n) * (2*(dphi - 2*np.pi*n) - 2*np.pi*change_n)
+        #dS = 0.5 * self.kappa * (-2*np.pi*change_n) * (2*(dphi - 2*np.pi*n) - 2*np.pi*change_n)
+        dS = -2*np.pi * self.kappa * change_n * (dphi - 2*np.pi*n - np.pi*change_n)
         # The point is, dS can really be evaluated link-by-link if we freeze phi;
         # we're not missing any pieces that come from changing n on two nearby links at once.
 

@@ -43,6 +43,12 @@ class Observable:
             self._debug(f'{name} already cached.')
             return obj.__dict__[name]
 
+        # Observable might have been measured inline.
+        try:
+            return obj.configuration.fields[name]
+        except Exception as e:
+            self._debug(f'{name} was not measured inline.')
+
         # Just call the measurement and cache the result.
         class_name = obj.Action.__class__.__name__
         try:
