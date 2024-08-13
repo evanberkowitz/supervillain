@@ -9,7 +9,7 @@ from supervillain.performance import Timer
 import logging
 logger = logging.getLogger(__name__)
 
-class Blocking():
+class Blocking(ReadWriteable):
     r'''
     Rather than taking :py:meth:`~.Ensemble.every` nth configuration we can instead average (or 'block') the observables from consecutive configurations together.
 
