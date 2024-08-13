@@ -214,16 +214,17 @@ class Geometric(ReadWriteable, Generator):
 
     def _neighboring_sites(self, here):
         # east, north, west, south
-        return self.Action.Lattice.mod(here + np.array([[+1,0], [0,+1], [-1,0], [0,-1]]))
+        return self.Action.Lattice.mod(here + np.array([[+1,0], [0,+1], [-1,0], [0,-1], [0,0]]))
 
     def _adjacent_links(self, here):
         # These are the directions we'd like to move the head of the defect.
-        east, north, west, south = self._neighboring_sites(here)
+        east, north, west, south, _ = self._neighboring_sites(here)
 
         return ((0, here [0], here [1]), # t link to the east
                 (1, here [0], here [1]), # x link to the north
                 (0, west [0], west [1]), # t link to the west
-                (1, south[0], south[1])) # x link to the south
+                (1, south[0], south[1]), # x link to the south
+                )
 
     def inline_observables(self, steps):
         r'''
@@ -273,7 +274,6 @@ class Geometric(ReadWriteable, Generator):
         # coincident, they don't change the action and so any choice should be equally weighted.
         tail = self.rng.choice(L.coordinates)
         head = tail.copy()
-        worm_length = 0
         # by placing the head and tail down we have moved to the g sector!
         # Now we are ready to start evolving in z union g.
 
@@ -295,10 +295,13 @@ class Geometric(ReadWriteable, Generator):
             # There is also the possibility to move from the g sector to the z sector, which we might add to the 4 worm-movement moves.
             change_S = np.concatenate(([
             # That transition costs 0 action if the head and the tail are coincident and the winding constraint is satisfied everywhere.
-                0 if (head==tail).all()
+                    0 if (head==tail).all()
             # But, that transition should be impossible if the head and the tail are not coincident, because the winding constraint would be violated.
-                else float('inf')
-                ], change_S))
+                    else float('inf')
+                ],
+                change_S,
+            # Also we may opt to not move at all, to stay put.
+                [0]))
 
             # Now we must compute the Metropolis amplitudes
             #
@@ -309,22 +312,23 @@ class Geometric(ReadWriteable, Generator):
             P = A/A.sum()
 
             # With those probabilities in hand we can choose the update.
-            choice = self.rng.choice([-1,0,1,2,3], p=P)
+            choice = self.rng.choice([-1,0,1,2,3,4], p=P)
 
             # We might transition to the z sector, in which case we have produced a configuration that can go into our Markov chain.
             if choice == -1:
-                self.worm_lengths.append(worm_length)
-                return {'m': m, 'v': v, 'Spin_Spin': displacements, 'Worm_Length': worm_length}
+                wl = displacements.sum()
+                self.worm_lengths.append(wl)
+                return {'m': m, 'v': v, 'Spin_Spin': displacements, 'Worm_Length': wl}
                 # Note!  We don't need to Metrpolis accept/reject.  That was built in when we included the g --> z update
                 # in the A amplitudes that went into the update probabilities.
                 # That is why we went through this whole story rigamarole of distinguishing z configurations from diagonal g configurations:
                 # to unify the treatment of the acceptance of the closed worm with the movement of the worm's head.
 
-            # Otherwise we need to cross the link,
-            m[link[choice]] += change_m[choice]
-            worm_length += 1
-            # move the head,
-            head = next[choice]
+            if choice != 4:
+                # Otherwise we need to cross the link,
+                m[link[choice]] += change_m[choice]
+                # move the head,
+                head = next[choice]
             # tally the worm,
             x, y = L.mod(head-tail)
             displacements[x, y] +=1
