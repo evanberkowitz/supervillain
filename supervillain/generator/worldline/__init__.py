@@ -4,3 +4,30 @@ from .plaquette import PlaquetteUpdate
 from .vortex import VortexUpdate
 from .coexact import CoexactUpdate
 from .worm import Classic as Worm
+
+import supervillain.generator.combining as _combining
+
+def Hammer(S):
+    r'''
+    The Hammer is just syntactic sugar for a :class:`~.Sequentially` applied ergodic
+    combination of generators.  It may change from version to version as new generators
+    become available or get improved.
+
+    Parameters
+    ----------
+
+    S: a Worldline action
+
+    Returns
+    -------
+
+    An ergodic generator for updating Villain configurations.
+
+    '''
+    return _combining.Sequentially((
+            VortexUpdate(S),
+            PlaquetteUpdate(S),
+            CoexactUpdate(S),
+            WrappingUpdate(S),
+            Worm(S),
+            ))

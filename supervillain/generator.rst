@@ -88,11 +88,6 @@ As mentioned, the :class:`~.HolonomyUpdate` often rejects because it touches a m
 A major issue is that the route across the torus is very rigid: it's just a straight shot.
 Smarter *worm algorithms* can make high-acceptance updates to many variables across the lattice, which can help overcome *critical slowing down*.
 
-
-^^^^^^^^^^^^^^^
-Worm Algorithms
-^^^^^^^^^^^^^^^
-
 Remember that in the :class:`~.Action.Villain` case we are trying to sample according to
 
 .. math ::
@@ -188,6 +183,10 @@ The worm offers *dynamically determined constraint-preserving updates* and is mu
 In can change the holonomy, for example, by finding a route around the torus that isn't a straight shot but
 runs through the valley of the action.
 
+Finally, we provide a convenience function which provides an ergodic generator.
+
+.. autofunction :: supervillain.generator.villain.Hammer
+
 -------------------------
 The Worldline Formulation
 -------------------------
@@ -216,11 +215,6 @@ The combination of the :class:`~.worldline.VortexUpdate`, :class:`~.CoexactUpdat
 However, the may be suboptimal.  In particular the :class:`~.worldline.WrappingUpdate` touches a large number of links which often leads to very large changes in action
 and rejection.  Just as in the Villain case we can make smarter updates to a dynamically-determined set of variables with high acceptance by using a *worm algorithm*.
 
-
-^^^^^^^^^^^^^^^
-Worm Algorithms
-^^^^^^^^^^^^^^^
-
 Unlike the Villain formulation, the Worldline formulation has a constraint even when :math:`W=1`, :math:`\delta m = 0` everywhere, from path-integrating $\phi$
 
 .. math ::
@@ -245,7 +239,7 @@ and we can perform updates in the mixed regular+path integral $G$ that integrate
 As in the Villain case, when the head $h$ and tail $t$ coincide a configuration of $G$ is a valid $Z$ configuration and each appears with the correct relative frequency.
 Again, the philosophy is to evolve in a larger space with the constraint lifted and celebrate when we receive a constraint-satisfying configuration.
 
-Just like the Villain case we can measure a two-point correlator inline, but in this case the constraint is $\delta m = 0$ everywhere and constraint-violating insertions are of $e^{\pm i \phi}$ (as in :meth:`~.Spin_Spin.Worldline`),
+Just like the Villain case we can measure a two-point correlator inline, but in this case the constraint is $\delta m = 0$ everywhere and constraint-violating insertions are of $e^{\pm i \phi}$ (as in :meth:`Spin_Spin <supervillain.observable.Spin_Spin.Worldline>`),
 
 .. math ::
 
@@ -255,6 +249,10 @@ which amounts to constructing a normalized histogram after ensemble averaging.
 
 .. autoclass :: supervillain.generator.worldline.worm.Classic
    :members:
+
+Finally, we provide a convenience function which provides an ergodic generator.
+
+.. autofunction :: supervillain.generator.worldline.Hammer
 
 --------------------
 Combining Generators
