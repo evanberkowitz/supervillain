@@ -281,7 +281,7 @@ class Ensemble(Extendable):
         for o in self.measured:
             setattr(e, o, getattr(self, o)[::stride])
 
-        e.generator = supervillain.generator.combining.KeepEvery(stride, self.generator)
+        e.generator = supervillain.generator.combining.KeepEvery(stride, self.generator, blocked_inline=False)
 
         return e
 
