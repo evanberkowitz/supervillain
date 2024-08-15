@@ -25,7 +25,7 @@ def Hammer(S):
     An ergodic generator for updating Villain configurations.
 
     '''
-    return combining.Sequentially((
+    return _combining.Sequentially((
             SiteUpdate(S),
             LinkUpdate(S),
             ExactUpdate(S),
