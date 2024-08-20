@@ -210,16 +210,21 @@ class Spin_Spin(Observable):
         return result
 
     @staticmethod
-    def CriticalScalingDimension(W):
+    def CriticalScalingDimension(S):
         r'''
         Setting the scaling dimension $(WR)^2 / 2$ of a charge-W vortex operator to 2 yields $R=2/W$.
         The corresponding scaling dimension of the spin operator $e^{i\phi}$ is $\Delta = (1R)^{-2}/2 = W^2/8$.
 
         This is the critical scaling dimension of a *single* insertion, so the two-point :class:`~.Spin_Spin` scales with twice this dimension at the critical point.
+
+        When $W=\infty$ every $\kappa>0$ is critical and $\Delta_S = 2/R^2 = 2/2\pi \kappa = 1/\pi \kappa$.
         '''
 
-        return W**2 / 8
+        W = S.W
+        if W < float('inf'):
+            return W**2 / 8
 
+        return 1/S.kappa/np.pi
 
 class SpinSusceptibility(DerivedQuantity):
     r'''
@@ -261,7 +266,7 @@ class SpinSusceptibilityScaled(SpinSusceptibility):
 
         L = S.Lattice.nx
         # NOTE: implicitly assumes that the lattice is square!
-        return SpinSusceptibility / L**(2-2*Spin_Spin.CriticalScalingDimension(S.W))
+        return SpinSusceptibility / L**(2-2*Spin_Spin.CriticalScalingDimension(S))
 
 class SpinCriticalMoment(DerivedQuantity):
     r'''
@@ -283,5 +288,5 @@ class SpinCriticalMoment(DerivedQuantity):
 
         L = S.Lattice
         # If Spin_Spin was measured inline (by a worm, for example) then we need to normalize it.
-        return np.sum(L.R_squared**(supervillain.observable.Spin_Spin.CriticalScalingDimension(S.W)) * Spin_Spin.real) / L.sites / Spin_Spin[0,0]
+        return np.sum(L.R_squared**(supervillain.observable.Spin_Spin.CriticalScalingDimension(S)) * Spin_Spin.real) / L.sites / Spin_Spin[0,0].real
 
