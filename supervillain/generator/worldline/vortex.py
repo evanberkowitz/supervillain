@@ -116,7 +116,7 @@ class VortexUpdate(ReadWriteable, Generator):
         self.acceptance += total_acceptance / L.plaquettes
         self.accepted += total_accepted
 
-        logger.info(f'Average proposal acceptance {total_acceptance / L.plaquettes:.6f}; Actually accepted {total_accepted} / {L.plaquettes} = {total_accepted / L.plaquettes}')
+        logger.debug(f'Average proposal acceptance {total_acceptance / L.plaquettes:.6f}; Actually accepted {total_accepted} / {L.plaquettes} = {total_accepted / L.plaquettes}')
 
         return {'m': m, 'v': v}
 

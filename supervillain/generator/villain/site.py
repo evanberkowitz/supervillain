@@ -111,7 +111,7 @@ class SiteUpdate(ReadWriteable, Generator):
         self.acceptance += total_acceptance / L.sites
         self.accepted += total_accepted
 
-        logger.info(f'Average proposal acceptance {total_acceptance / L.sites:.6f}; Actually accepted {total_accepted} / {L.sites} = {total_accepted / L.sites}')
+        logger.debug(f'Average proposal acceptance {total_acceptance / L.sites:.6f}; Actually accepted {total_accepted} / {L.sites} = {total_accepted / L.sites}')
 
         return {'phi': phi, 'n': n}
 

@@ -122,7 +122,7 @@ class NeighborhoodUpdate(ReadWriteable, Generator):
 
         total_acceptance /= len(sites)
         self.acceptance += total_acceptance
-        logger.info(f'Average proposal {acceptance=:.6f}; Actually {accepted = } / {self.Action.Lattice.sites} = {accepted / self.Action.Lattice.sites}')
+        logger.debug(f'Average proposal {acceptance=:.6f}; Actually {accepted = } / {self.Action.Lattice.sites} = {accepted / self.Action.Lattice.sites}')
 
         return {'phi': phi, 'n': n}
 
