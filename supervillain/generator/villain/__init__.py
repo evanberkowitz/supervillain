@@ -30,6 +30,8 @@ def Hammer(S):
 
     '''
 
+    # We omit the NeighborhoodUpdate since it is a simple combination of the Vortex and CoexactUpdates.
+
     if S.W < float('inf'):
         return _combining.Sequentially((
                 SiteUpdate(S),

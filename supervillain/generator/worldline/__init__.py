@@ -24,9 +24,11 @@ def Hammer(S):
     An ergodic generator for updating Villain configurations.
 
     '''
+
+    # We omit the PlaquetteUpdate since it is a simple combination of the Vortex and CoexactUpdates.
+
     return _combining.Sequentially((
-            VortexUpdate(S),
-            PlaquetteUpdate(S),
+            VortexUpdate(S), # <-- Handles the finite-W or infinite-W case
             CoexactUpdate(S),
             WrappingUpdate(S),
             Worm(S),
