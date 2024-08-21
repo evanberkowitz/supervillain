@@ -114,6 +114,9 @@ class Villain(ReadWriteable):
     def valid(self, n):
         r'''
         Returns true if the constraint $[dn \equiv 0 \text{ mod } W]$ is satisfied everywhere.
+
+        When $W=\infty$, check that $dn = 0$ everywhere.
         '''
 
-        return (np.mod(self.Lattice.d(1, n), self.W) == 0).all()
+        zero = (np.mod(self.Lattice.d(1, n), self.W) if self.W < float('inf') else self.Lattice.d(1, n))
+        return (zero == 0).all()
