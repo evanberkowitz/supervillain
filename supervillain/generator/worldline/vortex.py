@@ -16,7 +16,11 @@ class VortexUpdate(ReadWriteable, Generator):
 
     .. math ::
 
-        \Delta v_p   \sim [-\texttt{interval_v}, +\texttt{interval_v}] \setminus \{0\}
+        \begin{align}
+            \Delta v_p   &\sim [-\texttt{interval_v}, +\texttt{interval_v}] \setminus \{0\} &&(W<\infty)
+            \\
+            \Delta v_p   &\sim \text{uniform}(-\texttt{interval_v}, +\texttt{interval_v}) &&(W=\infty)
+        \end{align}
 
     on each plaquette $p$ independently.
 
@@ -66,7 +70,7 @@ class VortexUpdate(ReadWriteable, Generator):
         v = cfg['v'].copy()
 
         L = self.Action.Lattice
-        W = self.Action.W
+        W = self.Action._W
 
         metropolis = self.rng.uniform(0, 1, v.shape)
         total_accepted = 0
@@ -81,8 +85,12 @@ class VortexUpdate(ReadWriteable, Generator):
             delta_v = L.delta(2, v)
 
             # Randomly bump v
-            change_v = L.form(0, dtype=int)
-            change_v[color] = self.rng.choice(self.vs, len(color[0]))
+            if self.Action.W < float('inf'):
+                change_v = L.form(0, dtype=int)
+                change_v[color] = self.rng.choice(self.vs, len(color[0]))
+            else:
+                change_v = L.form(0, dtype=float)
+                change_v[color] = self.rng.uniform(-self.interval_v, +self.interval_v, len(color[0]))
 
             # and compute the change of action on each link.
             change_delta_v = L.delta(2, change_v)
@@ -116,7 +124,7 @@ class VortexUpdate(ReadWriteable, Generator):
 
     def report(self):
         return (
-            f'There were {self.accepted} single-plaquette proposals accepted of {self.proposed} proposed updates.'
+            f'There were {self.accepted} vortex proposals accepted of {self.proposed} proposed updates.'
             +'\n'+
             f'    {self.accepted/self.proposed:.6f} acceptance rate'
             +'\n'+
