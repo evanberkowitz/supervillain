@@ -69,7 +69,7 @@ class CoexactUpdate(ReadWriteable, Generator):
         accepted = 0
 
         v = cfg['v'].copy()
-        delta_v_by_W = self.Lattice.delta(2, v)/self.Action.W
+        delta_v_by_W = self.Lattice.delta(2, v)/self.Action._W
 
         m = cfg['m'].copy()
 

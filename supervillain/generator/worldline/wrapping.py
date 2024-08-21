@@ -61,7 +61,7 @@ class WrappingUpdate(ReadWriteable, Generator):
 
         # Now we compute the change in action on every link, which we will reduce along different directions
         # to get the change in action from each cycle.
-        dS_link = 0.5 / self.Action.kappa * change_m * (2*(m - L.δ(2, v) / self.Action.W) + change_m)
+        dS_link = 0.5 / self.Action.kappa * change_m * (2*(m - L.δ(2, v) / self.Action._W) + change_m)
 
         # First the temporal cycles.
         dS = dS_link[0].sum(axis=0)

@@ -83,7 +83,7 @@ class Classic(ReadWriteable, Generator):
         # This algorithm will not update v; but it is useful to precompute δv
         # which is used in the evaluation of the changes in action.
         v = configuration['v'].copy()
-        delta_v_by_W = L.delta(2, v) / S.W
+        delta_v_by_W = L.delta(2, v) / S._W
 
         # The documentation gives a definitive statement about moving the head only.
         # But we could equally well move the tail, making the opposite moves in the opposite worm evolution.
