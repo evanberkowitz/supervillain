@@ -25,7 +25,8 @@ class Vortex_Vortex(Constrained, Observable):
 
         L = S.Lattice
 
-        vortex = np.exp(2j*np.pi * v / S.W)
+        # When W=∞ we want exp(iv).
+        vortex = np.exp(2j*np.pi * v / S._W)
 
         return L.correlation(vortex, vortex)
 
