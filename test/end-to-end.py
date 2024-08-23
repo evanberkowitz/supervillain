@@ -12,7 +12,7 @@ from supervillain.analysis import Uncertain
 parser = supervillain.cli.ArgumentParser()
 parser.add_argument('--N', type=int, default=5, help='Sites on a side.')
 parser.add_argument('--kappa', type=float, default=0.5, help='κ.')
-parser.add_argument('--W', type=int, default=1, help='The constraint integer W.')
+parser.add_argument('--W', type=supervillain.cli.W, default=1, help='The constraint integer W.')
 parser.add_argument('--configurations', type=int, default=10000)
 parser.add_argument('--action', type=str, default='villain', choices=['villain', 'worldline'])
 parser.add_argument('--bootstraps', default=100, type=int, help='Number of bootstrap resamplings.')

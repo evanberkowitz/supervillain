@@ -23,7 +23,7 @@ The expected result is that the worm measurement comes out much closer to the wo
 especially in the long-distance tails.  To see this effect clearly we need a great deal of configurations.
     ''')
 parser.add_argument('--N', type=int, default=11, help='Sites on a side.  Defaults to 11.')
-parser.add_argument('--W', type=int, default=2, help='Winding constraint.  Defaults to 2.')
+parser.add_argument('--W', type=supervillain.cli.W, default=2, help='Winding constraint.  Defaults to 2.')
 parser.add_argument('--kappa', type=float, default=0.12025, help='κ.  Defaults to 0.12025.')
 parser.add_argument('--configurations', type=int, default=100000, help='Defaults to 100000; a large number is required to see a pronounced difference.')
 parser.add_argument('--figure', default=False, type=str)

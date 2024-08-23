@@ -14,11 +14,11 @@ supervillain.observable.progress=tqdm
 parser = supervillain.cli.ArgumentParser(description = 'The goal is to compute the same observables using both the Villain and Worldline actions and to check that they agree.  The Villain action is sampled with a combination of Site and Link Updates and the worm.')
 parser.add_argument('--N', type=int, default=5, help='Sites on a side.')
 parser.add_argument('--kappa', type=float, default=0.5, help='κ.  Defaults to 0.5.')
-parser.add_argument('--W', type=int, default=1, help='Constraint integer W.  Defaults to 1')
+parser.add_argument('--W', default=supervillain.cli.W, help='Constraint integer W.  Defaults to 1')
 parser.add_argument('--configurations', type=int, default=100000, help='Defaults to 100000.  You need a good deal of configurations with κ=0.5 because of autocorrelations in the Villain sampling.')
 parser.add_argument('--figure', default=False, type=str)
 parser.add_argument('--observables', nargs='*', help='Names of observables to compare.  Defaults to a list of 5 observables.',
-                    default=('ActionDensity', 'InternalEnergyDensity', 'InternalEnergyDensitySquared', 'WindingSquared'))
+                    default=('ActionDensity', 'InternalEnergyDensity', 'InternalEnergyDensitySquared', ))
 
 args = parser.parse_args()
 
@@ -33,40 +33,26 @@ W = supervillain.action.Worldline(L, args.kappa, W=args.W)
 
 # Now sample each action.
 with logging_redirect_tqdm():
-    if args.W == 1:
-        g = supervillain.generator.combining.Sequentially((
-                supervillain.generator.villain.SiteUpdate(V),
-                supervillain.generator.villain.LinkUpdate(V),
-            ))
-    else:
-        g = supervillain.generator.combining.Sequentially((
-                supervillain.generator.villain.SiteUpdate(V),
-                supervillain.generator.villain.LinkUpdate(V),
-                # Δn=±1 changes are made by the worm in a dn=0 way.
-                supervillain.generator.villain.worm.Classic(V),
-            ))
+    g = supervillain.generator.villain.Hammer(V)
     v = supervillain.Ensemble(V).generate(args.configurations, g, start='cold', progress=tqdm)
     print(g.report())
 
 with logging_redirect_tqdm():
-    g = supervillain.generator.combining.Sequentially((
-            supervillain.generator.worldline.PlaquetteUpdate(W),
-            supervillain.generator.worldline.WrappingUpdate(W)
-        ))
+    g = supervillain.generator.worldline.Hammer(W)
     w = supervillain.Ensemble(W).generate(args.configurations, g, start='cold', progress=tqdm)
     print(g.report())
 
 # A first computation of the autocorrelation time will have effects from thermalization.
-v_autocorrelation = v.autocorrelation_time()
-w_autocorrelation = w.autocorrelation_time()
+v_autocorrelation = v.autocorrelation_time(observables=args.observables)
+w_autocorrelation = w.autocorrelation_time(observables=args.observables)
 
 # We aggressively cut to ensure thermalization.
 v_thermalized = v.cut(10*v_autocorrelation)
 w_thermalized = w.cut(10*w_autocorrelation)
 
 # Now we can get a fair computation of the autocorrelation time.
-v_autocorrelation = v_thermalized.autocorrelation_time()
-w_autocorrelation = w_thermalized.autocorrelation_time()
+v_autocorrelation = v_thermalized.autocorrelation_time(observables=args.observables)
+w_autocorrelation = w_thermalized.autocorrelation_time(observables=args.observables)
 
 print(f'Autocorrelation time')
 print(f'--------------------')
