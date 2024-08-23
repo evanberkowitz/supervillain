@@ -25,12 +25,13 @@ class Vortex_Vortex(Constrained, Observable):
 
         L = S.Lattice
 
-        vortex = np.exp(2j*np.pi * v / S.W)
+        # When W=∞ we want exp(iv).
+        vortex = np.exp(2j*np.pi * v / S._W)
 
         return L.correlation(vortex, vortex)
 
     @staticmethod
-    def CriticalScalingDimension(W):
+    def CriticalScalingDimension(S):
         r'''
         The critical scaling dimension of the winding-$w$ operator is $R^2 w^2 / 2$.
         With the constraint that only charge $W$ vortices are allowed as propagating excitations,
@@ -39,9 +40,15 @@ class Vortex_Vortex(Constrained, Observable):
         What we want to know is the scaling dimension of the $w=1$ operator, which at the phase transition is $\Delta = (1R)^2/2 = 2/W^2$.
 
         This is the critical scaling dimension of a *single* insertion, so the two-point :class:`~.Vortex_Vortex` scales with twice this dimension at the critical point.
+
+        When $W=\infty$ every $\kappa>0$ is critical, and $\Delta_V = 2R^2 = 2\times 2\pi \kappa = 4\pi \kappa$.
         '''
 
-        return 2/W**2
+        W = S.W
+        if W < float('inf'):
+            return 2/W**2
+
+        return 4*np.pi * S.kappa
 
     _change_n = dict()
     _changed_links = dict()
@@ -204,7 +211,7 @@ class VortexSusceptibilityScaled(VortexSusceptibility):
 
         L = S.Lattice.nx
         # NOTE: implicitly assumes that the lattice is square!
-        return VortexSusceptibility / L**(2-2*supervillain.observable.Vortex_Vortex.CriticalScalingDimension(S.W))
+        return VortexSusceptibility / L**(2-2*supervillain.observable.Vortex_Vortex.CriticalScalingDimension(S))
 
 class VortexCriticalMoment(DerivedQuantity):
     r'''
@@ -225,4 +232,4 @@ class VortexCriticalMoment(DerivedQuantity):
 
         L = S.Lattice
         # If Vortex_Vortex was measured inline (by a worm, for example) then we need to normalize it.
-        return np.sum(L.R_squared**(supervillain.observable.Vortex_Vortex.CriticalScalingDimension(S.W)) * Vortex_Vortex.real) / L.sites / Vortex_Vortex[0,0]
+        return np.sum(L.R_squared**(supervillain.observable.Vortex_Vortex.CriticalScalingDimension(S)) * Vortex_Vortex.real) / L.sites / Vortex_Vortex[0,0].real

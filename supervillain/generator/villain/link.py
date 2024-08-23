@@ -97,7 +97,7 @@ class LinkUpdate(ReadWriteable, Generator):
         self.accepted += accepted.sum()
         self.proposed += n.size
 
-        logger.info(f'Average proposal acceptance {acceptance.mean():.6f}; Actually accepted {accepted.sum()} / {self.Action.Lattice.sites} = {accepted.sum() / self.Action.Lattice.sites / 2}')
+        logger.debug(f'Average proposal acceptance {acceptance.mean():.6f}; Actually accepted {accepted.sum()} / {self.Action.Lattice.sites} = {accepted.sum() / self.Action.Lattice.sites / 2}')
 
         return {'phi': phi, 'n': n}
 

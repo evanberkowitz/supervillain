@@ -114,7 +114,7 @@ class HolonomyUpdate(ReadWriteable, Generator):
         self.acceptance += total_acceptance / (L.nx + L.nt)
         self.accepted += total_accepted
 
-        logger.info(f'Average proposal acceptance {total_acceptance / (L.nx + L.nt):.6f}; Actually accepted {total_accepted} / {(L.nx + L.nt)} = {total_accepted / (L.nx + L.nt)}')
+        logger.debug(f'Average proposal acceptance {total_acceptance / (L.nx + L.nt):.6f}; Actually accepted {total_accepted} / {(L.nx + L.nt)} = {total_accepted / (L.nx + L.nt)}')
 
         return {'phi': phi, 'n': n}
 

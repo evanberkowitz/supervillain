@@ -37,7 +37,7 @@ class PlaquetteUpdate(ReadWriteable, Generator):
         '''
         
         kappa = self.Action.kappa
-        W     = self.Action.W
+        W     = self.Action._W
         L = self.Action.Lattice
 
         m = cfg['m'].copy()

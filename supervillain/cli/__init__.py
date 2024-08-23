@@ -55,3 +55,16 @@ class ArgumentParser(argparse.ArgumentParser):
             logger.debug(f'{arg}: {parsed.__dict__[arg]}')
 
         return parsed
+
+def W(w):
+    r'''
+    Allow W to be any integer or float('inf') if w is in {inf, ∞, infinity, infty}.
+    '''
+
+    if w in ('inf', '∞', 'infinity', 'infty'):
+        return float('inf')
+
+    try:
+        return int(w)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(f'{w} not a definite integer or infinity')

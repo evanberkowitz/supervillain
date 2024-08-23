@@ -104,8 +104,6 @@ class Classic(ReadWriteable, Generator):
         # Now we are ready to start evolving in z union g.
 
         while True:
-            x, y = L.mod(head-tail)
-            displacements[x, y] += 1
 
             # In the general case we will uniformly choose between 4 moves,
             # but if the head and tail are together, we add the g--> z transition.
@@ -148,7 +146,10 @@ class Classic(ReadWriteable, Generator):
                 # and cross the link.
                 n[link] += delta_n
 
-            # Finally, we consider our next move.
+            # Finally, we tally the worm,
+            x, y = L.mod(head-tail)
+            displacements[x, y] += 1
+            # and consider our next move.
 
     def report(self):
         l = np.array(self.worm_lengths)

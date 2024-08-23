@@ -69,7 +69,7 @@ class CoexactUpdate(ReadWriteable, Generator):
         accepted = 0
 
         v = cfg['v'].copy()
-        delta_v_by_W = self.Lattice.delta(2, v)/self.Action.W
+        delta_v_by_W = self.Lattice.delta(2, v)/self.Action._W
 
         m = cfg['m'].copy()
 
@@ -124,7 +124,7 @@ class CoexactUpdate(ReadWriteable, Generator):
         self.acceptance += total_acceptance / L.plaquettes
         self.accepted += total_accepted
 
-        logger.info(f'Average proposal acceptance {total_acceptance / L.plaquettes:.6f}; Actually accepted {total_accepted} / {L.plaquettes} = {total_accepted / L.plaquettes}')
+        logger.debug(f'Average proposal acceptance {total_acceptance / L.plaquettes:.6f}; Actually accepted {total_accepted} / {L.plaquettes} = {total_accepted / L.plaquettes}')
 
         return {'m': m, 'v': v}
 

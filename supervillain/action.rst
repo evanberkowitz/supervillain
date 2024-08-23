@@ -31,11 +31,14 @@ If we integrate over particular values of $J_p$ we can project out values of the
 For example, if we integrate $J$ over the reals the simplicity of the action allows us to find a constraint
 
 .. math::
+   :name: vortex-free model
+
    \begin{align}
         \int DJ\; e^{i \sum_p J_p (dn)_p} = \prod_p 2\pi \delta(dn_p)
    \end{align}
 
-but we may also set $J = 2\pi v / W$ for any positive integer $W$ and sum over integer-valued plaquette variables $v$,
+which kills all vortices, because every plaquette must have 0 vorticity.
+We may also set $J = 2\pi v / W$ for any positive integer $W$ and sum over integer-valued plaquette variables $v$,
 
 .. math::
    :name: constrained villain model
@@ -53,6 +56,7 @@ The constrained model has a gauge symmetry $v \rightarrow v \pm W$ because with 
     e^{2\pi i \sum_p v_p (dn)_p / W}
 
 and the path integral are invariant under that transformation.  When $W=1$ the ...constraint... does not constrain $dn$.
+We may think of of the :ref:`vortex-free model <vortex-free model>` as $W=\infty$.
 
 The constrained model has a $\mathbb{Z}_W$ winding symmetry WHICH DESERVES A LOT MORE DISCUSSION HERE.
 
@@ -68,6 +72,7 @@ However, the sign problem can be traded for a constraint,
 
 (where $[dn_p \equiv 0 \text{ mod } W]$ is the `Iverson bracket`_).
 This constraint might be implemented with careful Monte Carlo updates.
+And we can sample configurations with $W=\infty$ if we can find an ergodic set of updates which never change $dn$ anywhere, assuming we start from a :ref:`vortex-free configuration <vortex-free model>`.
 
 Remarkably, we will see that the worldline formulation is naturally sign-problem free.
 

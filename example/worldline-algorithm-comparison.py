@@ -14,7 +14,7 @@ supervillain.observable.progress=tqdm
 parser = supervillain.cli.ArgumentParser(description = 'The goal is to compute the same observables using both the Villain and Worldline actions and to check that they agree.')
 parser.add_argument('--N', type=int, default=5, help='Sites on a side.')
 parser.add_argument('--kappa', type=float, default=0.5, help='κ.  Defaults to 0.5.')
-parser.add_argument('--W', type=int, default=1, help='Constraint integer W.  Defaults to 1')
+parser.add_argument('--W', type=supervillain.cli.W, default=1, help='Constraint integer W.  Defaults to 1')
 parser.add_argument('--configurations', type=int, default=10000, help='Defaults to 10000.  You need a good deal of configurations with κ=0.5 because of autocorrelations with simple sampling.')
 parser.add_argument('--figure', default=False, type=str)
 parser.add_argument('--observables', nargs='*', help='Names of observables to compare.  Defaults to a list of 7 observables.',
