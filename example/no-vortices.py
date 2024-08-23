@@ -17,7 +17,7 @@ logging.getLogger('matplotlib').setLevel(logging.WARNING)
 
 
 def path(args, action):
-    return f'W=∞/kappa={args.kappa:0.6f}/N={args.N}/{action=}'
+    return f'W=∞/kappa={args.kappa:0.6f}/N={args.N}/action={action}'
 
 def generate(args, action):
 
@@ -137,6 +137,7 @@ if __name__ == '__main__':
     parser.add_argument('--kappa', type=float, default=0.5/np.pi, help='κ.  Defaults to the self-dual 1/2π.')
     parser.add_argument('--configurations', type=int, default=10000, help='Defaults to 100000.  You need a good deal of configurations with κ=0.5 because of autocorrelations in the Villain sampling.')
     parser.add_argument('--h5', default='no-vortices.h5', help='File for storage')
+    parser.add_argument('--pdf', type=str, default='', help='PDF to write the figures into.')
     parser.add_argument('--reset', default=False, action='store_true')
     parser.add_argument('--observables', nargs='*', help='Names of observables to compare.  Defaults to a list of 4 observables.',
                         default=('ActionDensity', 'InternalEnergyDensity', 'InternalEnergyDensitySquared', ))
@@ -165,7 +166,7 @@ if __name__ == '__main__':
         D = decorrelate(E, args.observables)
         D.measure()
 
-        B = supervillain.analysis.Bootstrap(D)#, len(D))
+        B = supervillain.analysis.Bootstrap(D, 200)
         B.Vortex_Vortex /= B.Vortex_Vortex[:,0,0][:,None,None]
         B.Spin_Spin /= B.Spin_Spin[:,0,0][:,None,None]
 
@@ -175,17 +176,23 @@ if __name__ == '__main__':
             bootstrap[action].to_h5(file.create_group(p))
 
 
-    fig, ax = compare(bootstrap, args.observables)
-    fig.suptitle(f'N={args.N} κ={kappa_str} W=∞')
-    fig.tight_layout()
+    fig_comparison, ax = compare(bootstrap, args.observables)
+    fig_comparison.suptitle(f'W=∞ κ={kappa_str} N={args.N}')
+    fig_comparison.tight_layout()
 
-    fig, ax = correlators(bootstrap)
-    fig.suptitle(f'N={args.N} κ={kappa_str} W=∞')
-    fig.tight_layout()
+    fig_correlators, ax = correlators(bootstrap)
+    fig_correlators.suptitle(f'W=∞ κ={kappa_str} N={args.N}')
+    fig_correlators.tight_layout()
 
-    fig, ax = self_dual(bootstrap)
-    fig.suptitle(f'N={args.N} κ={kappa_str} W=∞')
-    fig.tight_layout()
+    fig_dual, ax = self_dual(bootstrap)
+    fig_dual.suptitle(f'W=∞ κ={kappa_str} N={args.N}')
+    fig_dual.tight_layout()
 
-
-    plt.show()
+    if args.pdf:
+        from matplotlib.backends.backend_pdf import PdfPages
+        with PdfPages(args.pdf) as pdf:
+            for n in plt.get_fignums():
+                fig= plt.figure(n)
+                fig.savefig(pdf, format='pdf') 
+    else:
+        plt.show()
