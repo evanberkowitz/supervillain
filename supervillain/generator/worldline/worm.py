@@ -144,6 +144,7 @@ class Classic(ReadWriteable, Generator):
             # Finally, we tally the worm,
             x, y = L.mod(head-tail)
             displacements[x, y] +=1
+            # and consider our next move.
 
     def report(self):
         l = np.array(self.worm_lengths)
