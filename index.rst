@@ -27,11 +27,12 @@ supervillain
 Version Information
 ===================
 
+.. toctree::
+   changes
+
 .. git_commit_detail::
    :branch:
    :commit:
-   :uncommitted:
-   :untracked:
 
 License
 =======
