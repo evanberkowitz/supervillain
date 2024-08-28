@@ -43,6 +43,9 @@ class Classic(ReadWriteable, Generator):
         # so that the constraint on this cul-de-sac would be restored.
         self.plaquette = np.array([+1, +1, -1, -1]) # east, north, west, south
 
+    def __str__(self):
+        return 'ClassicWorm'
+
     def _neighboring_plaquettes(self, here):
         # east, north, west, south
         return self.Action.Lattice.mod(here + np.array([[0,-1], [+1,0], [0,+1], [-1,0]]))
