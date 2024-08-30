@@ -99,4 +99,16 @@ if __name__ == '__main__':
             ):
         print(ensembles)
 
+    if args.figure or args.pdf:
 
+        import matplotlib.pyplot as plt
+        import results
+        import scaling
+
+        figs = scaling.visualize(results.collect(ensembles))
+
+        if args.pdf:
+            results.pdf(args.pdf, figs)
+        if args.figure:
+            plt.show()
+ 
