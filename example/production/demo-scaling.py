@@ -12,9 +12,9 @@ ensembles = deque()
 ################################################################################
 
 storage = {
-    'thermalization storage': 'test-thermalize.h5',
-    'ensemble storage':  'test-data.h5',
-    'bootstrap storage': 'test-bootstrap.h5',
+    'thermalization storage': 'demo-thermalize.h5',
+    'ensemble storage':  'demo-data.h5',
+    'bootstrap storage': 'demo-bootstrap.h5',
 }
 
 ################################################################################
@@ -101,7 +101,6 @@ if __name__ == '__main__':
 
     if args.figure or args.pdf:
 
-        import matplotlib.pyplot as plt
         import results
         import scaling
 
