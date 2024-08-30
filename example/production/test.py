@@ -1,0 +1,102 @@
+#!/usr/bin/env python
+
+from collections import deque
+from itertools import product, chain
+import pandas as pd
+
+ensembles = deque()
+
+################################################################################
+# STORAGE
+# Where should we write things to disk?
+################################################################################
+
+storage = {
+    'thermalization storage': 'test-thermalize.h5',
+    'ensemble storage':  'test-data.h5',
+    'bootstrap storage': 'test-bootstrap.h5',
+}
+
+################################################################################
+# GENERATION
+################################################################################
+generate = {
+    'thermalize': 50,         # How many steps to take to measure τ?
+    'thermalization cut': 10,   # Multiplies τ to cut and recompute τ.
+    'configurations':   50,   # How many configurations in production?
+}
+
+################################################################################
+# ANALYSIS
+################################################################################
+analysis = {
+    'bootstraps': 100,          # How many bootstrap samples?
+}
+
+################################################################################
+# ACTION
+# We will use two different actions to do this calculation; some ensembles use
+# the original Villain frame and some use the dual Worldline frame.
+################################################################################
+defaults = storage | generate | analysis
+
+worldline = defaults | {
+    'action': 'Worldline',
+    'start':  'cold',
+}
+
+villain = defaults | {
+    'action': 'Villain',
+    'start':  'cold',
+}
+
+
+################################################################################
+# LATTICE SIZES
+################################################################################
+
+NS = (3, 5, 7, 9, )
+
+################################################################################
+W=1
+################################################################################
+
+for kappa, N in product(
+        (0.5, 0.74, 1.10, ),
+        NS,
+    ):
+    ensembles.append(worldline | {'W': W, 'kappa': kappa, 'N':  N, })
+
+
+################################################################################
+# MAKE A DATAFRAME
+################################################################################
+ensembles = pd.DataFrame(ensembles)
+
+################################################################################
+# AND ADD ANY OBVIOUS PROCESSING
+################################################################################
+ensembles['path'] = ensembles.apply(lambda row:
+    f"W={row['W']}/kappa={row['kappa']:0.5f}/N={row['N']}/{row['action']}",
+    axis=1, raw=False
+    )
+
+################################################################################
+# HUMAN INTERFACE
+################################################################################
+if __name__ == '__main__':
+    import supervillain
+    parser = supervillain.cli.ArgumentParser()
+    parser.add_argument('--figure', default=False, action='store_true')
+    parser.add_argument('--pdf', default='', type=str)
+
+    args = parser.parse_args()
+
+    with pd.option_context(
+            'display.max_rows', None,
+            'display.max_columns', None,
+            'display.width', None,
+            ):
+        print(ensembles)
+
+
