@@ -32,6 +32,15 @@ def collect(ensembles, observables=()):
 
     return pd.DataFrame(data)
 
+def ensembles(df):
+    r'''
+    A generator which emits ensembles that are really on disk.
+    '''
+    for idx, row in df.iterrows():
+        if not (E:=steps.Possible(steps.Ensemble).of(row)):
+            continue
+        yield E
+
 
 def pdf(filename, figures):
     from matplotlib.backends.backend_pdf import PdfPages
