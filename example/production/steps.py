@@ -6,8 +6,19 @@ import supervillain
 from supervillain.performance import Timer
 from supervillain.h5 import Data
 
-from tqdm.autonotebook import tqdm
-from tqdm.contrib.logging import logging_redirect_tqdm
+def progress(iterable, **kwargs):
+    r'''
+    Like `tqdm <https://tqdm.github.io/docs/tqdm/#tqdm-objects>`_, but requires the iterable.
+
+    The default progress bar is a no-op that forwards the iterable.  You can overwrite it simply.
+
+    .. code:: python
+
+        from tqdm import tqdm
+        import steps
+        steps.progress=tqdm
+    '''
+    return iterable
 
 import logging
 logger = logging.getLogger(__name__)
@@ -186,8 +197,7 @@ class Thermalization(Step):
         S = cooked['action']
         G = cooked['generator']
 
-        with logging_redirect_tqdm():
-            E = supervillain.Ensemble(S).generate(row['thermalize'], G, start=row['start'], progress=tqdm)
+        E = supervillain.Ensemble(S).generate(row['thermalize'], G, start=row['start'], progress=progress)
 
         E.measure()
         tau = E.autocorrelation_time()
@@ -242,8 +252,7 @@ class Ensemble(Step):
         G = cooked['generator']
         last = cooked['thermalization'].configuration[-1]
 
-        with logging_redirect_tqdm():
-            E = supervillain.Ensemble(S).generate(row['configurations'], G, start=last, progress=tqdm)
+        E = supervillain.Ensemble(S).generate(row['configurations'], G, start=last, progress=progress)
 
         E.measure()
         tau = E.autocorrelation_time()
