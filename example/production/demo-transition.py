@@ -121,4 +121,5 @@ if __name__ == '__main__':
         if args.pdf:
             results.pdf(args.pdf, figs)
         if args.figure:
+            import matplotlib.pyplot as plt
             plt.show()
