@@ -149,4 +149,4 @@ class Bootstrap(ReadWriteable):
             A tuple with the central value and uncertainty estimate for the observable.  Need not be scalars, if the observable has other indices, the pieces of the tuples have those indices.
         '''
         o = getattr(self, observable)
-        return (np.mean(o), np.std(o))
+        return (np.mean(o, axis=0), np.std(o, axis=0))
