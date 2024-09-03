@@ -13,7 +13,7 @@ ensembles = deque()
 
 storage = {
     'thermalization storage': 'demo-scaling-thermalize.h5',
-    'ensemble storage':  'demo-scaling-data.h5',
+    'ensemble storage':  'demo-scaling-ensemble.h5',
     'bootstrap storage': 'demo-scaling-bootstrap.h5',
 }
 
