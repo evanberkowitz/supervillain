@@ -22,7 +22,18 @@ if __name__ == '__main__':
 
     parser = supervillain.cli.ArgumentParser()
     parser.add_argument('input_file', type=supervillain.cli.input_file('input'), default='input.py')
+    parser.add_argument('--parallel', default=False, action='store_true')
 
     args = parser.parse_args()
 
-    produce(args.input_file.ensembles)
+    if not args.parallel:
+        from tqdm.autonotebook import tqdm
+        from tqdm.contrib.logging import logging_redirect_tqdm
+        import steps
+        steps.progress=tqdm
+
+        with logging_redirect_tqdm():
+            produce(args.input_file.ensembles)
+    else:
+        from parallel import Parallelize
+        Parallelize(produce)(args.input_file.ensembles, gather=('thermalization storage', ))
