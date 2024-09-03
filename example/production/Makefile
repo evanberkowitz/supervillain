@@ -14,6 +14,7 @@ demo-parallel:
 demo-scaling.pdf: production.py scaling.py demo-scaling.py
 	python production.py $(PARALLEL) demo-scaling.py
 	python history.py demo-scaling.py --pdf demo-scaling-history.pdf
+	python correlators.py demo-scaling.py --pdf demo-scaling-correlators.pdf
 	python demo-scaling.py --pdf demo-scaling.pdf
 
 demo-transition.pdf: production.py transition.py demo-transition.py
