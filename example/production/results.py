@@ -8,6 +8,10 @@ import steps
 import logging
 logger = logging.getLogger(__name__)
 
+# Here are some utilities for collecting data.
+
+
+# collect produces a dataframe with essentially all observables for each bootstrapped ensemble on disk.
 def collect(ensembles, observables=()):
 
     data = deque()
@@ -21,6 +25,7 @@ def collect(ensembles, observables=()):
         for line in str(row).split('\n'):
             logger.info(line)
         if not (B := steps.Possible(steps.Bootstrap).of(row)):
+            logger.info('Bootstrap not available.')
             continue
 
         for o in observables:
@@ -32,6 +37,8 @@ def collect(ensembles, observables=()):
 
     return pd.DataFrame(data)
 
+# Here is an iterator which loops over all the ensembles on disk.
+# It returns the ensemble, not the dataframe row.
 def ensembles(df):
     r'''
     A generator which emits ensembles that are really on disk.
@@ -42,6 +49,7 @@ def ensembles(df):
         yield E
 
 
+# This lets us easily transform a set of figures into a multipage PDF.
 def pdf(filename, figures):
     from matplotlib.backends.backend_pdf import PdfPages
     with PdfPages(filename) as PDF:
