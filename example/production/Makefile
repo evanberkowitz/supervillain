@@ -14,8 +14,8 @@ demo-transition.pdf: production.py transition.py demo-transition.py
 	python demo-transition.py --pdf demo-transition.pdf
 
 demo-tidy:
-	$(RM) demo-{scaling,transition}*h5
+	$(RM) demo-{scaling,transition}*pdf
 
 demo-clean: demo-tidy
-	$(RM) demo-{scaling,transition}*pdf
+	$(RM) demo/{scaling,transition}*h5
 

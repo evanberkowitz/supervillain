@@ -12,9 +12,9 @@ ensembles = deque()
 ################################################################################
 
 storage = {
-    'thermalization storage': 'demo-scaling-thermalize.h5',
-    'ensemble storage':  'demo-scaling-ensemble.h5',
-    'bootstrap storage': 'demo-scaling-bootstrap.h5',
+    'thermalization storage': 'demo/scaling-thermalize.h5',
+    'ensemble storage':  'demo/scaling-ensemble.h5',
+    'bootstrap storage': 'demo/scaling-bootstrap.h5',
 }
 
 ################################################################################
