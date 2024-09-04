@@ -65,7 +65,10 @@ class Parallelize:
         rewritten = ensembles.apply(io_prep, axis=1)
 
         with Pool(self.threads) as p:
-            p.map(self.f, (row.to_frame().T for idx, row in rewritten.iterrows()))
+            try:
+                p.map(self.f, (row.to_frame().T for idx, row in rewritten.iterrows()))
+            except Exception as e:
+                print(e)
 
         for g in gather:
             rewritten.apply(lambda row: self._gather(row, g), axis=1)

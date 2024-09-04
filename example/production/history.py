@@ -54,7 +54,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    print(args.input_file.ensembles)
+    logger.info(args.input_file.ensembles)
     figs = visualize(results.ensembles(args.input_file.ensembles))
 
     if args.pdf:

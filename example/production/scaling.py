@@ -59,13 +59,18 @@ if __name__ == '__main__':
 
     parser = supervillain.cli.ArgumentParser()
     parser.add_argument('input_file', type=supervillain.cli.input_file('input'), default='input.py')
+    parser.add_argument('--parallel', default=False, action='store_true')
     parser.add_argument('--pdf', default='', type=str)
 
     args = parser.parse_args()
 
-    print(args.input_file.ensembles)
+    ensembles = args.input_file.ensembles
+    if args.parallel:
+        import parallel
+        ensembles = ensembles.apply(parallel.io_prep, axis=1)
+    print(ensembles)
 
-    data = results.collect(args.input_file.ensembles)
+    data = results.collect(ensembles)
     figs = visualize(data)
 
     if args.pdf:
