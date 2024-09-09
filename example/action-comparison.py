@@ -12,9 +12,9 @@ import supervillain.analysis.comparison_plot as comparison_plot
 supervillain.observable.progress=tqdm
 
 parser = supervillain.cli.ArgumentParser(description = 'The goal is to compute the same observables using both the Villain and Worldline actions and to check that they agree.  The Villain action is sampled with a combination of Site and Link Updates and the worm.')
-parser.add_argument('--N', type=int, default=5, help='Sites on a side.')
+parser.add_argument('--N', type=int, default=5, help='Sites on a side.  Defaults to 5.')
 parser.add_argument('--kappa', type=float, default=0.5, help='κ.  Defaults to 0.5.')
-parser.add_argument('--W', default=supervillain.cli.W, help='Constraint integer W.  Defaults to 1')
+parser.add_argument('--W', type=supervillain.cli.W, default=1, help='Constraint integer W.  Defaults to 1')
 parser.add_argument('--configurations', type=int, default=100000, help='Defaults to 100000.  You need a good deal of configurations with κ=0.5 because of autocorrelations in the Villain sampling.')
 parser.add_argument('--figure', default=False, type=str)
 parser.add_argument('--observables', nargs='*', help='Names of observables to compare.  Defaults to a list of 5 observables.',
