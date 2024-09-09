@@ -255,8 +255,13 @@ class Ensemble(Step):
         E = supervillain.Ensemble(S).generate(row['configurations'], G, start=last, progress=progress)
 
         E.measure()
-        tau = E.autocorrelation_time()
-        logger.info(f'Production τ={tau}')
+        try:
+            tau = E.autocorrelation_time()
+            logger.info(f'Production τ={tau}')
+        except Exception as exception:
+            logger.warning(exception)
+            logger.warning(f'Setting τ to 2, assuming the thermalization decorrelated correctly.')
+            tau=2
         E.tau = tau
 
         return E
