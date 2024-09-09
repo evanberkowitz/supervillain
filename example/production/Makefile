@@ -22,9 +22,23 @@ demo-transition.pdf: production.py transition.py demo-transition.py
 	python history.py demo-transition.py --pdf demo-transition-history.pdf
 	python demo-transition.py --pdf demo-transition.pdf
 
+.PHONY: demo-tidy
 demo-tidy:
 	$(RM) demo-{scaling,transition}*pdf
 
+.PHONY: demo-clean
 demo-clean: demo-tidy
 	$(RM) demo/{scaling,transition}*h5
 
+.PHONY: paper
+paper: Z3-breaking.pdf
+
+Z3-breaking.pdf: breaking.py Z3-breaking.py
+	python production.py $(PARALLEL) Z3-breaking.py
+	python breaking.py $(PARALLEL) Z3-breaking.py --pdf Z3-breaking.pdf
+
+paper-tidy:
+	$(RM) Z3-breaking.pdf
+
+paper-clean: paper-tidy
+	@ECHO "Clean the data files manually, it is too dangerous to provide a makefile target."
