@@ -1146,6 +1146,8 @@ class _Lattice2D:
 
        Moreover, not all methods have the same signature due to limitations in numba.
 
+       Seriously this is to be used but rarely.  Used only in :class:`~.worldline.ClassicWorm`.
+
     .. note ::
         
         Currently `numba jitclasses do not support classmethods <https://numba.readthedocs.io/en/stable/proposals/jit-classes.html>`_.
