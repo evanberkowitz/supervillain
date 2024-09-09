@@ -268,3 +268,14 @@ Another (trivial) combination is a decorrelating application.
 
 .. autoclass :: supervillain.generator.combining.KeepEvery
    :members:
+
+--------
+Monitors
+--------
+
+We can make pass-through generators to perform specific tasks, like logging.
+
+.. autoclass :: supervillain.generator.monitor.Logger
+   :members:
+
+One could construct monitors that, for example, measured observables inline.
