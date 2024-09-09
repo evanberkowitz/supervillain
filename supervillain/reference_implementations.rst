@@ -22,6 +22,11 @@ Villain NeighborhoodUpdate
 .. autoclass :: supervillain.generator.reference_implementation.villain.NeighborhoodUpdateSlow
    :members:
 
+Wordline Classic Worm
+=====================
+.. autoclass :: supervillain.generator.reference_implementation.worldline.ClassicWorm
+   :members:
+
 
 
 ===========
