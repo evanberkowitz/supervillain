@@ -10,5 +10,3 @@ Currently we focus on the 1+1 model.
 .. autoclass :: supervillain.lattice.Lattice2D
    :members:
 
-.. autoclass :: supervillain.lattice._Lattice2D
-   :members:
