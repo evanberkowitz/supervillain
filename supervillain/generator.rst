@@ -247,7 +247,7 @@ Just like the Villain case we can measure a two-point correlator inline, but in 
 
 which amounts to constructing a normalized histogram after ensemble averaging.
 
-.. autoclass :: supervillain.generator.worldline.worm.Classic
+.. autoclass :: supervillain.generator.worldline.worm.ClassicWorm
    :members:
 
 Finally, we provide a convenience function which provides an ergodic generator.
