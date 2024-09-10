@@ -111,12 +111,23 @@ class Villain(ReadWriteable):
             'n':   configuration['n']   + self.Lattice.d(0, k),
         }
 
-    def valid(self, n):
+    def valid(self, configuration):
         r'''
         Returns true if the constraint $[dn \equiv 0 \text{ mod } W]$ is satisfied everywhere.
 
         When $W=\infty$, check that $dn = 0$ everywhere.
+
+        Parameters
+        ----------
+        configuration: dict
+            A dictionary that at least contains n.
+
+        Returns
+        -------
+        bool:
+            Is the constraint satisfied everywhere?
         '''
 
+        n = configuration['n']
         zero = (np.mod(self.Lattice.d(1, n), self.W) if self.W < float('inf') else self.Lattice.d(1, n))
         return (zero == 0).all()
