@@ -1202,23 +1202,23 @@ class _Lattice2D:
 
     def neighboring_plaquettes(self, here):
         # east, north, west, south
-        return self.mod(here + np.array([[+1,0], [0,+1], [-1,0], [0,-1]]))
+        return self.mod(here + np.array([[0,-1], [+1,0], [0,+1], [-1,0]]))
 
     def adjacent_links(self, form, site):
-        # Links to the east, north, west, and south
-        t, x = self.neighboring_sites(site)
-        east = np.array([t[0], x[0]])
-        north= np.array([t[1], x[1]])
-        west = np.array([t[2], x[2]])
-        south= np.array([t[3], x[3]])
-
 
         if form == 0:
+            # Links to the east, north, west, and south
+            t, x = self.neighboring_sites(site)
+            east = np.array([t[0], x[0]])
+            north= np.array([t[1], x[1]])
+            west = np.array([t[2], x[2]])
+            south= np.array([t[3], x[3]])
+
             #     n
-            #     |
-            #   w-h-e
-            #     |
-            #     s
+            #     |     x
+            #   w-h-e   ^
+            #     |     |
+            #     s     o-->t
 
             return ((0, site [0], site [1]), # t link to the east
                     (1, site [0], site [1]), # x link to the north
@@ -1226,13 +1226,20 @@ class _Lattice2D:
                     (1, south[0], south[1])) # x link to the south
 
         if form == 2:
-            #        n
-            #       +-+
-            #      w|h|e
-            #       o-+
-            #        s
+            t, x = self.neighboring_plaquettes(site)
+            east = np.array([t[0], x[0]])
+            north= np.array([t[1], x[1]])
+            west = np.array([t[2], x[2]])
+            south= np.array([t[3], x[3]])
+            #        n          
+            #       +-+         t
+            #      w|h|e        ^
+            #       o-+         |
+            #        s      x<--o
 
-            return ((1, east [0], east [1]), # t link to the east
-                    (0, north[0], north[1]), # x link to the north
-                    (1, site [0], site [1]), # t link to the west
-                    (0, site [0], site [1])) # x link to the south
+        return ((0, site [0], site [1]), # t link to the east
+                (1, north[0], north[1]), # x link to the north
+                (0, west [0], west [1]), # t link to the west
+                (1, site [0], site [1])) # x link to the south
+
+

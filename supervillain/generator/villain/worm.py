@@ -7,10 +7,13 @@ from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
 import supervillain.h5.extendable as extendable
 
+from supervillain.lattice import _Lattice2D
+import numba
+
 import logging
 logger = logging.getLogger(__name__)
 
-class Classic(ReadWriteable, Generator):
+class ClassicWorm(ReadWriteable, Generator):
     r'''
     This implements the classic worm of Prokof'ev and Svistunov :cite:`PhysRevLett.87.160601` for the Villain links $n\in\mathbb{Z}$ which satisfy $dn \equiv 0 $ (mod W) on every plaquette.
 
@@ -29,6 +32,14 @@ class Classic(ReadWriteable, Generator):
     .. note ::
         
         **Because** it doesn't change $dn$ at all, this algorithm can play an important role in sampling the $W=\infty$ sector, where all vortices are completely killed, though updates to $\phi$ would still be needed.
+
+    .. note ::
+
+        This class contains kernels accelerated using numba.
+
+    .. seealso ::
+
+        There is :class:`a reference implementation without any numba acceleration <supervillain.generator.reference_implementation.villain.ClassicWorm>`.
     '''
 
     def __init__(self, S):
@@ -45,20 +56,6 @@ class Classic(ReadWriteable, Generator):
 
     def __str__(self):
         return 'ClassicWorm'
-
-    def _neighboring_plaquettes(self, here):
-        # east, north, west, south
-        return self.Action.Lattice.mod(here + np.array([[0,-1], [+1,0], [0,+1], [-1,0]]))
-
-    def _surrounding_links(self, here):
-        # These are the directions we'd like to move the head of the defect.
-        east, north, west, south = self._neighboring_plaquettes(here)
-
-        return ((0, here [0], here [1]), # t link to the east
-                (1, north[0], north[1]), # x link to the north
-                (0, west [0], west [1]), # t link to the west
-                (1, here [0], here [1])) # x link to the south
-
 
     def inline_observables(self, steps):
         r'''
@@ -106,55 +103,72 @@ class Classic(ReadWriteable, Generator):
         # by placing the head and tail down we have moved to the g sector!
         # Now we are ready to start evolving in z union g.
 
-        while True:
-
-            # In the general case we will uniformly choose between 4 moves,
-            # but if the head and tail are together, we add the g--> z transition.
-            # This has likelihood of 20%, conditioned on the worm being closed.
-            # If it is proposed, however, the change in action is 0 and it is automatically accepted as a z configuration.
-            if ((head == tail).all() or (S.W==1)) and (self.rng.uniform(0, 1) >= 0.8):
-                # Just as we could put down an open worm when W=1, we can also remove an open worm in that case.
-                # In other words, if W=1 we always have the possibility of return a Z configuration from the existing G configuration.
-                wl = displacements.sum()
-                self.worm_lengths.append(wl)
-                return {'n': n, 'phi': phi, 'Vortex_Vortex': displacements, 'Worm_Length': wl}
-            
-            # Conditioned on not transitioning to z, we make a uniform choice of the 4 possible directions.
-            choice = self.rng.choice([0,1,2,3])
-
-            # We may move the head to 1 of 4 neighboring plaquettes
-            the_next = self._neighboring_plaquettes(head)[choice]
-            # in which case we will cross the corresponding links.
-            link = self._surrounding_links(head)[choice]
-
-            # Crossing the link changes n and therefore the action.
-            change_link = dphi[link] - 2*np.pi*n[link]
-            delta_n = change_n[choice]
-            change_S = (
-                (S.kappa / 2) *
-                (-2*np.pi*delta_n) *
-                (2*change_link - 2*np.pi*delta_n)
-            )
-
-            # Now we must compute the Metropolis amplitude
-            #
-            #   A = min(1, exp(-ΔS) )
-            #
-            A = np.clip(np.exp(-change_S), a_min=0, a_max=1)
-
-            # and Metropolis-test the update.
-            if self.rng.uniform(0, 1) < A:
-                # If it accepted we move the head
-                head = the_next
-                # and cross the link.
-                n[link] += delta_n
-
-            # Finally, we tally the worm,
-            x, y = L.mod(head-tail)
-            displacements[x, y] += 1
-            # and consider our next move.
+        new_n, vortex_vortex = worm_kernel(self.rng,
+            _Lattice2D(S.Lattice.dims),
+            S.W, S.kappa,
+            head, tail,
+            n, dphi, change_n
+        )
+        
+        wl = vortex_vortex.sum()
+        self.worm_lengths.append(wl)
+        return {'n': new_n, 'phi': phi, 'Vortex_Vortex': vortex_vortex, 'Worm_Length': wl}
 
     def report(self):
         l = np.array(self.worm_lengths)
         return f'There were {len(l)} worms.\nWorms lengths:\n    mean {l.mean()}\n    std  {l.std()}\n    max  {max(l)}'
+
+@numba.njit
+def worm_kernel(rng, _Lattice, W, kappa, head, tail, n, dphi, change_n):
+
+    displacements = np.zeros((_Lattice.nt, _Lattice.nx), dtype=np.int64)
+
+    L = _Lattice
+
+    while True:
+        # In the general case we will uniformly choose between 4 moves,
+        # but if the head and tail are together, we add the g--> z transition.
+        # This has likelihood of 20%, conditioned on the worm being closed.
+        # If it is proposed, however, the change in action is 0 and it is automatically accepted as a z configuration.
+        if ((head == tail).all() or (W==1)) and (rng.uniform(0, 1) >= 0.8):
+            # Just as we could put down an open worm when W=1, we can also remove an open worm in that case.
+            # In other words, if W=1 we always have the possibility of return a Z configuration from the existing G configuration.
+            return n, displacements
+        
+        # Conditioned on not transitioning to z, we make a uniform choice of the 4 possible directions.
+        choice = rng.integers(0, 4)
+
+        # We may move the head to 1 of 4 neighboring plaquettes
+        t, x = L.neighboring_plaquettes(head)
+        the_next = np.array([t[choice], x[choice]], dtype=np.int64)
+        # in which case we will cross the corresponding links.
+        link = L.adjacent_links(2, head)[choice]
+
+        # Crossing the link changes n and therefore the action.
+        change_link = dphi[link] - 2*np.pi*n[link]
+        delta_n = change_n[choice]
+        change_S = (
+            (kappa / 2) *
+            (-2*np.pi*delta_n) *
+            (2*change_link - 2*np.pi*delta_n)
+        )
+
+        # Now we must compute the Metropolis amplitude
+        #
+        #   A = min(1, exp(-ΔS) )
+        #
+        A = np.min(np.array([1., np.exp(-change_S)]))
+
+        # and Metropolis-test the update.
+        if rng.uniform(0, 1) < A:
+            # If it accepted we move the head
+            head = the_next
+            # and cross the link.
+            n[link] += delta_n
+
+        # Finally, we tally the worm,
+        x, y = L.mod(head-tail)
+        displacements[x, y] += 1
+        # and consider our next move.
+
 

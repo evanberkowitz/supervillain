@@ -118,7 +118,7 @@ class ClassicWorm(ReadWriteable, Generator):
         l = np.array(self.worm_lengths)
         return f'There were {len(l)} worms.\nWorms lengths:\n    mean {l.mean()}\n    std  {l.std()}\n    max  {max(l)}'
 
-@numba.jit
+@numba.njit
 def worm_kernel(rng, _Lattice, kappa, head, tail, m, delta_v_by_W, change_m):
 
     displacements = np.zeros((_Lattice.nt, _Lattice.nx), dtype=np.int64)
@@ -130,11 +130,11 @@ def worm_kernel(rng, _Lattice, kappa, head, tail, m, delta_v_by_W, change_m):
             # but if the head and tail are together, we add the g--> z transition.
             # This has likelihood of 20%, conditioned on the worm being closed.
             # If it is proposed, however, the change in action is 0 and it is automatically accepted as a z configuration.
-            if (head == tail).all() and (np.random.uniform(0., 1.) >= 0.8):
+            if (head == tail).all() and (rng.uniform(0., 1.) >= 0.8):
                 return m, displacements
 
             # Conditioned on not transitioning to z, we make a uniform choice of the 4 possible directions.
-            choice = np.random.choice(np.arange(4))
+            choice = rng.integers(0, 4)
 
             # Now we propose a move to the next position.
             t, x = L.neighboring_sites(head)
@@ -158,7 +158,7 @@ def worm_kernel(rng, _Lattice, kappa, head, tail, m, delta_v_by_W, change_m):
             A = np.min(np.array([1., np.exp(-change_S)])) # numba doesn't support clip?
 
             # and Metropolis-test the update.
-            if np.random.uniform(0., 1.) < A:
+            if rng.uniform(0., 1.) < A:
                 # If it accepted we move the head
                 head = nxt
                 # and cross the link.
