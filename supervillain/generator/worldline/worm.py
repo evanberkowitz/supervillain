@@ -102,7 +102,7 @@ class ClassicWorm(ReadWriteable, Generator):
         # by placing the head and tail down we have moved to the g sector!
         # Now we are ready to start evolving in z union g.
 
-        new_m, spin_spin = worm_kernel(
+        new_m, spin_spin = worm_kernel(self.rng,
             _Lattice2D(self.Action.Lattice.dims),
             S.kappa,
             head, tail,
@@ -119,7 +119,7 @@ class ClassicWorm(ReadWriteable, Generator):
         return f'There were {len(l)} worms.\nWorms lengths:\n    mean {l.mean()}\n    std  {l.std()}\n    max  {max(l)}'
 
 @numba.jit
-def worm_kernel(_Lattice, kappa, head, tail, m, delta_v_by_W, change_m):
+def worm_kernel(rng, _Lattice, kappa, head, tail, m, delta_v_by_W, change_m):
 
     displacements = np.zeros((_Lattice.nt, _Lattice.nx), dtype=np.int64)
 
