@@ -19,11 +19,17 @@ _default_correlators=(
     )
 
 def plot_correlators(ensembles,
-                     correlators=tuple(o for o, l in _default_correlators),
-                     labels=tuple(l for o, l in _default_correlators),
+                     correlators=_default_correlators,
                      ):
 
-    fig, ax = plt.subplots(1, len(correlators), figsize=(12*len(correlators), 8))
+    if (ensembles['W']==1).all():
+        correlators = tuple(c for c in correlators if c[0] != 'Vortex_Vortex')
+
+    labels = tuple(c[1] for c in correlators)
+    correlators = tuple(c[0] for c in correlators)
+
+    fig, ax = plt.subplots(1, len(correlators), figsize=(12*len(correlators), 8), squeeze=False)
+    ax = ax[0]
 
     e = len(ensembles)
 
@@ -73,14 +79,19 @@ if __name__ == '__main__':
 
     parser = supervillain.cli.ArgumentParser()
     parser.add_argument('input_file', type=supervillain.cli.input_file('input'), default='input.py')
+    parser.add_argument('--parallel', default=False, action='store_true')
     parser.add_argument('--pdf', default='', type=str)
 
     args = parser.parse_args()
 
-    logger.info(args.input_file.ensembles)
+    ensembles = args.input_file.ensembles
+    if args.parallel:
+        import parallel
+        ensembles = ensembles.apply(parallel.io_prep, axis=1)
+    logger.info(ensembles)
 
-    data = results.collect(args.input_file.ensembles)
-    figs = visualize(results.collect(args.input_file.ensembles))
+    data = results.collect(ensembles)
+    figs = visualize(data)
 
     if args.pdf:
         results.pdf(args.pdf, figs)
