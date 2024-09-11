@@ -9,7 +9,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def scaling_plot(ax, observable, data):
+def scaling_plot(ax, observable, data, kappas_per_column=8):
+
+    label = observable[1]
+    observable = observable[0]
 
     for ((kappa, action), dat) in data.groupby(['kappa', 'action']):
         ax.errorbar(
@@ -21,27 +24,38 @@ def scaling_plot(ax, observable, data):
     ax.set_xscale('log')
     ax.set_yscale('log')
 
-    ax.set_ylabel(observable)
+    ax.set_ylabel(label)
     ax.set_xlabel('1/N')
 
     L = data.N.unique()
     ax.set_xticks(1/L)
     ax.set_xticklabels([f'1/{l}' for l in L])
-    ax.minorticks_off()
+    ax.tick_params(axis='x', which='minor', bottom=False)
     ax.grid(True, which='both', axis='y')
 
-    ax.legend(loc='upper right')
+    ax.legend(loc='lower right', ncols=(1+ (len(data['kappa'].unique()) // kappas_per_column)))
  
 
-def visualize(data):
+def visualize(data, all_observables=False):
 
     figs=deque()
 
     for W, dat in data.groupby('W'):
-        fig, ax = plt.subplots(1,2, figsize=(20, 8), sharex='col')
+
+        plot_all = W!=1 or all_observables
+        observables = (('SpinCriticalMoment', r'$C_S$'),
+                       ('VortexCriticalMoment', r'$C_V$'),
+                       )
+        if not plot_all:
+            observables = observables[:1]
+
+        n = len(observables)
+
+        fig, ax = plt.subplots(1, n, figsize=(10*n, 8), sharex='col', squeeze=False)
+        ax = ax[0]
         fig.suptitle(f'{W=}', fontsize=24)
 
-        for a, o in zip(ax, ('SpinCriticalMoment', 'VortexCriticalMoment')):
+        for a, o in zip(ax, observables):
             scaling_plot(a, o, dat)
 
         fig.tight_layout()
@@ -60,6 +74,7 @@ if __name__ == '__main__':
     parser = supervillain.cli.ArgumentParser()
     parser.add_argument('input_file', type=supervillain.cli.input_file('input'), default='input.py')
     parser.add_argument('--parallel', default=False, action='store_true')
+    parser.add_argument('--all', default=False, action='store_true')
     parser.add_argument('--pdf', default='', type=str)
 
     args = parser.parse_args()
@@ -71,7 +86,7 @@ if __name__ == '__main__':
     print(ensembles)
 
     data = results.collect(ensembles)
-    figs = visualize(data)
+    figs = visualize(data, all_observables=args.all)
 
     if args.pdf:
         results.pdf(args.pdf, figs)
