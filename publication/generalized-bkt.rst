@@ -9,6 +9,8 @@ The mixed 't Hooft anomaly between this $\mathbb{Z}_W$ and the $U(1)_S$ shift sy
 
 Because we get the 't Hooft anomaly correct at finite lattice spacing we know that we must have order at any $\kappa$.
 At high $\kappa$ we have a CFT while at low $\kappa$ we have spontaneous breaking of the $\mathbb{Z}_W$ symmetry.
+There is a critical $W$-dependent $\kappa_c$ separating these two phases.
+In the $W=1$ BKT case $\kappa_c \approx 0.74$ :cite:`Janke:1993va`.
 
 Showing that the modified Villain action really achieves this can be understood as a numerical demonstation that the maintenance of the continuum symmetris and 't Hooft anomalies.
 
