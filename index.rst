@@ -8,7 +8,7 @@ supervillain
 
 .. toctree::
    :maxdepth: 1
-   :caption: Contents:
+   :caption: Contents
 
    supervillain/action
    supervillain/worldline
@@ -24,25 +24,30 @@ supervillain
    test/index.rst
    supervillain/reference_implementations
 
-Version Information
-===================
-
 .. toctree::
+   :caption: Version Information
+
    changes
 
 .. git_commit_detail::
    :branch:
    :commit:
 
-License
-=======
-
 .. toctree::
+   :caption: License
+
    contributors
    license
 
 .. literalinclude:: LICENSE
    :language: none
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Publications
+
+   publication/generalized-bkt
+
 
 Indices and tables
 ==================
