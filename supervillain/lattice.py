@@ -1062,8 +1062,6 @@ class Lattice2D(ReadWriteable):
         '''
         return 0.5*(form - np.roll(np.flip(form, axis=axis), 1, axis=axis))
 
-    # TODO: spacetime point group symmetry projection to D4 irreps.
-
     @cached_property
     def point_group_permutations(self):
         r'''
