@@ -3,7 +3,7 @@ from .wrapping import WrappingUpdate
 from .plaquette import PlaquetteUpdate
 from .vortex import VortexUpdate
 from .coexact import CoexactUpdate
-from .worm import Classic as Worm
+from .worm import ClassicWorm as Worm
 
 import supervillain.generator.combining as _combining
 

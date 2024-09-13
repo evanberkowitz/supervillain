@@ -93,6 +93,9 @@ class Ensemble(Extendable):
             self.start = start
             self.generator = generator
 
+        for line in generator.report().split('\n'):
+            logger.info(line)
+
         return self
 
     @classmethod

@@ -50,11 +50,22 @@ class Worldline(ReadWriteable):
     def __str__(self):
         return f'Worldline({self.Lattice}, κ={self.kappa}, W={self.W})'
 
-    def valid(self, m):
+    def valid(self, configuration):
         r'''
         Returns true if the constraint $[\delta m = 0]$ is satisfied everywhere and false otherwise.
+
+        Parameters
+        ----------
+        configuration: dict
+            A dictionary that at least contains m.
+
+        Returns
+        -------
+        bool:
+            Is the constraint satisfied everywhere?
         '''
 
+        m = configuration['m']
         return (self.Lattice.delta(1, m) == 0).all()
 
     def __call__(self, m, v, **kwargs):

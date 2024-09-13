@@ -4,7 +4,7 @@ from .link import LinkUpdate
 from .exact import ExactUpdate
 from .holonomy import HolonomyUpdate
 from .neighborhood import NeighborhoodUpdate
-from .worm import Classic as Worm
+from .worm import ClassicWorm as Worm
 
 import supervillain.generator.combining as _combining
 

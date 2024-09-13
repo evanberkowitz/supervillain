@@ -1124,3 +1124,122 @@ class Lattice2D(ReadWriteable):
             temp += w * np.take(C, p, -1)
 
         return self.coordinatize(temp, dims=dims)
+
+
+import numba
+from numba.experimental import jitclass
+
+@jitclass([
+    ('nt', numba.int64),
+    ('nx', numba.int64),
+    ('dims', numba.int64[:]),
+    ('t',  numba.int64[:]),
+    ('x',  numba.int64[:]),
+    ])
+class _Lattice2D:
+    r'''
+    A numba-accelerated collection of lattice functions.
+
+    .. warning::
+       
+       NOT ALL LATTICES METHODS ARE INCLUDED; THEY MAY BE ADDED OVER TIME AS NEEDED.
+
+       Moreover, not all methods have the same signature due to limitations in numba.
+
+       Seriously this is to be used but rarely.  Used only in :class:`~.worldline.ClassicWorm`.
+
+    .. note ::
+        
+        Currently `numba jitclasses do not support classmethods <https://numba.readthedocs.io/en/stable/proposals/jit-classes.html>`_.
+        In particular, that makes they incompatible with
+        our HDF5 infrastructure; they cannot be made :class:`~.ReadWriteable`, for instance.
+
+        Therefore, they should be set as class members; you may need to reconstruct them.
+    '''
+
+    def __init__(self, dims):
+        self.nt = dims[0]
+        self.nx = dims[1]
+
+        self.dims = np.array(dims)
+
+        self.t = self._dimension(self.nt)
+        self.x = self._dimension(self.nx)
+
+    def _dimension(self, n):
+        return np.concatenate((
+            np.arange(0, n // 2 + 1, dtype=np.int64),
+            np.arange( - n // 2 + 1, 0, dtype=np.int64),
+            ))
+
+    def mod(self, points=np.array([[]])):
+        r'''
+
+        .. warning ::
+           The return value is unpacked along each dimension.
+           This seemed to be a peculiar requirement of numba.
+        
+        Parameters
+        ----------
+        points: 2D np.array
+            An n×2 array of points to be modded.
+
+        Returns
+        -------
+        t: np.array
+            The first coordinate of each point modded into the lattice.
+        x: np.array
+            The second coordinate of each point modded into the lattice.
+        '''
+        flip = points.T
+        t_modded = np.mod(flip[0], self.nt)
+        x_modded = np.mod(flip[1], self.nx)
+        return self.t[t_modded], self.x[x_modded]
+
+    def neighboring_sites(self, here):
+        # east, north, west, south
+        return self.mod(here + np.array([[+1,0], [0,+1], [-1,0], [0,-1]]))
+
+    def neighboring_plaquettes(self, here):
+        # east, north, west, south
+        return self.mod(here + np.array([[0,-1], [+1,0], [0,+1], [-1,0]]))
+
+    def adjacent_links(self, form, site):
+
+        if form == 0:
+            # Links to the east, north, west, and south
+            t, x = self.neighboring_sites(site)
+            east = np.array([t[0], x[0]])
+            north= np.array([t[1], x[1]])
+            west = np.array([t[2], x[2]])
+            south= np.array([t[3], x[3]])
+
+            #     n
+            #     |     x
+            #   w-h-e   ^
+            #     |     |
+            #     s     o-->t
+
+            return ((0, site [0], site [1]), # t link to the east
+                    (1, site [0], site [1]), # x link to the north
+                    (0, west [0], west [1]), # t link to the west
+                    (1, south[0], south[1])) # x link to the south
+
+        if form == 2:
+            t, x = self.neighboring_plaquettes(site)
+            east = np.array([t[0], x[0]])
+            north= np.array([t[1], x[1]])
+            west = np.array([t[2], x[2]])
+            south= np.array([t[3], x[3]])
+            #        n          
+            #       +-+         t
+            #      w|h|e        ^
+            #       o-+         |
+            #        s      x<--o
+
+        return ((0, site [0], site [1]), # t link to the east
+                (1, north[0], north[1]), # x link to the north
+                (0, west [0], west [1]), # t link to the west
+                (1, site [0], site [1])) # x link to the south
+
+

@@ -95,7 +95,7 @@ Remember that in the :class:`~.Action.Villain` case we are trying to sample acco
    \begin{align}
        Z &= \sum\hspace{-1.33em}\int D\phi\; Dn\; Dv\; e^{-S[\phi, n, v]}
        \\
-       S[\phi, n, v] &= \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + 2\pi i \sum_p \left(v/W + J/2\pi \right)_p (dn)_p
+       S[\phi, n, v] &= \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + 2\pi i \sum_p v_p (dn)_p / W
    \end{align}
 
 and that we may directly path-integrate out the Lagrange multiplier $v$ in favor of a constraint
@@ -171,7 +171,7 @@ We can measure the histogram as we go and report with the $\phi$ and $n$.
 The reason to save the histogram as a sample rather than to just accumulate a histogram for the whole worm's evolution is that once we reach a $Z$ configuration we update the other variables; that histogram is conditional on those variables; when they change the histogram will too.
 So, the worm's displacement histogram can be saved inline as :class:`~.Vortex_Vortex`, as long as we remember to normalize any :class:`~.DerivedQuantity` that depends on it by the element of the expectation at the origin.
 
-.. autoclass :: supervillain.generator.villain.worm.Classic
+.. autoclass :: supervillain.generator.villain.worm.ClassicWorm
    :members:
 
 The worm is not ergodic on its own---it doesn't update $\phi$, for example, and it cannot change a link by ±W.
@@ -247,7 +247,7 @@ Just like the Villain case we can measure a two-point correlator inline, but in 
 
 which amounts to constructing a normalized histogram after ensemble averaging.
 
-.. autoclass :: supervillain.generator.worldline.worm.Classic
+.. autoclass :: supervillain.generator.worldline.worm.ClassicWorm
    :members:
 
 Finally, we provide a convenience function which provides an ergodic generator.
@@ -268,3 +268,14 @@ Another (trivial) combination is a decorrelating application.
 
 .. autoclass :: supervillain.generator.combining.KeepEvery
    :members:
+
+--------
+Monitors
+--------
+
+We can make pass-through generators to perform specific tasks, like logging.
+
+.. autoclass :: supervillain.generator.monitor.Logger
+   :members:
+
+One could construct monitors that, for example, measured observables inline.

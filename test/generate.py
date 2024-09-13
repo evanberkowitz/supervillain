@@ -14,14 +14,7 @@ def Lattice(N):
 def villain(configurations, N, kappa, W=1):
     L = Lattice(N)
     S = supervillain.action.Villain(L, kappa, W=W)
-
-    G = supervillain.generator.combining.Sequentially((
-            supervillain.generator.villain.SiteUpdate(S),
-            supervillain.generator.villain.LinkUpdate(S),
-            supervillain.generator.villain.ExactUpdate(S),
-            supervillain.generator.villain.HolonomyUpdate(S),
-            supervillain.generator.villain.worm.Classic(S),
-        ))
+    G = supervillain.generator.villain.Hammer(S)
 
     with logging_redirect_tqdm():
         ensemble = supervillain.Ensemble(S).generate(configurations, G, start='cold', progress=tqdm)
@@ -31,12 +24,7 @@ def villain(configurations, N, kappa, W=1):
 def worldline(configurations, N, kappa, W=1):
     L = Lattice(N)
     S=supervillain.action.Worldline(L, kappa, W=W)
-    G = supervillain.generator.combining.Sequentially((
-        supervillain.generator.worldline.VortexUpdate(S),
-        supervillain.generator.worldline.CoexactUpdate(S),
-        supervillain.generator.worldline.WrappingUpdate(S, 1),
-        supervillain.generator.worldline.worm.Classic(S),
-        ))
+    G = supervillain.generator.worldline.Hammer(S)
 
     with logging_redirect_tqdm():
         ensemble = supervillain.Ensemble(S).generate(configurations, G, start='cold', progress=tqdm)
