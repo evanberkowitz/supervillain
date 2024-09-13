@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 
 import numpy as np
-from supervillain.h5 import H5able
+from supervillain.h5 import ReadWriteable
+import supervillain.h5.extendable as extendable
 from supervillain.configurations import Configurations
 
 import logging
 logger = logging.getLogger(__name__)
 
-class Worldline(H5able):
+class Worldline(ReadWriteable):
     r'''
     The dual (worldline) action is
 
@@ -41,14 +42,30 @@ class Worldline(H5able):
         self.W = W
         self._constant_offset = self.Lattice.links / 2 * np.log(2*np.pi*kappa) - self.Lattice.sites * np.log(2*np.pi)
 
+        # Comparing the finite-W and W=∞ cases, in the divergence term we can replace simply v/W --> v/2π.
+        # However, we don't want to rewrite W, if the user passes it as infinity, it would be extremely confusing to replace it with 2π.
+        # For our own private use, however, we can use _W, which knows what to do.
+        self._W = (W if W < float('inf') else 2*np.pi)
+
     def __str__(self):
         return f'Worldline({self.Lattice}, κ={self.kappa}, W={self.W})'
 
-    def valid(self, m):
+    def valid(self, configuration):
         r'''
         Returns true if the constraint $[\delta m = 0]$ is satisfied everywhere and false otherwise.
+
+        Parameters
+        ----------
+        configuration: dict
+            A dictionary that at least contains m.
+
+        Returns
+        -------
+        bool:
+            Is the constraint satisfied everywhere?
         '''
 
+        m = configuration['m']
         return (self.Lattice.delta(1, m) == 0).all()
 
     def __call__(self, m, v, **kwargs):
@@ -58,7 +75,7 @@ class Worldline(H5able):
         m: np.ndarray
             An integer-valued 1-form.
         v: np.ndarray
-            An integer-valued 2-form.
+            An integer-valued 2-form, (real-valued when $W=\infty$).
 
         Returns
         -------
@@ -73,7 +90,7 @@ class Worldline(H5able):
 
         if not self.valid(m):
             raise ValueError(f'The one-form m does not satisfy the constraint δm = 0 everywhere.')
-        return 0.5 / self.kappa * np.sum((m - self.Lattice.delta(2, v) / self.W)**2) + self._constant_offset
+        return 0.5 / self.kappa * np.sum((m - self.Lattice.delta(2, v) / self._W)**2) + self._constant_offset
 
     def configurations(self, count):
         r'''
@@ -89,13 +106,13 @@ class Worldline(H5able):
         '''
 
         return Configurations({
-            'm': self.Lattice.form(1, count, dtype=int),
-            'v': self.Lattice.form(2, count, dtype=int),
+            'm': extendable.array(self.Lattice.form(1, count, dtype=int)),
+            'v': extendable.array(self.Lattice.form(2, count, dtype=(int if self.W<float('inf') else float))),
             })
 
     def equivalence_class_v(self, configuration):
         r'''
-        The constrained model has a gauge symmetry $v \rightarrow v \pm W$ with the gauge-invariant combination $m-\delta v / W$.
+        Assuming $W<\infty$ the constrained model has a gauge symmetry $v \rightarrow v \pm W$ with the gauge-invariant combination $m-\delta v / W$.
 
         We can take any configuration and send
 
@@ -109,7 +126,7 @@ class Worldline(H5able):
         for integer $\lambda$.  We fix $\lambda$ on every plaquette so that after the transformation $v\in[0,W)$.
 
         .. seealso ::
-            examples/equivalence-class-v.py
+            test/equivalence-class-v.py
 
         Parameters
         ----------
@@ -120,8 +137,12 @@ class Worldline(H5able):
         -------
         dict:
             A dictionary with the equivalent fields but with $v \in [0, W)$.
+            When $W=\infty$, just returns the configuration unmodified.
 
         '''
+
+        if self.W == float('inf'):
+            return configuration
 
         L = self.Lattice
 

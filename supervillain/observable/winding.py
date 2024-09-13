@@ -2,9 +2,9 @@
 
 import numpy as np
 
-from supervillain.observable import Observable
+from supervillain.observable import Scalar, Observable
 
-class WindingSquared(Observable):
+class WindingSquared(Scalar, Observable):
     r'''
     Given periodic boundary conditions the total topological charge vanishes $\partial_J Z = 0$.
     Translational invariance is strong enough to conclude that in expectation the winding number on any plaquette also vanishes.

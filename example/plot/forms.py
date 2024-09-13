@@ -20,7 +20,10 @@ logger = logging.getLogger(__name__)
 
 L = supervillain.Lattice2D(args.N)
 S = supervillain.Villain(L, args.kappa)
-G = supervillain.generator.villain.NeighborhoodUpdate(S)
+G = supervillain.generator.combining.Sequentially((
+        supervillain.generator.villain.SiteUpdate(S),
+        supervillain.generator.villain.LinkUpdate(S),
+    ))
 with logging_redirect_tqdm():
     e = supervillain.Ensemble(S).generate(args.configurations, G, start='cold', progress=tqdm)
 

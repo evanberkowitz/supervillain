@@ -1,19 +1,20 @@
 #!/usr/bin/env python
 
 import numpy as np
-from supervillain.h5 import H5able
+from supervillain.h5 import ReadWriteable
+import supervillain.h5.extendable as extendable
 from supervillain.configurations import Configurations
 
 import logging
 logger = logging.getLogger(__name__)
 
-class Villain(H5able):
+class Villain(ReadWriteable):
     r'''
     'The' Villain action is just the straightforward
 
     .. math::
        \begin{align}
-       Z[J] &= \sum\hspace{-1.33em}\int D\phi\; Dn\; e^{-S_J[\phi, n, v]}
+       Z[J] &= \sum\hspace{-1.33em}\int D\phi\; Dn\; Dv\; e^{-S_J[\phi, n, v]}
        \\
        S_J[\phi, n, v] &= \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + 2\pi i \sum_p \left(v/W + J/2\pi \right)_p (dn)_p
        \end{align}
@@ -23,8 +24,8 @@ class Villain(H5able):
     In this formulation, if $J$ is real and nonzero we expect a sign problem because the action is complex.  However, we can think of $J$ as an external source, take functional derivatives to get observables, and then set $J$ to zero so that we only need sample according to the first term.
 
     .. warning::
-        Because $W\neq1$ suffers from a sign problem without a clever algorithm that maintains the constraint, we currently restrict to $W=1$.
-        Then we may as well let $v=0$, since $\exp(2\pi i v_p (dn)_p) = 1$ for integer $v$ and $dn$.
+        Because $W\neq1$ suffers from a sign problem if we try to sample $v$, we assume an ensemble will be generated
+        with a clever algorithm that that maintains :ref:`the winding constraint <winding constraint>`, so that $v$ need not be included in the field content.
 
     Parameters
     ----------
@@ -42,9 +43,6 @@ class Villain(H5able):
         self.kappa = kappa
         self.W = W
 
-        if self.W != 1:
-            raise ValueError(f'The Villain action has a horrible sign problem when W≠1; you picked {W=}.')
-
     def __str__(self):
         return f'Villain({self.Lattice}, κ={self.kappa}, W={self.W})'
 
@@ -60,9 +58,10 @@ class Villain(H5able):
         Returns
         -------
         float
-            $S_0[\phi, n, v=0]$.  We restrict to the $v=0$ simplification because we restrict to $W=1$.
+            $S_0[\phi, n]$.  We assume the path integration over $v$ implements :ref:`the winding constraint <winding constraint>` in some clever way,
+            so the action does not depend on $v$.
         '''
-        return self.kappa / 2 * np.sum((self.Lattice.d(0, phi) - 2*np.pi*n)**2) # + nothing that depends on v since W=1.
+        return self.kappa / 2 * np.sum((self.Lattice.d(0, phi) - 2*np.pi*n)**2) # + nothing that depends on v since we will implement the constraint directly.
 
     def configurations(self, count):
         r'''
@@ -76,9 +75,8 @@ class Villain(H5able):
             A dictionary of zeroed arrays at keys ``phi`` and ``n``, holding ``count`` 0- and 1-forms respectively.
         '''
         return Configurations({
-            'phi': self.Lattice.form(0, count),
-            'n':   self.Lattice.form(1, count, dtype=int),
-            'v':   self.Lattice.form(2, count, dtype=int),
+            'phi': extendable.array(self.Lattice.form(0, count)),
+            'n':   extendable.array(self.Lattice.form(1, count, dtype=int)),
             })
 
     def gauge_transform(self, configuration, k):
@@ -113,3 +111,23 @@ class Villain(H5able):
             'n':   configuration['n']   + self.Lattice.d(0, k),
         }
 
+    def valid(self, configuration):
+        r'''
+        Returns true if the constraint $[dn \equiv 0 \text{ mod } W]$ is satisfied everywhere.
+
+        When $W=\infty$, check that $dn = 0$ everywhere.
+
+        Parameters
+        ----------
+        configuration: dict
+            A dictionary that at least contains n.
+
+        Returns
+        -------
+        bool:
+            Is the constraint satisfied everywhere?
+        '''
+
+        n = configuration['n']
+        zero = (np.mod(self.Lattice.d(1, n), self.W) if self.W < float('inf') else self.Lattice.d(1, n))
+        return (zero == 0).all()

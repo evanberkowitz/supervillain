@@ -1,7 +1,7 @@
-from supervillain.observable import Observable, DerivedQuantity
+from supervillain.observable import Scalar, Observable, DerivedQuantity
 import numpy as np
 
-class InternalEnergyDensity(Observable):
+class InternalEnergyDensity(Scalar, Observable):
     r'''If we think of $\kappa$ like a thermodynamic $\beta$, then we may compute the internal energy $U$
 
     .. math::
@@ -45,7 +45,7 @@ class InternalEnergyDensity(Observable):
         L = S.Lattice
         return (L.links / 2 - 0.5 / S.kappa * (Links**2).sum()) / (L.sites * S.kappa)
 
-class InternalEnergyDensitySquared(Observable):
+class InternalEnergyDensitySquared(Scalar, Observable):
     r'''
     If we think of $\kappa$ as a thermodynamic $\beta$, then we
     may compute the expectation value of the square of the internal
@@ -90,14 +90,14 @@ class InternalEnergyDensitySquared(Observable):
             \begin{align}
                 \partial_\kappa S &= - \frac{1}{2\kappa^2} \sum_{\ell} (m-\delta v/W)_\ell^2 + \frac{|\ell|}{2 \kappa}
                 &
-                \partial^2_\kappa S &= \frac{1}{\kappa} \sum_{\ell} (m-\delta v/W)_\ell^2 - \frac{|\ell|}{2\kappa^2}.
+                \partial^2_\kappa S &= \frac{1}{\kappa^3} \sum_{\ell} (m-\delta v/W)_\ell^2 - \frac{|\ell|}{2\kappa^2}.
             \end{align}
 
         '''
 
         L = S.Lattice
         partial_kappa_S = (L.links / 2 - 0.5 / S.kappa * (Links**2).sum()) / S.kappa
-        partial_2_kappa_S = ((Links**2).sum() - L.links / S.kappa) / S.kappa
+        partial_2_kappa_S = ((Links**2).sum() / S.kappa - L.links / 2) / S.kappa**2
         
         return (partial_kappa_S**2 - partial_2_kappa_S) / L.sites**2
 
@@ -117,3 +117,20 @@ class InternalEnergyDensityVariance(DerivedQuantity):
     def default(S, InternalEnergyDensitySquared, InternalEnergyDensity):
         return InternalEnergyDensitySquared - InternalEnergyDensity**2
 
+class SpecificHeatCapacity(DerivedQuantity):
+    r'''
+    The (intensive) specific heat capacity $c$ is given by
+
+    .. math ::
+
+        c = \frac{\langle U^2 \rangle - \langle U \rangle^2}{\Lambda T^2} = \kappa^2 \Lambda \times \texttt{InternalEnergyDensityVariance}.
+
+    Naively, since both $\langle U^2 \rangle$ and $\langle U \rangle^2$ scale like $\Lambda^2$ their difference ought to also scale
+    like $\Lambda^2$.  However, we learn from thermodynamics that actually their difference is one order lower, which explains
+    the division by one power of $\Lambda$.
+
+    '''
+
+    @staticmethod
+    def default(S, InternalEnergyDensityVariance):
+        return InternalEnergyDensityVariance * S.Lattice.sites * S.kappa**2

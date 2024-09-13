@@ -2,13 +2,13 @@
 
 import numpy as np
 
-from supervillain.h5 import H5able
+from supervillain.h5 import ReadWriteable
 from supervillain.performance import Timer
 
 import logging
 logger = logging.getLogger(__name__)
 
-class Bootstrap(H5able):
+class Bootstrap(ReadWriteable):
     r'''
     The bootstrap is a resampling technique for estimating uncertainties.
 
@@ -46,7 +46,7 @@ class Bootstrap(H5able):
         r'''The action underlying the ensemble.'''
         self.draws = draws
         r'''The number of resamplings.'''
-        cfgs = len(ensemble.configuration)
+        cfgs = len(ensemble)
         self.indices = np.random.randint(0, cfgs, (cfgs, draws))
         r'''The random draws themselves; configurations × draws.'''
         
@@ -100,7 +100,7 @@ class Bootstrap(H5able):
             color = axis.get_lines()[-1].get_color()
         axis.axhspan(mean-err, mean+err, color=color, alpha=0.5, linestyle='none')
 
-    def plot_correlator(self, axis, correlator, offset=0., linestyle='none', marker='o', markerfacecolor='none', **kwargs):
+    def plot_correlator(self, axis, correlator, offset=0., irrep='A1', multiplier=1., linestyle='none', marker='o', markerfacecolor='none', **kwargs):
         r'''
         Plots the space-dependent correlator against $\Delta x$ on the axis.
         Plotting options and kwargs are forwarded.
@@ -113,16 +113,22 @@ class Bootstrap(H5able):
             Name of the observable or derived quantity.
         offset: float
             Horizontal displacement, good for visually separating two correlators.
+        irrep: string
+            Project the correlator to an :py:meth:`~.Lattice2D.irrep` understood by the lattice.
+        multiplier: float
+            Rescales the observable by an overall constant.
         '''
         
         L = self.Ensemble.Action.Lattice
-        Δx = L.linearize(L.T**2 + L.X**2)**0.5
+        Δx = L.linearize(L.R_squared)**0.5
         C = getattr(self, correlator).real
+        if irrep:
+            C = L.irrep(C, irrep)
 
         axis.errorbar(
                 Δx+offset,
-                L.linearize(C.mean(axis=0)),
-                L.linearize(C.std(axis=0)),
+                multiplier * L.linearize(C.mean(axis=0)),
+                multiplier * L.linearize(C.std(axis=0)),
                 linestyle=linestyle,
                 marker=marker,
                 markerfacecolor=markerfacecolor,
@@ -143,4 +149,4 @@ class Bootstrap(H5able):
             A tuple with the central value and uncertainty estimate for the observable.  Need not be scalars, if the observable has other indices, the pieces of the tuples have those indices.
         '''
         o = getattr(self, observable)
-        return (np.mean(o), np.std(o))
+        return (np.mean(o, axis=0), np.std(o, axis=0))

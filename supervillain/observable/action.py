@@ -1,7 +1,7 @@
-from supervillain.observable import Observable, DerivedQuantity
+from supervillain.observable import Scalar, Observable, DerivedQuantity
 import numpy as np
 
-class ActionDensity(Observable):
+class ActionDensity(Scalar, Observable):
     r'''The expectation value of the action density can be calculated as
 
     .. math::

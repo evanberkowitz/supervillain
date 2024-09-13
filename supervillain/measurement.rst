@@ -48,10 +48,65 @@ All of these nice features are accomplished using the `Descriptor`_ protocol but
 
 If the observable does not provide an implementation for the ensemble's action, asking for it will raise a `NotImplemented`_ exception.
 However, some observables can provide a ``default`` implementation, which is particularly useful for simple functions of other primary observables.
-For example, the :class:`~.SpinSusceptibility` is just the sum of the :class:`~.Spin_Spin` two-point function.
+For example, the :class:`~.TWrapping` is just the time component of the :class:`~.TorusWrapping`.
 
-.. literalinclude:: observable/spin.py
-   :pyobject: SpinSusceptibility
+.. literalinclude:: observable/wrapping.py
+   :pyobject: TWrapping
+
+:class:`Generator`\s may return inline measurements of some observables in the dictionary of field variables.
+If those observables match any particular observable, the inline measurements take precedence and short-circuit any other computation.
+
+
+Inclusion in Autocorrelation Computation
+========================================
+
+Scalar observables are good candidates for consideration in the autocorrelation time
+
+.. autoclass :: supervillain.observable.Scalar
+    :members:
+
+but, as advertised some observables only make sense when $W\neq 1$.
+
+.. autoclass :: supervillain.observable.Constrained
+    :members:
+
+We can restrict observables to only one action if need be. (Usually this only makes sense as a stop-gap while the observable is implemented for that action.)
+
+.. autoclass :: supervillain.observable.NotVillain
+    :members:
+.. autoclass :: supervillain.observable.OnlyVillain
+    :members:
+.. autoclass :: supervillain.observable.NotWorldline
+    :members:
+.. autoclass :: supervillain.observable.OnlyWorldline
+    :members:
+
+We can use these to control the inclusion in an ensemble's autocorrelation computation.
+For example, :class:`~.Spin_Spin` is a two-point function, the :class:`~.InternalEnergyDensity` is a scalar, and the :class:`~.VortexSusceptibility` is a constrained scalar that only makes sense when $W\neq 1$.
+
+.. literalinclude :: observable/spin.py
+   :pyobject: Spin_Spin
+   :lines: 1
+
+.. literalinclude :: observable/energy.py
+   :pyobject: InternalEnergyDensity
+   :lines: 1
+
+
+Different considerations override one another in accordance with the python `method resolution order`_; very roughly speaking, left-most first.
+
+Monitoring Progress
+===================
+
+Ensemble :py:meth:`generation <supervillain.ensemble.Ensemble.generate>` can be monitored with a progress bar.
+For large ensembles and slow observables it might be desirable to monitor the progress of the computation of observables.
+Since observables are properties of ensembles they accept no arguments and therefore unlike :py:meth:`~.Ensemble.generate` cannot take a similar progress keyword argument.
+
+Instead, we reluctantly introduce a little bit of module-level state.
+
+.. autofunction :: supervillain.observable.progress
+
+.. _method resolution order: https://docs.python.org/3/glossary.html#term-method-resolution-order
 
 .. _derived quantities:
 

@@ -1,4 +1,4 @@
-from supervillain.observable import Observable
+from supervillain.observable import Scalar, Observable
 import numpy as np
 
 class TorusWrapping(Observable):
@@ -38,7 +38,7 @@ class TorusWrapping(Observable):
 
         return m.sum(axis=(-2,-1)) / S.Lattice.dims
 
-class TWrapping(Observable):
+class TWrapping(Scalar, Observable):
     r'''
     Just the time component of :class:`~.TorusWrapping`.
     '''
@@ -48,7 +48,7 @@ class TWrapping(Observable):
         return TorusWrapping[0]
 
 
-class XWrapping(Observable):
+class XWrapping(Scalar, Observable):
     r'''
     Just the space component of :class:`~.TorusWrapping`.
     '''

@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
 from functools import cached_property
+import matplotlib.colors as colors
 import numpy as np
 
-from supervillain.h5 import H5able
+from supervillain.h5 import ReadWriteable
 
 def _dimension(n):
     '''
@@ -20,11 +21,11 @@ def _dimension(n):
     '''
     return np.array(list(range(0, n // 2 + 1)) + list(range( - n // 2 + 1, 0)), dtype=int)
 
-class Lattice2D(H5able):
+class Lattice2D(ReadWriteable):
 
     def __init__(self, n):
         self.nt = n
-        self.nx = n
+        self.nx = n 
 
         self.dims = (self.nx, self.nt)
         r'''
@@ -90,6 +91,19 @@ class Lattice2D(H5able):
                [ 0,  1,  2, -2, -1],
                [ 0,  1,  2, -2, -1],
                [ 0,  1,  2, -2, -1]])
+        '''
+
+        self.R_squared = self.X**2 + self.T**2
+        r'''
+        An array of size ``dims`` which gives the square of the distance from the origin for each site.
+
+        >>> lattice = Lattice(5)
+        >>> lattice.R_squared
+        array([[ 0,  1,  4,  4,  1],
+               [ 1,  2,  5,  5,  2],
+               [ 4,  5,  8,  8,  5],
+               [ 4,  5,  8,  8,  5],
+               [ 1,  2,  5,  5,  2]])
         '''
 
         # We also construct a linearized list of coordinates.
@@ -431,6 +445,70 @@ class Lattice2D(H5able):
     r'''
     Alias for :func:`delta <supervillain.lattice.Lattice2D.delta>`.
     '''
+
+    @cached_property
+    def checkerboarding(self):
+        r'''
+        On a square lattice of even size both the sites and plaquettes can bipartitioned so that no
+        simplex of one color has a neighbor of the same color.  In the left panel of the figure below,
+        that's shown as grey and green plaquettes, and no plaquette shares an edge with a plaquette of
+        the same color.
+
+        .. plot:: example/plot/checkerboarding.py
+
+        On an odd-sized lattice the periodic boundary conditions makes it impossible to accomplish this
+        partitioning with only 2 colors.  But, as shown in the right panel of the figure, a similar
+        construction where no plaquette has a neighbor of the same color is possible with 4 colors.
+
+        The checkerboarding is a tuple of `index arrays <https://numpy.org/doc/stable/user/basics.indexing.html#integer-array-indexing>`_
+        which correspond to the coloring. For each color you get 2 arrays which give the t- and x- indices, respectively.
+        But, because numpy arrays have fancy indexing, you can use each pair very straightforwardly, as in the above example
+
+        .. literalinclude:: ../example/plot/checkerboarding.py
+            :lines: 19-22
+
+        .. warning ::
+            No promise is made about the future behavior of the partitioning.
+            For example, it might be wiser for performance to split the 4 colors less evenly.
+            All that is promised is that within each color no site (or plaquette) will have a neighbor of the same color.
+        '''
+        parity = np.mod(self.dims, 2)
+
+        red = (np.mod(self.X+self.T,2) == 0)
+        black = (np.mod(self.X+self.T,2) == 1)
+
+        if (parity == 0).all():
+            # No problem with periodic boundaries, can just use the two colors.
+            return (np.where(red), np.where(black))
+
+        if (parity == 1).all():
+            # The periodic boundaries would put sites of the same color next to one another.
+            # Therefore we need to add additional colors.
+            left   = self.T >= 0
+            right  = self.T < 0
+            top    = self.X >= 0
+            bottom = self.X < 0
+            return (
+                    np.where(red    & ((left & top) | (right & bottom))),
+                    np.where(black  & ((left & top) | (right & bottom))),
+                    np.where(red    & ((left & bottom) | (right & top))),
+                    np.where(black  & ((left & bottom) | (right & top))),
+                    )
+
+            # Here is the first pass implementation, where the 2 colors were only on a single strip in
+            # each direction, proportional to self.nx and self.nt in size,
+            # while the other 2 colors grew in proportion to self.sites.
+
+            #corner   = ((self.X == (self.nx // 2)) & (self.T == (self.nt // 2)))
+            #boundary = ((self.X == (self.nx // 2)) | (self.T == (self.nt // 2))) ^ corner
+            #bulk = 1-boundary
+
+            #return (np.where(red & bulk),      np.where(black & bulk),
+            #        np.where(red & boundary),  np.where(black & boundary),
+            #       )
+
+
+        raise ValueError('Non-square lattices are not supported.')
 
     def t_fft(self, form, axis=-2):
         r'''
@@ -855,10 +933,10 @@ class Lattice2D(H5able):
         return  self.fft( self.fft(f, axes=axes).conj() * self.fft(g, axes=axes), axes=axes) / np.sqrt(self.sites)
 
     def plot_form(self, p, form, axis, label=None, zorder=None,
-                  cmap=None, cbar_kw=dict(), norm=None,
-                  vmin=None, vmax=None,
+                  cmap=None, cbar_kw=dict(), norm=colors.CenteredNorm(),
                   pointsize=200, linkwidth=0.025,
-                  background='white',
+                  background='white', 
+                  markerstyle = 'o'
                  ):
         r'''
         Plots the p-form on the axis.
@@ -866,7 +944,7 @@ class Lattice2D(H5able):
         The following figure shows a 0-form plotted on sites, a 1-form on links, and a 2-form on plaquettes.
         See the source for details.
 
-        .. plot:: examples/plot-forms.py
+        .. plot:: example/plot/forms.py
 
         Parameters
         ----------
@@ -896,16 +974,14 @@ class Lattice2D(H5able):
             A `matplotlib color normalization <https://matplotlib.org/stable/users/explain/colors/colormapnorms.html>`_.
         '''
         zorder = {'zorder': -p if zorder is None else zorder}
-        vmin = form.min() if vmin is None else vmin
-        vmax = form.max() if vmax is None else vmax
         
         marker = {
             's': pointsize,
             'edgecolor': background,
             'linewidth': 2,
             'norm': norm,
+            'marker' : markerstyle
         }
-
         no_arrowhead = {'headwidth': 0, 'headlength': 0, 'headaxislength': 0,}
         linkpadding = {'edgecolor': background, 'linewidth': 4}
         links = {
@@ -913,7 +989,6 @@ class Lattice2D(H5able):
             'width': linkwidth,
             **no_arrowhead,
             **linkpadding,
-            'clim': [vmin, vmax],
             'cmap': cmap,
             'norm': norm,
         }
@@ -933,16 +1008,20 @@ class Lattice2D(H5able):
             V = np.concatenate((np.zeros_like(self.T.flatten()), np.ones_like (self.T.flatten())))
             # and then we can plot the whole form together.
             f = axis.quiver(T, X, U, V, form.flatten(), **zorder, **links)
+            # TODO: squash warning in example/plot/forms.py
+            # UserWarning: No data for colormapping provided via 'c'. Parameters 'norm' will be ignored axis.scatter(self.T, self.X, color=background, **zorder, **marker)
             axis.scatter(self.T, self.X, color=background, **zorder, **marker)
 
         if p == 2:
             # We roll the form because the figure should have (0,0) in the middle but the form has (0,0) in the corner.
             # We transpose because imshow goes in the 'other order'.
-            form = self.roll(form, (self.nt // 2, self.nx // 2)).transpose()
+            form = self.roll(form, ((self.nt-1) // 2, (self.nx-1) // 2)).transpose()
             f = axis.imshow(form, **zorder, cmap=cmap,
                         origin='lower', extent=(min(self.t), max(self.t)+1, min(self.x), max(self.x)+1),
                         norm=norm,
                        )
+            # TODO: squash warning in example/plot/forms.py
+            # UserWarning: No data for colormapping provided via 'c'. Parameters 'norm' will be ignored axis.scatter(self.T, self.X, color=background, **zorder, **marker)
             axis.quiver(self.T, self.X, 1, 0, color='white', **zorder, **links)
             axis.quiver(self.T, self.X, 0, 1, color='white', **zorder, **links)
             axis.scatter(self.T, self.X, color=background, **zorder, **marker)
@@ -1013,7 +1092,7 @@ class Lattice2D(H5able):
 
         The point group of a 2D lattice is $D_4$ and the structure and irreps are detailed in `https://two-dimensional-gasses.readthedocs.io/en/latest/computational-narrative/D4.html <the tdg documentation>`_\, where the spatial lattice is 2D.
 
-        .. plot:: examples/plot-D4-irreps.py
+        .. plot:: example/plot/D4-irreps.py
 
         .. note::
             Currently we only know how project scalar correlators that depend on a single spatial separation.
@@ -1045,3 +1124,122 @@ class Lattice2D(H5able):
             temp += w * np.take(C, p, -1)
 
         return self.coordinatize(temp, dims=dims)
+
+
+import numba
+from numba.experimental import jitclass
+
+@jitclass([
+    ('nt', numba.int64),
+    ('nx', numba.int64),
+    ('dims', numba.int64[:]),
+    ('t',  numba.int64[:]),
+    ('x',  numba.int64[:]),
+    ])
+class _Lattice2D:
+    r'''
+    A numba-accelerated collection of lattice functions.
+
+    .. warning::
+       
+       NOT ALL LATTICES METHODS ARE INCLUDED; THEY MAY BE ADDED OVER TIME AS NEEDED.
+
+       Moreover, not all methods have the same signature due to limitations in numba.
+
+       Seriously this is to be used but rarely.  Used only in :class:`~.worldline.ClassicWorm`.
+
+    .. note ::
+        
+        Currently `numba jitclasses do not support classmethods <https://numba.readthedocs.io/en/stable/proposals/jit-classes.html>`_.
+        In particular, that makes they incompatible with
+        our HDF5 infrastructure; they cannot be made :class:`~.ReadWriteable`, for instance.
+
+        Therefore, they should be set as class members; you may need to reconstruct them.
+    '''
+
+    def __init__(self, dims):
+        self.nt = dims[0]
+        self.nx = dims[1]
+
+        self.dims = np.array(dims)
+
+        self.t = self._dimension(self.nt)
+        self.x = self._dimension(self.nx)
+
+    def _dimension(self, n):
+        return np.concatenate((
+            np.arange(0, n // 2 + 1, dtype=np.int64),
+            np.arange( - n // 2 + 1, 0, dtype=np.int64),
+            ))
+
+    def mod(self, points=np.array([[]])):
+        r'''
+
+        .. warning ::
+           The return value is unpacked along each dimension.
+           This seemed to be a peculiar requirement of numba.
+        
+        Parameters
+        ----------
+        points: 2D np.array
+            An n×2 array of points to be modded.
+
+        Returns
+        -------
+        t: np.array
+            The first coordinate of each point modded into the lattice.
+        x: np.array
+            The second coordinate of each point modded into the lattice.
+        '''
+        flip = points.T
+        t_modded = np.mod(flip[0], self.nt)
+        x_modded = np.mod(flip[1], self.nx)
+        return self.t[t_modded], self.x[x_modded]
+
+    def neighboring_sites(self, here):
+        # east, north, west, south
+        return self.mod(here + np.array([[+1,0], [0,+1], [-1,0], [0,-1]]))
+
+    def neighboring_plaquettes(self, here):
+        # east, north, west, south
+        return self.mod(here + np.array([[0,-1], [+1,0], [0,+1], [-1,0]]))
+
+    def adjacent_links(self, form, site):
+
+        if form == 0:
+            # Links to the east, north, west, and south
+            t, x = self.neighboring_sites(site)
+            east = np.array([t[0], x[0]])
+            north= np.array([t[1], x[1]])
+            west = np.array([t[2], x[2]])
+            south= np.array([t[3], x[3]])
+
+            #     n
+            #     |     x
+            #   w-h-e   ^
+            #     |     |
+            #     s     o-->t
+
+            return ((0, site [0], site [1]), # t link to the east
+                    (1, site [0], site [1]), # x link to the north
+                    (0, west [0], west [1]), # t link to the west
+                    (1, south[0], south[1])) # x link to the south
+
+        if form == 2:
+            t, x = self.neighboring_plaquettes(site)
+            east = np.array([t[0], x[0]])
+            north= np.array([t[1], x[1]])
+            west = np.array([t[2], x[2]])
+            south= np.array([t[3], x[3]])
+            #        n          
+            #       +-+         t
+            #      w|h|e        ^
+            #       o-+         |
+            #        s      x<--o
+
+        return ((0, site [0], site [1]), # t link to the east
+                (1, north[0], north[1]), # x link to the north
+                (0, west [0], west [1]), # t link to the west
+                (1, site [0], site [1])) # x link to the south
+
+

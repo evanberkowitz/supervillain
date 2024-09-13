@@ -1,8 +1,12 @@
 #!/usr/bin/env python
 
-from supervillain.h5 import H5able
+from supervillain.h5 import ReadWriteable, Extendable
+import supervillain.h5.extendable as extendable
 
-class Configurations(H5able):
+import logging
+logger = logging.getLogger(__name__)
+
+class Configurations(Extendable, ReadWriteable):
     r'''
     A group of configurations has fields (which you can access by doing ``cfgs.field``) and other auxiliary information (one per configuration).
 
@@ -23,6 +27,9 @@ class Configurations(H5able):
         
     def __str__(self):
         return str(self.fields)
+
+    def __contains__(self, name):
+        return (name in self.fields)
 
     def __getitem__(self, index):
         r'''
@@ -98,3 +105,19 @@ class Configurations(H5able):
             self.fields[name] = value
         else:
             self.__dict__[name] = value
+
+    def extend_h5(self, group, _top=True):
+        logger.info(f'Extending h5 {group.name}.')
+
+        for attr, value in self.items():
+            if isinstance(value, Extendable):
+                value.extend_h5(group['fields'][attr])
+            elif isinstance(value, extendable.array):
+                extendable.strategy.extend(group['fields'], attr, value)
+
+    def __ior__(self, value):
+        self.fields |= value
+        return self
+
+    def copy(self):
+        return Configurations(self.fields.copy())

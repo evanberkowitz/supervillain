@@ -31,6 +31,16 @@ Some simple ways of decreasing autocorrelation are to decimate your Markov Chain
 The :class:`~.Ensemble` provides the :func:`every <supervillain.ensemble.Ensemble.every>` method, which returns another :class:`~.Ensemble` ensemble keeping configurations evenly spaced by n.
 A natural choice for n is the autocorrelation time.
 
+Ensembles also have an :meth:`~.Ensemble.autocorrelation_time`, which leverages the above :py:func:`~.analysis.autocorrelation_time` and understands which observables to include.
+
+Blocking
+--------
+
+.. autoclass:: supervillain.analysis.Blocking
+   :no-special-members:
+   :members:
+
+
 The Bootstrap
 -------------
 
@@ -39,7 +49,26 @@ One draws, with replacement, from a sample drawn according to the distribution o
 The idea is that each draw *could* have been what your samples were with the same likelihood as the ensemble you actually have, and that we can estimate uncertainties by looking at distributions of means of observables from these fictitious Markov chains.
 
 .. autoclass:: supervillain.analysis.Bootstrap
+   :no-special-members:
    :members: plot_band, plot_correlator, estimate
+
+Uncertainty
+-----------
+
+.. autoclass:: supervillain.analysis.uncertain.Uncertain
+   :members:
 
 .. _autocorrelation: https://en.wikipedia.org/wiki/Autocorrelation
 .. _bootstrapping: https://en.wikipedia.org/wiki/Bootstrapping_(statistics)
+
+Comparing Results
+-----------------
+
+We can get at-a-glance comparisons between ensembles.
+In this example we generate two ensembles from the same action and algorithm and compare their results (which ought to match, with sufficient statistics!).
+
+.. plot:: example/plot/comparison.py
+ 
+
+.. automodule:: supervillain.analysis.comparison_plot
+   :members:

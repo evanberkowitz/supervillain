@@ -43,4 +43,4 @@ class Links(Observable):
         '''
 
         L = S.Lattice
-        return m - L.delta(2, v) / S.W
+        return m - L.delta(2, v) / S._W

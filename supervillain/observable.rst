@@ -31,6 +31,10 @@ Internal Energy Density
    :members:
    :show-inheritance:
 
+.. autoclass :: supervillain.observable.SpecificHeatCapacity
+   :members:
+   :show-inheritance:
+
 ======
 Action
 ======
@@ -103,6 +107,10 @@ Spin Correlations
    :members:
    :show-inheritance:
 
+.. autoclass :: supervillain.observable.SpinCriticalMoment
+   :members:
+   :show-inheritance:
+
 ===================
 Vortex Correlations
 ===================
@@ -119,6 +127,9 @@ Vortex Correlations
    :members:
    :show-inheritance:
 
+.. autoclass :: supervillain.observable.VortexCriticalMoment
+   :members:
+   :show-inheritance:
 
 
 .. _staticmethod: https://docs.python.org/3/library/functions.html#staticmethod

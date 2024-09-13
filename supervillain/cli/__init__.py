@@ -55,3 +55,37 @@ class ArgumentParser(argparse.ArgumentParser):
             logger.debug(f'{arg}: {parsed.__dict__[arg]}')
 
         return parsed
+
+def W(w):
+    r'''
+    Allow W to be any integer or float('inf') if w is in {inf, ∞, infinity, infty}.
+    '''
+
+    if w in ('inf', '∞', 'infinity', 'infty'):
+        return float('inf')
+
+    try:
+        return int(w)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(f'{w} not a definite integer or infinity')
+
+def input_file(module_name):
+    r'''
+    You pass the module name; the user passes the file name.
+
+    ```
+    parser.add_argument('input_file', type=supervillain.cli.input_file('module_name'), default='filename.py')
+    ```
+    '''
+
+    def curried(file_name):
+
+        import sys
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(module_name, file_name)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = module
+        spec.loader.exec_module(module)
+        return module
+    return curried

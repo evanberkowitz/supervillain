@@ -21,22 +21,33 @@ supervillain
    supervillain/h5
    todo
    bibliography
+   test/index.rst
    supervillain/reference_implementations
 
 Version Information
 ===================
 
+.. toctree::
+   changes
+
 .. git_commit_detail::
    :branch:
    :commit:
-   :uncommitted:
-   :untracked:
+
+License
+=======
+
+.. toctree::
+   contributors
+   license
+
+.. literalinclude:: LICENSE
+   :language: none
 
 Indices and tables
 ==================
 
 * :ref:`genindex`
-* :ref:`modindex`
 * :ref:`search`
 
 .. sidebar-links::

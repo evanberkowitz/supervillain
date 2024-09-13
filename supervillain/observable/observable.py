@@ -1,14 +1,18 @@
 #!/usr/bin/env python
 
-import numpy as np
 from functools import partial
 import inspect
 
+import supervillain.action
 import supervillain.ensemble
 from supervillain.performance import Timer
+import supervillain.h5.extendable
 
 import logging
 logger = logging.getLogger(__name__)
+from tqdm.contrib.logging import logging_redirect_tqdm
+
+registry=dict()
 
 class Observable:
 
@@ -17,6 +21,8 @@ class Observable:
         # Upon registration, Ensemble gets an attribute with the appropriate name.
 
         name = cls.__name__
+
+        registry[name] = cls
 
         cls._logger = (logger.debug if name[0] == '_' else logger.info)
         cls._debug  = logger.debug
@@ -36,6 +42,12 @@ class Observable:
             # So, when it goes out of scope with no reference, it will be deleted.
             self._debug(f'{name} already cached.')
             return obj.__dict__[name]
+
+        # Observable might have been measured inline.
+        try:
+            return obj.configuration.fields[name]
+        except Exception as e:
+            self._debug(f'{name} was not measured inline.')
 
         # Just call the measurement and cache the result.
         class_name = obj.Action.__class__.__name__
@@ -58,10 +70,13 @@ class Observable:
             # Observables can depend on field variables and other Observables.
             # We look up the arguments as attributes of the ensemble.
             with Timer(self._logger, f'Measurement of {name}', per=len(obj)):
-                obj.__dict__[name]= np.array([
-                    measure(*obs)
-                    for obs in zip(*[getattr(obj, o) for o in inspect.getfullargspec(measure).args])
-                    ])
+                with logging_redirect_tqdm():
+                    obj.__dict__[name]= supervillain.h5.extendable.array([
+                        measure(*obs)
+                        for obs in supervillain.observable.progress(
+                            zip(*[getattr(obj, o) for o in inspect.getfullargspec(measure).args]),
+                            desc=f'{name:{max([len(k) for k in registry])}s}', leave=True, total=len(obj))
+                        ])
             return obj.__dict__[name]
         except Exception as exception:
             raise NotImplementedError(f'{name} not implemented for {class_name}') from exception
@@ -69,5 +84,78 @@ class Observable:
         raise NotImplementedError()
 
     def __set__(self, obj, value):
-        setattr(obj, self.name, value)
+        obj.__dict__[self.__class__.__name__] = value
 
+    @classmethod
+    def autocorrelation(cls, ensemble):
+        r'''
+        Deciding whether an observable is included in an ensemble's :py:meth:`~.Ensemble.autocorrelation_time` computation is ensemble-dependent.
+
+        For example, if $W=1$ then certain vortex observables are independent of configuration and thus look like
+        they have an infinite autocorrelation time.  However, that's expected and not an ergodicity problem.  That's
+        real physics!
+
+        So, to decide whether an observable should be included in the ensemble's autocorrelation time requires in general
+        evaluating a function on the observable itself and the ensemble.
+
+        By default observables just return ``False`` but observables can override this function to make more clever decisions.
+        '''
+        return False
+
+class Scalar:
+
+    @classmethod
+    def autocorrelation(cls, ensemble):
+        r'''
+        Scalars are simple to understand and can be included in the autocorrelation computation.
+
+        Returns ``True``.
+        '''
+        return True
+
+class Constrained:
+
+    @classmethod
+    def autocorrelation(cls, ensemble):
+        r'''
+        If $W=1$ the observable should not be included in the autocorrelation computation.
+
+        If $W\neq 1$ then use all other considerations to decide.
+        '''
+        return (ensemble.Action.W != 1) and super().autocorrelation(ensemble)
+
+class OnlyVillain:
+
+    @classmethod
+    def autocorrelation(cls, ensemble):
+        r'''
+        True if the ensemble's action is Villain and all other considerations are true.
+        '''
+
+        return (isinstance(ensemble.Action, supervillain.action.Villain)) and super().autocorrelation(ensemble)
+
+class OnlyWorldline:
+
+    @classmethod
+    def autocorrelation(cls, ensemble):
+        r'''
+        True if the ensemble's action is :class:`~.action.Worldline` and all other considerations are true.
+        '''
+        return (isinstance(ensemble.Action, supervillain.action.Worldline)) and super().autocorrelation(ensemble)
+
+class NotVillain:
+    @classmethod
+    def autocorrelation(cls, ensemble):
+        r'''
+        False if the ensemble's action is Villain, otherwise use all other considerations.
+        '''
+        return (not isinstance(ensemble.Action, supervillain.action.Villain)) and super().autocorrelation(ensemble)
+
+class NotWorldline:
+
+    @classmethod
+    def autocorrelation(cls, ensemble):
+        r'''
+        False if the ensemble's action is :class:`~.action.Worldline`, otherwise use all other considerations.
+        '''
+        return (not isinstance(ensemble.Action, supervillain.action.Worldline)) and super().autocorrelation(ensemble)

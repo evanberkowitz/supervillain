@@ -4,15 +4,16 @@ import h5py as h5
 
 from supervillain import _no_op
 import supervillain
-from supervillain.h5 import H5able
+from supervillain.h5 import Extendable
 from supervillain.performance import Timer
+from supervillain.analysis import autocorrelation_time
 import supervillain.h5
 
 import logging
 logger = logging.getLogger(__name__)
 
 
-class Ensemble(H5able):
+class Ensemble(Extendable):
     r'''An ensemble of configurations importance-sampled according to the ``action``.
 
     Parameters
@@ -42,7 +43,7 @@ class Ensemble(H5able):
 
         return self
 
-    def generate(self, steps, generator, start='cold', progress=_no_op, starting_index=0):
+    def generate(self, steps, generator, start='cold', progress=_no_op, starting_index=0, index_stride=1):
         r'''
         Parameters
         ----------
@@ -55,9 +56,11 @@ class Ensemble(H5able):
                 If a dictionary is passed it is used as the zeroeth configuration.
             progress: something which wraps an iterator and provides a progress bar.
                 In a script you might use `tqdm.tqdm`_, and in a notebook `tqdm.notebook`_.
-                Defaults to no progress reporting.
+                Defaults to no progress reporting.  Must accept a `desc` keyword argument.
             starting_index: int
-                An ensemble has a ``.index`` which is an array of sequential integers labeling the configurations; this sets the lower value.
+                An ensemble has a ``.index`` which is an array of regularly-spaced integers labeling the configurations; this sets the lower value.
+            index_stride: int
+                The increment of the ``.index`` for each call of the generator.
 
         Returns
         -------
@@ -68,8 +71,10 @@ class Ensemble(H5able):
         '''
 
         self.configuration = self.Action.configurations(steps)
-        self.index = starting_index + np.arange(steps)
-        self.weight = np.ones(steps)
+        self.configuration |= generator.inline_observables(steps)
+        self.index_stride = index_stride
+        self.index = starting_index + self.index_stride * supervillain.h5.extendable.array(np.arange(steps))
+        self.weight = supervillain.h5.extendable.array(np.ones(steps))
 
         if start == 'cold':
             seed = self.Action.configurations(1)[0]
@@ -82,11 +87,14 @@ class Ensemble(H5able):
 
             self.configuration[0] = generator.step(seed)
 
-            for mcmc_step in progress(range(1,steps)):
+            for mcmc_step in progress(range(1,steps), desc='Generation'):
                 self.configuration[mcmc_step] = generator.step(self.configuration[mcmc_step-1])
 
             self.start = start
             self.generator = generator
+
+        for line in generator.report().split('\n'):
+            logger.info(line)
 
         return self
 
@@ -101,6 +109,9 @@ class Ensemble(H5able):
                 The ensemble to continue.  Raises a ValueError if it is not a `supervillain.Ensemble` or an `h5py.Group` with an action, generator, and at least one configuration.
             steps: int
                 Number of configurations to generate.
+
+            progress:
+                As in :py:meth:`~.generate`.
 
         Returns
         -------
@@ -123,14 +134,96 @@ class Ensemble(H5able):
             generator = e.generator
             action    = e.Action
             last      = e.configuration[-1]
-            index     = e.index[-1] + 1
+            index     = e.index[-1] + e.index_stride
         except:
             raise ValueError('The ensemble must provide a generator, an Action, and at least one configuration.')
 
-        return Ensemble(action).generate(steps, generator, last, progress=progress, starting_index=index)
+        return Ensemble(action).generate(steps, generator, last, progress=progress, starting_index=index, index_stride=e.index_stride)
 
     def __len__(self):
         return len(self.configuration)
+
+    def measure(self, observables=None):
+        r'''
+        If ``observables`` is None, measure every known primary observable on this ensemble.
+        Otherwise measure only those observables named.
+        If an observable is already computed, no new computation occurs.
+
+        Parameters
+        ----------
+        observables: ``None`` or iterable of strings naming observables.
+            Observables to compute on this ensemble.
+
+        Returns
+        -------
+        dict:
+            Keys are observable names, values are the measurements.
+        '''
+
+        if observables is None:
+            observables = supervillain.observables.keys()
+
+        result = dict()
+        for o in observables:
+            try:
+                result[o] = getattr(self, o)
+            except NotImplementedError:
+                logger.info(f'{o} is not implemented for {self.Action}')
+
+        return result
+
+    @property
+    def measured(self):
+        r'''
+        A set of strings naming measured observables.
+        '''
+
+        return self.__dict__.keys() & supervillain.observables.keys()
+
+    def autocorrelation_time(self, observables=None, every=False):
+        r'''
+        Compute the autocorrelation time for the ensemble's measurements.
+        However, the autocorrelation time for any observable is only computed if that observable's
+        :py:meth:`~.Observable.autocorrelation` is true for this ensemble.
+        
+        However, if no measurements have been made so that :py:attr:`~.measured` is empty, try every observable with a true :py:meth:`~.Observable.autocorrelation`.
+        This may trigger measurement, and is usually what you want; after generation you want to thermalize or decorrelate.
+
+        .. note ::
+            The measurement of some observables,
+            particularly those for which :py:meth:`~.Observable.autocorrelation` is false for this ensemble,
+            is not triggered automatically, unless it is a prerequisite for an observable for :py:meth:`~.Observable.autocorrelation` is true.
+
+        Parameters
+        ----------
+        observables: ``None`` or iterable of strings naming observables.
+            Which observables to consider.  If ``None``, consider all previously-measured observables.
+
+        every: boolean
+            If ``True`` returns a dictionary with keys given by observable names and values the computed autocorrelation times.
+        '''
+
+        if observables is None:
+            observables = self.measured
+            observables = set((o for o in observables if supervillain.observables[o].autocorrelation(self)))
+
+        if len(observables) == 0:
+            observables = tuple(supervillain.observables.keys())
+
+
+        auto = dict()
+        for name in observables:
+            if not supervillain.observables[name].autocorrelation(self):
+                continue
+            try:
+                auto[name] = autocorrelation_time(getattr(self, name))
+            except Exception as E:
+                raise ValueError(f'{name} does not fluctuate enough') from E
+
+        if every:
+            return auto
+        else:
+            return max(auto.values())
 
     def cut(self, start):
         r'''
@@ -152,12 +245,21 @@ class Ensemble(H5able):
         '''
         e = Ensemble(self.Action).from_configurations(self.configuration[start:])
         e.index = self.index[start:]
+        e.index_stride = self.index_stride
         e.weight = self.weight[start:]
+
+        for o in self.measured:
+            setattr(e, o, getattr(self, o)[start:])
+
+        e.generator = self.generator
+
         return e
 
     def every(self, stride):
         r'''
         Good for decorrelation.
+
+        The generator is wrapped in :class:`~.KeepEvery` so that :py:meth:`~.continue_from` produces a strided follow-on ensemble.
 
         .. code::
 
@@ -176,29 +278,41 @@ class Ensemble(H5able):
 
         e = Ensemble(self.Action).from_configurations(self.configuration[::stride])
         e.index = self.index[::stride]
+        e.index_stride = self.index_stride * stride
         e.weight = self.weight[::stride]
+
+        for o in self.measured:
+            setattr(e, o, getattr(self, o)[::stride])
+
+        e.generator = supervillain.generator.combining.KeepEvery(stride, self.generator, blocked_inline=False)
+
         return e
 
     def plot_history(self, axes, observable, label=None,
-                     history_label=None,
                      histogram_label=None,
                      bins=31, density=True,
                      alpha=0.5, color=None,
+                     history_kwargs=dict(),
                      ):
+        r'''
+        .. seealso ::
+            :py:meth:`Blocking.plot_history <~.Blocking.plot_history>`.
+        '''
 
-        if history_label is None:
-            history_label=label
+        if 'label' not in history_kwargs:
+            history_kwargs['label']=label
+
         if histogram_label is None:
             histogram_label=label
 
         data = getattr(self, observable)
-        axes[0].plot(self.index, data, color=color, label=history_label)
+        axes[0].plot(self.index, data, color=color, **history_kwargs)
         axes[1].hist(data, label=histogram_label,
                      orientation='horizontal',
                      bins=bins, density=density,
                      color=color, alpha=alpha,
                      )
- 
+
     def __getattr__(self, name):
         # It is particularly useful to expose fields as ensemble attributes
         # because that helps unify the Observable's application to both
@@ -206,4 +320,4 @@ class Ensemble(H5able):
         try:
             return getattr(self.configuration, name)
         except Exception as e:
-            raise e
+            raise e from None
