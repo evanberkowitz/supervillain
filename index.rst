@@ -35,9 +35,10 @@ supervillain
    :commit:
 
 .. toctree::
-   :caption: License
+   :caption: Credit
 
    contributors
+   support
    license
 
 .. literalinclude:: LICENSE
