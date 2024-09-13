@@ -36,11 +36,22 @@ demo/clean: demo/tidy
 	$(RM) demo/{scaling,transition,breaking}*h5
 
 .PHONY: paper
-paper: Z3-breaking.pdf
+paper: Z3-breaking.pdf .WAIT scaling
 
 Z3-breaking.pdf: breaking.py Z3-breaking.py
 	python production.py $(PARALLEL) Z3-breaking.py
 	python breaking.py $(PARALLEL) Z3-breaking.py --pdf Z3-breaking.pdf
+
+.PHONY: scaling
+scaling: \
+	scaling-W1.pdf .WAIT \
+	scaling-W2.pdf .WAIT \
+	scaling-W3.pdf
+
+scaling/W%.pdf: scaling.py scaling/W=%.py
+	#python production.py $(PARALLEL) scaling/W=$*.py
+	python history.py $(PARALLEL) scaling/W=$*.py --pdf scaling/W$*-history.pdf
+	python scaling.py $(PARALLEL) scaling/W=$*.py --pdf scaling/W$*.pdf
 
 paper-tidy:
 	$(RM) Z3-breaking.pdf

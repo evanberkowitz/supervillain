@@ -24,17 +24,19 @@ def scaling_plot(ax, observable, data, kappas_per_column=8):
     ax.set_xscale('log')
     ax.set_yscale('log')
 
-    ax.set_ylabel(label)
-    ax.set_xlabel('1/N')
+    ax.set_ylabel(label, fontsize=18)
+    ax.set_xlabel('1/N', fontsize=18)
 
-    L = data.N.unique()
-    ax.set_xticks(1/L)
-    ax.set_xticklabels([f'1/{l}' for l in L])
-    ax.tick_params(axis='x', which='minor', bottom=False)
+    N = data.N.unique()
+    ax.tick_params(axis='x', which='both', bottom=False, top=False)
+    ax.set_xticks(1/N, minor=False)
+    ax.set_xticks([],  minor=True)
+    ax.set_xticklabels([f'1/{n}' for n in N])
     ax.grid(True, which='both', axis='y')
+    ax.grid(False, which='both', axis='x')
 
-    ax.legend(loc='lower right', ncols=(1+ (len(data['kappa'].unique()) // kappas_per_column)))
- 
+    ax.legend(loc='lower left', ncols=(1+ (len(data['kappa'].unique()) // kappas_per_column)))
+
 
 def visualize(data, all_observables=False):
 
@@ -85,7 +87,7 @@ if __name__ == '__main__':
         ensembles = ensembles.apply(parallel.io_prep, axis=1)
     print(ensembles)
 
-    data = results.collect(ensembles)
+    data = results.collect(ensembles, observables=('SpinCriticalMoment', 'VortexCriticalMoment'))
     figs = visualize(data, all_observables=args.all)
 
     if args.pdf:
