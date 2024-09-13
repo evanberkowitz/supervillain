@@ -10,6 +10,7 @@ supervillain
    :maxdepth: 1
    :caption: Contents
 
+   supervillain/compact-boson
    supervillain/action
    supervillain/worldline
    supervillain/lattice

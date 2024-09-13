@@ -56,9 +56,19 @@ The constrained model has a gauge symmetry $v \rightarrow v \pm W$ because with 
     e^{2\pi i \sum_p v_p (dn)_p / W}
 
 and the path integral are invariant under that transformation.  When $W=1$ the ...constraint... does not constrain $dn$.
-We may think of of the :ref:`vortex-free model <vortex-free model>` as $W=\infty$.
+We may think of of the $U(1)_W$-maintaining :ref:`vortex-free model <vortex-free model>` as $W=\infty$.
 
-The constrained model has a $\mathbb{Z}_W$ winding symmetry WHICH DESERVES A LOT MORE DISCUSSION HERE.
+The constrained model has a $\mathbb{Z}_W$ global winding symmetry
+
+.. math ::
+
+    \begin{align}
+        v &\rightarrow v + z
+        &
+        (z&\in\mathbb{Z})
+    \end{align}
+
+which is harmless under the path integral of $v$ over the integers.
 
 But for the unconstrained $W=1$, the obvious reading of this model has a horrible sign problem.
 However, the sign problem can be traded for a constraint,
