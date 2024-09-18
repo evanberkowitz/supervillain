@@ -43,7 +43,7 @@ L.plot_form(1, link,      ax, cmap=on_off, norm=Normalize(vmin=-1, vmax=+1))
 L.plot_form(2, plaquette, ax, cmap=on_off, norm=Normalize(vmin=-1, vmax=+1))
 
 ax.set_xlabel('0th direction')
-ax.set_xlabel('1st direction')
+ax.set_ylabel('1st direction')
 
 fig.tight_layout()
 
