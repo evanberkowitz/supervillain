@@ -381,6 +381,26 @@ class Lattice2D(ReadWriteable):
         r'''
         The (lattice) exterior derivative.
 
+        The derivative operates differently depending on the degree of the form p.
+
+        As an operator the derivative is translationally invariant, so we focus on simple examples which may then be scaled and composed by superposition.
+
+        First we consider a 0-form that vanishes everywhere (white vertices) except the origin, where it is unity (black).
+        Its exterior derivative is a 1-form which vanishes on links that do not touch the origin (gray),
+        is –1 (blue) when the origin is at the tail of the links, and
+        is +1 (red) when the origin is at the head of the links.
+
+        .. plot:: example/plot/lattice/d0.py
+
+        Next we consider the exterior derivative's action on 1-forms.
+        We start with a 1-form which vanishes everywhere (white links) but for the horizontal link starting from (-1, -1) and the vertical link starting from (+1, +1), where it is unity (black).
+        Its exterior derivative is a 2-form which vanishes on (gray) plaquettes that do not touch those links,
+        or is –1 (blue) or +1 (red) on plaquettes whose boundary contains those links.
+
+        .. plot:: example/plot/lattice/d1.py
+
+        For a two-dimensional lattice the exterior derivative of a 2-form is 0.
+
         Parameters
         ----------
             p: int
@@ -413,6 +433,25 @@ class Lattice2D(ReadWriteable):
     def delta(self, p, form):
         r'''
         The (lattice) interior derivative / divergence of the p-form.
+
+        The divergence operates differently depending on the degree of the form.
+
+        As an operator the divergence is translationally invariant, so we focus on simple examples which may then be scaled and composed by superposition.
+
+        The divergence of a 0-form is 0.
+
+        First we consider a 1-form that vanishes everywhere (white links) except where it is unity (black links).
+        Its divergence is a 0-form which vanishes on (gray) sites that do not touch the nonzero links,
+        is –1 (blue) at the tail of the link and
+        is +1 (red) at the head of the link.
+
+        .. plot:: example/plot/lattice/delta1.py
+
+        Next we consider  a 2-form that vanishes on every (white) plaquettes except where it is unity (black plaquette, whose lower-left corner is the origin).
+        Its divergence is a 1-form which vanishes on links that do not touch that plaquette (gray),
+        or is –1 (blue) or +1 (red) on links on that plaquette's boundary.
+
+        .. plot:: example/plot/lattice/delta2.py
 
         Parameters
         ----------
