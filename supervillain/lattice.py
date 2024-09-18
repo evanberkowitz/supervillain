@@ -22,6 +22,38 @@ def _dimension(n):
     return np.array(list(range(0, n // 2 + 1)) + list(range( - n // 2 + 1, 0)), dtype=int)
 
 class Lattice2D(ReadWriteable):
+    r'''
+    A two-dimensional square lattice is a collection of sites, links, and plaquettes arranged in the obvious cartesian grid.
+    We specialize to lattices with an equal number of sites in both directions.
+
+    We impose periodic boundary conditions to ensure translational invariance.
+
+    It is helpful to establish some conventions about coordinates.
+
+    As shown in the picture below, *sites* live on integer coordinates, *links* connect two integer coordinates, and *plaquettes* are centered on half-integer coordinates.
+    0-forms are defined on sites, 1-forms on links, and 2-forms on plaquettes.
+    You can get a correctly-sized array to hold a p-form using :py:meth:`~.Lattice2D.form`.
+
+    .. plot:: example/plot/lattice/layout.py
+
+    Links that emanate from sites at the edge of the lattice connect to those on the opposite edge.
+    Similarly, plaquettes are always bounded by 4 links, even if some of those links are on the opposite edge.
+    This ensures periodic boundary conditions.
+
+    It is much easier to index into arrays using integers.
+    A site can be specified by 2 integers, the coordinates.
+    A link requires 3 integers, first the direction (0 or 1) and then the coordinates of the site from which the link emanates.
+    A plaquette requires 2 integers, the coordinates of the plaquette both rounded down.
+    In the figure above, a 0-, 1-, and 2-form are 0 everywhere except for those elements whose integer spatial coordinates are (0, 0), which are 1.
+
+    .. literalinclude:: ../example/plot/lattice/layout.py
+        :lines: 30-39
+
+    Parameters
+    ----------
+    n: int
+        The number of sites on a side.
+    '''
 
     def __init__(self, n):
         self.nt = n
@@ -364,6 +396,11 @@ class Lattice2D(ReadWriteable):
 
                 Notice that the 1-form has an extra dimension compared to the 0 form (because there are 2 links per site in 2 dimensions) and the 2-form has the same shape as sites (which is special to 2D).
                 The spacetime dependence is last because :func:`~coordinatize` and :func:`~Lattice2D.linearize` default to the last dimension.
+
+        .. note ::
+
+            These are normal arrays indexed by integers, even though, for example, plaquettes live on half-integers.
+            To see a visual clarification see :class:`the very first figure above <supervillain.lattice.Lattice2D>`.
         '''
         if count is None:
             return self.form(p, count=1, dtype=dtype)[0]
@@ -380,6 +417,26 @@ class Lattice2D(ReadWriteable):
     def d(self, p, form):
         r'''
         The (lattice) exterior derivative.
+
+        The derivative operates differently depending on the degree of the form p.
+
+        As an operator the derivative is translationally invariant, so we focus on simple examples which may then be scaled and composed by superposition.
+
+        First we consider a 0-form that vanishes everywhere (white vertices) except the origin, where it is unity (black).
+        Its exterior derivative is a 1-form which vanishes on links that do not touch the origin (gray),
+        is –1 (blue) when the origin is at the tail of the links, and
+        is +1 (red) when the origin is at the head of the links.
+
+        .. plot:: example/plot/lattice/d0.py
+
+        Next we consider the exterior derivative's action on 1-forms.
+        We start with a 1-form which vanishes everywhere (white links) but for the horizontal link starting from (-1, -1) and the vertical link starting from (+1, +1), where it is unity (black).
+        Its exterior derivative is a 2-form which vanishes on (gray) plaquettes that do not touch those links,
+        or is –1 (blue) or +1 (red) on plaquettes whose boundary contains those links.
+
+        .. plot:: example/plot/lattice/d1.py
+
+        For a two-dimensional lattice the exterior derivative of a 2-form is 0.
 
         Parameters
         ----------
@@ -413,6 +470,25 @@ class Lattice2D(ReadWriteable):
     def delta(self, p, form):
         r'''
         The (lattice) interior derivative / divergence of the p-form.
+
+        The divergence operates differently depending on the degree of the form.
+
+        As an operator the divergence is translationally invariant, so we focus on simple examples which may then be scaled and composed by superposition.
+
+        The divergence of a 0-form is 0.
+
+        First we consider a 1-form that vanishes everywhere (white links) except where it is unity (black links).
+        Its divergence is a 0-form which vanishes on (gray) sites that do not touch the nonzero links,
+        is –1 (blue) at the tail of the link and
+        is +1 (red) at the head of the link.
+
+        .. plot:: example/plot/lattice/delta1.py
+
+        Next we consider  a 2-form that vanishes on every (white) plaquettes except where it is unity (black plaquette, whose lower-left corner is the origin).
+        Its divergence is a 1-form which vanishes on links that do not touch that plaquette (gray),
+        or is –1 (blue) or +1 (red) on links on that plaquette's boundary.
+
+        .. plot:: example/plot/lattice/delta2.py
 
         Parameters
         ----------
