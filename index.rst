@@ -59,3 +59,7 @@ Indices and tables
 
 .. sidebar-links::
    :github:
+
+    Open Issues <https://github.com/evanberkowitz/supervillain/issues>
+    Pull Requests <https://github.com/evanberkowitz/supervillain/pulls>
+    ReadTheDocs   <https://supervillain.readthedocs.io/en/latest/>
