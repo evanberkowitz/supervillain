@@ -1,0 +1,53 @@
+#!/usr/bin/env python
+
+import numpy as np
+import h5py as h5
+from tqdm import tqdm
+from tqdm.contrib.logging import logging_redirect_tqdm
+import matplotlib.pyplot as plt
+from matplotlib.colors import Normalize, LinearSegmentedColormap
+
+import supervillain
+
+parser = supervillain.cli.ArgumentParser()
+parser.add_argument('--N', type=int, default=5, help='Sites on a side.')
+parser.add_argument('--pdf', type=str, default='')
+args = parser.parse_args()
+
+import logging
+logger = logging.getLogger(__name__)
+
+L = supervillain.Lattice2D(args.N)
+
+fig, ax = plt.subplots(1,1,
+    figsize=(7, 6),
+)
+
+on_off = LinearSegmentedColormap.from_list(
+    'binary',
+    [(1,1,1), (0,0,0)],
+    N=3
+)
+
+plus_zero_minus = LinearSegmentedColormap.from_list(
+    'ternary',
+    [(0,0,1), (0.5,0.5,0.5), (1,0,0)],
+    N=3
+)
+
+scalar = L.form(0)
+scalar[0,0] = 1
+
+derivative = L.d(0, scalar)
+
+L.plot_form(0, scalar,     ax, cmap=on_off, norm=Normalize(vmin=0, vmax=1))
+L.plot_form(1, derivative, ax, cmap=plus_zero_minus, norm=Normalize(vmin=-1, vmax=+1))
+L.plot_form(2, L.form(2),  ax, cmap=on_off, norm=Normalize(vmin=0, vmax=+1))
+
+fig.tight_layout()
+
+if args.pdf:
+    fig.savefig(args.pdf)
+else:
+    plt.show()
+
