@@ -51,6 +51,10 @@ Action
    :members:
    :show-inheritance:
 
+.. autoclass :: supervillain.observable.ActionDensityVariance
+   :members:
+   :show-inheritance:
+
 =======
 Winding
 =======
