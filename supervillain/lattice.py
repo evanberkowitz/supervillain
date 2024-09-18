@@ -22,6 +22,38 @@ def _dimension(n):
     return np.array(list(range(0, n // 2 + 1)) + list(range( - n // 2 + 1, 0)), dtype=int)
 
 class Lattice2D(ReadWriteable):
+    r'''
+    A two-dimensional square lattice is a collection of sites, links, and plaquettes arranged in the obvious cartesian grid.
+    We specialize to lattices with an equal number of sites in both directions.
+
+    We impose periodic boundary conditions to ensure translational invariance.
+
+    It is helpful to establish some conventions about coordinates.
+
+    As shown in the picture below, *sites* live on integer coordinates, *links* connect two integer coordinates, and *plaquettes* are centered on half-integer coordinates.
+    0-forms are defined on sites, 1-forms on links, and 2-forms on plaquettes.
+    You can get a correctly-sized array to hold a p-form using :py:meth:`~.Lattice2D.form`.
+
+    .. plot:: example/plot/lattice/layout.py
+
+    Links that emanate from sites at the edge of the lattice connect to those on the opposite edge.
+    Similarly, plaquettes are always bounded by 4 links, even if some of those links are on the opposite edge.
+    This ensures periodic boundary conditions.
+
+    It is much easier to index into arrays using integers.
+    A site can be specified by 2 integers, the coordinates.
+    A link requires 3 integers, first the direction (0 or 1) and then the coordinates of the site from which the link emanates.
+    A plaquette requires 2 integers, the coordinates of the plaquette both rounded down.
+    In the figure above, a 0-, 1-, and 2-form are 0 everywhere except for those elements whose integer spatial coordinates are (0, 0), which are 1.
+
+    .. literalinclude:: ../example/plot/lattice/layout.py
+        :lines: 30-39
+
+    Parameters
+    ----------
+    n: int
+        The number of sites on a side.
+    '''
 
     def __init__(self, n):
         self.nt = n
@@ -364,6 +396,11 @@ class Lattice2D(ReadWriteable):
 
                 Notice that the 1-form has an extra dimension compared to the 0 form (because there are 2 links per site in 2 dimensions) and the 2-form has the same shape as sites (which is special to 2D).
                 The spacetime dependence is last because :func:`~coordinatize` and :func:`~Lattice2D.linearize` default to the last dimension.
+
+        .. note ::
+
+            These are normal arrays indexed by integers, even though, for example, plaquettes live on half-integers.
+            To see a visual clarification see :class:`the very first figure above <supervillain.lattice.Lattice2D>`.
         '''
         if count is None:
             return self.form(p, count=1, dtype=dtype)[0]
