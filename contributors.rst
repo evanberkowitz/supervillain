@@ -16,6 +16,17 @@ Contributors
         | `University of Minnesota <https://twin-cities.umn.edu/>`_
 
 
+A complete listing of those who contributed code can be found `on GitHub <https://github.com/evanberkowitz/supervillain/graphs/contributors>`_.
+
+Collaborators
+-------------
+
+supervillain benefited a great deal from in-depth discussions with many other collaborators and colleagues, including
+
+    `Srimoyee Sen <https://faculty.sites.iastate.edu/srimoyee/>`_ |ORCID-sen|
+        | Assistant Professor
+        | `Iowa State University <https://www.iastate.edu/>`_
+
 .. |ORCID-berkowitz| image:: ./_static/ORCID/ORCID-iD_icon-16x16.png
    :target: https://orcid.org/0000-0003-1082-1374
    :alt: ORCID icon
@@ -23,3 +34,6 @@ Contributors
 .. |ORCID-cherman| image:: ./_static/ORCID/ORCID-iD_icon-16x16.png
    :target: https://orcid.org/0000-0002-1039-8476
    :alt: ORCID icon
+
+.. |ORCID-sen| image:: ./_static/ORCID/ORCID-iD_icon-16x16.png
+   :target: https://orcid.org/0000-0002-6613-5210Sen,
