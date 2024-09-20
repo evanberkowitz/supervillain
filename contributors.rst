@@ -10,6 +10,11 @@ Contributors
         | `CASA, the Centre for Advanced Simulation and Analytics <https://www.fz-juelich.de/en/research/research-fields/information/supercomputing/copy_of_casa-centre-for-advanced-simulation-and-analytics>`_, institutes of
         | `Forschungszentrum Jülich <https://www.fz-juelich.de/en>`_
 
+    Seth Buesing
+        | sab272@cam.ac.uk
+        | Undergraduate at `Macalester College <https://www.macalester.edu/>`_
+        | Currently at `DAMTP <https://www.damtp.cam.ac.uk/>`_, (MASt Theoretical Physics), `University of Cambridge <https://www.cam.ac.uk/>`_.
+
     `Aleksey Cherman <https://cse.umn.edu/physics/aleksey-cherman>`_ |ORCID-cherman|
         | acherman@umn.edu
         | `School of Physics and Astronomy <https://cse.umn.edu/physics>`_
