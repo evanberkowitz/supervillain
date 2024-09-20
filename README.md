@@ -1,5 +1,7 @@
 # supervillain
 
+[![DOI](https://zenodo.org/badge/679369801.svg)](https://zenodo.org/badge/latestdoi/679369801)
+
 Supervillain is a python package for studying the Villain model.
 
 # Installation + Development

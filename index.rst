@@ -8,6 +8,11 @@
 supervillain
 ============
 
+|DOI|
+
+.. |DOI| image:: https://zenodo.org/badge/679369801.svg
+   :target: https://zenodo.org/badge/latestdoi/679369801
+
 .. toctree::
    :maxdepth: 1
    :caption: Contents
