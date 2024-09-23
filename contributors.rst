@@ -28,6 +28,11 @@ Collaborators
 
 supervillain benefited a great deal from in-depth discussions with many other collaborators and colleagues, including
 
+    `Theo Jacobson <https://inspirehep.net/authors/1664518>`_ |ORCID-jacobson|
+        | tjacobson@physics.ucla.edu
+        | `Mani L. Bhaumik Institute for Theoretical Physics <https://bhaumik-institute.physics.ucla.edu/>`_
+        | `UCLA <https://www.ucla.edu/>`_
+
     `Srimoyee Sen <https://faculty.sites.iastate.edu/srimoyee/>`_ |ORCID-sen|
         | Assistant Professor
         | `Iowa State University <https://www.iastate.edu/>`_
@@ -38,6 +43,10 @@ supervillain benefited a great deal from in-depth discussions with many other co
 
 .. |ORCID-cherman| image:: ./_static/ORCID/ORCID-iD_icon-16x16.png
    :target: https://orcid.org/0000-0002-1039-8476
+   :alt: ORCID icon
+
+.. |ORCID-jacobson| image:: ./_static/ORCID/ORCID-iD_icon-16x16.png
+   :target: https://orcid.org/0000-0002-3746-1674
    :alt: ORCID icon
 
 .. |ORCID-sen| image:: ./_static/ORCID/ORCID-iD_icon-16x16.png
