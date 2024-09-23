@@ -1,4 +1,5 @@
-version='0.0.0'
+version='1.0.0'
+version_name='magneto'
 authors='Berkowitz, Buesing, Cherman, Jacobson, and Sen'
 header='''
 ┌──────────────────────────────────────────────────────────────────────────────┐
