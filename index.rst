@@ -70,3 +70,4 @@ Indices and tables
     Open Issues <https://github.com/evanberkowitz/supervillain/issues>
     Pull Requests <https://github.com/evanberkowitz/supervillain/pulls>
     ReadTheDocs   <https://supervillain.readthedocs.io/en/latest/>
+    Helmholtz RSD <https://helmholtz.software/software/supervillain>
