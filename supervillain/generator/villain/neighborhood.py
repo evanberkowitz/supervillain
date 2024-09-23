@@ -87,7 +87,6 @@ class NeighborhoodUpdate(ReadWriteable, Generator):
             north, south, east, west = self.Lattice.mod(here + np.array([[+1,0],[-1,0],[0,-1],[0,+1]]))
                 # Since time is the zeroeth axis, *west* is the positive space direction.
 
-            # TODO: consider drawing the change in phi from W * the below interval
             change_phi =                 self.rng.uniform(-self.interval_phi,+self.interval_phi,None)
             change_n   = self.Action.W * self.rng.choice(self.n_changes,4)
 

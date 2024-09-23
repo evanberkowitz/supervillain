@@ -34,7 +34,7 @@ class Villain(ReadWriteable):
     kappa: float
         The $\kappa$ in the overall coefficient.
     W: int
-        The constraint integer $W$.  For the Villain action we restrict to $W=1$ to avoid a horrible sign problem.
+        The constraint integer $W$.  When $W>1$ we must integrate out $v$ to avoid a horrible sign problem and sample carefully to maintain the winding constraint.
     '''
 
     def __init__(self, lattice, kappa, W=1):

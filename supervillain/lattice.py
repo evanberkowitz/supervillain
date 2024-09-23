@@ -1051,12 +1051,15 @@ class Lattice2D(ReadWriteable):
         '''
         zorder = {'zorder': -p if zorder is None else zorder}
         
-        marker = {
+        marker_size = {
             's': pointsize,
             'edgecolor': background,
             'linewidth': 2,
-            'norm': norm,
             'marker' : markerstyle
+        }
+        marker_color = {
+            'cmap': cmap,
+            'norm': norm,
         }
         no_arrowhead = {'headwidth': 0, 'headlength': 0, 'headaxislength': 0,}
         linkpadding = {'edgecolor': background, 'linewidth': 4}
@@ -1070,7 +1073,7 @@ class Lattice2D(ReadWriteable):
         }
 
         if p == 0:
-            f = axis.scatter(self.T, self.X, c=form, cmap=cmap, **zorder, **marker)
+            f = axis.scatter(self.T, self.X, c=form, **zorder, **marker_size, **marker_color)
 
         if p == 1:
             # To get the horizontal links and vertical links to have the same coloring the simplest
@@ -1084,9 +1087,7 @@ class Lattice2D(ReadWriteable):
             V = np.concatenate((np.zeros_like(self.T.flatten()), np.ones_like (self.T.flatten())))
             # and then we can plot the whole form together.
             f = axis.quiver(T, X, U, V, form.flatten(), **zorder, **links)
-            # TODO: squash warning in example/plot/forms.py
-            # UserWarning: No data for colormapping provided via 'c'. Parameters 'norm' will be ignored axis.scatter(self.T, self.X, color=background, **zorder, **marker)
-            axis.scatter(self.T, self.X, color=background, **zorder, **marker)
+            axis.scatter(self.T, self.X, color=background, **zorder, **marker_size)
 
         if p == 2:
             # We roll the form because the figure should have (0,0) in the middle but the form has (0,0) in the corner.
@@ -1096,11 +1097,9 @@ class Lattice2D(ReadWriteable):
                         origin='lower', extent=(min(self.t), max(self.t)+1, min(self.x), max(self.x)+1),
                         norm=norm,
                        )
-            # TODO: squash warning in example/plot/forms.py
-            # UserWarning: No data for colormapping provided via 'c'. Parameters 'norm' will be ignored axis.scatter(self.T, self.X, color=background, **zorder, **marker)
             axis.quiver(self.T, self.X, 1, 0, color='white', **zorder, **links)
             axis.quiver(self.T, self.X, 0, 1, color='white', **zorder, **links)
-            axis.scatter(self.T, self.X, color=background, **zorder, **marker)
+            axis.scatter(self.T, self.X, color=background, **zorder, **marker_size)
             axis.xaxis.set_zorder(-p)
             axis.yaxis.set_zorder(-p)
 
@@ -1138,8 +1137,6 @@ class Lattice2D(ReadWriteable):
         Returns the form antisymmetrized along the temporal axis.
         '''
         return 0.5*(form - np.roll(np.flip(form, axis=axis), 1, axis=axis))
-
-    # TODO: spacetime point group symmetry projection to D4 irreps.
 
     @cached_property
     def point_group_permutations(self):
