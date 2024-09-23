@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Berkowitz"
+  given-names: "Evan"
+  orcid: "https://orcid.org/0000-0003-1082-1374"
+- family-names: "Buesing"
+  given-names: "Seth"
+- family-names: "Cherman"
+  given-names: "Aleksey"
+  orcid: "https://orcid.org/0000-0002-1039-8476"
+title: "supervillain"
+url: "https://github.com/evanberkowitz/supervillain"
