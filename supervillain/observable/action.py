@@ -154,6 +154,14 @@ class ActionTwoPoint(Observable):
 class Action_Action(DerivedQuantity):
     r'''
     If we imagine rewriting the actions' sums over links as a sum over sites and a sum over directions we can associate a value of κ with each site.
+    In other words, 
+
+    .. math ::
+        \mathcal{S} = - \kappa \partial_{\kappa} \log Z = - \left. \sum_x \kappa_x \partial_{\kappa_x} \log Z \right|_{\kappa_x = \kappa}
+
+    so that we can think of the :class:`~.ActionDensity` as the average of $\left. -\kappa_x \partial_{\kappa_x} \log Z \right|_{\kappa_x = \kappa}$,
+    identifying the local derivative as generating a local action density operator.
+
     Then we may compute the correlations of the action density by evaluating
 
     .. math::
@@ -213,3 +221,18 @@ class Action_Action(DerivedQuantity):
     @staticmethod
     def default(S, ActionTwoPoint, ActionDensity):
         return ActionTwoPoint - ActionDensity**2
+
+class ActionDensityVariance(DerivedQuantity):
+    r'''
+    The variance
+
+    .. math ::
+
+        \texttt{ActionDensityVariance} = \left\langle (\mathcal{S}/\Lambda)^2 \right\rangle - \left\langle \mathcal{S} / \Lambda \right\rangle^2.
+
+    Since :class:`~.Action_Action` is the correlation function of local densities, we can compute the variance by taking the average over $\Delta x$.
+    '''
+
+    @staticmethod
+    def default(S, Action_Action):
+        return Action_Action.mean()
