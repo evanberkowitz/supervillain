@@ -2,6 +2,7 @@
 
 import numpy as np
 
+
 def autocorrelation(data, mean=None, _cutoff=1e-16):
     r'''
 
@@ -17,10 +18,10 @@ def autocorrelation(data, mean=None, _cutoff=1e-16):
 
     where the ⟨averages⟩ are over the time $t$ and $C$ is normalized to 1 at $\tau=0$.
 
-    The integrated autocorrelation time $\tau_{int}$ is
+    The integrated autocorrelation time $\tau_{int}$ :cite:`Madras:1988ei` is
 
     .. math::
-        \tau_{int} = \int_{0}^{\tau_0} d\tau\; C(\tau)
+        \tau_{int} = \int_{0}^{\tau_0} d\tau\; C(\tau) = \frac{1}{2} + \sum_{\tau=1}^{\tau_0} C(\tau)
 
     where $\tau_0$ is the first time where $C$ is zero.
 
@@ -58,8 +59,10 @@ def autocorrelation(data, mean=None, _cutoff=1e-16):
     C /= C[0] # normalize
 
     clamped = np.clip(C, 0, None)
-    minIdx = np.argmin(clamped)
-    return C, int(np.ceil(C[:minIdx].sum()))
+    tau_0 = np.argmin(clamped)
+
+    tau = np.ceil(0.5+C[1:tau_0].sum())
+    return C, int(tau)
 
 
 def autocorrelation_time(data, mean=None):
