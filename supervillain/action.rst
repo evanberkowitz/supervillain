@@ -61,6 +61,7 @@ We may think of of the $U(1)_W$-maintaining :ref:`vortex-free model <vortex-free
 The constrained model has a $\mathbb{Z}_W$ global winding symmetry
 
 .. math ::
+   :name: winding symmetry
 
     \begin{align}
         v &\rightarrow v + z

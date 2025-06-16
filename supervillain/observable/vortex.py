@@ -1,6 +1,34 @@
 import numpy as np
-from supervillain.observable import Observable, DerivedQuantity, Constrained
+from supervillain.observable import OnlyWorldline, Observable, DerivedQuantity, Constrained
 import supervillain.action
+
+class Vortex(OnlyWorldline, Constrained, Observable):
+    r'''
+    On every site we have $v\in\mathbb{Z}$ which lives in an exponential $\exp(2\pi i v/W)$.
+
+    This observable computes
+
+    .. math ::
+        \texttt{Vortex} = \frac{1}{\Lambda} \sum_x \exp(2\pi i v_x/W)
+
+    which lives in the convex hull between the $W$th roots of unity.
+
+    .. warning ::
+        Note that this observable is NOT invariant under the :ref:`winding symmetry <winding symmetry>`.
+        Therefore, it is definitely zero in expectation value.
+        In the :class:`~.Worldline` formulation we have access to $v$ and can compute nevertheless.
+        In contrast, in the :class:`Villain <supervillain.action.Villain>` formulation we cannot, even during the :class:`ClassicWorm <supervillain.generator.villain.worm.ClassicWorm>` update.
+
+    '''
+
+    @staticmethod
+    def Worldline(S, v):
+        r'''
+        $v$ is accessible only in the Worldline formulation.
+        '''
+        vortex = np.exp(2j*np.pi * v / S._W)
+
+        return vortex.mean(axis=(-2,-1))
 
 class Vortex_Vortex(Constrained, Observable):
     r'''

@@ -1,6 +1,27 @@
 import numpy as np
-from supervillain.observable import Scalar, Observable, DerivedQuantity
+from supervillain.observable import OnlyVillain, Scalar, Observable, DerivedQuantity
 import supervillain.action
+
+class Spin(OnlyVillain, Observable):
+    r'''
+    On every site we have $\phi\in\mathbb{R}$ which lives in an exponential $\exp(i\phi)$.
+
+    .. warning ::
+        Note that this observable is NOT invariant under the $U(1)_S$ shift symmetry.
+        Therefore, it is definitely zero in expectation value.
+        In the :class:`~.Villain` formulation we have access to $\phi$ and can compute nevertheless.
+        In contrast, in the :class:`Worldline <supervillain.action.Worldline>` formulation we cannot, even during the :class:`ClassicWorm <supervillain.generator.worldline.worm.ClassicWorm>` update.
+
+    '''
+
+    @staticmethod
+    def Villain(S, phi):
+        r'''
+        $\phi$ is accessible only in the Villain formulation.
+        '''
+        spin = np.exp(1j*phi)
+
+        return spin.mean(axis=(-2,-1))
 
 class Spin_Spin(Observable):
     r'''

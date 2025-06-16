@@ -91,6 +91,10 @@ These decouple the two components of the wrapping.
 Spin Correlations
 =================
 
+.. autoclass :: supervillain.observable.Spin
+   :members:
+   :show-inheritance:
+
 .. autoclass :: supervillain.observable.Spin_Spin
    :members:
    :show-inheritance:
@@ -110,6 +114,10 @@ Spin Correlations
 ===================
 Vortex Correlations
 ===================
+
+.. autoclass :: supervillain.observable.Vortex
+   :members:
+   :show-inheritance:
 
 .. autoclass :: supervillain.observable.Vortex_Vortex
    :members:
