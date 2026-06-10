@@ -105,8 +105,8 @@ class LinkUpdate(Generator):
         dphi = d(y['phi'])
         n = y['n']
         dS = (
-            2 * np.pi * S.kappa * change_n
-            * (dphi + 2 * np.pi * n + np.pi * change_n)
+            -2 * np.pi * S.kappa * change_n
+            * (dphi - 2 * np.pi * n - np.pi * change_n)
         )
 
         acceptance = np.clip(np.exp(-dS), a_min=0, a_max=1)

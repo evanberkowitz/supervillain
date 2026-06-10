@@ -30,8 +30,8 @@ class Villain(ReadWriteable):
         return self._core(phi, n)
 
     def local(self, phi, n):
-        r'''Per-link contribution :math:`\frac{\kappa}{2}(d\phi + 2\pi n)^2` as a 1-form.'''
-        return (self.kappa / 2) * (d(phi) + 2 * np.pi * n)**2
+        r'''Per-link contribution :math:`\frac{\kappa}{2}(d\phi - 2\pi n)^2` as a 1-form.'''
+        return (self.kappa / 2) * (d(phi) - 2 * np.pi * n)**2
 
     def transform(self, phi, n, m):
         return self._core.transform(phi, n, m)

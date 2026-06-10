@@ -2,8 +2,8 @@
 r"""
 Bridge :class:`~supervillain.lattice.Lattice2D` field layouts and compact :class:`~supervillain.compact.Form`.
 
-Production Villain uses ``(d\phi - 2\pi n)^2``.  Compact uses ``(d\phi + 2\pi n)^2`` with the same
-physics under the field rename ``n_{\mathrm{compact}} = -n_{\mathrm{production}}``.
+Both production and compact Villain use ``(d\phi - 2\pi n)^2``.
+This module is a shape-only bridge: 0-forms gain a leading component axis, 1-forms are unchanged.
 """
 
 import numpy as np
@@ -32,7 +32,6 @@ def to_form(field, *, degree, lattice2d, dtype=None):
     elif degree == 1:
         if data.shape != (lattice2d.dim,) + lattice2d.dims:
             raise ValueError(f'1-form shape {data.shape} != {(lattice2d.dim,) + lattice2d.dims}')
-        data = -data
     else:
         raise ValueError(f'Unsupported degree {degree} for Villain layout bridge.')
 
@@ -45,5 +44,5 @@ def from_form(form):
     if form.degree == 0:
         return data[0]
     if form.degree == 1:
-        return -data
+        return data
     raise ValueError(f'Unsupported degree {form.degree} for Villain layout bridge.')

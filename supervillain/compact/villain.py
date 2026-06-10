@@ -11,7 +11,7 @@ class Villain:
 
     def __call__(self, phi, n):
 
-        return (self.kappa / 2) * ((d(phi) + 2*np.pi*n)**2).sum()
+        return (self.kappa / 2) * ((d(phi) - 2*np.pi*n)**2).sum()
 
     def transform(self, phi, n, m):
-        return phi + 2*np.pi*m, n - d(m)
+        return phi + 2*np.pi*m, n + d(m)
