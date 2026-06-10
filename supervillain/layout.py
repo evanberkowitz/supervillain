@@ -8,7 +8,7 @@ physics under the field rename ``n_{\mathrm{compact}} = -n_{\mathrm{production}}
 
 import numpy as np
 
-from supervillain.compact.compact import Form, Lattice
+from supervillain.lattice.compact import Form, Lattice
 
 
 def compact_lattice(lattice2d):

@@ -7,7 +7,7 @@ import pytest
 import supervillain.h5.strategy.batch  # noqa: F401 — register strategy
 from supervillain.h5 import Data
 from supervillain.batch import Batch
-from supervillain.compact.compact import Form, Lattice
+from supervillain.lattice.compact import Form, Lattice
 
 
 @pytest.fixture

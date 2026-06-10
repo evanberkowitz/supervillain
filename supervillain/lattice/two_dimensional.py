@@ -5,21 +5,7 @@ import matplotlib.colors as colors
 import numpy as np
 
 from supervillain.h5 import ReadWriteable
-
-def _dimension(n):
-    '''
-
-    Parameters
-    ----------
-        n:  int
-            size of the dimension
-
-    Returns
-    -------
-        an FFT-convention-compatible list of coordinates for a dimension of size n,
-        ``[0, 1, 2, ... max, min ... -2, -1]``.
-    '''
-    return np.array(list(range(0, n // 2 + 1)) + list(range( - n // 2 + 1, 0)), dtype=int)
+from supervillain.lattice import _dimension
 
 class Lattice2D(ReadWriteable):
     r'''

@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from supervillain.compact.compact import d
+from supervillain.lattice.compact import d
 from supervillain.generator import Generator
 import supervillain.generator.combining as combining
 

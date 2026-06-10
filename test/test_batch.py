@@ -5,7 +5,7 @@ import pytest
 
 import supervillain.h5.extendable as extendable
 from supervillain.batch import Batch
-from supervillain.compact.compact import Form, Lattice
+from supervillain.lattice.compact import Form, Lattice
 
 
 @pytest.fixture

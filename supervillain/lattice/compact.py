@@ -28,13 +28,7 @@ from itertools import combinations
 from math import comb
 import numpy as np
 
-
-def _dimension(n):
-    """FFT-convention coordinates for a periodic direction of size n."""
-    return np.array(
-        list(range(0, n // 2 + 1)) + list(range(-n // 2 + 1, 0)),
-        dtype=int,
-    )
+from supervillain.lattice import _dimension
 
 
 def _hyperoctant_pair_mask(coords, b, D):
@@ -772,7 +766,7 @@ if __name__ == '__main__':
         print(f"  ✅ from_interlaced(to_interlaced(f)) == f  for p={p}")
 
     print("\nROUND-TRIP: interlaced → compact → interlaced")
-    import interlaced as il
+    from supervillain.lattice import interlaced as il
     il_lat = il.Lattice(D, N)
     for p in range(D + 1):
         data = il_lat.random(p)

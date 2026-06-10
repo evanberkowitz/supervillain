@@ -5,7 +5,7 @@ import numpy as np
 from supervillain.h5 import ReadWriteable
 from supervillain.batch import Batch
 from supervillain.configurations import Configurations
-from supervillain.compact.compact import Form, d
+from supervillain.lattice.compact import Form, d
 from supervillain.compact.villain import Villain as _CompactVillain
 import supervillain.layout as layout
 
