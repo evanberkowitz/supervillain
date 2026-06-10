@@ -2,6 +2,8 @@
 
 import numpy as np
 
+from supervillain.batch import Batch
+
 def autocorrelation(data, mean=None, _cutoff=1e-16):
     r'''
 
@@ -44,6 +46,8 @@ def autocorrelation(data, mean=None, _cutoff=1e-16):
     $\tau_{int}$: int
         The ceiling of the integrated autocorrelation time.
     '''
+    data = Batch.as_array(data)
+
     if mean is None:
         mean = data.mean()
 

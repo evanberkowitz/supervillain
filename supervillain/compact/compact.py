@@ -23,9 +23,38 @@
 #   2-form components:  (0,1),(0,2),(1,2) → shape (3, N, N, N)
 #   3-form components:  (0,1,2)       → shape (1, N, N, N)
 
+from functools import cached_property
 from itertools import combinations
 from math import comb
 import numpy as np
+
+
+def _dimension(n):
+    """FFT-convention coordinates for a periodic direction of size n."""
+    return np.array(
+        list(range(0, n // 2 + 1)) + list(range(-n // 2 + 1, 0)),
+        dtype=int,
+    )
+
+
+def _hyperoctant_pair_mask(coords, b, D):
+    """
+    Sites in one pair of opposite hyperoctants, indexed by b in 0..2^(D-1)-1.
+
+    The representative hyperoctant has coords[0] >= 0; bits of b fix the sign
+    of coords[1], …, coords[D-1].  The paired hyperoctant flips every sign.
+    """
+    mask_pos = coords[0] >= 0
+    mask_neg = coords[0] < 0
+    for k in range(1, D):
+        bit = (b >> (k - 1)) & 1
+        if bit == 0:
+            mask_pos &= coords[k] >= 0
+            mask_neg &= coords[k] < 0
+        else:
+            mask_pos &= coords[k] < 0
+            mask_neg &= coords[k] >= 0
+    return mask_pos | mask_neg
 
 
 # ---------------------------------------------------------------------------
@@ -59,6 +88,44 @@ class Lattice:
             p: {comp: idx for idx, comp in enumerate(self.components[p])}
             for p in range(D + 1)
         }
+
+    @cached_property
+    def coords(self):
+        """FFT-convention coordinate for each lattice site, shape (D, N, …, N)."""
+        return np.stack(
+            np.meshgrid(*(_dimension(self.N) for _ in range(self.D)), indexing='ij'),
+            axis=0,
+        )
+
+    @cached_property
+    def checkerboarding(self):
+        """
+        Partition lattice sites into colors with no same-color nearest neighbors.
+
+        Returns a tuple of color index tuples for fancy indexing into the D
+        spatial axes of a form.  Each color is ``np.where`` output:
+        ``(idx_0, …, idx_{D-1})``, usable as ``f[(slice(None), *color)]``.
+
+        Even N: 2 colors (coordinate-sum parity).
+        Odd N: 2**max(D, 2) colors — for D=1 this is 4; for D≥2 it is 2**D.
+        """
+        D, N = self.D, self.N
+        coords = self.coords
+        parity = np.mod(self.coords.sum(axis=0), 2)
+
+        if N % 2 == 0:
+            return tuple(np.where(parity == c) for c in (0, 1))
+
+        colors = []
+        n_pairs = 1 << max(D - 1, 1)
+        for b in range(n_pairs):
+            if D == 1:
+                pair = coords[0] >= 0 if b == 0 else coords[0] < 0
+            else:
+                pair = _hyperoctant_pair_mask(list(coords), b, D)
+            for c in (0, 1):
+                colors.append(np.where(pair & (parity == c)))
+        return tuple(colors)
 
     # ------------------------------------------------------------------
     # Factory methods
@@ -113,8 +180,14 @@ class Form(np.ndarray):
                          when the result is unambiguous.
     """
 
-    def __new__(cls, input_array, degree, lattice):
-        obj = np.asarray(input_array).view(cls)
+    __batch_tag__ = 'Form'
+
+    @classmethod
+    def spatial_shape(cls, *, degree, lattice):
+        return (comb(lattice.D, degree),) + (lattice.N,) * lattice.D
+
+    def __new__(cls, input_array, *, degree, lattice, dtype=None):
+        obj = np.asarray(input_array, dtype=dtype).view(cls)
         obj.degree  = degree
         obj.lattice = lattice
         return obj
@@ -227,6 +300,77 @@ class Form(np.ndarray):
             dirs = set(comp_tuple)
             slc  = tuple(slice(1 if k in dirs else 0, None, 2) for k in range(D))
             result[comp_idx] = data[slc]
+
+        return result
+
+    # ------------------------------------------------------------------
+    # Face / coface sums  (unsigned incidence, for Metropolis aggregation)
+
+    def face_sum(self):
+        """
+        Sum this p-form onto its (p-1)-faces, returning a (p-1)-form.
+
+        A p-cell is bounded by (p-1)-faces.  For each such face M at site n,
+
+            g[M, n]  =  Σ_{O ⊃ M}  ( f[O, n]  +  f[O, n − ê_e] )
+
+        where the sum runs over p-cells O = M∪{e}.  Example: a 1-form on
+        links summed onto the sites that bound each link gives a 0-form.
+
+        Unlike δ, all contributions enter with the same sign.
+        """
+        lat = self.lattice
+        p   = self.degree
+        if p == 0:
+            return 0
+
+        result = lat.zeros(p - 1)
+        all_dirs = set(range(lat.D))
+
+        for M_comp in lat.components[p - 1]:
+            out_idx = lat.comp_index[p - 1][M_comp]
+            M_set   = set(M_comp)
+
+            for e in sorted(all_dirs - M_set):
+                in_comp = tuple(sorted(M_set | {e}))
+                in_idx  = lat.comp_index[p][in_comp]
+                spatial = self[in_idx]
+
+                result[out_idx] += spatial
+                result[out_idx] += np.roll(spatial, +1, axis=e)
+
+        return result
+
+    def coface_sum(self):
+        """
+        Sum this p-form onto incident (p+1)-cofaces, returning a (p+1)-form.
+
+        A (p+1)-cell has p-faces; for each such coface O at site n,
+
+            g[O, n]  =  Σ_{M ⊂ O}  ( f[M, n]  +  f[M, n + ê_e] )
+
+        where the sum runs over p-faces M = O\\{o_j} of O.  Example: a 1-form
+        on links summed onto plaquettes gives a 2-form (vortex Metropolis).
+
+        Dual to :meth:`face_sum`; unlike d, all contributions enter unsigned.
+        """
+        lat = self.lattice
+        p   = self.degree
+        if p == lat.D:
+            return 0
+
+        result = lat.zeros(p + 1)
+
+        for O_comp in lat.components[p + 1]:
+            out_idx = lat.comp_index[p + 1][O_comp]
+
+            for j, k_j in enumerate(O_comp):
+                in_comp = tuple(k for k in O_comp if k != k_j)
+                in_idx  = lat.comp_index[p][in_comp]
+                spatial = self[in_idx]
+
+                result[out_idx] += spatial
+                result[out_idx] += np.roll(spatial, -1, axis=k_j)
 
         return result
 

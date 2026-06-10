@@ -2,7 +2,7 @@
 
 import numpy as np
 from supervillain.h5 import ReadWriteable
-import supervillain.h5.extendable as extendable
+from supervillain.batch import Batch
 from supervillain.configurations import Configurations
 
 import logging
@@ -74,9 +74,10 @@ class Villain(ReadWriteable):
         dict
             A dictionary of zeroed arrays at keys ``phi`` and ``n``, holding ``count`` 0- and 1-forms respectively.
         '''
+        L = self.Lattice
         return Configurations({
-            'phi': extendable.array(self.Lattice.form(0, count)),
-            'n':   extendable.array(self.Lattice.form(1, count, dtype=int)),
+            'phi': Batch(count, shape=L.form(0).shape),
+            'n':   Batch(count, shape=L.form(1).shape, dtype=int),
             })
 
     def gauge_transform(self, configuration, k):

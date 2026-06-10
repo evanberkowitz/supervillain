@@ -2,7 +2,7 @@
 
 import numpy as np
 from supervillain.h5 import ReadWriteable
-import supervillain.h5.extendable as extendable
+from supervillain.batch import Batch
 from supervillain.configurations import Configurations
 
 import logging
@@ -105,9 +105,11 @@ class Worldline(ReadWriteable):
             ``count`` configurations of a zeroed 1-form ``m`` a zeroed 2-form ``v``.
         '''
 
+        L = self.Lattice
+        v_dtype = int if self.W < float('inf') else float
         return Configurations({
-            'm': extendable.array(self.Lattice.form(1, count, dtype=int)),
-            'v': extendable.array(self.Lattice.form(2, count, dtype=(int if self.W<float('inf') else float))),
+            'm': Batch(count, shape=L.form(1).shape, dtype=int),
+            'v': Batch(count, shape=L.form(2).shape, dtype=v_dtype),
             })
 
     def equivalence_class_v(self, configuration):

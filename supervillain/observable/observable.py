@@ -3,10 +3,13 @@
 from functools import partial
 import inspect
 
+import numpy as np
+
 import supervillain.action
 import supervillain.ensemble
 from supervillain.performance import Timer
 import supervillain.h5.extendable
+from supervillain.batch import Batch
 
 import logging
 logger = logging.getLogger(__name__)
@@ -45,7 +48,8 @@ class Observable:
 
         # Observable might have been measured inline.
         try:
-            return obj.configuration.fields[name]
+            field = obj.configuration.fields[name]
+            return Batch.as_array(field)
         except Exception as e:
             self._debug(f'{name} was not measured inline.')
 
@@ -71,12 +75,14 @@ class Observable:
             # We look up the arguments as attributes of the ensemble.
             with Timer(self._logger, f'Measurement of {name}', per=len(obj)):
                 with logging_redirect_tqdm():
-                    obj.__dict__[name]= supervillain.h5.extendable.array([
+                    values = [
                         measure(*obs)
                         for obs in supervillain.observable.progress(
                             zip(*[getattr(obj, o) for o in inspect.getfullargspec(measure).args]),
                             desc=f'{name:{max([len(k) for k in registry])}s}', leave=True, total=len(obj))
-                        ])
+                        ]
+                    data = np.asarray(values)
+                    obj.__dict__[name] = Batch(data, dtype=data.dtype)
             return obj.__dict__[name]
         except Exception as exception:
             raise NotImplementedError(f'{name} not implemented for {class_name}') from exception

@@ -2,6 +2,7 @@
 
 import numpy as np
 
+from supervillain.batch import Batch
 from supervillain.h5 import ReadWriteable
 from supervillain.performance import Timer
 
@@ -56,7 +57,8 @@ class Bootstrap(ReadWriteable):
     def _resample(self, obs):
         # Each observable should be multiplied by its respective weight.
         # Each draw should be divided by its average weight.
-        w = self.Ensemble.weight[self.indices]
+        obs = Batch.as_array(obs)
+        w = self.Ensemble.weight.array[self.indices]
 
         # This index ordering is needed to broadcast the weights division correctly.
         # See https://github.com/evanberkowitz/two-dimensional-gasses/issues/55

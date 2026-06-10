@@ -2,6 +2,7 @@
 
 import numpy as np
 import supervillain.action
+from supervillain.batch import Batch
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
 
@@ -240,9 +241,10 @@ class ClassicWorm(ReadWriteable, Generator):
         We also store the ``Worm_Length`` for each step.
         '''
 
+        L = self.Action.Lattice
         return {
-            'Vortex_Vortex': extendable.array(self.Action.Lattice.form(0, steps)),
-            'Worm_Length':   extendable.array(np.zeros(steps)),
+            'Vortex_Vortex': Batch(steps, shape=L.form(0).shape),
+            'Worm_Length':   Batch(steps, shape=(), dtype=float),
         }
 
     def step(self, configuration):

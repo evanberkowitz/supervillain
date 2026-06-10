@@ -5,6 +5,7 @@ from functools import cache
 import numpy as np
 
 import supervillain
+from supervillain.batch import Batch
 import generate
 import harness
 
@@ -32,5 +33,5 @@ def test_gauge_invariance(N, kappa, W, observable, configurations=1000):
     before = generate.cached_ensemble('villain', configurations, N, kappa, W)
     after  = transform(before)
 
-    difference = getattr(before, observable) - getattr(after, observable)
+    difference = Batch.as_array(getattr(before, observable)) - Batch.as_array(getattr(after, observable))
     assert (np.abs(difference) <= equality_threshold).all().item()

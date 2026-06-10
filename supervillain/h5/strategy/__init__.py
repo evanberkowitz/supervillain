@@ -14,3 +14,4 @@ from .tuple import Tuple as tuple
 from .dict import Dict as dict
 
 import supervillain.h5.strategy.np as np
+from .batch import BatchStrategy as batch
