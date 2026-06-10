@@ -58,7 +58,7 @@ class Bootstrap(ReadWriteable):
         # Each observable should be multiplied by its respective weight.
         # Each draw should be divided by its average weight.
         obs = Batch.as_array(obs)
-        w = self.Ensemble.weight.array[self.indices]
+        w = Batch.as_array(self.Ensemble.weight)[self.indices]
 
         # This index ordering is needed to broadcast the weights division correctly.
         # See https://github.com/evanberkowitz/two-dimensional-gasses/issues/55

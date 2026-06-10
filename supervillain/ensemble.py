@@ -307,7 +307,7 @@ class Ensemble(Extendable):
             histogram_label=label
 
         data = Batch.as_array(getattr(self, observable))
-        axes[0].plot(self.index.array, data, color=color, **history_kwargs)
+        axes[0].plot(Batch.as_array(self.index), data, color=color, **history_kwargs)
         axes[1].hist(data, label=histogram_label,
                      orientation='horizontal',
                      bins=bins, density=density,

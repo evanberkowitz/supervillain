@@ -40,7 +40,7 @@ class Blocking(ReadWriteable):
         r'''How many configurations are dropped from the start of the ensemble to make the blocking come out evenly.'''
         self.blocks  = (cfgs - self.drop) // self.width
         r'''How many blocks are in the blocking.'''
-        self.weight = ensemble.weight.array[self.drop:].reshape(-1, self.width).mean(axis=1)
+        self.weight = Batch.as_array(ensemble.weight)[self.drop:].reshape(-1, self.width).mean(axis=1)
         r'''The average weight of each block.'''
         self._block_indices = self.drop+np.arange(len(ensemble)-self.drop).reshape(-1, self.width)
         self.index =  self._block_indices.mean(axis=1)
@@ -56,7 +56,7 @@ class Blocking(ReadWriteable):
 
     def _block(self, obs):
         obs = Batch.as_array(obs)
-        weight = self.Ensemble.weight.array
+        weight = Batch.as_array(self.Ensemble.weight)
         shape = obs.shape[1:]
 
         return (
