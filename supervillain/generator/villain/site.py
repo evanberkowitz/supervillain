@@ -4,6 +4,7 @@ import numpy as np
 import supervillain.action
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
+from supervillain.lattice.compact import d
 
 import logging
 logger = logging.getLogger(__name__)
@@ -41,81 +42,79 @@ class SiteUpdate(ReadWriteable, Generator):
 
     def step(self, cfg):
         r'''
-        Make volume's worth of random single-site updates.
+        Make volume's worth of random single-site updates to $\phi$.
 
         Parameters
         ----------
         cfg: dict
-            A dictionary with phi and n field variables.
+            A dictionary with phi and n as compact Forms.
 
         Returns
         -------
         dict
-            Another configuration of fields.
+            Updated phi field only (to be merged by the caller).
         '''
-
-        self.sweeps += 1
-        total_acceptance = 0
-        accepted = 0
+        S = self.Action
+        L = S.Lattice
 
         phi = cfg['phi'].copy()
-        n   = cfg['n'].copy()
 
-        L = self.Lattice
-
-        metropolis = self.rng.uniform(0, 1, phi.shape)
+        self.sweeps += 1
         total_accepted = 0
         total_acceptance = 0
+
+        metropolis = self.rng.uniform(0, 1, (L.N,) * L.D)
 
         # The idea is to make the same sort of update to phi as the Neighborhood update gives.
         # However, rather than a python-level for loop over space, we can accomplish a lot more at the numpy level,
         # as in the villain.LinkUpdate.
 
         # However, in the LinkUpdate we change n, and each n contributes to an independent term in the action.
-        # In constrast, what enters the action (per link) is dphi, which knows about phi on two sites.
+        # In contrast, what enters the action (per link) is dphi, which knows about phi on two sites.
         #
         # That poses a small problem because if we change the action by changing dphi, we want to be able to track
         # that change in dphi back to a change in phi on ONE particular site.
         # Therefore, we use checkerboarding.
         for color in L.checkerboarding:
 
-            dphi = self.Lattice.d(0, phi)
-
             # We only offer changes to phi on a single color at once.  The benefit is that the surrounding sites
             # do not have updates.  So we know where any change in the action on any link came from: it came from
             # the site in the partition (color) we are updating.
-            change_phi = L.form(0)
-            change_phi[color] = self.rng.uniform(-self.interval_phi,+self.interval_phi, len(color[0]))
+            change_phi = L.zeros(0)
+            change_phi[0, *color] = self.rng.uniform(-self.interval_phi, +self.interval_phi, len(color[0]))
 
             # dphi changes in the obvious way, and then dphi changes the action on every link.
-            change_dphi = L.d(0, change_phi)
-            dS_link = 0.5 * self.Action.kappa * change_dphi * (2*(dphi - 2*np.pi*n) + change_dphi)
-
             # The change in action originating from the change in phi on the color under consideration
-            # is just the sum of all the changes from the adjacent links.  So we sum them up.
-            dS = dS_link[0] + dS_link[1] + L.roll(dS_link[0], (+1, 0)) + L.roll(dS_link[1], (0, +1))
+            # is just the sum of all the changes from the adjacent links.  face_sum collects them.
+            change_S_local = (
+                S.local(phi + change_phi, cfg['n'])
+                - S.local(phi, cfg['n'])
+            ).face_sum()
 
             # Now dS is a 0-form encoding the changes in action from change_phi.  But we should be careful:
             # dS is not 0 on the off-color sites---those sites still have links that land us on the current color.
             # We only want to accept/reject updates on the current color, so we restrict our attention when computing the acceptance.
-            acceptance = np.clip( np.exp(-dS[color]), a_min=0, a_max=1)
-            accepted = (metropolis[color] < acceptance)
+            acceptance = np.clip(np.exp(-change_S_local[(slice(None), *color)]), a_min=0, a_max=1)
+            accepted = metropolis[color] < acceptance[0]
 
             total_accepted += accepted.sum()
-            total_acceptance += acceptance.sum()
+            total_acceptance += acceptance[0].sum()
 
             # Finally, we update the phi where the change is accepted.
-            phi[color] += np.where(accepted, change_phi[color], 0)
+            change_phi[0, *color] *= accepted
+            phi = phi + change_phi
 
-        self.proposed += L.sites
-        self.acceptance += total_acceptance / L.sites
+        sites = self.Lattice.sites
+        self.proposed += sites
+        self.acceptance += total_acceptance / sites
         self.accepted += total_accepted
 
-        logger.debug(f'Average proposal acceptance {total_acceptance / L.sites:.6f}; Actually accepted {total_accepted} / {L.sites} = {total_accepted / L.sites}')
+        logger.debug(f'Average proposal acceptance {total_acceptance / sites:.6f}; Actually accepted {total_accepted} / {sites} = {total_accepted / sites}')
 
-        return {'phi': phi, 'n': n}
+        return {'phi': phi}
 
-
+    def inline_observables(self, steps):
+        return {}
 
     def report(self):
         return (
@@ -125,4 +124,3 @@ class SiteUpdate(ReadWriteable, Generator):
             +'\n'+
             f'    {self.acceptance / self.sweeps:.6f} average Metropolis acceptance probability.'
         )
-

@@ -19,7 +19,8 @@ def transform(before):
 
     transformed = before.configuration.copy()
     for i, c in enumerate(before.configuration):
-        k = np.random.randint(-10,10, L.dims)
+        k = L.form(0, dtype=int)
+        k[0] = np.random.randint(-10, 10, L.dims)
         transformed[i] = S.gauge_transform(c, k)
 
     return supervillain.Ensemble(S).from_configurations(transformed)

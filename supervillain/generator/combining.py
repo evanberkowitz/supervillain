@@ -31,13 +31,17 @@ class Sequentially(ReadWriteable, Generator):
 
     def step(self, cfg):
         r'''
-        Apply each generator's ``step`` one after the next and return the final configuration.
+        Apply each generator's ``step`` one after the next, merging partial updates into
+        the running configuration at each stage, and return the final configuration.
+
+        Each generator may return only the fields it updated; those are merged back into
+        the full configuration before the next generator sees it.
         '''
-        
-        result = cfg
+
+        result = dict(cfg)
         for g in self.generators:
-            result = g.step(result)
-            
+            result |= g.step(result)
+
         return result
 
     def inline_observables(self, steps):

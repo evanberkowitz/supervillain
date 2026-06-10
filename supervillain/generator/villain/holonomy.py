@@ -4,6 +4,7 @@ import numpy as np
 import supervillain.action
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
+from supervillain.lattice.compact import d
 
 import logging
 logger = logging.getLogger(__name__)
@@ -54,71 +55,72 @@ class HolonomyUpdate(ReadWriteable, Generator):
         Parameters
         ----------
         cfg: dict
-            A dictionary with phi and n field variables.
+            A dictionary with phi and n as compact Forms.
 
         Returns
         -------
         dict
-            Another configuration of fields.
+            Updated n field only (to be merged by the caller).
         '''
+        S = self.Action
+        L = S.Lattice
+
+        n = cfg['n'].copy()
 
         self.sweeps += 1
         total_acceptance = 0
-        accepted = 0
+        total_accepted = 0
 
-        phi = cfg['phi'].copy()
-        dphi = self.Lattice.d(0, phi)
-
-        n   = cfg['n'].copy()
-
-        L = self.Lattice
-
+        dphi = d(cfg['phi'])
 
         # Each strip of parallel links we can change the holonomy in a different way.
-        change_n = L.form(1, dtype=int)
-        change_n[0] = self.rng.choice(self.h, L.nt)[:,None]
-        change_n[1] = self.rng.choice(self.h, L.nx)[None,:]
-        # assert self.Action.valid(change_n)
+        # For D=2: direction 0 = t, direction 1 = x.
+        # n[0] has shape (N, N): t-direction links, one strip per t-row.
+        # n[1] has shape (N, N): x-direction links, one strip per x-column.
+        change_n = L.zeros(1, dtype=int)
+        change_n[0] = self.rng.choice(self.h, L.N)[:, None]
+        change_n[1] = self.rng.choice(self.h, L.N)[None, :]
 
-        # The change in action on every link is simply
-        #dS_link = 0.5 * self.Action.kappa * (-2*np.pi*change_n) * (2*(dphi - 2*np.pi*n) - 2*np.pi*change_n)
-        dS_link = -2*np.pi * self.Action.kappa * change_n * ((dphi - 2*np.pi*n) - np.pi*change_n)
+        links = dphi - 2 * np.pi * n   # gauge-invariant link variable
+
+        dS_link = -2 * np.pi * S.kappa * change_n * (links - np.pi * change_n)
 
         # We need to Metropolis-accept or -reject the whole strip at once.
         # So, we sum the changes in action across the strips; first the temporal links.
-        dS = dS_link[0].sum(axis=1)
-        # Now we Metropolize
-        acceptance = np.clip( np.exp(-dS), a_min=0, a_max=1)
+        dS = dS_link[0].sum(axis=1)   # shape (N,) — one per t-row
+        acceptance = np.clip(np.exp(-dS), a_min=0, a_max=1)
         metropolis = self.rng.uniform(0, 1, acceptance.shape)
         accepted = metropolis < acceptance
-        # and zero out the rejected changes.
-        change_n[0] *= accepted[:,None]
+        # Zero out the rejected changes before accumulating.
+        change_n[0] *= accepted[:, None]
 
-        total_acceptance = acceptance.sum()
-        total_accepted   = accepted.sum()
+        total_acceptance += acceptance.sum()
+        total_accepted += accepted.sum()
 
         # Then, the spatial links.
-        dS = dS_link[1].sum(axis=0)
-        acceptance = np.clip( np.exp(-dS), a_min=0, a_max=1)
+        dS = dS_link[1].sum(axis=0)   # shape (N,) — one per x-column
+        acceptance = np.clip(np.exp(-dS), a_min=0, a_max=1)
         metropolis = self.rng.uniform(0, 1, acceptance.shape)
         accepted = metropolis < acceptance
         change_n[1] *= accepted[None, :]
 
         total_acceptance += acceptance.sum()
-        total_accepted   += accepted.sum()
+        total_accepted += accepted.sum()
 
         # Now change_n only contains Metropolized changes, and we can add it to n.
-        n += change_n
+        n = n + change_n
 
-        self.proposed += L.nx + L.nt
-        self.acceptance += total_acceptance / (L.nx + L.nt)
+        nx, nt = self.Lattice.nx, self.Lattice.nt
+        self.proposed += nx + nt
+        self.acceptance += total_acceptance / (nx + nt)
         self.accepted += total_accepted
 
-        logger.debug(f'Average proposal acceptance {total_acceptance / (L.nx + L.nt):.6f}; Actually accepted {total_accepted} / {(L.nx + L.nt)} = {total_accepted / (L.nx + L.nt)}')
+        logger.debug(f'Average proposal acceptance {total_acceptance / (nx + nt):.6f}; Actually accepted {total_accepted} / {(nx + nt)} = {total_accepted / (nx + nt)}')
 
-        return {'phi': phi, 'n': n}
+        return {'n': n}
 
-
+    def inline_observables(self, steps):
+        return {}
 
     def report(self):
         return (
@@ -128,4 +130,3 @@ class HolonomyUpdate(ReadWriteable, Generator):
             +'\n'+
             f'    {self.acceptance / self.sweeps:.6f} average Metropolis acceptance probability.'
         )
-

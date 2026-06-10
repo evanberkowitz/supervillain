@@ -84,6 +84,40 @@ class Lattice:
         }
 
     @cached_property
+    def sites(self):
+        """Total number of sites: N^D."""
+        return self.N ** self.D
+
+    @cached_property
+    def dims(self):
+        """Tuple of side lengths (N, N, ..., N), length D."""
+        return (self.N,) * self.D
+
+    @property
+    def dim(self):
+        """Number of dimensions (alias for D)."""
+        return self.D
+
+    @cached_property
+    def links(self):
+        """Total number of links (1-form components): D * N^D."""
+        return self.D * self.sites
+
+    @property
+    def nt(self):
+        """Temporal extent N.  Only defined for D == 2."""
+        if self.D != 2:
+            raise AttributeError(f'nt is only defined for D == 2; this lattice has D={self.D}')
+        return self.N
+
+    @property
+    def nx(self):
+        """Spatial extent N.  Only defined for D == 2."""
+        if self.D != 2:
+            raise AttributeError(f'nx is only defined for D == 2; this lattice has D={self.D}')
+        return self.N
+
+    @cached_property
     def coords(self):
         """FFT-convention coordinate for each lattice site, shape (D, N, …, N)."""
         return np.stack(
@@ -133,6 +167,191 @@ class Lattice:
         """Return a p-form with random entries uniform in [0, 1)."""
         shape = (comb(self.D, p),) + (self.N,) * self.D
         return Form(np.random.random(shape), degree=p, lattice=self)
+
+    def form(self, p, dtype=float):
+        """Return a zero p-form.  Alias for zeros(p, dtype=dtype)."""
+        return self.zeros(p, dtype=dtype)
+
+    # ------------------------------------------------------------------
+    # Compatibility shims matching the Lattice2D API
+    #
+    # These let un-migrated code (observables, worm) that calls L.d(p, form),
+    # L.delta(p, form), L.roll(), etc. work while each module is ported
+    # incrementally to the standalone d() / delta() functions.
+
+    def d(self, p, data):
+        """Exterior derivative.  Wraps the module-level d() for compatibility."""
+        f = data if isinstance(data, Form) else Form(np.asarray(data), degree=p, lattice=self)
+        return d(f)
+
+    def delta(self, p, data):
+        """Codifferential.  Wraps the module-level delta() for compatibility."""
+        f = data if isinstance(data, Form) else Form(np.asarray(data), degree=p, lattice=self)
+        return delta(f)
+
+    δ = delta
+
+    def roll(self, data, shift, axes=None):
+        """Roll ``data`` by ``shift`` positions along each spatial axis."""
+        if isinstance(shift, (int, np.integer)):
+            return np.roll(data, shift)
+        result = np.asarray(data)
+        spatial = range(-self.D, 0)
+        if axes is None:
+            axes = tuple(range(-self.D, 0))
+        for s, ax in zip(shift, axes):
+            result = np.roll(result, shift=s, axis=ax)
+        return result
+
+    @cached_property
+    def _coord_1d(self):
+        return _dimension(self.N)
+
+    @cached_property
+    def t(self):
+        """FFT-convention t-coordinates (first direction).  D == 2 only."""
+        if self.D != 2:
+            raise AttributeError('t is only defined for D == 2')
+        return self._coord_1d
+
+    @cached_property
+    def x(self):
+        """FFT-convention x-coordinates (second direction).  D == 2 only."""
+        if self.D != 2:
+            raise AttributeError('x is only defined for D == 2')
+        return self._coord_1d
+
+    @cached_property
+    def T(self):
+        """Array of shape dims with the t-coordinate at each site.  D == 2 only."""
+        if self.D != 2:
+            raise AttributeError('T is only defined for D == 2')
+        return np.tile(self.t, (self.N, 1)).T
+
+    @cached_property
+    def X(self):
+        """Array of shape dims with the x-coordinate at each site.  D == 2 only."""
+        if self.D != 2:
+            raise AttributeError('X is only defined for D == 2')
+        return np.tile(self.x, (self.N, 1))
+
+    @cached_property
+    def R_squared(self):
+        """Distance-squared from the origin at each site.  D == 2 only."""
+        if self.D != 2:
+            raise AttributeError('R_squared is only defined for D == 2')
+        return self.X ** 2 + self.T ** 2
+
+    @cached_property
+    def coordinates(self):
+        """Array of shape (sites, D) listing every site's coordinates."""
+        return np.stack(
+            [c.flatten() for c in np.meshgrid(*[self._coord_1d] * self.D, indexing='ij')],
+            axis=1,
+        )
+
+    def mod(self, x):
+        """Mod integer coordinates into FFT-convention lattice values."""
+        x = np.asarray(x)
+        modded = np.mod(x, self.N)
+        return self._coord_1d[modded]
+
+    # ------------------------------------------------------------------
+    # Fourier methods
+    #
+    # Convention matches Lattice2D: ortho normalization, spatial axes last.
+    # For a p-form the spatial axes are the last D axes; the default axes
+    # argument reflects this so callers seldom need to override it.
+
+    def _spatial_axes(self):
+        """The last D axes, i.e. the spatial directions of any p-form."""
+        return tuple(range(-self.D, 0))
+
+    def fft(self, form, axes=None):
+        r"""
+        D-dimensional DFT over the spatial axes of ``form``.
+
+        .. math::
+
+            F_{\boldsymbol{k}} = \frac{1}{N^{D/2}}
+            \sum_{\boldsymbol{x}} e^{-2\pi i \boldsymbol{k}\cdot\boldsymbol{x}/N} f_{\boldsymbol{x}}
+
+        Parameters
+        ----------
+        form: np.ndarray
+            The data to transform.  Spatial axes are the last D axes.
+        axes: tuple of int, optional
+            Override which axes to transform.  Defaults to the last D axes.
+
+        Returns
+        -------
+        np.ndarray
+            The Fourier-transformed array (complex).
+        """
+        return np.fft.fftn(form, axes=(axes if axes is not None else self._spatial_axes()), norm='ortho')
+
+    def ifft(self, form, axes=None):
+        r"""
+        D-dimensional inverse DFT over the spatial axes of ``form``.
+
+        Parameters
+        ----------
+        form: np.ndarray
+        axes: tuple of int, optional
+
+        Returns
+        -------
+        np.ndarray
+        """
+        return np.fft.ifftn(form, axes=(axes if axes is not None else self._spatial_axes()), norm='ortho')
+
+    def convolution(self, f, g, axes=None):
+        r"""
+        Cross-correlation
+
+        .. math::
+
+            \texttt{convolution}(f,g)(\boldsymbol{r})
+            = \sum_{\boldsymbol{x}} f(\boldsymbol{x})\,g(\boldsymbol{r}-\boldsymbol{x})
+
+        Fourier accelerated: :math:`= \sqrt{N^D}\,\mathcal{F}^{-1}\!\bigl[\hat f \hat g\bigr]`.
+
+        Parameters
+        ----------
+        f, g: np.ndarray
+            Forms on this lattice; spatial axes are the last D axes.
+        axes: tuple of int, optional
+
+        Returns
+        -------
+        np.ndarray
+        """
+        ax = axes if axes is not None else self._spatial_axes()
+        return np.sqrt(self.sites) * self.ifft(self.fft(f, axes=ax) * self.fft(g, axes=ax), axes=ax)
+
+    def correlation(self, f, g, axes=None):
+        r"""
+        Cross-correlation
+
+        .. math::
+
+            \texttt{correlation}(f,g)(\boldsymbol{r})
+            = \frac{1}{N^D} \sum_{\boldsymbol{x}} f(\boldsymbol{x})^*\,g(\boldsymbol{x}-\boldsymbol{r})
+
+        Fourier accelerated: :math:`= \mathcal{F}\!\bigl[\hat f^*\hat g\bigr] / \sqrt{N^D}`.
+
+        Parameters
+        ----------
+        f, g: np.ndarray
+            Forms on this lattice; spatial axes are the last D axes.
+        axes: tuple of int, optional
+
+        Returns
+        -------
+        np.ndarray
+        """
+        ax = axes if axes is not None else self._spatial_axes()
+        return self.fft(self.fft(f, axes=ax).conj() * self.fft(g, axes=ax), axes=ax) / np.sqrt(self.sites)
 
     def __repr__(self):
         return f"Lattice(D={self.D}, N={self.N})"
