@@ -73,10 +73,6 @@ class Villain(ReadWriteable):
         r'''Per-link contribution $\frac{\kappa}{2}(d\phi - 2\pi n)^2$ as a 1-form.'''
         return (self.kappa / 2) * self.links(phi, n)**2
 
-    def dn(self, n):
-        r'''Plaquette winding $d(n)$ as a 2-form.'''
-        return d(n)
-
     def configurations(self, count):
         r'''
         Parameters
@@ -86,8 +82,7 @@ class Villain(ReadWriteable):
         Returns
         -------
         Configurations
-            A dictionary of zeroed Form arrays at keys ``phi`` and ``n``, holding ``count``
-            compact 0- and 1-forms respectively.
+            A dictionary of ``count`` Batched Forms, ``phi`` a real 0-form and ``n`` an integer-valued 1-form.
         '''
         L = self.Lattice
         return Configurations({

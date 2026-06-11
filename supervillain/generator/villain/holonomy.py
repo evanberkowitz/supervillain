@@ -25,11 +25,17 @@ class HolonomyUpdate(ReadWriteable, Generator):
         \end{align}
 
     Because the proposal touches a (linearly) extensive number of variables, this update may frequently be rejected.
+
+    .. todo::
+        Generalize to D>2. In D dimensions there are D independent holonomy directions, each requiring a strip of
+        co-dimension 1. The current implementation is hardcoded for D=2 and raises :exc:`NotImplementedError` otherwise.
     '''
 
     def __init__(self, action, interval_h = 1):
         if not isinstance(action, supervillain.action.Villain):
             raise ValueError('Need a Villain action')
+        if action.Lattice.D != 2:
+            raise NotImplementedError('HolonomyUpdate is only implemented for D=2')
 
         self.Action       = action
         self.Lattice      = action.Lattice
@@ -55,12 +61,12 @@ class HolonomyUpdate(ReadWriteable, Generator):
         Parameters
         ----------
         cfg: dict
-            A dictionary with phi and n as compact Forms.
+            A dictionary with phi and n as Forms.
 
         Returns
         -------
         dict
-            Updated n field only (to be merged by the caller).
+            Updated configuration.
         '''
         S = self.Action
         L = S.Lattice
@@ -117,7 +123,7 @@ class HolonomyUpdate(ReadWriteable, Generator):
 
         logger.debug(f'Average proposal acceptance {total_acceptance / (nx + nt):.6f}; Actually accepted {total_accepted} / {(nx + nt)} = {total_accepted / (nx + nt)}')
 
-        return {'n': n}
+        return cfg | {'n': n}
 
     def inline_observables(self, steps):
         return {}

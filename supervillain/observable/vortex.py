@@ -124,7 +124,7 @@ class Vortex_Vortex(Constrained, Observable):
         '''
 
         L = S.Lattice
-        correlator = L.form(0)
+        correlator = np.zeros(L.dims)
 
         for Δt, Δx in L.coordinates:
             if (Δt, Δx) == (0, 0):

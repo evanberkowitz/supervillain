@@ -103,6 +103,25 @@ class Lattice:
         """Total number of links (1-form components): D * N^D."""
         return self.D * self.sites
 
+    @cached_property
+    def cells_of_degree(self):
+        """Dict mapping p → number of p-cells: C(D,p) * N^D."""
+        return {p: comb(self.D, p) * self.sites for p in range(self.D + 1)}
+
+    @cached_property
+    def cells_of_codegree(self):
+        """Dict mapping q → number of (D−q)-cells: C(D, D−q) * N^D."""
+        return {q: self.cells_of_degree[self.D - q] for q in range(self.D + 1)}
+
+    @property
+    def plaquettes(self):
+        """Number of plaquettes (2-cells): C(D,2) * N^D.  Only defined for D == 2."""
+        if self.D != 2:
+            raise AttributeError(
+                f'plaquettes is only defined for D == 2; use cells_of_degree[2] for D={self.D}'
+            )
+        return self.cells_of_degree[2]
+
     @property
     def nt(self):
         """Temporal extent N.  Only defined for D == 2."""

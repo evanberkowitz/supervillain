@@ -57,12 +57,12 @@ class LinkUpdate(ReadWriteable, Generator):
         Parameters
         ----------
         cfg: dict
-            A dictionary with phi and n as compact Forms.
+            A dictionary with phi and n as Forms.
 
         Returns
         -------
         dict
-            Updated n field only (to be merged by the caller).
+            Updated configuration.
         '''
         S = self.Action
 
@@ -98,7 +98,7 @@ class LinkUpdate(ReadWriteable, Generator):
 
         n = n + np.where(accepted, change_n, 0).astype(int)
 
-        return {'n': n}
+        return cfg | {'n': n}
 
     def inline_observables(self, steps):
         return {}

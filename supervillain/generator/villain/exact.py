@@ -54,12 +54,12 @@ class ExactUpdate(ReadWriteable, Generator):
         Parameters
         ----------
         cfg: dict
-            A dictionary with phi and n as compact Forms.
+            A dictionary with phi and n as Forms.
 
         Returns
         -------
         dict
-            Updated n field only (to be merged by the caller).
+            Updated configuration.
         '''
         S = self.Action
         L = S.Lattice
@@ -103,13 +103,13 @@ class ExactUpdate(ReadWriteable, Generator):
             )
 
             # The change in action originating from the zero form on the color under consideration
-            # is just the sum of all the changes from the adjacent links.  face_sum collects them.
-            dS = dS_link.face_sum()[0]  # plain (N,...,N) array
+            # is just the sum of all the changes from the adjacent links. face_sum collects them.
+            dS = dS_link.face_sum()
 
             # Now dS is a 0-form encoding the changes in action from n = d(the zero form z).  But we should be careful:
             # dS is not 0 on the off-color sites---those sites still have links that land us on the current color.
             # We only want to accept/reject updates on the current color, so we restrict our attention when computing the acceptance.
-            acceptance = np.clip(np.exp(-dS[color]), a_min=0, a_max=1)
+            acceptance = np.clip(np.exp(-dS[0, *color]), a_min=0, a_max=1)
             accepted = metropolis[color] < acceptance
 
             total_accepted += accepted.sum()
@@ -119,14 +119,14 @@ class ExactUpdate(ReadWriteable, Generator):
             change_z[0, *color] *= accepted
             n = n + d(change_z).astype(int)
 
-        sites = self.Lattice.sites
+        sites = self.Lattice.cells_of_degree[0]
         self.proposed += sites
         self.acceptance += total_acceptance / sites
         self.accepted += total_accepted
 
         logger.debug(f'Average proposal acceptance {total_acceptance / sites:.6f}; Actually accepted {total_accepted} / {sites} = {total_accepted / sites}')
 
-        return {'n': n}
+        return cfg | {'n': n}
 
     def inline_observables(self, steps):
         return {}

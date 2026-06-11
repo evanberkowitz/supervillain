@@ -3,6 +3,7 @@
 import numpy as np
 
 from supervillain.observable import Scalar, Observable
+from supervillain.lattice.compact import d
 
 class WindingSquared(Scalar, Observable):
     r'''
@@ -31,8 +32,7 @@ class WindingSquared(Scalar, Observable):
         Differentiating with respect to $J_p$ gives a $-i\,dn_p$; differentiating twice gives $-dn_p^2$, so that $w_p = dn_p^2$.
         '''
 
-        L = S.Lattice
-        return np.mean(L.d(1, n)**2)
+        return np.mean(d(n)**2)
 
     @staticmethod
     def Worldline(S, Links):
@@ -71,7 +71,7 @@ class Winding_Winding(Observable):
         '''
 
         L = S.Lattice
-        dn = L.d(1, n)
+        dn = d(n)
         return L.correlation(dn, dn)
 
     @staticmethod

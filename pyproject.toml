@@ -49,10 +49,7 @@ dependencies = [
 install_requires = [
     ]
 
-[tool.setuptools]
-py-modules = [
-    "supervillain",
-]
+[tool.setuptools.packages.find]
 
 [tool.setuptools.dynamic]
 dependencies = { file = ["requirements.txt"] }

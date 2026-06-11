@@ -27,7 +27,7 @@ class InternalEnergyDensity(Scalar, Observable):
         In the :class:`~.Villain` case differentiating the action $S_0$ is the same as dividing it by $\kappa$!
         '''
         L = S.Lattice
-        return S(phi, n) / (L.sites * S.kappa)
+        return S(phi, n) / (L.cells_of_degree[0] * S.kappa)
 
 
     @staticmethod
@@ -78,7 +78,7 @@ class InternalEnergyDensitySquared(Scalar, Observable):
         '''
 
         L = S.Lattice
-        return (S(phi, n) / (L.sites * S.kappa))**2
+        return (S(phi, n) / (L.cells_of_degree[0] * S.kappa))**2
 
 
     @staticmethod

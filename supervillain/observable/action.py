@@ -28,7 +28,7 @@ class ActionDensity(Scalar, Observable):
         '''
 
         L = S.Lattice
-        return S(phi, n) / (L.sites)
+        return S(phi, n) / L.cells_of_degree[0]
 
 
     @staticmethod

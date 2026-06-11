@@ -1,4 +1,5 @@
 from supervillain.observable import Observable
+from supervillain.lattice.compact import d
 import numpy as np
 
 class Links(Observable):
@@ -27,8 +28,7 @@ class Links(Observable):
         Others, like :class:`~.XWrapping` live on loops where the $d\phi$ integrates away but are gauge invariant.
         '''
 
-        L = S.Lattice
-        return L.d(0, phi) - 2*np.pi*n
+        return d(phi) - 2*np.pi*n
 
     @staticmethod
 

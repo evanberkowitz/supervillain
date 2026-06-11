@@ -60,7 +60,7 @@ for (a, A) in (
     S = A(L, args.kappa, args.W)
     
     if isinstance(S, supervillain.action.Villain):
-        G = supervillain.generator.villain.Hammer(S, worms=L.plaquettes)
+        G = supervillain.generator.villain.Hammer(S, worms=L.cells_of_degree[2])
     elif isinstance(S, supervillain.action.Worldline):
         G = supervillain.generator.worldline.Hammer(S, worms=L.sites)
 

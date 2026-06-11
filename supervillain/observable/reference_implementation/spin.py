@@ -18,7 +18,7 @@ class Spin_SpinSloppy(Observable):
 
         L = S.Lattice
 
-        exp_i_phi = np.exp(1.j * phi)
+        exp_i_phi = np.exp(1.j * phi[0])
 
         return L.correlation(exp_i_phi, exp_i_phi)
 
@@ -92,7 +92,7 @@ class Spin_SpinSlow(Observable):
 
         L = S.Lattice
 
-        exp_i_phi = np.exp(1.j * phi)
+        exp_i_phi = np.exp(1.j * phi[0])
 
         return L.correlation(exp_i_phi, exp_i_phi)
 

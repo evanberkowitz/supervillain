@@ -29,11 +29,17 @@ class NeighborhoodUpdate(ReadWriteable, Generator):
        On a small 5×5 example this generator yields about three times as many updates per second than :class:`NeighborhoodUpdateSlow <supervillain.generator.reference_implementation.villain.NeighborhoodUpdateSlow>` on my machine.
        This ratio should *improve* for larger lattices because the change in action is computed directly and is of fixed cost, rather than scaling with the volume.
 
+    .. todo::
+        Generalize to D>2. The current implementation hardcodes D=2: four neighbors (north/south/east/west),
+        two link components, and a four-term ΔS formula. A general implementation would loop over all 2D
+        neighbors and link components. Raises :exc:`NotImplementedError` for D≠2.
     '''
 
     def __init__(self, action, interval_phi=np.pi, interval_n=1):
         if not isinstance(action, supervillain.action.Villain):
             raise ValueError('The Neighborhood Metropolis update requires the Villain action.')
+        if action.Lattice.D != 2:
+            raise NotImplementedError('NeighborhoodUpdate is only implemented for D=2')
         self.Action       = action
         self.Lattice      = action.Lattice
         self.kappa        = action.kappa
@@ -76,8 +82,8 @@ class NeighborhoodUpdate(ReadWriteable, Generator):
 
         # Rather than sweeping the lattice in a particular order, we randomly update sites.
         sites = np.stack((
-            np.random.randint(self.Lattice.dims[0], size=self.Lattice.sites),
-            np.random.randint(self.Lattice.dims[1], size=self.Lattice.sites)
+            np.random.randint(self.Lattice.dims[0], size=self.Lattice.cells_of_degree[0]),
+            np.random.randint(self.Lattice.dims[1], size=self.Lattice.cells_of_degree[0])
         )).transpose()
 
         for here, metropolis in zip(sites, self.rng.uniform(0,1,len(sites))):
@@ -94,10 +100,10 @@ class NeighborhoodUpdate(ReadWriteable, Generator):
             # We can calculate dS directly from just the previous values and the proposed changes.
             # This formula is the application of the difference of two squares for each changed link.
             dS = 0.5*self.kappa*(
-                +(-change_phi-2*np.pi*change_n[0])*(2*(phi[north[0],north[1]]-phi[here [0],here [1]]-2*np.pi*n[0][here [0],here [1]])-change_phi-2*np.pi*change_n[0])
-                +(+change_phi-2*np.pi*change_n[1])*(2*(phi[here [0],here [1]]-phi[south[0],south[1]]-2*np.pi*n[0][south[0],south[1]])+change_phi-2*np.pi*change_n[1])
-                +(-change_phi-2*np.pi*change_n[2])*(2*(phi[west [0],west [1]]-phi[here [0],here [1]]-2*np.pi*n[1][here [0],here [1]])-change_phi-2*np.pi*change_n[2])
-                +(+change_phi-2*np.pi*change_n[3])*(2*(phi[here [0],here [1]]-phi[east [0],east [1]]-2*np.pi*n[1][east [0],east [1]])+change_phi-2*np.pi*change_n[3])
+                +(-change_phi-2*np.pi*change_n[0])*(2*(phi[0,north[0],north[1]]-phi[0,here [0],here [1]]-2*np.pi*n[0,here [0],here [1]])-change_phi-2*np.pi*change_n[0])
+                +(+change_phi-2*np.pi*change_n[1])*(2*(phi[0,here [0],here [1]]-phi[0,south[0],south[1]]-2*np.pi*n[0,south[0],south[1]])+change_phi-2*np.pi*change_n[1])
+                +(-change_phi-2*np.pi*change_n[2])*(2*(phi[0,west [0],west [1]]-phi[0,here [0],here [1]]-2*np.pi*n[1,here [0],here [1]])-change_phi-2*np.pi*change_n[2])
+                +(+change_phi-2*np.pi*change_n[3])*(2*(phi[0,here [0],here [1]]-phi[0,east [0],east [1]]-2*np.pi*n[1,east [0],east [1]])+change_phi-2*np.pi*change_n[3])
             )
 
             # Now we Metropolize
@@ -107,12 +113,12 @@ class NeighborhoodUpdate(ReadWriteable, Generator):
                 logger.debug(f'Proposal accepted; ∆S = {dS:f}; acceptance probability = {acceptance:f}')
                 accepted += 1
                 # and conditionally update the configuration.
-                phi [here [0],here [1]] += change_phi
+                phi [0,here [0],here [1]] += change_phi
                 # These assignments are picked to match the unrolled dS calculation.
-                n[0][here [0],here [1]] += change_n[0]
-                n[0][south[0],south[1]] += change_n[1]
-                n[1][here [0],here [1]] += change_n[2]
-                n[1][east [0],east [1]] += change_n[3]
+                n[0,here [0],here [1]] += change_n[0]
+                n[0,south[0],south[1]] += change_n[1]
+                n[1,here [0],here [1]] += change_n[2]
+                n[1,east [0],east [1]] += change_n[3]
             else:
                 logger.debug(f'Proposal rejected; ∆S = {dS:f}; acceptance probability = {acceptance:f}')
 
@@ -121,9 +127,9 @@ class NeighborhoodUpdate(ReadWriteable, Generator):
 
         total_acceptance /= len(sites)
         self.acceptance += total_acceptance
-        logger.debug(f'Average proposal {acceptance=:.6f}; Actually {accepted = } / {self.Action.Lattice.sites} = {accepted / self.Action.Lattice.sites}')
+        logger.debug(f'Average proposal {acceptance=:.6f}; Actually {accepted = } / {self.Action.Lattice.cells_of_degree[0]} = {accepted / self.Action.Lattice.cells_of_degree[0]}')
 
-        return {'phi': phi, 'n': n}
+        return cfg | {'phi': phi, 'n': n}
 
     def report(self):
         r'''

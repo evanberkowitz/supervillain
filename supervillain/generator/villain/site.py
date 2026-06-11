@@ -47,17 +47,18 @@ class SiteUpdate(ReadWriteable, Generator):
         Parameters
         ----------
         cfg: dict
-            A dictionary with phi and n as compact Forms.
+            A dictionary with phi and n as Forms.
 
         Returns
         -------
         dict
-            Updated phi field only (to be merged by the caller).
+            Updated configuration.
         '''
         S = self.Action
         L = S.Lattice
 
         phi = cfg['phi'].copy()
+        n   = cfg['n']
 
         self.sweeps += 1
         total_accepted = 0
@@ -75,6 +76,10 @@ class SiteUpdate(ReadWriteable, Generator):
         # That poses a small problem because if we change the action by changing dphi, we want to be able to track
         # that change in dphi back to a change in phi on ONE particular site.
         # Therefore, we use checkerboarding.
+
+        # Precompute dphi once; we update it incrementally as accepted changes accumulate.
+        dphi = d(phi)
+
         for color in L.checkerboarding:
 
             # We only offer changes to phi on a single color at once.  The benefit is that the surrounding sites
@@ -83,35 +88,36 @@ class SiteUpdate(ReadWriteable, Generator):
             change_phi = L.zeros(0)
             change_phi[0, *color] = self.rng.uniform(-self.interval_phi, +self.interval_phi, len(color[0]))
 
-            # dphi changes in the obvious way, and then dphi changes the action on every link.
+            # Expanding S.local(phi+Δφ, n) − S.local(phi, n) algebraically avoids two full d(phi) calls and additional arithmetic operations:
+            #   κ/2 · (dφ + dΔφ − 2πn)² − κ/2 · (dφ − 2πn)²  =  κ/2 · dΔφ · (2(dφ−2πn) + dΔφ)
+            change_dphi = d(change_phi)
+            dS_link = (S.kappa / 2) * change_dphi * (2 * (dphi - 2 * np.pi * n) + change_dphi)
+
             # The change in action originating from the change in phi on the color under consideration
             # is just the sum of all the changes from the adjacent links.  face_sum collects them.
-            change_S_local = (
-                S.local(phi + change_phi, cfg['n'])
-                - S.local(phi, cfg['n'])
-            ).face_sum()
+            dS = dS_link.face_sum()
 
-            # Now dS is a 0-form encoding the changes in action from change_phi.  But we should be careful:
-            # dS is not 0 on the off-color sites---those sites still have links that land us on the current color.
-            # We only want to accept/reject updates on the current color, so we restrict our attention when computing the acceptance.
-            acceptance = np.clip(np.exp(-change_S_local[(slice(None), *color)]), a_min=0, a_max=1)
-            accepted = metropolis[color] < acceptance[0]
+            # dS is not 0 on the off-color sites---those sites still have links that land on the current color.
+            # We only want to accept/reject updates on the current color.
+            acceptance = np.clip(np.exp(-dS[0, *color]), a_min=0, a_max=1)
+            accepted = metropolis[color] < acceptance
 
             total_accepted += accepted.sum()
-            total_acceptance += acceptance[0].sum()
+            total_acceptance += acceptance.sum()
 
-            # Finally, we update the phi where the change is accepted.
+            # Update phi and dphi where the change is accepted.
             change_phi[0, *color] *= accepted
-            phi = phi + change_phi
+            phi  = phi  + change_phi
+            dphi = dphi + d(change_phi)
 
-        sites = self.Lattice.sites
+        sites = self.Lattice.cells_of_degree[0]
         self.proposed += sites
         self.acceptance += total_acceptance / sites
         self.accepted += total_accepted
 
         logger.debug(f'Average proposal acceptance {total_acceptance / sites:.6f}; Actually accepted {total_accepted} / {sites} = {total_accepted / sites}')
 
-        return {'phi': phi}
+        return cfg | {'phi': phi}
 
     def inline_observables(self, steps):
         return {}

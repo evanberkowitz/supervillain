@@ -20,7 +20,7 @@ def action(lattice, phi, n, kappa):
 
 
 def action_density(lattice, phi, n, kappa, W=1):
-    return action(lattice, phi, n, kappa) / lattice.sites
+    return action(lattice, phi, n, kappa) / lattice.cells_of_degree[0]
 
 
 def internal_energy_density(lattice, phi, n, kappa, W=1):
