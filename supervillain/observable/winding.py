@@ -72,7 +72,7 @@ class Winding_Winding(Observable):
 
         L = S.Lattice
         dn = d(n)
-        return L.correlation(dn, dn)
+        return L.correlation(dn, dn)[0]
 
     @staticmethod
     def Worldline(S, Links):
