@@ -31,8 +31,8 @@ args = parser.parse_args()
 import logging
 logger = logging.getLogger(__name__)
 
-# First create the lattices and the action.
-L = supervillain.lattice.Lattice2D(args.N)
+# First create the lattice and the action.
+L = supervillain.lattice.Lattice(D=2, N=args.N)
 S = supervillain.action.Villain(L, args.kappa, W=1)
 
 with logging_redirect_tqdm():

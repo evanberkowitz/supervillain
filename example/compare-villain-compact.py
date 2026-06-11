@@ -106,7 +106,7 @@ def thermalize_and_thin(ensemble, *, bridge_from_form=False):
 
 
 def main():
-    L = supervillain.Lattice2D(args.N)
+    L = supervillain.lattice.Lattice(D=2, N=args.N)
 
     S_prod = supervillain.Villain(L, args.kappa, W=args.W)
     S_compact = compact_villain.Villain(L, args.kappa, W=args.W)

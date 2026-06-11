@@ -44,16 +44,19 @@ args = parser.parse_args(
 import logging
 logger = logging.getLogger(__name__)
 
-# First create the lattices and the action.
-L = supervillain.lattice.Lattice2D(args.N)
-
 e = dict()
 b = dict()
+
+_lattice = {
+    'villain':   supervillain.lattice.Lattice(D=2, N=args.N),
+    'worldline': supervillain.lattice.Lattice2D(args.N),
+}
 
 for (a, A) in (
     ('villain', supervillain.action.Villain),
     ('worldline', supervillain.action.Worldline),
 ):
+    L = _lattice[a]
     S = A(L, args.kappa, args.W)
     
     if isinstance(S, supervillain.action.Villain):

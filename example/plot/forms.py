@@ -18,7 +18,7 @@ args = parser.parse_args()
 import logging
 logger = logging.getLogger(__name__)
 
-L = supervillain.Lattice2D(args.N)
+L = supervillain.lattice.Lattice(D=2, N=args.N)
 S = supervillain.Villain(L, args.kappa)
 G = supervillain.generator.combining.Sequentially((
         supervillain.generator.villain.SiteUpdate(S),

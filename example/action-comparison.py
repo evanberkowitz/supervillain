@@ -26,10 +26,11 @@ import logging
 logger = logging.getLogger(__name__)
 
 # First create the lattices and the two dual actions.
-L = supervillain.lattice.Lattice2D(args.N)
+L = supervillain.lattice.Lattice(D=2, N=args.N)
+L2D = supervillain.lattice.Lattice2D(args.N)
 
 V = supervillain.action.Villain(L, args.kappa, W=args.W)
-W = supervillain.action.Worldline(L, args.kappa, W=args.W)
+W = supervillain.action.Worldline(L2D, args.kappa, W=args.W)
 
 # Now sample each action.
 with logging_redirect_tqdm():
