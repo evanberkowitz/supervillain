@@ -75,7 +75,7 @@ class Spin_SpinSlow(Observable):
     and reduce to a single relative coordinate
 
     .. math ::
-        \texttt{Spin_Spin}_{\Delta x} = S_{\Delta x} = \frac{1}{\Lambda} \sum_x S_{x,x-\Delta x}
+        \texttt{Spin\_Spin}_{\Delta x} = S_{\Delta x} = \frac{1}{\Lambda} \sum_x S_{x,x-\Delta x}
 
     .. seealso::
         Compared to :class:`~.reference_implementation.spin.Spin_SpinSloppy` this implementation gets more juice from each configuration.

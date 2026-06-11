@@ -3,6 +3,10 @@
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
+import sys
+import os
+sys.path.insert(0, os.path.abspath('.'))
+
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
@@ -38,7 +42,7 @@ templates_path = ['_templates']
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'setup.py']
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'setup.py', '.venv']
 
 
 # -- Options for HTML output -------------------------------------------------
@@ -77,4 +81,5 @@ autodoc_default_options = {
 }
 
 todo_include_todos=True
+
 napoleon_use_param=False #see https://github.com/sphinx-doc/sphinx/issues/10330

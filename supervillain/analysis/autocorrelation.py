@@ -10,12 +10,12 @@ def autocorrelation(data, mean=None, _cutoff=1e-16):
     The *autocorrelation function* is
     
     .. math ::
-        \begin{align}
+        \begin{aligned}
         C(\tau) &= {\left\langle \Delta(t+\tau) \Delta(t) \right\rangle}
                    /    {\left\langle \Delta(t)^2              \right\rangle}
         &
         \Delta(t) &= \texttt{data}(t) - \texttt{mean}
-        \end{align}
+        \end{aligned}
 
     where the ⟨averages⟩ are over the time $t$ and $C$ is normalized to 1 at $\tau=0$.
 

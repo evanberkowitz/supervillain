@@ -17,7 +17,7 @@ class SiteUpdate(ReadWriteable, Generator):
 
     .. math ::
 
-        \Delta \phi_x   \sim \text{uniform}(-\texttt{interval_phi}, +\texttt{interval_phi})
+        \Delta \phi_x   \sim \text{uniform}(-\texttt{interval\_phi}, +\texttt{interval\_phi})
     '''
 
     def __init__(self, action, interval_phi = np.pi):

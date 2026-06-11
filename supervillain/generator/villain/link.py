@@ -17,9 +17,9 @@ class LinkUpdate(ReadWriteable, Generator):
 
     .. math ::
 
-        \begin{align}
-        \Delta n_\ell   &\sim W \times [-\texttt{interval_n}, +\texttt{interval_n}] \setminus \{0\}
-        \end{align}
+        \begin{aligned}
+        \Delta n_\ell   &\sim W \times [-\texttt{interval\_n}, +\texttt{interval\_n}] \setminus \{0\}
+        \end{aligned}
 
     We pick :math:`\Delta n_\ell` to be a multiple of the constraint integer $W$ so that if the adjacent plaquettes satisfy the :ref:`winding constraint <winding constraint>` $dn \equiv 0 \text{ mod }W$
     before the update they satisfy it after as well.

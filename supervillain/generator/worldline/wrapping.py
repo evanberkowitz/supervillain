@@ -14,7 +14,7 @@ class WrappingUpdate(ReadWriteable, Generator):
     That is, on all the $m$ on a cycle around the torus we propose to change $m$ according to
 
     .. math ::
-        \Delta m \sim [-\texttt{interval_w}, +\texttt{interval_w}] \setminus \{0\}
+        \Delta m \sim [-\texttt{interval\_w}, +\texttt{interval\_w}] \setminus \{0\}
 
     .. warning::
         This algorithm is not ergodic on its own.

@@ -20,9 +20,9 @@ class HolonomyUpdate(ReadWriteable, Generator):
 
     .. math ::
 
-        \begin{align}
-        h   &\sim [-\texttt{interval_h}, +\texttt{interval_h}] \setminus \{0\}
-        \end{align}
+        \begin{aligned}
+        h   &\sim [-\texttt{interval\_h}, +\texttt{interval\_h}] \setminus \{0\}
+        \end{aligned}
 
     Because the proposal touches a (linearly) extensive number of variables, this update may frequently be rejected.
 

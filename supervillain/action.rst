@@ -9,11 +9,11 @@ We are interested in studying the Villain model with partition function $Z$ and 
 .. math::
    :name: villain model
 
-   \begin{align}
+   \begin{aligned}
    Z[J] &= \sum\hspace{-1.33em}\int D\phi\; Dn\; e^{-S_J[\phi, n]}
    &
    S_J[\phi, n] &= \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + i \sum_p J_p (dn)_p
-   \end{align}
+   \end{aligned}
 
 where $\phi$ is a real-valued 0-form that lives on sites $x$, $n$ is an integer-valued one-form that lives on links $\ell$, and $J$ is a two-form external source that lives on plaquettes $p$.
 The model has a gauge symmetry
@@ -33,9 +33,9 @@ For example, if we integrate $J$ over the reals the simplicity of the action all
 .. math::
    :name: vortex-free model
 
-   \begin{align}
+   \begin{aligned}
         \int DJ\; e^{i \sum_p J_p (dn)_p} = \prod_p 2\pi \delta(dn_p)
-   \end{align}
+   \end{aligned}
 
 which kills all vortices, because every plaquette must have 0 vorticity.
 We may also set $J = 2\pi v / W$ for any positive integer $W$ and sum over integer-valued plaquette variables $v$,
@@ -43,11 +43,11 @@ We may also set $J = 2\pi v / W$ for any positive integer $W$ and sum over integ
 .. math::
    :name: constrained villain model
 
-   \begin{align}
+   \begin{aligned}
    Z[J] &= \sum\hspace{-1.33em}\int D\phi\; Dn\; Dv\; e^{-S_J[\phi, n, v]}
    \\
    S_J[\phi, n, v] &= \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + 2\pi i \sum_p (v/W + J/2\pi)_p (dn)_p,
-   \end{align}
+   \end{aligned}
 
 keeping the external $J$ for functional differentiation.
 The constrained model has a gauge symmetry $v \rightarrow v \pm W$ because with integer-valued $dn$ the phase
@@ -62,11 +62,11 @@ The constrained model has a $\mathbb{Z}_W$ global winding symmetry
 
 .. math ::
 
-    \begin{align}
+    \begin{aligned}
         v &\rightarrow v + z
         &
         (z&\in\mathbb{Z})
-    \end{align}
+    \end{aligned}
 
 which is harmless under the path integral of $v$ over the integers.
 

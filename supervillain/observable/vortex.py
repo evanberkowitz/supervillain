@@ -13,7 +13,7 @@ class Vortex_Vortex(Constrained, Observable):
     and we can use translational invariance to reduce to a single relative coordinate
 
     .. math ::
-        \texttt{Vortex_Vortex}_{\Delta x} = V_{\Delta x} = \frac{1}{\Lambda} \sum_x V_{x,x-\Delta x}
+        \texttt{Vortex\_Vortex}_{\Delta x} = V_{\Delta x} = \frac{1}{\Lambda} \sum_x V_{x,x-\Delta x}
 
     '''
 
@@ -59,13 +59,13 @@ class Vortex_Vortex(Constrained, Observable):
         We can write $V_{x,y}$ as the ratio of two partition functions,
 
         .. math ::
-            \begin{align}
+            \begin{aligned}
                 V_{x,y} &= Z_0[x,y] / Z_0
                 \\
                 Z_J[x,y] &= \sum\hspace{-1.33em}\int D\phi\; Dn\; Dv\; e^{-S_J[\phi, n, v]} e^{2\pi i (v_x - v_y) / W}
                 \\
                 S_J[\phi, n, v] &= \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + 2\pi i \sum_p \left(v/W + J/2\pi \right)_p (dn)_p
-            \end{align}
+            \end{aligned}
 
         where $Z$ is the standard :class:`~.Villain` partition function with action $S$.
         The difference between $Z[x,y]$ and $Z$ is the insertion of the two-point exponential.
@@ -73,13 +73,13 @@ class Vortex_Vortex(Constrained, Observable):
 
         .. math ::
             
-            \begin{align}
+            \begin{aligned}
                 S_0'[\phi, n, v]
                     &=
                 \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + 2\pi i \sum_p \left(v/W\right)_p (dn)_p + 2\pi i (v_x-v_y)/W
                     \\
                 &= \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + 2\pi i \sum_p \left(v/W\right)_p (dn_p + \delta_{xp} - \delta_{yp} )
-            \end{align}
+            \end{aligned}
 
         so integrating out $v$ would now change the :ref:`winding constraint <winding constraint>` to $[dn_p \equiv \delta_{yp} - \delta_{xp} \text{ mod } W]$.
 
@@ -90,25 +90,25 @@ class Vortex_Vortex(Constrained, Observable):
         Then we can change the integration variables from $n$ to $\hat{n}$ as long as  we also change the action,
 
         .. math :: 
-            \begin{align}
+            \begin{aligned}
                 Z_J[x,y] &= \sum\hspace{-1.33em}\int D\phi\; D\hat{n}\; e^{-S_J[\phi, \hat{n} + P]} [d\hat{n} \equiv 0 \text{ mod } W]
-            \end{align}
+            \end{aligned}
 
         with the same $S_J$.  Since in the hatted variables the constraint is satisfied, we can calculate this using constraint-obeying configurations by reweighting,
 
         .. math :: 
 
-            \begin{align}
+            \begin{aligned}
                 Z_J[x,y] &= \sum\hspace{-1.33em}\int D\phi\; D\hat{n}\; e^{-S_J[\phi, \hat{n}]} e^{-(S_J[\phi, \hat{n} + P]-S_J[\phi, \hat{n}])} [d\hat{n} \equiv 0 \text{ mod } W]
-            \end{align}
+            \end{aligned}
 
         Or, in other words, we measure
 
         .. math ::
 
-             \begin{align}
+             \begin{aligned}
                 V_{x,y} &= \left\langle \hat{V}_{x,y} = e^{-(S_J[\phi, \hat{n} + P_{xy}]-S_J[\phi, \hat{n}])} \right\rangle
-            \end{align}
+            \end{aligned}
 
         in our standard ensemble.
 
@@ -117,7 +117,7 @@ class Vortex_Vortex(Constrained, Observable):
             An implementation detail is that the fixed chosen path is the taxicab path that first covers the whole time separation and then the whole space separation.
             The point is that any other path can be reached by making a combination of :class:`~.ExactUpdate`\s and :class:`~.HolonomyUpdate`\s.
 
-        Clearly $V_{x,x}=1$, and we can normalize so that $\texttt{Vortex_Vortex}_{\Delta x = 0} = 1$.
+        Clearly $V_{x,x}=1$, and we can normalize so that $\texttt{Vortex\_Vortex}_{\Delta x = 0} = 1$.
         The methods provided in this observable are already normalized.
         However, inline measurements like those provided by a :class:`worm <supervillain.generator.villain.worm.Classic>` are not,
         and can only be normalized *after* the bootstrap, which is why anything that depends on this observable is a :class:`~.DerivedQuantity`.

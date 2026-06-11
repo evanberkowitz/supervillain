@@ -21,9 +21,9 @@ class ExactUpdate(ReadWriteable, Generator):
 
     .. math ::
 
-        \begin{align}
-        z_x   &\sim [-\texttt{interval_z}, +\texttt{interval_z}] \setminus \{0\}
-        \end{align}
+        \begin{aligned}
+        z_x   &\sim [-\texttt{interval\_z}, +\texttt{interval\_z}] \setminus \{0\}
+        \end{aligned}
     '''
 
     def __init__(self, action, interval_z = 1):

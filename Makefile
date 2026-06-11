@@ -4,7 +4,9 @@
 # You can set these variables from the command line, and also
 # from the environment for the first two.
 SPHINXOPTS    ?=
-SPHINXBUILD   ?= sphinx-build
+# sphinx-toolbox conflicts with sphinx-tabs and sphinx-autodoc-typehints in the
+# locked project environment, so we use --with to inject it at build time only.
+SPHINXBUILD   ?= uv run --with sphinx-toolbox sphinx-build
 SOURCEDIR     = .
 BUILDDIR      = _build
 

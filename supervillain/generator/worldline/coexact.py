@@ -16,11 +16,11 @@ class CoexactUpdate(ReadWriteable, Generator):
 
     .. math ::
 
-        \begin{align}
-            t_p   &\sim [-\texttt{interval_t}, +\texttt{interval_t}] \setminus \{0\}
+        \begin{aligned}
+            t_p   &\sim [-\texttt{interval\_t}, +\texttt{interval\_t}] \setminus \{0\}
             &
             \Delta m_\ell &= (\delta t)_\ell
-        \end{align}
+        \end{aligned}
 
     .. warning ::
         This algorithm is not ergodic on its own.  It does not change $v$ (see the :class:`~.worldline.VortexUpdate`)

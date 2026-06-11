@@ -60,7 +60,7 @@ class Winding_Winding(Observable):
         W_{\Delta p} = \frac{1}{\Lambda} \sum_{p} W_{p, p-\Delta p}.
 
     .. note ::
-        You can check that $\texttt{Winding_Winding[0,0]} = \texttt{WindingSquared}$ configuration by configurations.
+        You can check that $\texttt{Winding\_Winding[0,0]} = \texttt{WindingSquared}$ configuration by configurations.
 
     '''
 
@@ -83,33 +83,33 @@ class Winding_Winding(Observable):
             Expanding the :class:`~.Worldline` action (and grouping the irrelevant contants)
 
             .. math::
-                \begin{align}
+                \begin{aligned}
                 S_J[m, v]
                     &= \frac{1}{2\kappa} \sum_\ell \left((m-\delta v/W) - \frac{\delta J}{2\pi}\right)_\ell^2 + \text{constants}
                     \\
                     &= \frac{1}{2\kappa} \sum_\ell \left((m-\delta v/W)_\ell^2 - \frac{1}{\pi} (m-\delta v/W)_\ell (\delta J)_\ell + \frac{1}{4\pi^2} (\delta J)_\ell^2 \right)+ \text{constants}
                     \\
                     &= \frac{1}{2\kappa} \left(\sum_\ell (m-\delta v/W)_\ell^2 + \sum_p - \frac{1}{\pi} (d(m-\delta v/W))_p J_p + \frac{1}{4\pi^2} J_p (d \delta J)_p \right)+ \text{constants}
-                \end{align}
+                \end{aligned}
 
             where we integrated two terms by parts to get $J$ undecorated.
 
             Differentiating $\log Z$ once gives
 
             .. math::
-                \begin{align}
+                \begin{aligned}
                 \frac{\delta}{\delta J_p} \log Z
                     &= -\frac{1}{Z} \sum Dm\; Dv\; [\delta m = 0] e^{-S_J[m, v]} \frac{\delta S}{\delta J_p}
                     \\
                     &= \frac{1}{Z} \sum Dm\; Dv\; [\delta m = 0] e^{-S_J[m, v]} \frac{-1}{2\kappa}\left( -\frac{1}{\pi} (d(m-\delta v/W))_p + \frac{2}{4\pi^2} (d\delta J)_p \right)
-                \end{align}
+                \end{aligned}
 
             where the factor of 2 on the $d \delta J$ term comes from the fact that $J d \delta J$ is quadratic in $J$.
 
             Differentiating again we must hit both the $1/Z$ term and the path integral upstairs giving two terms,
 
             .. math::
-                \begin{align}
+                \begin{aligned}
                 \frac{\delta}{\delta J_q}\frac{\delta}{\delta J_p} \log Z
                     =& \frac{\delta}{\delta J_q} \left[\frac{1}{Z} \sum Dm\; Dv\; [\delta m = 0] e^{-S_J[m,v]} \frac{-1}{2\kappa}\left( -\frac{1}{\pi} (d(m-\delta v/W))_p + \frac{1}{2\pi^2} (d\delta J)_p \right) \right]
                     \\
@@ -126,13 +126,13 @@ class Winding_Winding(Observable):
                     & \phantom{-\frac{1}{Z^2}} +\frac{-1}{4\pi^2 \kappa}\frac{\delta}{\delta J_q} (d \delta J)_p 
                     \Bigg]
                 \\
-                \end{align}
+                \end{aligned}
 
             In the second term we differentiate both the action [the first term in the brackets] and what was already brought down [the second].
             Plugging in $J=0$ gives
 
             .. math ::
-                \begin{align}
+                \begin{aligned}
                 -\left.\frac{\delta}{\delta J_q}\frac{\delta}{\delta J_p} \log Z \right|_{J=0}
                 = \left(\frac{1}{2\pi \kappa}\right)^2\Bigg\{&
                 \left\langle (d(m-\delta v/W))_p \right\rangle \left\langle (d(m-\delta v/W))_q \right\rangle
@@ -140,19 +140,19 @@ class Winding_Winding(Observable):
                 &- \left\langle (d(m-\delta v/W))_p (d(m-\delta v/W))_q \right\rangle
                 \\
                 & + \kappa \left.\frac{\delta}{\delta J_q} (d \delta J)_p\right|_{J=0} \Bigg\}
-                \end{align}
+                \end{aligned}
 
             because $d\delta 0 = 0$.
 
             When $J=0$ the first (quantum-disconnected) term is proportional $\left\langle d(m-\delta v/W)_p \right\rangle \left\langle d(m-\delta v/W)_q \right\rangle$ and the individual expectation values vanish by symmetry so we are left with
 
             .. math ::
-                \begin{align}
+                \begin{aligned}
                 -\left.\frac{\delta}{\delta J_q}\frac{\delta}{\delta J_p} \log Z \right|_{J=0}
                 = \left(\frac{1}{2\pi \kappa}\right)^2\Bigg\{&
                 \kappa \left.\frac{\delta}{\delta J_q} (d \delta J)_p  \right|_{J=0}
                 - \left\langle (d(m-\delta v/W))_p (d(m-\delta v/W))_q \right\rangle\Bigg\}
-                \end{align}
+                \end{aligned}
 
             The remaining functional derivative is a displacement-dependent constant.
 

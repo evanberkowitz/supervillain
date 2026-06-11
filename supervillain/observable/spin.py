@@ -14,7 +14,7 @@ class Spin_Spin(Observable):
     and reduce to a single relative coordinate
 
     .. math ::
-        \texttt{Spin_Spin}_{\Delta x} = S_{\Delta x} = \frac{1}{\Lambda} \sum_x S_{x,x-\Delta x}
+        \texttt{Spin\_Spin}_{\Delta x} = S_{\Delta x} = \frac{1}{\Lambda} \sum_x S_{x,x-\Delta x}
 
     .. seealso:: 
 
@@ -58,11 +58,11 @@ class Spin_Spin(Observable):
         Rather than requiring $\delta m = 0$ everywhere we get $(\delta m)_z = \delta_{y,z} - \delta_{x,z}$,
 
         .. math ::
-           \begin{align}
+           \begin{aligned}
                Z_J[x,y] &= \sum Dm\; e^{-S_J[m]} \left[\delta m = 0 \text{ not on }x, y\right]\left[(\delta m)_x = -1 \right]\left[(\delta m)_y = +1 \right]
                \\
                S_J[m] &= \frac{1}{2\kappa} \sum_\ell \left(m - \frac{\delta J}{2\pi}\right)_\ell^2 + \frac{|\ell|}{2} \ln (2\pi \kappa) - |x| \ln 2\pi
-           \end{align}
+           \end{aligned}
 
         Now define $\hat{m}_\ell = m_{\ell} - [P_{xy}]_\ell$ where $P_{xy}$ traces any fixed path at all whatsoever from $x$ to $y$ and on any link $P$ accumulates $+1$ for every time the path traces along the link and $-1$ every time the path traces against the link.
         For sites visited in the middle of the path $P$ the constraint is maintained while at the endpoints it is violated in exactly the desired way.
@@ -70,9 +70,9 @@ class Spin_Spin(Observable):
         Then we can change the integration variables from $m$ to $\hat{m}$ as long as we also change the action,
 
         .. math ::
-           \begin{align}
+           \begin{aligned}
                Z_J[x,y] &= \sum D\hat{m}\; e^{-S_J[\hat{m} + P_{xy}]} \left[\delta \hat{m} = 0 \text{ not on }x, y\right]\left[(\delta \hat{m})_x = 0 \right]\left[(\delta \hat{m})_y = 0 \right]
-           \end{align}
+           \end{aligned}
 
         with the same $S_J$.  Since in the hatted variables the constraint is satisfied, we can calculate this using constraint-obeying configurations (setting $J=2\pi v/W$ for the constraint) and measuring the operator
 
@@ -87,7 +87,7 @@ class Spin_Spin(Observable):
             An implementation detail is that the fixed chosen path is the taxicab path that first covers the whole time separation and then the whole space separation.
             The point is that any other path can be reached by making a combination of :class:`~.PlaquetteUpdate`\s and :class:`~.WrappingUpdate`\s.
 
-        Clearly $S_{xx}=1$, and we can normalize so that $\texttt{Spin_Spin}_{\Delta x = 0} = 1$.
+        Clearly $S_{xx}=1$, and we can normalize so that $\texttt{Spin\_Spin}_{\Delta x = 0} = 1$.
         The method provided in this observable are already naturally normalized.
         However, inline measurements like those provided by the :class:`worm <supervillain.generator.worldline.worm.Classic>` are not,
         and can only be normalized *after* the bootstrap, which is why anything that depends on this observable is a :class:`~.DerivedQuantity`.

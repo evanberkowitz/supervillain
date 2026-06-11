@@ -16,11 +16,11 @@ class NeighborhoodUpdate(ReadWriteable, Generator):
 
     .. math ::
     
-        \begin{align}
-        \Delta\phi_x    &\sim \text{uniform}(-\texttt{interval_phi}, +\texttt{interval_phi})
+        \begin{aligned}
+        \Delta\phi_x    &\sim \text{uniform}(-\texttt{interval\_phi}, +\texttt{interval\_phi})
         \\
-        \Delta n_\ell   &\sim W \times [-\texttt{interval_n}, +\texttt{interval_n}]
-        \end{align}
+        \Delta n_\ell   &\sim W \times [-\texttt{interval\_n}, +\texttt{interval\_n}]
+        \end{aligned}
 
     We pick :math:`\Delta n_\ell` to be a multiple of the constraint integer $W$ so that if the adjacent plaquettes satisfy the :ref:`winding constraint <winding constraint>` $dn \equiv 0 \text{ mod }W$
     before the update they satisfy it after as well.

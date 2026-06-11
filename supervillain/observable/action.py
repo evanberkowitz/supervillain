@@ -5,13 +5,13 @@ class ActionDensity(Scalar, Observable):
     r'''The expectation value of the action density can be calculated as
 
     .. math::
-        \begin{align}
+        \begin{aligned}
         \mathcal{S} &= -  \kappa \partial_\kappa \log Z
         \\
           &= \left\langle - \kappa  \partial_\kappa (-S) \right\rangle
         \\
           &= \left\langle \kappa  \partial_\kappa S \right\rangle
-        \end{align}
+        \end{aligned}
 
     It is extensive in the spacetime volume, so we calculate the density
 
@@ -37,9 +37,9 @@ class ActionDensity(Scalar, Observable):
         In the :class:`~.Worldline` formulation we differentiate to find
 
         .. math ::
-           \begin{align}
+           \begin{aligned}
             \mathcal{S} &= \left\langle \kappa \partial_\kappa S \right\rangle = - \frac{1}{2\kappa} \sum_{\ell} (m-\delta v/W)_\ell^2 + \frac{|\ell|}{2}.
-           \end{align}
+           \end{aligned}
 
         '''
         
@@ -157,7 +157,7 @@ class Action_Action(DerivedQuantity):
     Then we may compute the correlations of the action density by evaluating
 
     .. math::
-        \begin{align}
+        \begin{aligned}
             \mathcal{S}_{x,y} =& \left.\left(-\kappa_y \frac{\delta}{\delta \kappa_y}\right) \left(-\kappa_x \frac{\delta}{\delta \kappa_x}\right) \log Z\right|_{\kappa_{x,y} = \kappa}
             \\
             =& 
@@ -165,19 +165,19 @@ class Action_Action(DerivedQuantity):
             \\ &
             - \left.\left\langle \kappa_x \partial_{\kappa_x} S \right\rangle\right|_{\kappa_x = \kappa}
               \left.\left\langle \kappa_y \partial_{\kappa_y} S \right\rangle\right|_{\kappa_y = \kappa}.
-        \end{align}
+        \end{aligned}
 
     Using translational invariance the quantum-disconnected piece is independent of $x$ and $y$ and can be replaced by $\left\langle\texttt{ActionDensity}\right\rangle^2$.
     So, we find the simplification
 
     .. math ::
-        \begin{align}
+        \begin{aligned}
             \mathcal{S}_{x,y} = 
             & 
             \left\langle (\kappa_y \partial_{\kappa_y} S) (\kappa_x \partial_{\kappa_x} S) -  \kappa_y \kappa_x \partial_{\kappa_y} \partial_{\kappa_x} S - \delta_{xy} \kappa_x \partial_{\kappa_x} S\right\rangle
             \\ &
             - \left\langle \texttt{ActionDensity} \right\rangle^2
-        \end{align}
+        \end{aligned}
 
     We define the spacetime-dependent correlator
     
@@ -191,22 +191,22 @@ class Action_Action(DerivedQuantity):
     We can reduce to a function of a single relative coordinate,
 
     .. math ::
-        \begin{align}
-            \texttt{Action_Action}_{\Delta x} = \mathcal{S}_{\Delta x} = \frac{1}{\Lambda} \sum_{x} \mathcal{S}_{x, x-\Delta x}
-        \end{align}
+        \begin{aligned}
+            \texttt{Action\_Action}_{\Delta x} = \mathcal{S}_{\Delta x} = \frac{1}{\Lambda} \sum_{x} \mathcal{S}_{x, x-\Delta x}
+        \end{aligned}
 
 
     and define a primary observable :class:`~.ActionTwoPoint`
 
     .. math ::
-        \begin{align}
+        \begin{aligned}
             \texttt{ActionTwoPoint}_{\Delta x} = \frac{1}{\Lambda} \sum_{x} S^2_{x,x-\Delta x}.
-        \end{align}
+        \end{aligned}
 
     The quantum-disconnected term is $\Delta x$ independent, so
 
     .. math ::
-        \texttt{Action_Action}_{\Delta x} = \texttt{ActionTwoPoint}_{\Delta x} - \left\langle \texttt{ActionDensity} \right\rangle^2.
+        \texttt{Action\_Action}_{\Delta x} = \texttt{ActionTwoPoint}_{\Delta x} - \left\langle \texttt{ActionDensity} \right\rangle^2.
 
     '''
 

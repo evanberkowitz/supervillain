@@ -217,7 +217,7 @@ class Lattice2D(ReadWriteable):
     def distance_squared(self, a, b):
         r'''
         .. math::
-            \texttt{distance_squared}(a,b) = \left| \texttt{mod}(a - b)\right|^2
+            \texttt{distance\_squared}(a,b) = \left| \texttt{mod}(a - b)\right|^2
 
         Parameters
         ----------
@@ -625,21 +625,21 @@ class Lattice2D(ReadWriteable):
         The `convolution <https://en.wikipedia.org/wiki/Convolution>`_ is given by
 
         .. math ::
-            \texttt{t_convolution(f, g)}(t) = (f * g)(t) = \sum_\tau f(\tau) g(t-\tau)
+            \texttt{t\_convolution(f, g)}(t) = (f * g)(t) = \sum_\tau f(\tau) g(t-\tau)
 
         .. collapse :: The convolution is Fourier accelerated.
             :class: note
 
             .. math ::
 
-                   \begin{align}
+                   \begin{aligned}
                     (f * g)(t) &= \sum_\tau  f(\tau ) g(t-\tau )
                     \\  &= \sum_{\tau } \left( \frac{1}{\sqrt{N}} \sum_\nu e^{2\pi i \nu \tau  / N} F_\nu \right)\left( \frac{1}{\sqrt{N}} \sum_{\nu'} e^{2\pi i \nu' (t-\tau ) / N} G_{\nu'} \right)
                     \\  &= \sum_{\nu\nu'} e^{2\pi i \nu' t / N} F_\nu G_{\nu'} \left(\frac{1}{N} \sum_{\tau} e^{2\pi i (\nu-\nu') \tau  / N} \right)
                     \\  &= \sum_{\nu} e^{2\pi i \nu t / N} F_\nu G_\nu
                     \\
-                    \texttt{t_convolution(f, g)} &= \sqrt{N} \times \texttt{t_ifft(t_fft(f)t_fft(g))}
-                   \end{align}
+                    \texttt{t\_convolution(f, g)} &= \sqrt{N} \times \texttt{t\_ifft(t\_fft(f)t\_fft(g))}
+                   \end{aligned}
 
         Parameters
         ----------
@@ -664,7 +664,7 @@ class Lattice2D(ReadWriteable):
         The temporal `cross-correlation <https://en.wikipedia.org/wiki/Cross-correlation>`_ is given by
 
         .. math ::
-            \texttt{t_correlation(f, g)}(t) = (f ⋆ g)(t) = \frac{1}{N} \sum_\tau f(\tau)^* g(\tau-t)
+            \texttt{t\_correlation(f, g)}(t) = (f ⋆ g)(t) = \frac{1}{N} \sum_\tau f(\tau)^* g(\tau-t)
 
         where $f^*$ is the complex conjugate of $f$.
 
@@ -673,15 +673,15 @@ class Lattice2D(ReadWriteable):
 
             .. math ::
 
-               \begin{align}
+               \begin{aligned}
                 (f ⋆ g)(t) &= \frac{1}{N} \sum_\tau f(\tau )^* g(\tau -t)
                 \\  &= \frac{1}{N} \sum_{\tau } \left( \frac{1}{\sqrt{N}} \sum_\nu e^{2\pi i \nu \tau  / N} F_\nu \right)^* \left( \frac{1}{\sqrt{N}} \sum_{\nu'} e^{2\pi i \nu' (\tau -t) / N} G_{\nu'} \right)
                 \\  &= \frac{1}{N} \sum_{\nu\nu'} e^{-2\pi i \nu' t / N} F_\nu^* G_{\nu'} \; \left(\frac{1}{N}\sum_\tau  e^{2\pi i (\nu'-\nu) \tau  / N} = \delta_{\nu'\nu} \right)
                 \\  &= \frac{1}{N} \sum_{\nu} e^{-2\pi i \nu t / N} F_\nu^* G_\nu
                 \\  &= \frac{1}{\sqrt{N}} \left( \frac{1}{\sqrt{N}} \sum_{\nu} e^{-2\pi i \nu t / N} F_\nu^* G_\nu \right)
                 \\
-                \texttt{t_correlation(f, g)} &= \texttt{t_fft(conj(t_fft(f))t_fft(g))} / \sqrt{N}
-               \end{align}
+                \texttt{t\_correlation(f, g)} &= \texttt{t\_fft(conj(t\_fft(f))t\_fft(g))} / \sqrt{N}
+               \end{aligned}
 
         .. warning ::
             We have $g(\tau-t)$ whereas `Wikipedia <https://en.wikipedia.org/wiki/Cross-correlation>`_ has $g(\tau+t)$.
@@ -767,21 +767,21 @@ class Lattice2D(ReadWriteable):
         on the discretized lattice is given by
 
         .. math ::
-            \texttt{x_convolution(f, g)}(x) = (f * g)(x) = \sum_y f(y) g(x-y)
+            \texttt{x\_convolution(f, g)}(x) = (f * g)(x) = \sum_y f(y) g(x-y)
 
         .. collapse :: The convolution is Fourier accelerated.
             :class: note
 
             .. math ::
 
-               \begin{align}
+               \begin{aligned}
                 (f * g)(x) &= \sum_y f(y) g(x-y)
                 \\  &= \sum_{y} \left( \frac{1}{\sqrt{N}} \sum_k e^{2\pi i k y / N} F_k \right)\left( \frac{1}{\sqrt{N}} \sum_q e^{2\pi i q (x-y) / N} G_q \right)
                 \\  &= \sum_{kq} e^{2\pi i q x / N} F_k G_q \left(\frac{1}{N} \sum_y e^{2\pi i (k-q) y / N} = \delta_{kq} \right)
                 \\  &= \sum_{k} e^{2\pi i k x / N} F_k G_k
                 \\
-                \texttt{x_convolution(f, g)} &= \sqrt{N} \times \texttt{x_ifft(x_fft(f)x_fft(g))}
-               \end{align}
+                \texttt{x\_convolution(f, g)} &= \sqrt{N} \times \texttt{x\_ifft(x\_fft(f)x\_fft(g))}
+               \end{aligned}
 
         Parameters
         ----------
@@ -805,7 +805,7 @@ class Lattice2D(ReadWriteable):
         The spatial `cross-correlation <https://en.wikipedia.org/wiki/Cross-correlation>`_ is given by
 
         .. math ::
-            \texttt{x_correlation(f, g)}(x) = (f ⋆ g)(x) = \frac{1}{N} \sum_y f(y)^* g(y-x)
+            \texttt{x\_correlation(f, g)}(x) = (f ⋆ g)(x) = \frac{1}{N} \sum_y f(y)^* g(y-x)
 
         where $f^*$ is the complex conjugate of $f$.
 
@@ -814,15 +814,15 @@ class Lattice2D(ReadWriteable):
 
             .. math ::
 
-               \begin{align}
+               \begin{aligned}
                 (f ⋆ g)(x) &= \frac{1}{N} \sum_y f(y)^* g(y-x)
                 \\  &= \frac{1}{N} \sum_{y} \left( \frac{1}{\sqrt{N}} \sum_k e^{2\pi i k y / N} F_k \right)^* \left( \frac{1}{\sqrt{N}} \sum_q e^{2\pi i q (y-x) / N} G_q \right)
                 \\  &= \frac{1}{N} \sum_{kq} e^{-2\pi i q x / N} F_k^* G_q \; \left(\frac{1}{N}\sum_y e^{2\pi i (q-k) y / N} = \delta_{qk} \right)
                 \\  &= \frac{1}{N} \sum_{k} e^{-2\pi i k x / N} F_k^* G_k
                 \\  &= \frac{1}{\sqrt{N}} \left( \frac{1}{\sqrt{N}} \sum_{k} e^{-2\pi i k x / N} F_k^* G_k \right)
                 \\
-                \texttt{x_correlation(f, g)} &= \texttt{x_fft(conj(x_fft(f))x_fft(g))} / \sqrt{N}
-               \end{align}
+                \texttt{x\_correlation(f, g)} &= \texttt{x\_fft(conj(x\_fft(f))x\_fft(g))} / \sqrt{N}
+               \end{aligned}
 
         .. warning ::
             We have $g(y-x)$ whereas `Wikipedia <https://en.wikipedia.org/wiki/Cross-correlation>`_ has $g(y+x)$.
@@ -910,7 +910,7 @@ class Lattice2D(ReadWriteable):
 
             .. math ::
 
-               \begin{align}
+               \begin{aligned}
                 (f * g)(t,x) &= \sum_{\tau y} f(\tau,y) g(t-\tau, x-y)
                 \\ &= \sum_{\tau y}
                     \left(\frac{1}{N} \sum_{\nu,k} e^{-2\pi i (\nu \tau +k y) / N} F_{\nu,k}\right)
@@ -922,7 +922,7 @@ class Lattice2D(ReadWriteable):
                     e^{-2\pi i (\nu t + k x) / N} F_{\nu,k}G_{\nu,k}
                 \\
                 \texttt{convolution(f, g)} &= N \times \texttt{ifft(fft(f)fft(g))}
-               \end{align}
+               \end{aligned}
 
         Parameters
         ----------
@@ -955,7 +955,7 @@ class Lattice2D(ReadWriteable):
 
             .. math ::
 
-               \begin{align}
+               \begin{aligned}
                 (f ⋆ g)(t,x) &= \frac{1}{N^2} \sum_{\tau y} f(\tau,y)^* g(\tau-t, y-x)
                 \\ &= \frac{1}{N^2} \sum_{\tau y}
                     \left(\frac{1}{N} \sum_{\nu,k} e^{-2\pi i (\nu \tau +k y) / N} F_{\nu,k}\right)^*
@@ -967,7 +967,7 @@ class Lattice2D(ReadWriteable):
                     e^{+2\pi i (\nu t + k x) / N} F_{\nu,k}^*G_{\nu,k}
                 \\
                 \texttt{correlation(f, g)} &= \texttt{fft(conj(fft(f))fft(g))} / N
-               \end{align}
+               \end{aligned}
 
         .. warning ::
             We have $g(\tau-t, y-x)$ whereas `Wikipedia <https://en.wikipedia.org/wiki/Cross-correlation>`_ has $g(\tau+t, y+x)$.

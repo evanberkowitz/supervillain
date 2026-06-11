@@ -16,11 +16,11 @@ class VortexUpdate(ReadWriteable, Generator):
 
     .. math ::
 
-        \begin{align}
-            \Delta v_p   &\sim [-\texttt{interval_v}, +\texttt{interval_v}] \setminus \{0\} &&(W<\infty)
+        \begin{aligned}
+            \Delta v_p   &\sim [-\texttt{interval\_v}, +\texttt{interval\_v}] \setminus \{0\} &&(W<\infty)
             \\
-            \Delta v_p   &\sim \text{uniform}(-\texttt{interval_v}, +\texttt{interval_v}) &&(W=\infty)
-        \end{align}
+            \Delta v_p   &\sim \text{uniform}(-\texttt{interval\_v}, +\texttt{interval\_v}) &&(W=\infty)
+        \end{aligned}
 
     on each plaquette $p$ independently.
 

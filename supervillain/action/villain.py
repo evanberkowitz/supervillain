@@ -14,11 +14,11 @@ class Villain(ReadWriteable):
     'The' Villain action is just the straightforward
 
     .. math::
-       \begin{align}
+       \begin{aligned}
        Z[J] &= \sum\hspace{-1.33em}\int D\phi\; Dn\; Dv\; e^{-S_J[\phi, n, v]}
        \\
        S_J[\phi, n, v] &= \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + 2\pi i \sum_p \left(v/W + J/2\pi \right)_p (dn)_p
-       \end{align}
+       \end{aligned}
 
     with $\phi$ a real-valued 0-form that lives on sites, $n$ an integer-valued one form that lives on links $l$, and $J$ a two-form that lives on plaquettes $p$.
 

@@ -13,11 +13,11 @@ class Worldline(ReadWriteable):
     The dual (worldline) action is
 
     .. math::
-       \begin{align}
+       \begin{aligned}
        Z[J] &= \sum Dm\; Dv\; e^{-S_J[m, v]} \left[\delta m = 0\right]
        \\
        S_J[m, v] &= \frac{1}{2\kappa} \sum_\ell \left(m - \delta\left(\frac{v}{W} + \frac{J}{2\pi} \right)\right)_\ell^2 + \frac{|\ell|}{2} \ln (2\pi \kappa) - |x| \ln 2\pi
-       \end{align}
+       \end{aligned}
 
     In other words, it is a sum over all configurations where $\delta m$ vanishes on every site.
 
@@ -119,11 +119,11 @@ class Worldline(ReadWriteable):
         We can take any configuration and send
 
         .. math ::
-            \begin{align}
+            \begin{aligned}
                 v &\rightarrow v + \lambda W
                 &
                 m &\rightarrow m - \delta \lambda
-            \end{align}
+            \end{aligned}
 
         for integer $\lambda$.  We fix $\lambda$ on every plaquette so that after the transformation $v\in[0,W)$.
 
