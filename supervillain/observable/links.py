@@ -1,5 +1,5 @@
 from supervillain.observable import Observable
-from supervillain.lattice.compact import d
+from supervillain.lattice.compact import d, delta
 import numpy as np
 
 class Links(Observable):
@@ -42,5 +42,4 @@ class Links(Observable):
         and observables are generically functions of this combination, though there are some exceptional observables like :class:`~.TorusWrapping` where the $\delta v$ pieces cancel exactly.
         '''
 
-        L = S.Lattice
-        return m - L.delta(2, v) / S._W
+        return m - delta(v) / S._W

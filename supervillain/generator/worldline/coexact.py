@@ -4,6 +4,7 @@ import numpy as np
 import supervillain.action
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
+from supervillain.lattice.compact import delta
 
 import logging
 logger = logging.getLogger(__name__)
@@ -66,18 +67,16 @@ class CoexactUpdate(ReadWriteable, Generator):
 
         self.sweeps += 1
         total_acceptance = 0
-        accepted = 0
+        total_accepted = 0
 
         v = cfg['v'].copy()
-        delta_v_by_W = self.Lattice.delta(2, v)/self.Action._W
+        delta_v_by_W = delta(v) / self.Action._W
 
         m = cfg['m'].copy()
 
         L = self.Lattice
 
-        metropolis = self.rng.uniform(0, 1, v.shape)
-        total_accepted = 0
-        total_acceptance = 0
+        metropolis = self.rng.uniform(0, 1, L.dims)
 
         # The idea is to make coordinated changes to m that keep δm=0.  We can do that by letting the change in m
         # be a coexact form δt with t a two-form so that the change in δm is δ^2t = 0.
@@ -92,15 +91,14 @@ class CoexactUpdate(ReadWriteable, Generator):
         # from other changes in t. Therefore, we use checkerboarding.
         for color in L.checkerboarding:
 
-
             # We only offer changes to t on a single color at once.  The benefit is that the surrounding plaquettes
             # do not have updates.  So we know where any change in m=δt and therefore any change in the action on any link came from:
             # it came from the plaquette in the partition (color) we are updating.
             t = L.form(2, dtype=int)
-            t[color] = self.rng.choice(self.ts, len(color[0]))
+            t[0][color] = self.rng.choice(self.ts, len(color[0]))
 
             # To keep δm=0 we let the change in m be given by δt, so that δ(change_m) = δ^2(t) = 0.
-            change_m = L.delta(2, t)
+            change_m = delta(t)
             dS_link = 0.5 / self.Action.kappa * change_m * (2*(m - delta_v_by_W) + change_m)
 
             # The change in action originating from the two form on the color under consideration
@@ -117,16 +115,16 @@ class CoexactUpdate(ReadWriteable, Generator):
             total_acceptance += acceptance.sum()
 
             # Finally, we update the m where the change is accepted.
-            t[color] *= accepted
-            m += L.delta(2, t)
+            t[0][color] *= accepted
+            m = m + delta(t)
 
-        self.proposed += L.sites
-        self.acceptance += total_acceptance / L.plaquettes
+        self.proposed += L.cells_of_degree[2]
+        self.acceptance += total_acceptance / L.cells_of_degree[2]
         self.accepted += total_accepted
 
-        logger.debug(f'Average proposal acceptance {total_acceptance / L.plaquettes:.6f}; Actually accepted {total_accepted} / {L.plaquettes} = {total_accepted / L.plaquettes}')
+        logger.debug(f'Average proposal acceptance {total_acceptance / L.cells_of_degree[2]:.6f}; Actually accepted {total_accepted} / {L.cells_of_degree[2]} = {total_accepted / L.cells_of_degree[2]}')
 
-        return {'m': m, 'v': v}
+        return cfg | {'m': m}
 
 
 
@@ -138,4 +136,3 @@ class CoexactUpdate(ReadWriteable, Generator):
             +'\n'+
             f'    {self.acceptance / self.sweeps:.6f} average Metropolis acceptance probability.'
         )
-

@@ -4,6 +4,7 @@ import numpy as np
 from supervillain.h5 import ReadWriteable
 from supervillain.batch import Batch
 from supervillain.configurations import Configurations
+from supervillain.lattice.compact import Form, delta
 
 import logging
 logger = logging.getLogger(__name__)
@@ -25,7 +26,7 @@ class Worldline(ReadWriteable):
 
     Parameters
     ----------
-    lattice: supervillain.Lattice2D
+    lattice: supervillain.lattice.Lattice
         The lattice on which $m$ lives.
     kappa: float
         The $\kappa$ in the overall coefficient.
@@ -66,7 +67,7 @@ class Worldline(ReadWriteable):
         '''
 
         m = configuration['m']
-        return (self.Lattice.delta(1, m) == 0).all()
+        return (delta(m) == 0).all()
 
     def __call__(self, m, v, **kwargs):
         r'''
@@ -88,9 +89,9 @@ class Worldline(ReadWriteable):
             If $m$ does not satisfy the constraint.
         '''
 
-        if not self.valid(m):
+        if not self.valid({'m': m}):
             raise ValueError(f'The one-form m does not satisfy the constraint δm = 0 everywhere.')
-        return 0.5 / self.kappa * np.sum((m - self.Lattice.delta(2, v) / self._W)**2) + self._constant_offset
+        return 0.5 / self.kappa * np.sum((m - delta(v) / self._W)**2) + self._constant_offset
 
     def configurations(self, count):
         r'''
@@ -108,8 +109,8 @@ class Worldline(ReadWriteable):
         L = self.Lattice
         v_dtype = int if self.W < float('inf') else float
         return Configurations({
-            'm': Batch(count, shape=L.form(1).shape, dtype=int),
-            'v': Batch(count, shape=L.form(2).shape, dtype=v_dtype),
+            'm': Batch(count, cls=Form, degree=1, lattice=L, dtype=int),
+            'v': Batch(count, cls=Form, degree=2, lattice=L, dtype=v_dtype),
             })
 
     def equivalence_class_v(self, configuration):
@@ -149,6 +150,6 @@ class Worldline(ReadWriteable):
         L = self.Lattice
 
         return {
-                'm': configuration['m'] - L.delta(2, np.floor_divide(configuration['v'], self.W)),
+                'm': configuration['m'] - delta(np.floor_divide(configuration['v'], self.W)),
                 'v': np.mod(configuration['v'], self.W),
         }

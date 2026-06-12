@@ -8,6 +8,7 @@ from supervillain.h5 import ReadWriteable
 from supervillain.batch import Batch
 
 from supervillain.lattice import _Lattice2D
+from supervillain.lattice.compact import delta
 import numba
 
 import logging
@@ -66,7 +67,7 @@ class ClassicWorm(ReadWriteable, Generator):
 
         L = self.Action.Lattice
         return {
-            'Spin_Spin':    Batch(steps, shape=L.form(0).shape),
+            'Spin_Spin':    Batch(steps, shape=L.dims),
             'Worm_Length':  Batch(steps, shape=(), dtype=float),
         }
 
@@ -78,14 +79,12 @@ class ClassicWorm(ReadWriteable, Generator):
         S = self.Action
         L = S.Lattice
 
-        displacements = L.form(0)
-
         m = configuration['m'].copy()
 
         # This algorithm will not update v; but it is useful to precompute δv
         # which is used in the evaluation of the changes in action.
         v = configuration['v'].copy()
-        delta_v_by_W = L.delta(2, v) / S._W
+        delta_v_by_W = delta(v) / S._W
 
         # The documentation gives a definitive statement about moving the head only.
         # But we could equally well move the tail, making the opposite moves in the opposite worm evolution.
@@ -112,7 +111,7 @@ class ClassicWorm(ReadWriteable, Generator):
 
         wl = spin_spin.sum()
         self.worm_lengths.append(wl)
-        return {'m': new_m, 'v': v, 'Spin_Spin': spin_spin, 'Worm_Length': wl}
+        return configuration | {'m': new_m, 'Spin_Spin': spin_spin, 'Worm_Length': wl}
 
 
     def report(self):

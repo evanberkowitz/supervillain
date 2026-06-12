@@ -13,7 +13,7 @@ def VillainLattice(N):
 
 @cache
 def WorldlineLattice(N):
-    return supervillain.Lattice2D(N)
+    return supervillain.lattice.Lattice(D=2, N=N)
 
 def villain(configurations, N, kappa, W=1):
     L = VillainLattice(N)

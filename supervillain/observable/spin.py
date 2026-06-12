@@ -98,7 +98,7 @@ class Spin_Spin(Observable):
         L = S.Lattice
         kappa = S.kappa
 
-        result = L.form(0)
+        result = np.zeros(L.dims)
 
         # For every displacment we will take the taxicab route, as dumb as possible.
         # In Spin_SpinSlow we create stencils that are 0 and ±1, one value for every link.

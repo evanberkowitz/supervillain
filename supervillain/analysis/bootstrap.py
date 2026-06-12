@@ -125,7 +125,7 @@ class Bootstrap(ReadWriteable):
         Δx = L.linearize(L.R_squared)**0.5
         C = getattr(self, correlator).real
         if irrep:
-            C = L.irrep(C, irrep)
+            C = L.symmetrize(C)
 
         axis.errorbar(
                 Δx+offset,

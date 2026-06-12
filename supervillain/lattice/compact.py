@@ -24,8 +24,8 @@
 #   3-form components:  (0,1,2)       → shape (1, N, N, N)
 
 from functools import cached_property
-from itertools import combinations
-from math import comb
+from itertools import combinations, permutations as _permutations
+from math import comb, factorial
 import numpy as np
 
 from supervillain.lattice import _dimension
@@ -256,10 +256,28 @@ class Lattice:
 
     @cached_property
     def R_squared(self):
-        """Distance-squared from the origin at each site.  D == 2 only."""
-        if self.D != 2:
-            raise AttributeError('R_squared is only defined for D == 2')
-        return self.X ** 2 + self.T ** 2
+        """Distance-squared from the origin at each site, shape (N,...,N)."""
+        return np.sum(self.coords**2, axis=0)
+
+    def distance_squared(self, a, b):
+        r"""Squared lattice distance between coordinate vectors ``a`` and ``b``.
+
+        Accounts for periodic boundary conditions: the distance is computed
+        via ``mod(a - b)``, so it is the shortest-path distance on the torus.
+
+        Parameters
+        ----------
+        a, b : array_like
+            Coordinate vectors of shape ``(D,)`` for a single pair, or
+            ``(..., D)`` for a batch.
+
+        Returns
+        -------
+        np.ndarray
+            Scalar for a single pair, shape ``(...)`` for a batch.
+        """
+        d = self.mod(np.asarray(a) - np.asarray(b))
+        return np.sum(d**2, axis=-1)
 
     @cached_property
     def coordinates(self):
@@ -371,6 +389,124 @@ class Lattice:
         """
         ax = axes if axes is not None else self._spatial_axes()
         return self.fft(self.fft(f, axes=ax).conj() * self.fft(g, axes=ax), axes=ax) / np.sqrt(self.sites)
+
+    def linearize(self, v, dims=(-1,)):
+        r"""Flatten the D spatial dims of ``v`` into a single axis of size ``sites``.
+
+        Parameters
+        ----------
+        v : np.ndarray
+            Array whose D adjacent spatial dims will be collapsed into one.
+        dims : tuple of int
+            Axes of the *result* that come from flattening.  Pass the same value
+            to :meth:`coordinatize` for a round-trip.
+
+        Returns
+        -------
+        np.ndarray
+        """
+        shape = v.shape
+        v_dims = len(shape)
+
+        dm = set(dims)
+        future_dims = v_dims - (self.D - 1) * len(dm)
+        dm = set(d % future_dims for d in dm)
+
+        new_shape = []
+        idx = 0
+        for i in range(future_dims):
+            if i not in dm:
+                new_shape.append(shape[idx])
+                idx += 1
+            else:
+                new_shape.append(self.sites)
+                idx += self.D
+        return v.reshape(new_shape)
+
+    def coordinatize(self, v, dims=(-1,), center_origin=False):
+        r"""Unflatten a linear site-index axis back into D spatial axes.
+
+        Parameters
+        ----------
+        v : np.ndarray
+            Array with a ``sites``-sized axis to expand.
+        dims : tuple of int
+            Axes of ``v`` to unflatten.  Each must have size ``sites``.
+        center_origin : bool
+            If True, roll each spatial block so that the origin sits in the
+            centre of the array.  Useful for visualisation; not invertible.
+
+        Returns
+        -------
+        np.ndarray
+        """
+        v_dims = len(v.shape)
+        to_reshape = np.sort(np.remainder(np.array(dims), v_dims))
+
+        new_shape = ()
+        for i, s in enumerate(v.shape):
+            new_shape += ((s,) if i not in to_reshape else self.dims)
+
+        reshaped = v.reshape(new_shape)
+        if not center_origin:
+            return reshaped
+
+        # Each original axis at position a expands to D axes; subsequent blocks
+        # shift right by (D-1) per earlier expansion.
+        axes = to_reshape + np.arange(len(to_reshape)) * (self.D - 1)
+        for a in axes:
+            for d in range(self.D):
+                reshaped = np.roll(reshaped, self.N // 2, axis=int(a) + d)
+
+        return reshaped
+
+    @cached_property
+    def _hyperoctahedral_permutations(self):
+        """Site-index permutations for each of the D!·2^D hyperoctahedral group elements."""
+        coords = self.coordinates          # (sites, D)
+        coord_to_idx = {tuple(c): k for k, c in enumerate(coords)}
+        result = []
+        # The hyperoctahedral group B_D = (Z/2Z)^D ⋊ S_D combines the D! permutations
+        # of coordinate axes with 2^D independent per-axis sign flips.
+        for perm in _permutations(range(self.D)):
+            # signs is NOT the sign (parity) of the permutation — it is D independent
+            # bits, one per axis, encoding which coordinates get negated.
+            for signs in np.ndindex(*([2] * self.D)):
+                # Map the 0/1 bits to +1/−1: a signed permutation x → sign_vec * x[perm].
+                sign_vec = np.array([1 - 2 * s for s in signs])
+                idx_perm = np.array([
+                    coord_to_idx[tuple(self.mod(sign_vec * coords[i][list(perm)]))]
+                    for i in range(self.sites)
+                ])
+                result.append(idx_perm)
+        return result
+
+    def symmetrize(self, correlator, dims=(-1,)):
+        r"""Average ``correlator`` over the hyperoctahedral group (D!·2^D signed permutations).
+
+        Projects onto the totally-symmetric (A₁/trivial) irrep of the lattice point
+        group.  For a rotationally symmetric system this is equivalent to the old
+        ``Lattice2D.irrep(correlator, 'A1')`` at D=2.
+
+        Parameters
+        ----------
+        correlator : np.ndarray
+            Spatial shape ``(N,...,N)`` (or any array whose ``dims`` axes span the
+            sites of this lattice after linearization).
+        dims : tuple of int
+            Axes to symmetrize (same convention as :meth:`linearize`).
+
+        Returns
+        -------
+        np.ndarray
+            Same shape as ``correlator``.
+        """
+        C = self.linearize(correlator, dims=dims)
+        v_dims = len(C.shape)
+        sites_axis = list(dims)[0] % v_dims
+        perms = self._hyperoctahedral_permutations
+        result = np.sum([np.take(C, p, axis=sites_axis) for p in perms], axis=0)
+        return self.coordinatize(result / len(perms), dims=dims)
 
     def __repr__(self):
         return f"Lattice(D={self.D}, N={self.N})"

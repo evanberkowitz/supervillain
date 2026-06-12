@@ -3,7 +3,7 @@
 import numpy as np
 
 from supervillain.observable import Scalar, Observable
-from supervillain.lattice.compact import d
+from supervillain.lattice.compact import d, delta
 
 class WindingSquared(Scalar, Observable):
     r'''
@@ -45,7 +45,7 @@ class WindingSquared(Scalar, Observable):
 
         because $\delta / \delta J_p ( d \delta J_p) = 4$.
         '''
-        return 1/(np.pi**2 * S.kappa)-np.mean(S.Lattice.d(1, Links)**2) / (2*np.pi*S.kappa)**2
+        return 1/(np.pi**2 * S.kappa)-np.mean(d(Links)**2) / (2*np.pi*S.kappa)**2
 
 class Winding_Winding(Observable):
     r'''
@@ -166,14 +166,14 @@ class Winding_Winding(Observable):
         '''
         L = S.Lattice
         kappa = S.kappa
-        dm = L.d(1, Links)
+        dm = d(Links)
 
         # δ/δJ_p (d δ (J_q)) doesn't vanish, but neither does it depends on J.
         # In fact, it is a constant that depends only the relative coordinate.
         # We can get the stencil by computing δ d (all zeros except at the origin)
         no_displacement = L.form(2)
-        no_displacement[0,0] = 1.
-        d_delta_J = L.d(1, L.delta(2, no_displacement))
+        no_displacement[0][0,0] = 1.
+        d_delta_J = d(delta(no_displacement))
 
         return (kappa * d_delta_J - L.correlation(dm, dm)) / (2*np.pi*kappa)**2
 

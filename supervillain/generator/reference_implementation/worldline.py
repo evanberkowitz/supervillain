@@ -6,6 +6,7 @@ import supervillain.action
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
 from supervillain.batch import Batch
+from supervillain.lattice.compact import delta
 
 import logging
 logger = logging.getLogger(__name__)
@@ -68,7 +69,7 @@ class ClassicWorm(ReadWriteable, Generator):
 
         L = self.Action.Lattice
         return {
-            'Spin_Spin':    Batch(steps, shape=L.form(0).shape),
+            'Spin_Spin':    Batch(steps, shape=L.dims),
             'Worm_Length':  Batch(steps, shape=(), dtype=float),
         }
 
@@ -80,14 +81,14 @@ class ClassicWorm(ReadWriteable, Generator):
         S = self.Action
         L = S.Lattice
 
-        displacements = L.form(0)
+        displacements = np.zeros(L.dims)
 
         m = configuration['m'].copy()
 
         # This algorithm will not update v; but it is useful to precompute δv
         # which is used in the evaluation of the changes in action.
         v = configuration['v'].copy()
-        delta_v_by_W = L.delta(2, v) / S._W
+        delta_v_by_W = delta(v) / S._W
 
         # The documentation gives a definitive statement about moving the head only.
         # But we could equally well move the tail, making the opposite moves in the opposite worm evolution.
@@ -113,7 +114,7 @@ class ClassicWorm(ReadWriteable, Generator):
             if (head == tail).all() and (self.rng.uniform(0, 1) >= 0.8):
                 wl = displacements.sum()
                 self.worm_lengths.append(wl)
-                return {'m': m, 'v': v, 'Spin_Spin': displacements, 'Worm_Length': wl}
+                return configuration | {'m': m, 'Spin_Spin': displacements, 'Worm_Length': wl}
 
             # Conditioned on not transitioning to z, we make a uniform choice of the 4 possible directions.
             choice = self.rng.choice([0,1,2,3])
@@ -147,7 +148,7 @@ class ClassicWorm(ReadWriteable, Generator):
 
             # Finally, we tally the worm,
             x, y = L.mod(head-tail)
-            displacements[x, y] +=1
+            displacements[x, y] += 1
             # and consider our next move.
 
     def report(self):

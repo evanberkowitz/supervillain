@@ -27,7 +27,7 @@ def generate(args, action):
         g = supervillain.generator.villain.Hammer(S)
         g = supervillain.generator.combining.KeepEvery(3, g)
     elif action == 'worldline':
-        L = supervillain.lattice.Lattice2D(args.N)
+        L = supervillain.lattice.Lattice(D=2, N=args.N)
         S = supervillain.action.Worldline(L, args.kappa, W=float('inf'))
         g = supervillain.generator.worldline.Hammer(S)
         g = supervillain.generator.combining.KeepEvery(9, g)
@@ -78,14 +78,14 @@ def correlators(bootstrap):
     bootstrap['worldline'].plot_correlator(ax[0,0], 'Spin_Spin', label='Worldline')
     bootstrap['worldline'].plot_correlator(ax[0,1], 'Vortex_Vortex', label='Worldline')
 
-    diff = L.irrep(bootstrap['villain'].Spin_Spin - bootstrap['worldline'].Spin_Spin).real
+    diff = L.symmetrize(bootstrap['villain'].Spin_Spin - bootstrap['worldline'].Spin_Spin).real
     ax[1,0].errorbar(
         L.linearize(L.R_squared**0.5), L.linearize(diff.mean(axis=0)), L.linearize(diff.std(axis=0)),
         linestyle='none', marker='o',
     )
     ax[1,0].axhline(0, color='black', zorder=-1)
 
-    diff = L.irrep(bootstrap['villain'].Vortex_Vortex - bootstrap['worldline'].Vortex_Vortex).real
+    diff = L.symmetrize(bootstrap['villain'].Vortex_Vortex - bootstrap['worldline'].Vortex_Vortex).real
     ax[1,1].errorbar(
         L.linearize(L.R_squared**0.5), L.linearize(diff.mean(axis=0)), L.linearize(diff.std(axis=0)),
         linestyle='none', marker='o',
@@ -113,8 +113,8 @@ def self_dual(bootstrap):
     v_bootstrap.plot_correlator(ax[0], 'Spin_Spin', label='Villain Spin_Spin')
     w_bootstrap.plot_correlator(ax[0], 'Vortex_Vortex', label='Worldline Vortex_Vortex')
 
-    diff =       L.irrep(v_bootstrap.Spin_Spin - w_bootstrap.Vortex_Vortex).real
-    mean = 0.5 * L.irrep(v_bootstrap.Spin_Spin + w_bootstrap.Vortex_Vortex).real
+    diff =       L.symmetrize(v_bootstrap.Spin_Spin - w_bootstrap.Vortex_Vortex).real
+    mean = 0.5 * L.symmetrize(v_bootstrap.Spin_Spin + w_bootstrap.Vortex_Vortex).real
     ax[1].errorbar(
         L.linearize(L.R_squared**0.5), L.linearize((diff/mean).mean(axis=0)), L.linearize((diff/mean).std(axis=0)),
         linestyle='none', marker='o',

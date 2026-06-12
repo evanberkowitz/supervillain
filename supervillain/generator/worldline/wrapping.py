@@ -4,6 +4,7 @@ import numpy as np
 import supervillain
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
+from supervillain.lattice.compact import delta
 
 class WrappingUpdate(ReadWriteable, Generator):
     r'''
@@ -55,53 +56,44 @@ class WrappingUpdate(ReadWriteable, Generator):
         # The cycles are independent.  So we can accept or reject them independently---changes on one cycle don't talk to changes on another.
         # We can fill a whole 1-form with changes to m that satisfy δm=0 along every cycle.
         change_m = L.form(1, dtype=int)
-        change_m[0] = self.rng.choice(self.w, L.nx)[None,:]
-        change_m[1] = self.rng.choice(self.w, L.nt)[:,None]
-        #assert self.Action.valid(change_m)
+        for mu in range(L.D):
+            # Each μ-direction cycle proposes a single winding number, constant along its perpendicular directions.
+            perp_shape = tuple(1 if i == mu else L.N for i in range(L.D))
+            change_m[mu] = self.rng.choice(self.w, L.N**(L.D-1)).reshape(perp_shape)
 
         # Now we compute the change in action on every link, which we will reduce along different directions
         # to get the change in action from each cycle.
-        dS_link = 0.5 / self.Action.kappa * change_m * (2*(m - L.δ(2, v) / self.Action._W) + change_m)
+        dS_link = 0.5 / self.Action.kappa * change_m * (2*(m - delta(v) / self.Action._W) + change_m)
 
-        # First the temporal cycles.
-        dS = dS_link[0].sum(axis=0)
-        # Now we Metropolize
-        acceptance = np.clip( np.exp(-dS), a_min=0, a_max=1)
-        metropolis = self.rng.uniform(0, 1, acceptance.shape)
-        accepted = metropolis < acceptance
-        # and zero out the rejected changes.
-        change_m[0] *= accepted[None,:]
+        total_acceptance = 0
+        total_accepted   = 0
 
-        total_acceptance = acceptance.sum()
-        total_accepted   = accepted.sum()
+        for mu in range(L.D):
+            # The action change from a μ-direction cycle is the sum of all the link changes along that cycle.
+            dS = dS_link[mu].sum(axis=mu)
+            # Now we Metropolize
+            acceptance = np.clip( np.exp(-dS), a_min=0, a_max=1)
+            metropolis = self.rng.uniform(0, 1, acceptance.shape)
+            accepted = metropolis < acceptance
+            # and zero out the rejected changes, broadcasting the per-cycle result back to the link shape.
+            change_m[mu] *= np.expand_dims(accepted, axis=mu)
 
-        # Now the spatial links
-        dS = dS_link[1].sum(axis=1)
-        # Now we Metropolize
-        acceptance = np.clip( np.exp(-dS), a_min=0, a_max=1)
-        metropolis = self.rng.uniform(0, 1, acceptance.shape)
-        accepted = metropolis < acceptance
-        # and zero out the rejected changes.
-        change_m[1] *= accepted[:,None]
+            total_acceptance += acceptance.sum()
+            total_accepted   += accepted.sum()
 
-        total_acceptance += acceptance.sum()
-        total_accepted   += accepted.sum()
-
-        self.proposed += L.nx + L.nt
-        self.acceptance += total_acceptance / (L.nx + L.nt)
+        n_cycles = L.D * L.N**(L.D-1)
+        self.proposed += n_cycles
+        self.acceptance += total_acceptance / n_cycles
         self.accepted += total_accepted
         self.sweeps += 1
 
-        #assert self.Action.valid(change_m)
-        #assert self.Action.valid(m+change_m)
-
-        return {'m': m + change_m, 'v': v}
+        return cfg | {'m': m + change_m}
 
     def report(self):
         return (
                 f'There were {self.accepted} single-wrapping proposals accepted of {self.proposed} proposed updates.'
                 +'\n'+
-                f'    {self.accepted   / self.proposed :.6f} acceptance rate' 
+                f'    {self.accepted   / self.proposed :.6f} acceptance rate'
                 +'\n'+
                 f'    {self.acceptance / self.sweeps :.6f} average Metropolis acceptance probability.'
             )

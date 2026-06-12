@@ -4,6 +4,7 @@ import numpy as np
 import supervillain
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
+from supervillain.lattice.compact import delta
 
 import logging
 logger = logging.getLogger(__name__)
@@ -63,8 +64,8 @@ class VortexUpdate(ReadWriteable, Generator):
         '''
 
         self.sweeps += 1
+        total_accepted = 0
         total_acceptance = 0
-        accepted = 0
 
         m = cfg['m'].copy()
         v = cfg['v'].copy()
@@ -72,9 +73,7 @@ class VortexUpdate(ReadWriteable, Generator):
         L = self.Action.Lattice
         W = self.Action._W
 
-        metropolis = self.rng.uniform(0, 1, v.shape)
-        total_accepted = 0
-        total_acceptance = 0
+        metropolis = self.rng.uniform(0, 1, L.dims)
 
         # Each v only talks to the m on the immediately surrounding links (through δv).  So if we freeze m
         # and only change v one checkerboarding color at a time then the change in action on each link
@@ -82,18 +81,18 @@ class VortexUpdate(ReadWriteable, Generator):
         for color in L.checkerboarding:
 
             # We need to compute delta_v every time through the loop because v will get updated on each pass.
-            delta_v = L.delta(2, v)
+            delta_v = delta(v)
 
             # Randomly bump v
             if self.Action.W < float('inf'):
-                change_v = L.form(0, dtype=int)
-                change_v[color] = self.rng.choice(self.vs, len(color[0]))
+                change_v = L.form(2, dtype=int)
+                change_v[0][color] = self.rng.choice(self.vs, len(color[0]))
             else:
-                change_v = L.form(0, dtype=float)
-                change_v[color] = self.rng.uniform(-self.interval_v, +self.interval_v, len(color[0]))
+                change_v = L.form(2, dtype=float)
+                change_v[0][color] = self.rng.uniform(-self.interval_v, +self.interval_v, len(color[0]))
 
             # and compute the change of action on each link.
-            change_delta_v = L.delta(2, change_v)
+            change_delta_v = delta(change_v)
             dS_link = 0.5 / self.Action.kappa * (-change_delta_v / W) * (2*(m - delta_v / W) - change_delta_v / W)
 
             # The change in action originating from the plaquette on the color under consideration
@@ -110,15 +109,15 @@ class VortexUpdate(ReadWriteable, Generator):
             total_acceptance += acceptance.sum()
 
             # Finally, we update the v where the change is accepted.
-            v[color] += change_v[color] * accepted
+            v[0][color] += change_v[0][color] * accepted
 
-        self.proposed += L.plaquettes
-        self.acceptance += total_acceptance / L.plaquettes
+        self.proposed += L.cells_of_degree[2]
+        self.acceptance += total_acceptance / L.cells_of_degree[2]
         self.accepted += total_accepted
 
-        logger.debug(f'Average proposal acceptance {total_acceptance / L.plaquettes:.6f}; Actually accepted {total_accepted} / {L.plaquettes} = {total_accepted / L.plaquettes}')
+        logger.debug(f'Average proposal acceptance {total_acceptance / L.cells_of_degree[2]:.6f}; Actually accepted {total_accepted} / {L.cells_of_degree[2]} = {total_accepted / L.cells_of_degree[2]}')
 
-        return {'m': m, 'v': v}
+        return cfg | {'v': v}
 
 
 

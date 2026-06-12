@@ -1184,6 +1184,15 @@ class Lattice2D(ReadWriteable):
 
         return self.coordinatize(temp, dims=dims)
 
+    def symmetrize(self, correlator, dims=(-1,)):
+        r'''Project ``correlator`` onto the totally-symmetric (A1) irrep of D4.
+
+        Forwards to :py:meth:`irrep` with ``irrep='A1'``.  Provides the same
+        interface as :py:meth:`~supervillain.lattice.Lattice.symmetrize` on the
+        compact ``Lattice``.
+        '''
+        return self.irrep(correlator, irrep='A1', dims=dims)
+
 
 import numba
 from numba.experimental import jitclass

@@ -18,7 +18,7 @@ class PlaquetteUpdate(ReadWriteable, Generator):
         Instead, if you start cold with $m=0$, which has global wrapping of (0,0) you stay in the (0,0) sector.
 
     '''
-    
+
     def __init__(self, action):
         if not isinstance(action, supervillain.action.Worldline):
             raise ValueError('The PlaquetteUpdate requires the Worldline action.')
@@ -35,33 +35,33 @@ class PlaquetteUpdate(ReadWriteable, Generator):
         r'''
         Performs a sweep of the plaquettes in a randomized order.
         '''
-        
+
         kappa = self.Action.kappa
         W     = self.Action._W
         L = self.Action.Lattice
 
         m = cfg['m'].copy()
         v = cfg['v'].copy()
-        
+
         for here, change_m, change_v, metropolis in zip(
                 np.random.permutation(L.coordinates),
                 self.rng.choice([-1, +1], L.sites),
                 self.rng.choice([-1, 0, +1], L.sites),
                 self.rng.uniform(0,1,L.sites)
                 ):
-            
+
             north, west, south, east = L.mod(here + np.array([[+1,0], [0,+1], [-1,0], [0,-1]]))
-            
+
             dS = (change_m - change_v/W) / kappa * (
-                + (m[0][here [0], here [1]] - (v[here [0], here [1]] - v[east [0], east [1]])/W)
-                - (m[1][here [0], here [1]] - (v[south[0], south[1]] - v[here [0], here [1]])/W)
-                + (m[1][north[0], north[1]] - (v[here [0], here [1]] - v[north[0], north[1]])/W)
-                - (m[0][west [0], west [1]] - (v[west [0], west [1]] - v[here [0], here [1]])/W)
+                + (m[0][here [0], here [1]] - (v[0, here [0], here [1]] - v[0, east [0], east [1]])/W)
+                - (m[1][here [0], here [1]] - (v[0, south[0], south[1]] - v[0, here [0], here [1]])/W)
+                + (m[1][north[0], north[1]] - (v[0, here [0], here [1]] - v[0, north[0], north[1]])/W)
+                - (m[0][west [0], west [1]] - (v[0, west [0], west [1]] - v[0, here [0], here [1]])/W)
                 + 2 * (change_m - change_v/W)
             )
             acceptance = np.clip(np.exp(-dS), a_min=0, a_max=1)
 
-            
+
             self.acceptance += acceptance
             if metropolis < acceptance:
                 # Accept :)
@@ -69,15 +69,15 @@ class PlaquetteUpdate(ReadWriteable, Generator):
                 m[1][here [0], here [1]] -= change_m
                 m[1][north[0], north[1]] += change_m
                 m[0][west [0], west [1]] -= change_m
-                v[here[0], here[1]]      += change_v
+                v[0, here[0], here[1]]   += change_v
                 self.accepted+=1
 
             else:
                 # Reject :(
                 pass
-        
+
         self.proposed += L.sites
-        return {'m': m, 'v': v}
+        return cfg | {'m': m, 'v': v}
 
     def report(self):
         return (
@@ -87,4 +87,3 @@ class PlaquetteUpdate(ReadWriteable, Generator):
                 +'\n'+
                 f'    {self.acceptance / self.proposed :.6f} average Metropolis acceptance probability.'
             )
-

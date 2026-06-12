@@ -32,7 +32,7 @@ class Spin_SpinSloppy(Observable):
         L = S.Lattice
         kappa = S.kappa
 
-        result = L.linearize(L.form(0))
+        result = np.zeros(L.sites)
 
         # For every displacment we will take the taxicab route, as dumb as possible.
         # Just go Δt in time first and then Δx in space.
@@ -61,7 +61,7 @@ class Spin_SpinSloppy(Observable):
             # the possible origins.
             result[i] += np.exp(-1/(2*kappa) * (P* (2*Links + P)).sum())
 
-        return L.coordinatize(result)
+        return result.reshape(L.dims)
 
 class Spin_SpinSlow(Observable):
     r'''
@@ -113,7 +113,7 @@ class Spin_SpinSlow(Observable):
         L = S.Lattice
         kappa = S.kappa
 
-        result = L.linearize(L.form(0))
+        result = np.zeros(L.sites)
 
         # For every displacment we will take the taxicab route, as dumb as possible.
         # Just go Δt in time first and then Δx in space.
@@ -125,7 +125,7 @@ class Spin_SpinSlow(Observable):
                 # for every other starting point.
                 #
                 # We construct the one from the origin first, as it is easiest to think about...
-                P = L.form(1, L.sites)
+                P = np.zeros((L.sites,) + L.form(1).shape)
 
                 if Δt >= 0:
                     # Follow the links in the positive t direction.
@@ -163,6 +163,6 @@ class Spin_SpinSlow(Observable):
                 axis=(1,2,3)    # the 0th axis is the broadcast axis, 1,2, and 3 are the vector index, time, and space.
                 )).mean()       # <-- we should average over the different starting points.
 
-        return L.coordinatize(result)
+        return result.reshape(L.dims)
 
 

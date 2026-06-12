@@ -30,7 +30,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # First create the lattices and the action.
-L = supervillain.lattice.Lattice2D(args.N)
+L = supervillain.lattice.Lattice(D=2, N=args.N)
 S = supervillain.action.Worldline(L, args.kappa, W=args.W)
 
 with logging_redirect_tqdm():
