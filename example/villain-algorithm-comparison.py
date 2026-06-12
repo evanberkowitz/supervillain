@@ -50,7 +50,7 @@ with logging_redirect_tqdm():
             supervillain.generator.villain.SiteUpdate(S),
             supervillain.generator.villain.ExactUpdate(S),
             supervillain.generator.villain.HolonomyUpdate(S),
-            supervillain.generator.villain.worm.Classic(S),
+            supervillain.generator.villain.Worm(S),
     ))
     w = supervillain.Ensemble(S).generate(
             args.configurations,

@@ -48,7 +48,7 @@ with logging_redirect_tqdm():
             supervillain.generator.worldline.VortexUpdate(S),
             supervillain.generator.worldline.CoexactUpdate(S),
             supervillain.generator.worldline.WrappingUpdate(S),
-            supervillain.generator.worldline.worm.Classic(S),
+            supervillain.generator.worldline.Worm(S),
         ))
     w = supervillain.Ensemble(S).generate(args.configurations, W, start='cold', progress=tqdm)
     w.measure()

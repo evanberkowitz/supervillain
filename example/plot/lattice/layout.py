@@ -30,13 +30,13 @@ on_off = LinearSegmentedColormap.from_list(
 L = supervillain.Lattice2D(args.N)
 
 site = L.form(0)      # automatically 0 everywhere on creation.
-site[0,0] = 1
+site[0, 0,0] = 1
 
 link = L.form(1)      # automatically 0 everywhere on creation.
 link[:, 0, 0] = 1
 
 plaquette = L.form(2) # automatically 0 everywhere on creation.
-plaquette[0, 0] = 1
+plaquette[0, 0, 0] = 1
 
 L.plot_form(site,      ax, cmap=on_off, norm=Normalize(vmin=-1, vmax=+1))
 L.plot_form(link,      ax, cmap=on_off, norm=Normalize(vmin=-1, vmax=+1))
