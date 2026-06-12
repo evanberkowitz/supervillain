@@ -120,7 +120,7 @@ class Spin_SpinSlow(Observable):
         # Just go Δt in time first and then Δx in space.
         for i, (Δt, Δx)  in enumerate(L.coordinates):
             try:
-                P = Spin_SpinSlow._stencils[(L.nt, L.nx, Δt, Δx)]
+                P = Spin_SpinSlow._stencils[(L.N, Δt, Δx)]
             except KeyError:
                 # Each stencil will hold the path starting on the origin, AND a copy
                 # for every other starting point.
@@ -148,7 +148,7 @@ class Spin_SpinSlow(Observable):
                 for j, shift in enumerate(L.coordinates):
                     P[j] = push(P[0], shift)
 
-                Spin_SpinSlow._stencils[(L.nt, L.nx, Δt, Δx)] = P
+                Spin_SpinSlow._stencils[(L.N, Δt, Δx)] = P
 
             # In the full measurement we overlay the stencil on the configuration 
             # in all possible ways and sum.  Then we have measured the dependence on Δx

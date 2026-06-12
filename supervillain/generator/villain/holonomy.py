@@ -14,9 +14,10 @@ class HolonomyUpdate(ReadWriteable, Generator):
     The :class:`~.villain.ExactUpdate` can change $n$ by ±1 (even when $W>1$), but it does it in a coordinated way---the changes offered are exact, d(a zero form).
     No combination of exact updates, however, can create a net winding around the torus.
 
-    This update offers a $dn$-preserving update by changing all of the links in a parallel strip around the lattice (see Fig. 2 of Ref. :cite:`Berkowitz:2023pnz`).
+    This update offers a $dn$-preserving update by changing all of the links in a cycle around the torus in each direction (see Fig. 2 of Ref. :cite:`Berkowitz:2023pnz`).
+    In each direction $\mu$ there are $N^{D-1}$ independent cycles (one per perpendicular position), each proposed simultaneously.
 
-    Proposals change a whole strip of links simultaneously by
+    Proposals change a whole cycle of links simultaneously by
 
     .. math ::
 
@@ -25,17 +26,11 @@ class HolonomyUpdate(ReadWriteable, Generator):
         \end{aligned}
 
     Because the proposal touches a (linearly) extensive number of variables, this update may frequently be rejected.
-
-    .. todo::
-        Generalize to D>2. In D dimensions there are D independent holonomy directions, each requiring a strip of
-        co-dimension 1. The current implementation is hardcoded for D=2 and raises :exc:`NotImplementedError` otherwise.
     '''
 
     def __init__(self, action, interval_h = 1):
         if not isinstance(action, supervillain.action.Villain):
             raise ValueError('Need a Villain action')
-        if action.Lattice.D != 2:
-            raise NotImplementedError('HolonomyUpdate is only implemented for D=2')
 
         self.Action       = action
         self.Lattice      = action.Lattice
@@ -78,50 +73,39 @@ class HolonomyUpdate(ReadWriteable, Generator):
         total_accepted = 0
 
         dphi = d(cfg['phi'])
-
-        # Each strip of parallel links we can change the holonomy in a different way.
-        # For D=2: direction 0 = t, direction 1 = x.
-        # n[0] has shape (N, N): t-direction links, one strip per t-row.
-        # n[1] has shape (N, N): x-direction links, one strip per x-column.
-        change_n = L.zeros(1, dtype=int)
-        change_n[0] = self.rng.choice(self.h, L.N)[:, None]
-        change_n[1] = self.rng.choice(self.h, L.N)[None, :]
-
         links = dphi - 2 * np.pi * n   # gauge-invariant link variable
+
+        # In each direction mu there are N^(D-1) independent mu-cycles, one per perpendicular position.
+        # Each cycle gets an independent proposed change h, constant along the mu-direction.
+        # The perpendicular shape has size 1 in direction mu (broadcast) and N in all other directions.
+        change_n = L.zeros(1, dtype=int)
+        for mu in range(L.D):
+            perp_shape = tuple(1 if i == mu else L.N for i in range(L.D))
+            change_n[mu] = self.rng.choice(self.h, L.N**(L.D-1)).reshape(perp_shape)
 
         dS_link = -2 * np.pi * S.kappa * change_n * (links - np.pi * change_n)
 
-        # We need to Metropolis-accept or -reject the whole strip at once.
-        # So, we sum the changes in action across the strips; first the temporal links.
-        dS = dS_link[0].sum(axis=1)   # shape (N,) — one per t-row
-        acceptance = np.clip(np.exp(-dS), a_min=0, a_max=1)
-        metropolis = self.rng.uniform(0, 1, acceptance.shape)
-        accepted = metropolis < acceptance
-        # Zero out the rejected changes before accumulating.
-        change_n[0] *= accepted[:, None]
+        # Accept or reject each cycle independently: sum the per-link action change along the mu-direction
+        # to get one dS per cycle, then Metropolize and zero out rejected changes.
+        for mu in range(L.D):
+            dS = dS_link[mu].sum(axis=mu)   # one value per perpendicular position
+            acceptance = np.clip(np.exp(-dS), a_min=0, a_max=1)
+            metropolis = self.rng.uniform(0, 1, acceptance.shape)
+            accepted = metropolis < acceptance
+            change_n[mu] *= np.expand_dims(accepted, axis=mu)
 
-        total_acceptance += acceptance.sum()
-        total_accepted += accepted.sum()
-
-        # Then, the spatial links.
-        dS = dS_link[1].sum(axis=0)   # shape (N,) — one per x-column
-        acceptance = np.clip(np.exp(-dS), a_min=0, a_max=1)
-        metropolis = self.rng.uniform(0, 1, acceptance.shape)
-        accepted = metropolis < acceptance
-        change_n[1] *= accepted[None, :]
-
-        total_acceptance += acceptance.sum()
-        total_accepted += accepted.sum()
+            total_acceptance += acceptance.sum()
+            total_accepted += accepted.sum()
 
         # Now change_n only contains Metropolized changes, and we can add it to n.
         n = n + change_n
 
-        nx, nt = self.Lattice.nx, self.Lattice.nt
-        self.proposed += nx + nt
-        self.acceptance += total_acceptance / (nx + nt)
+        n_cycles = L.D * L.N**(L.D-1)
+        self.proposed += n_cycles
+        self.acceptance += total_acceptance / n_cycles
         self.accepted += total_accepted
 
-        logger.debug(f'Average proposal acceptance {total_acceptance / (nx + nt):.6f}; Actually accepted {total_accepted} / {(nx + nt)} = {total_accepted / (nx + nt)}')
+        logger.debug(f'Average proposal acceptance {total_acceptance / n_cycles:.6f}; Actually accepted {total_accepted} / {n_cycles} = {total_accepted / n_cycles}')
 
         return cfg | {'n': n}
 

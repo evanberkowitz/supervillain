@@ -132,7 +132,7 @@ class Vortex_Vortex(Constrained, Observable):
                 correlator[0,0] = 1
                 continue
 
-            key = (L.nt, L.nx, Δt, Δx)
+            key = (L.N, Δt, Δx)
 
             try:
                 change_n = Vortex_Vortex._change_n[key]
@@ -210,7 +210,7 @@ class VortexSusceptibilityScaled(VortexSusceptibility):
     @staticmethod
     def default(S, VortexSusceptibility):
 
-        L = S.Lattice.nx
+        L = S.Lattice.N
         # NOTE: implicitly assumes that the lattice is square!
         return VortexSusceptibility / L**(2-2*supervillain.observable.Vortex_Vortex.CriticalScalingDimension(S))
 

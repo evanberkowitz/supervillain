@@ -118,7 +118,7 @@ class Spin_Spin(Observable):
                 result[0,0] = 1
                 continue
 
-            key = (L.nt, L.nx, Δt, Δx)
+            key = (L.N, Δt, Δx)
             T = np.abs(Δt)
             X = np.abs(Δx)
             length = T+X
@@ -264,7 +264,7 @@ class SpinSusceptibilityScaled(SpinSusceptibility):
     @staticmethod
     def default(S, SpinSusceptibility):
 
-        L = S.Lattice.nx
+        L = S.Lattice.N
         # NOTE: implicitly assumes that the lattice is square!
         return SpinSusceptibility / L**(2-2*Spin_Spin.CriticalScalingDimension(S))
 
