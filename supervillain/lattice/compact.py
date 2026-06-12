@@ -916,7 +916,7 @@ def delta(f):
             spatial  = f[in_idx]
             bwd_diff = spatial - np.roll(spatial, +1, axis=e)
 
-            result[out_idx] += sign * bwd_diff
+            result[out_idx] -= sign * bwd_diff
 
     return result
 
@@ -1133,7 +1133,7 @@ if __name__ == '__main__':
         a = lat.random(p)
         b = lat.random(p + 1)
         LHS = +( d(a) * b ).sum()
-        RHS = -( a * delta(b) ).sum()
+        RHS = +( a * delta(b) ).sum()
         assert np.isclose(LHS, RHS), f"Adjointness failed for p={p}: {LHS} vs {RHS}"
         print(f"  ✅ ⟨da, b⟩ = ⟨a, δb⟩  for a ∈ Ω^{p}, b ∈ Ω^{p+1}")
 

@@ -146,7 +146,7 @@ def delta(data):
     for n in range(0, D):
         for E, I in zip(even[n], idx[n]):
             for i, e in enumerate(E):
-                out[I] += (-1)**(e - i) * (pull(data, ε[e]) - pull(data, -ε[e]))[I]
+                out[I] -= (-1)**(e - i) * (pull(data, ε[e]) - pull(data, -ε[e]))[I]
     return out
 
 δ = delta
