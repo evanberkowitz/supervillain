@@ -4,7 +4,7 @@ import numpy as np
 import supervillain
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
-from supervillain.lattice.compact import delta
+from supervillain.lattice.compact import delta, push
 
 import logging
 logger = logging.getLogger(__name__)
@@ -97,7 +97,7 @@ class VortexUpdate(ReadWriteable, Generator):
 
             # The change in action originating from the plaquette on the color under consideration
             # is just the sum of all the changes from the boundary links.  So we sum them up.
-            dS = dS_link[0] + dS_link[1] + L.roll(dS_link[0], (0, -1)) + L.roll(dS_link[1], (-1, 0))
+            dS = dS_link[0] + dS_link[1] + push(dS_link[0], (0, -1)) + push(dS_link[1], (-1, 0))
 
             # Now dS is a 2-form encoding the change in action from the changes in v.  But we should be careful:
             # dS is not 0 on the off-color plaquettes---those plaquettes still have links touching the current color.

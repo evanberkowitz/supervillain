@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize, LinearSegmentedColormap
 
 import supervillain
+from supervillain.lattice import d
 
 parser = supervillain.cli.ArgumentParser()
 parser.add_argument('--N', type=int, default=5, help='Sites on a side.')
@@ -36,13 +37,13 @@ plus_zero_minus = LinearSegmentedColormap.from_list(
 )
 
 scalar = L.form(0)
-scalar[0,0] = 1
+scalar[0, 0, 0] = 1
 
-derivative = L.d(0, scalar)
+derivative = d(scalar)
 
-L.plot_form(0, scalar,     ax, cmap=on_off, norm=Normalize(vmin=0, vmax=1))
-L.plot_form(1, derivative, ax, cmap=plus_zero_minus, norm=Normalize(vmin=-1, vmax=+1))
-L.plot_form(2, L.form(2),  ax, cmap=on_off, norm=Normalize(vmin=0, vmax=+1))
+L.plot_form(scalar,     ax, cmap=on_off, norm=Normalize(vmin=0, vmax=1))
+L.plot_form(derivative, ax, cmap=plus_zero_minus, norm=Normalize(vmin=-1, vmax=+1))
+L.plot_form(L.form(2),  ax, cmap=on_off, norm=Normalize(vmin=0, vmax=+1))
 
 fig.tight_layout()
 

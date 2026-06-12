@@ -22,12 +22,12 @@ def path(args, action):
 def generate(args, action):
 
     if action == 'villain':
-        L = supervillain.lattice.Lattice(D=2, N=args.N)
+        L = supervillain.lattice.Lattice2D(args.N)
         S = supervillain.action.Villain(L, args.kappa, W=float('inf'))
         g = supervillain.generator.villain.Hammer(S)
         g = supervillain.generator.combining.KeepEvery(3, g)
     elif action == 'worldline':
-        L = supervillain.lattice.Lattice(D=2, N=args.N)
+        L = supervillain.lattice.Lattice2D(args.N)
         S = supervillain.action.Worldline(L, args.kappa, W=float('inf'))
         g = supervillain.generator.worldline.Hammer(S)
         g = supervillain.generator.combining.KeepEvery(9, g)

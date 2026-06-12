@@ -1,4 +1,5 @@
 import numpy as np
+from supervillain.lattice.compact import push
 from supervillain.observable import Observable, DerivedQuantity, Constrained
 import supervillain.action
 
@@ -146,15 +147,15 @@ class Vortex_Vortex(Constrained, Observable):
                     stencil[1][:Δt, 0] = +1
                 elif Δt < 0:
                     stencil[1][Δt:, 0] = -1
-                stencil[1] = L.roll(stencil[1], (1, 0))
+                stencil[1] = push(stencil[1], (1, 0))
 
                 if Δx > 0:
                     stencil[0][Δt, :Δx] = -1
                 elif Δx < 0:
                     stencil[0][Δt, Δx:] = +1
-                stencil[0] = L.roll(stencil[0], (0, 1))
+                stencil[0] = push(stencil[0], (0, 1))
 
-                big_change = np.stack([L.roll(stencil, x0) for x0 in L.coordinates])
+                big_change = np.stack([push(stencil, x0) for x0 in L.coordinates])
                 changed_links = np.where(big_change)
                 changed_links = tuple(c.reshape(-1, length) for c in changed_links)
                 change_n = big_change[changed_links]

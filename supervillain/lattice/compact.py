@@ -28,6 +28,7 @@ from itertools import combinations, permutations as _permutations
 from math import comb, factorial
 import numpy as np
 
+from supervillain.h5 import ReadWriteable
 from supervillain.lattice import _dimension
 
 
@@ -55,7 +56,7 @@ def _hyperoctant_pair_mask(coords, b, D):
 # Lattice
 # ---------------------------------------------------------------------------
 
-class Lattice:
+class Lattice(ReadWriteable):
     """
     A D-dimensional hypercubic lattice with N sites per direction.
 
@@ -83,9 +84,23 @@ class Lattice:
             for p in range(D + 1)
         }
 
+    def to_h5(self, group, _top=True):
+        """Write D and N to HDF5; everything else is recomputed on load."""
+        from supervillain.h5 import Data
+        Data.write(group, 'D', self.D)
+        Data.write(group, 'N', self.N)
+
+    @classmethod
+    def from_h5(cls, group, strict=True, _top=True):
+        """Reconstruct from HDF5 by reading D and N reconstructing the rest."""
+        from supervillain.h5 import Data
+        D = Data.read(group['D'], strict)
+        N = Data.read(group['N'], strict)
+        return cls(D=D, N=N)
+
     @cached_property
     def sites(self):
-        """Total number of sites: N^D."""
+        """Total number of sites $N^D$."""
         return self.N ** self.D
 
     @cached_property
@@ -100,41 +115,20 @@ class Lattice:
 
     @cached_property
     def links(self):
-        """Total number of links (1-form components): D * N^D."""
+        """Total number of links (1-form components) $D N^D$."""
         return self.D * self.sites
 
     @cached_property
     def cells_of_degree(self):
-        """Dict mapping p → number of p-cells: C(D,p) * N^D."""
+        """
+        dict[int, int]: p → number of p-cells = $C(D,p)  N^D$."""
         return {p: comb(self.D, p) * self.sites for p in range(self.D + 1)}
 
     @cached_property
     def cells_of_codegree(self):
-        """Dict mapping q → number of (D−q)-cells: C(D, D−q) * N^D."""
+        """
+        dict[int, int]: q → number of (D−q)-cells = $C(D, D−q) N^D$."""
         return {q: self.cells_of_degree[self.D - q] for q in range(self.D + 1)}
-
-    @property
-    def plaquettes(self):
-        """Number of plaquettes (2-cells): C(D,2) * N^D.  Only defined for D == 2."""
-        if self.D != 2:
-            raise AttributeError(
-                f'plaquettes is only defined for D == 2; use cells_of_degree[2] for D={self.D}'
-            )
-        return self.cells_of_degree[2]
-
-    @property
-    def nt(self):
-        """Temporal extent N.  Only defined for D == 2."""
-        if self.D != 2:
-            raise AttributeError(f'nt is only defined for D == 2; this lattice has D={self.D}')
-        return self.N
-
-    @property
-    def nx(self):
-        """Spatial extent N.  Only defined for D == 2."""
-        if self.D != 2:
-            raise AttributeError(f'nx is only defined for D == 2; this lattice has D={self.D}')
-        return self.N
 
     @cached_property
     def coords(self):
@@ -146,15 +140,32 @@ class Lattice:
 
     @cached_property
     def checkerboarding(self):
-        """
+        r"""
         Partition lattice sites into colors with no same-color nearest neighbors.
 
-        Returns a tuple of color index tuples for fancy indexing into the D
-        spatial axes of a form.  Each color is ``np.where`` output:
-        ``(idx_0, …, idx_{D-1})``, usable as ``f[(slice(None), *color)]``.
+        On a lattice of even size both the sites and plaquettes can be bipartitioned so that no
+        simplex of one color has a neighbor of the same color.  On an odd-sized lattice the
+        periodic boundary conditions make it impossible to accomplish this with only 2 colors, but
+        a similar construction with more colors is possible.
 
-        Even N: 2 colors (coordinate-sum parity).
-        Odd N: 2**max(D, 2) colors — for D=1 this is 4; for D≥2 it is 2**D.
+        With even $N$ there are two colors (coordinate-sum parity); with odd $N$ there are $2^{\max(D, 2)}$
+        to ensure that no nearest-neighbor sites share a color.
+        The figure below shows both cases for D=2:
+
+        .. plot:: example/plot/checkerboarding.py
+
+        Returns a tuple of ``np.where`` index-array tuples, one per color.  Each element selects a
+        color's sites from the D spatial axes of a form::
+
+            for i, color in enumerate(L.checkerboarding):
+                form[(slice(None), *color)] = i
+
+
+        .. warning::
+            No promise is made about the future sizes of the color partitions.
+            For example, it might be wiser for performance to split the odd-N colors less evenly.
+            All that is promised is that within each color no site shares a nearest-neighbor edge
+            with a site of the same color.
         """
         D, N = self.D, self.N
         coords = self.coords
@@ -191,68 +202,9 @@ class Lattice:
         """Return a zero p-form.  Alias for zeros(p, dtype=dtype)."""
         return self.zeros(p, dtype=dtype)
 
-    # ------------------------------------------------------------------
-    # Compatibility shims matching the Lattice2D API
-    #
-    # These let un-migrated code (observables, worm) that calls L.d(p, form),
-    # L.delta(p, form), L.roll(), etc. work while each module is ported
-    # incrementally to the standalone d() / delta() functions.
-
-    def d(self, p, data):
-        """Exterior derivative.  Wraps the module-level d() for compatibility."""
-        f = data if isinstance(data, Form) else Form(np.asarray(data), degree=p, lattice=self)
-        return d(f)
-
-    def delta(self, p, data):
-        """Codifferential.  Wraps the module-level delta() for compatibility."""
-        f = data if isinstance(data, Form) else Form(np.asarray(data), degree=p, lattice=self)
-        return delta(f)
-
-    δ = delta
-
-    def roll(self, data, shift, axes=None):
-        """Roll ``data`` by ``shift`` positions along each spatial axis."""
-        if isinstance(shift, (int, np.integer)):
-            return np.roll(data, shift)
-        result = np.asarray(data)
-        spatial = range(-self.D, 0)
-        if axes is None:
-            axes = tuple(range(-self.D, 0))
-        for s, ax in zip(shift, axes):
-            result = np.roll(result, shift=s, axis=ax)
-        return result
-
     @cached_property
     def _coord_1d(self):
         return _dimension(self.N)
-
-    @cached_property
-    def t(self):
-        """FFT-convention t-coordinates (first direction).  D == 2 only."""
-        if self.D != 2:
-            raise AttributeError('t is only defined for D == 2')
-        return self._coord_1d
-
-    @cached_property
-    def x(self):
-        """FFT-convention x-coordinates (second direction).  D == 2 only."""
-        if self.D != 2:
-            raise AttributeError('x is only defined for D == 2')
-        return self._coord_1d
-
-    @cached_property
-    def T(self):
-        """Array of shape dims with the t-coordinate at each site.  D == 2 only."""
-        if self.D != 2:
-            raise AttributeError('T is only defined for D == 2')
-        return np.tile(self.t, (self.N, 1)).T
-
-    @cached_property
-    def X(self):
-        """Array of shape dims with the x-coordinate at each site.  D == 2 only."""
-        if self.D != 2:
-            raise AttributeError('X is only defined for D == 2')
-        return np.tile(self.x, (self.N, 1))
 
     @cached_property
     def R_squared(self):
@@ -344,14 +296,48 @@ class Lattice:
 
     def convolution(self, f, g, axes=None):
         r"""
-        Cross-correlation
+        The `convolution <https://en.wikipedia.org/wiki/Convolution>`_ is given by
 
         .. math::
 
             \texttt{convolution}(f,g)(\boldsymbol{r})
+            = (f * g)(\boldsymbol{r})
             = \sum_{\boldsymbol{x}} f(\boldsymbol{x})\,g(\boldsymbol{r}-\boldsymbol{x})
 
-        Fourier accelerated: :math:`= \sqrt{N^D}\,\mathcal{F}^{-1}\!\bigl[\hat f \hat g\bigr]`.
+        .. collapse:: The convolution is Fourier accelerated.
+            :class: note
+
+            With the ortho-normalized DFT convention
+            :math:`f(\boldsymbol{x}) = N^{-D/2} \sum_{\boldsymbol{k}} F_{\boldsymbol{k}}\, e^{2\pi i\,\boldsymbol{k}\cdot\boldsymbol{x}/N}`,
+
+            .. math::
+
+                \begin{aligned}
+                (f * g)(\boldsymbol{r})
+                &= \sum_{\boldsymbol{x}}
+                    \Bigl(\tfrac{1}{N^{D/2}}\sum_{\boldsymbol{k}}  F_{\boldsymbol{k}}\,
+                          e^{2\pi i\,\boldsymbol{k}\cdot\boldsymbol{x}/N}\Bigr)
+                    \Bigl(\tfrac{1}{N^{D/2}}\sum_{\boldsymbol{k}'} G_{\boldsymbol{k}'}\,
+                          e^{2\pi i\,\boldsymbol{k}'\cdot(\boldsymbol{r}-\boldsymbol{x})/N}\Bigr)
+                \\
+                &= \frac{1}{N^D}\sum_{\boldsymbol{k},\boldsymbol{k}'}
+                    F_{\boldsymbol{k}} G_{\boldsymbol{k}'}\,
+                    e^{2\pi i\,\boldsymbol{k}'\cdot\boldsymbol{r}/N}
+                    \underbrace{
+                        \sum_{\boldsymbol{x}} e^{2\pi i\,(\boldsymbol{k}-\boldsymbol{k}')\cdot\boldsymbol{x}/N}
+                    }_{N^D\,\delta_{\boldsymbol{k}\boldsymbol{k}'}}
+                \\
+                &= \sum_{\boldsymbol{k}} F_{\boldsymbol{k}} G_{\boldsymbol{k}}\,
+                    e^{2\pi i\,\boldsymbol{k}\cdot\boldsymbol{r}/N}
+                \\
+                &= \sqrt{N^D}\times
+                    \underbrace{\tfrac{1}{N^{D/2}}\sum_{\boldsymbol{k}}
+                        \bigl(F_{\boldsymbol{k}} G_{\boldsymbol{k}}\bigr)\,
+                        e^{2\pi i\,\boldsymbol{k}\cdot\boldsymbol{r}/N}
+                    }_{\texttt{ifft}(\hat f \hat g)(\boldsymbol{r})}
+                \\
+                \texttt{convolution}(f,g) &= \sqrt{N^D}\;\texttt{ifft}\!\bigl(\texttt{fft}(f)\cdot\texttt{fft}(g)\bigr)
+                \end{aligned}
 
         Parameters
         ----------
@@ -368,14 +354,63 @@ class Lattice:
 
     def correlation(self, f, g, axes=None):
         r"""
-        Cross-correlation
+        The `cross-correlation <https://en.wikipedia.org/wiki/Cross-correlation>`_ is given by
 
         .. math::
 
             \texttt{correlation}(f,g)(\boldsymbol{r})
+            = (f \star g)(\boldsymbol{r})
             = \frac{1}{N^D} \sum_{\boldsymbol{x}} f(\boldsymbol{x})^*\,g(\boldsymbol{x}-\boldsymbol{r})
 
-        Fourier accelerated: :math:`= \mathcal{F}\!\bigl[\hat f^*\hat g\bigr] / \sqrt{N^D}`.
+        where :math:`f^*` is the complex conjugate of :math:`f`.
+
+        .. collapse:: The cross-correlation is Fourier accelerated.
+            :class: note
+
+            With the ortho-normalized DFT convention
+            :math:`f(\boldsymbol{x}) = N^{-D/2} \sum_{\boldsymbol{k}} F_{\boldsymbol{k}}\, e^{2\pi i\,\boldsymbol{k}\cdot\boldsymbol{x}/N}`,
+
+            .. math::
+
+                \begin{aligned}
+                (f \star g)(\boldsymbol{r})
+                &= \frac{1}{N^D}\sum_{\boldsymbol{x}}
+                    \Bigl(\tfrac{1}{N^{D/2}}\sum_{\boldsymbol{k}}  F_{\boldsymbol{k}}\,
+                          e^{2\pi i\,\boldsymbol{k}\cdot\boldsymbol{x}/N}\Bigr)^*
+                    \Bigl(\tfrac{1}{N^{D/2}}\sum_{\boldsymbol{k}'} G_{\boldsymbol{k}'}\,
+                          e^{2\pi i\,\boldsymbol{k}'\cdot(\boldsymbol{x}-\boldsymbol{r})/N}\Bigr)
+                \\
+                &= \frac{1}{N^{2D}}\sum_{\boldsymbol{k},\boldsymbol{k}'}
+                    F_{\boldsymbol{k}}^* G_{\boldsymbol{k}'}\,
+                    e^{-2\pi i\,\boldsymbol{k}'\cdot\boldsymbol{r}/N}
+                    \underbrace{
+                        \sum_{\boldsymbol{x}} e^{2\pi i\,(\boldsymbol{k}'-\boldsymbol{k})\cdot\boldsymbol{x}/N}
+                    }_{N^D\,\delta_{\boldsymbol{k}\boldsymbol{k}'}}
+                \\
+                &= \frac{1}{N^D}\sum_{\boldsymbol{k}}
+                    F_{\boldsymbol{k}}^* G_{\boldsymbol{k}}\,
+                    e^{-2\pi i\,\boldsymbol{k}\cdot\boldsymbol{r}/N}
+                \\
+                &= \frac{1}{\sqrt{N^D}}\times
+                    \underbrace{\tfrac{1}{N^{D/2}}\sum_{\boldsymbol{k}}
+                        \bigl(F_{\boldsymbol{k}}^* G_{\boldsymbol{k}}\bigr)\,
+                        e^{-2\pi i\,\boldsymbol{k}\cdot\boldsymbol{r}/N}
+                    }_{\texttt{fft}(\hat f^*\!\cdot\hat g)(\boldsymbol{r})}
+                \\
+                \texttt{correlation}(f,g) &= \texttt{fft}\!\bigl(\texttt{fft}(f)^*\cdot\texttt{fft}(g)\bigr) / \sqrt{N^D}
+                \end{aligned}
+
+        .. warning::
+
+            We have :math:`g(\boldsymbol{x}-\boldsymbol{r})` whereas
+            `Wikipedia <https://en.wikipedia.org/wiki/Cross-correlation>`_ has
+            :math:`g(\boldsymbol{x}+\boldsymbol{r})`.
+            The difference is just the sign of the relative coordinate.
+
+        .. warning::
+
+            We normalize by the spacetime volume :math:`N^D`;
+            `Wikipedia <https://en.wikipedia.org/wiki/Cross-correlation>`_ does not.
 
         Parameters
         ----------
@@ -485,8 +520,9 @@ class Lattice:
         r"""Average ``correlator`` over the hyperoctahedral group (D!·2^D signed permutations).
 
         Projects onto the totally-symmetric (A₁/trivial) irrep of the lattice point
-        group.  For a rotationally symmetric system this is equivalent to the old
-        ``Lattice2D.irrep(correlator, 'A1')`` at D=2.
+        group.
+
+        .. plot:: example/plot/symmetrize.py
 
         Parameters
         ----------
@@ -748,6 +784,39 @@ class Form(np.ndarray):
             f"shape={self.shape}, "
             f"lattice={self.lattice})"
         )
+
+
+# ---------------------------------------------------------------------------
+# Translation operators
+# ---------------------------------------------------------------------------
+
+def push(form, shift):
+    """Translate form forward: result[..., n + shift] = form[..., n]  (periodic).
+
+    Parameters
+    ----------
+    form : np.ndarray
+        Array whose last ``len(shift)`` axes are the spatial directions.
+    shift : sequence of int
+        One integer per spatial direction.
+
+    Returns
+    -------
+    np.ndarray
+    """
+    result = form
+    for i, s in enumerate(shift):
+        if s:
+            result = np.roll(result, s, axis=i - len(shift))
+    return result
+
+
+def pull(form, shift):
+    """Translate form backward: result[..., n] = form[..., n + shift]  (periodic).
+
+    Equivalent to ``push`` with the sign of each component of ``shift`` reversed.
+    """
+    return push(form, tuple(-s for s in shift))
 
 
 # ---------------------------------------------------------------------------

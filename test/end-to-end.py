@@ -38,7 +38,7 @@ observables = tuple(o for o, c in supervillain.observables.items()
 #### Monte Carlo generation
 ####
 
-L = supervillain.lattice.Lattice(D=2, N=args.N)
+L = supervillain.lattice.Lattice2D(args.N)
 
 if args.action == 'villain':
     S = supervillain.action.Villain(L, args.kappa, args.W)

@@ -1,4 +1,5 @@
 import numpy as np
+from supervillain.lattice.compact import push
 from supervillain.observable import Observable
 
 class Spin_SpinSloppy(Observable):
@@ -145,7 +146,7 @@ class Spin_SpinSlow(Observable):
 
                 # ... and then we just roll it around and store every possible translation.
                 for j, shift in enumerate(L.coordinates):
-                    P[j] = L.roll(P[0], shift)
+                    P[j] = push(P[0], shift)
 
                 Spin_SpinSlow._stencils[(L.nt, L.nx, Δt, Δx)] = P
 

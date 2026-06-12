@@ -6,7 +6,7 @@ import supervillain.action
 from supervillain.batch import Batch
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
-from supervillain.lattice.compact import d
+from supervillain.lattice.compact import d, push
 
 import logging
 logger = logging.getLogger(__name__)
@@ -77,8 +77,8 @@ class NeighborhoodUpdateSlow(ReadWriteable, Generator):
         # We move the lattice around (which is fine by translational symmetry)
         # so that we update a different site with each proposal.
         # The advantage of thinking this way is that we only have to reckon from the origin.
-        phi = L.roll(cfg['phi'].copy(), dx)
-        n   = L.roll(cfg['n'].copy(),   dx)
+        phi = push(cfg['phi'].copy(), dx)
+        n   = push(cfg['n'].copy(),   dx)
 
         phi[0,0] += self.rng.uniform(-self.interval_phi,+self.interval_phi,None)
 

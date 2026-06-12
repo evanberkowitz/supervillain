@@ -9,11 +9,11 @@ logger = logging.getLogger(__name__)
 
 @cache
 def VillainLattice(N):
-    return supervillain.lattice.Lattice(D=2, N=N)
+    return supervillain.lattice.Lattice2D(N)
 
 @cache
 def WorldlineLattice(N):
-    return supervillain.lattice.Lattice(D=2, N=N)
+    return supervillain.lattice.Lattice2D(N)
 
 def villain(configurations, N, kappa, W=1):
     L = VillainLattice(N)

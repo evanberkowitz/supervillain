@@ -1,9 +1,13 @@
 #!/usr/bin/env python
 
+import tempfile
+
+import h5py as h5
 import numpy as np
 import pytest
 
 from supervillain.lattice.compact import Lattice
+from supervillain.lattice.two_dimensional import Lattice2D
 
 
 # N=3: every site is origin or boundary — a useful edge case.
@@ -62,3 +66,30 @@ def test_distance_squared_batch(D, N):
     assert batch.shape == (L.sites,)
     for i, coord in enumerate(L.coordinates):
         assert batch[i] == L.distance_squared(coord, origin)
+
+
+@pytest.mark.parametrize("D,N", [(D, N) for D in range(2, 5) for N in (3, 4, 5)])
+def test_lattice_h5_roundtrip(D, N):
+    L = Lattice(D=D, N=N)
+    with tempfile.NamedTemporaryFile(suffix='.h5') as f:
+        with h5.File(f.name, 'w') as hf:
+            L.to_h5(hf.create_group('lattice'))
+            L2 = Lattice.from_h5(hf['lattice'])
+    assert L2.D == L.D
+    assert L2.N == L.N
+    assert np.array_equal(L2.coords, L.coords)
+    assert np.array_equal(L2.coordinates, L.coordinates)
+
+
+@pytest.mark.parametrize("N", (3, 4, 5))
+def test_lattice2d_h5_roundtrip(N):
+    L = Lattice2D(N)
+    with tempfile.NamedTemporaryFile(suffix='.h5') as f:
+        with h5.File(f.name, 'w') as hf:
+            L.to_h5(hf.create_group('lattice'))
+            L2 = Lattice2D.from_h5(hf['lattice'])
+    assert L2.D == L.D
+    assert L2.N == L.N
+    assert L2.nt == L.nt
+    assert L2.nx == L.nx
+    assert np.array_equal(L2.coords, L.coords)

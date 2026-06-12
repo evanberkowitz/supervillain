@@ -48,8 +48,8 @@ e = dict()
 b = dict()
 
 _lattice = {
-    'villain':   supervillain.lattice.Lattice(D=2, N=args.N),
-    'worldline': supervillain.lattice.Lattice(D=2, N=args.N),
+    'villain':   supervillain.lattice.Lattice2D(args.N),
+    'worldline': supervillain.lattice.Lattice2D(args.N),
 }
 
 for (a, A) in (

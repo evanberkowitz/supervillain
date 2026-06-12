@@ -38,9 +38,9 @@ link[:, 0, 0] = 1
 plaquette = L.form(2) # automatically 0 everywhere on creation.
 plaquette[0, 0] = 1
 
-L.plot_form(0, site,      ax, cmap=on_off, norm=Normalize(vmin=-1, vmax=+1))
-L.plot_form(1, link,      ax, cmap=on_off, norm=Normalize(vmin=-1, vmax=+1))
-L.plot_form(2, plaquette, ax, cmap=on_off, norm=Normalize(vmin=-1, vmax=+1))
+L.plot_form(site,      ax, cmap=on_off, norm=Normalize(vmin=-1, vmax=+1))
+L.plot_form(link,      ax, cmap=on_off, norm=Normalize(vmin=-1, vmax=+1))
+L.plot_form(plaquette, ax, cmap=on_off, norm=Normalize(vmin=-1, vmax=+1))
 
 ax.set_xlabel('0th direction')
 ax.set_ylabel('1st direction')

@@ -3,10 +3,13 @@
 Lattices
 ********
 
-We work on regular square lattices.
+We work on regular hypercubic lattices in D dimensions.
 
-Currently we focus on the 1+1 model.
+.. autoclass :: supervillain.lattice.Lattice
+   :members:
+
+Two Dimensions
+==============
 
 .. autoclass :: supervillain.lattice.Lattice2D
    :members:
-
