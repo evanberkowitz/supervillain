@@ -82,7 +82,14 @@ class Observable:
                             desc=f'{name:{max([len(k) for k in registry])}s}', leave=True, total=len(obj))
                         ]
                     data = np.asarray(values)
-                    obj.__dict__[name] = Batch(data, dtype=data.dtype)
+                    first = values[0] if values else None
+                    if first is not None and hasattr(type(first), '__batch_tag__') and type(first).__batch_tag__:
+                        from supervillain.batch import resolve_batch_cls
+                        cls = resolve_batch_cls(type(first).__batch_tag__)
+                        item_kwargs = {a: getattr(first, a) for a in ('degree', 'lattice') if hasattr(first, a)}
+                        obj.__dict__[name] = Batch(data, cls=cls, dtype=data.dtype, **item_kwargs)
+                    else:
+                        obj.__dict__[name] = Batch(data, dtype=data.dtype)
             return obj.__dict__[name]
         except Exception as exception:
             raise NotImplementedError(f'{name} not implemented for {class_name}') from exception
