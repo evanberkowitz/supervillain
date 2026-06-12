@@ -50,6 +50,10 @@ dependencies = [
 install_requires = [
     ]
 
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["test"]
+
 [tool.setuptools.packages.find]
 
 [tool.setuptools.dynamic]
