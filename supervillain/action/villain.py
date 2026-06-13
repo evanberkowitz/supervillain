@@ -4,7 +4,7 @@ import numpy as np
 from supervillain.h5 import ReadWriteable
 from supervillain.batch import Batch
 from supervillain.configurations import Configurations
-from supervillain.lattice.compact import Lattice, Form, d
+from supervillain.lattice import Lattice, Form, d
 
 import logging
 logger = logging.getLogger(__name__)

@@ -4,7 +4,7 @@ import numpy as np
 import supervillain
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
-from supervillain.lattice.compact import delta
+from supervillain.lattice import delta
 
 class WrappingUpdate(ReadWriteable, Generator):
     r'''

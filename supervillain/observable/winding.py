@@ -3,7 +3,7 @@
 import numpy as np
 
 from supervillain.observable import Scalar, Observable
-from supervillain.lattice.compact import d, delta
+from supervillain.lattice import d, delta
 
 class WindingSquared(Scalar, Observable):
     r'''

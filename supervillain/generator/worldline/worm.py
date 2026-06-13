@@ -8,7 +8,7 @@ from supervillain.h5 import ReadWriteable
 from supervillain.batch import Batch
 
 from supervillain.lattice import _Lattice2D
-from supervillain.lattice.compact import delta
+from supervillain.lattice import delta
 import numba
 
 import logging

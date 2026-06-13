@@ -33,7 +33,7 @@ def resolve_batch_cls(tag):
     if not tag:
         return None
     if tag == 'Form':
-        from supervillain.lattice.compact import Form
+        from supervillain.lattice import Form
         return Form
     raise ValueError(f'Unknown Batch element class tag {tag!r}')
 

@@ -6,7 +6,7 @@ import h5py as h5
 import numpy as np
 import pytest
 
-from supervillain.lattice.compact import Lattice, d, delta, star, push
+from supervillain.lattice import Lattice, d, delta, star, push
 from supervillain.lattice.two_dimensional import Lattice2D
 import supervillain.lattice.interlaced as il
 

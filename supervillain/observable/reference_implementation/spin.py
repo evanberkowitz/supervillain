@@ -1,5 +1,5 @@
 import numpy as np
-from supervillain.lattice.compact import push
+from supervillain.lattice import push
 from supervillain.observable import Observable
 
 class Spin_SpinSloppy(Observable):

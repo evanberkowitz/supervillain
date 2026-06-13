@@ -4,7 +4,7 @@ import numpy as np
 import supervillain
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
-from supervillain.lattice.compact import delta, push
+from supervillain.lattice import delta, push
 
 import logging
 logger = logging.getLogger(__name__)

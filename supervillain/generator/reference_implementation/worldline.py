@@ -6,7 +6,7 @@ import supervillain.action
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
 from supervillain.batch import Batch
-from supervillain.lattice.compact import delta
+from supervillain.lattice import delta
 
 import logging
 logger = logging.getLogger(__name__)

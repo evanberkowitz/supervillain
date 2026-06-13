@@ -1,5 +1,5 @@
 from supervillain.observable import Observable
-from supervillain.lattice.compact import d, delta
+from supervillain.lattice import d, delta
 import numpy as np
 
 class Links(Observable):
