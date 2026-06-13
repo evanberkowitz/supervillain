@@ -1,18 +1,22 @@
 #!/usr/bin/env python
 # coding: utf-8
-#
-# interlaced.py — Differential forms on a D-dimensional hypercubic lattice,
-# stored in the interlaced representation.
-#
-# REPRESENTATION
-# --------------
-# A p-form field on an N^D lattice is stored in a (2N)^D array.
-# Site (x_0, …, x_{D-1}) belongs to the p-form if exactly p of the
-# x_k are odd.  All other array elements are zero.
-#
-# D is not a global constant.  Every operator function infers D from data.ndim
-# (since the array shape is (2N,)*D).  A per-D cache stores the
-# permutation-index tables so they are built at most once per dimension.
+
+r"""
+Differential forms on a D-dimensional hypercubic lattice, stored directly in
+the :ref:`interlaced <interlaced>` representation.
+
+A p-form field on an $N^D$ lattice is stored in a $(2N)^D$ array.  Site
+$(x_0, \ldots, x_{D-1})$ belongs to the p-form if exactly $p$ of the $x_k$
+are odd; all other array elements are zero.
+
+``D`` is not a global constant.  Every operator function infers it from
+``data.ndim`` (since the array shape is ``(2N,)*D``).  A per-D cache stores
+the permutation-index tables so they are built at most once per dimension.
+
+This module is standalone — the production code in ``compact.py`` never
+imports it — and exists as a fixed target for correctness.  Running it as a
+script executes its self-tests.
+"""
 
 from itertools import permutations, product, cycle
 from math import comb
@@ -103,16 +107,18 @@ def pull(data, shift):
 # ---------------------------------------------------------------------------
 
 def d(data):
-    """
+    r"""
     Exterior derivative.  Infers D from data.ndim.
 
-    For each (p+1)-form output site with odd directions O = (o_0, …, o_p),
-    the contribution is
+    For each (p+1)-form output site $x$ with odd directions
+    $O = (o_0, \ldots, o_p)$, the contribution is
 
-        Σ_{j}  σ_j · (pull(data, ε[o_j]) − pull(data, −ε[o_j]))[I]
+    .. math::
 
-    where σ alternates +1, −1 over the elements of O and I is the
-    multi-dimensional slice selecting those sites.
+        \sum_{j} (-1)^j \big( \texttt{data}[x + \varepsilon_{o_j}] - \texttt{data}[x - \varepsilon_{o_j}] \big)
+
+    where $\varepsilon_k$ is the unit vector in direction $k$; the shifts
+    are implemented with :func:`pull`.
 
     ε, odd, and idx are fetched from the per-D cache rather than globals.
     """
@@ -131,14 +137,18 @@ def d(data):
 # ---------------------------------------------------------------------------
 
 def delta(data):
-    """
+    r"""
     Codifferential (formal adjoint of d).  Infers D from data.ndim.
 
-    For each (p-1)-form output site with even directions E = (e_0, …),
-    the contribution at position i in E from direction e is
+    For each (p-1)-form output site $x$ with even directions
+    $E = (e_0, \ldots)$, the contribution at position $i$ in $E$ from
+    direction $e$ is
 
-        (−1)^(e − i) · (pull(data, ε[e]) − pull(data, −ε[e]))[I]
+    .. math::
 
+        -(-1)^{e - i} \big( \texttt{data}[x + \varepsilon_e] - \texttt{data}[x - \varepsilon_e] \big)
+
+    (note the overall minus; see :ref:`sign-conventions`).
     """
     D = data.ndim
     ε, odd, even, idx = _structures(D)
@@ -183,16 +193,21 @@ def _assignments(D, n, m):
 
 
 def wedge(n, m, a, b):
-    """
+    r"""
     Wedge product of an n-form a and an m-form b.  Infers D from a.ndim.
 
-    For each (n+m)-form output site with odd directions O and each way to
-    assign those directions to a (assignment=1) or b (assignment=0):
+    For each (n+m)-form output site $x$ with odd directions $O$ and each way
+    to split $O$ into directions assigned to $a$ and to $b$, the contribution
+    is
 
-        w[I] += sign · pull(a, −a_shift) · pull(b, +b_shift)
+    .. math::
 
-    where I selects the (n+m)-form sites and sign is the inversion count
-    of the 0/1 assignment tuple.
+        \sigma \; a[x - s_a] \; b[x + s_b]
+
+    where $s_a$ and $s_b$ sum $\varepsilon_o$ over the directions assigned to
+    $a$ and $b$ respectively (implemented with :func:`pull`), and the sign
+    $\sigma$ counts the inversions of the 0/1 assignment tuple (see
+    :ref:`sign-conventions`).
     """
     D = a.ndim
     ε, odd, even, idx = _structures(D)
@@ -224,20 +239,23 @@ def _perm_sign(seq):
 
 
 def star(p, data):
-    """
+    r"""
     Hodge star of a p-form, returning a (D-p)-form.  Infers D from data.ndim.
 
-    The spatial shift push(data, (+1,)*D) maps every p-form site to the
+    The spatial shift ``push(data, (+1,)*D)`` maps every p-form site to the
     corresponding (D-p)-form site (it flips all parities).  Each output
-    component J then receives the permutation sign σ(I, J), where I is
-    the complement of J:
+    component $J$ then receives the permutation sign $\sigma(I, J)$, where
+    $I$ is the complement of $J$:
 
-        result[J_sites] = σ(I, J) · shifted[J_sites]
+    .. math::
 
-    σ(I, J) = sign of the permutation sorting the concatenation (I, J).
+        (\star f)_J = \sigma(I, J) \; \texttt{shifted}_J
 
-    For p=0 and p=D all signs happen to be +1, which is why a bare push
-    without signs passes those cases but fails for intermediate degrees.
+    where $\sigma(I, J)$ is the sign of the permutation sorting the
+    concatenation $(I, J)$.
+
+    For $p = 0$ and $p = D$ all signs happen to be +1, which is why a bare
+    push without signs passes those cases but fails for intermediate degrees.
     """
     D = data.ndim
     ε, odd, even, idx = _structures(D)
@@ -338,12 +356,12 @@ if __name__ == '__main__':
         else:
             print(f"  ✅ δ not applied to 0-form")
 
-    print("\nADJOINTNESS  Σ (da)·b = −Σ a·(δb)")
+    print("\nADJOINTNESS  Σ (da)·b = +Σ a·(δb)")
     for p in range(D):
         a = lat.random(p)
         b = lat.random(p + 1)
-        assert np.isclose(+(d(a) * b).sum(), -(a * delta(b)).sum())
-        print(f"  ✅ Σ (da)·b = −Σ a·(δb)  for p={p}")
+        assert np.isclose(+(d(a) * b).sum(), +(a * delta(b)).sum())
+        print(f"  ✅ Σ (da)·b = +Σ a·(δb)  for p={p}")
 
     print("\nBILINEARITY")
     for n, m in iproduct(range(D + 1), repeat=2):

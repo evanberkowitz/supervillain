@@ -6,8 +6,9 @@ import h5py as h5
 import numpy as np
 import pytest
 
-from supervillain.lattice.compact import Lattice
+from supervillain.lattice.compact import Lattice, d, delta, star, push
 from supervillain.lattice.two_dimensional import Lattice2D
+import supervillain.lattice.interlaced as il
 
 
 # N=3: every site is origin or boundary — a useful edge case.
@@ -79,6 +80,49 @@ def test_lattice_h5_roundtrip(D, N):
     assert L2.N == L.N
     assert np.array_equal(L2.coords, L.coords)
     assert np.array_equal(L2.coordinates, L.coordinates)
+
+
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(1, D + 1)])
+def test_star_d_star_equals_shifted_delta(D, N, p):
+    # On this compact lattice the continuum identity δ = (-1)^{D(p-1)+1} ★d★
+    # acquires a spatial shift: ★d★f = (-1)^{D(p-1)+1} · push(δf, (1,...,1))
+    # where push(f, (1,...,1))[n] = f[n − (1,...,1)].
+    lat = Lattice(D=D, N=N)
+    rng = np.random.default_rng(D * 100 + N * 10 + p)
+    f = lat.random(p)
+    sign = (-1) ** (D * (p - 1) + 1)
+    lhs = np.asarray(star(d(star(f))))
+    rhs = sign * np.asarray(push(delta(f), (1,) * D))
+    assert np.allclose(lhs, rhs)
+
+
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(D + 1)])
+def test_interlaced_adjointness(D, N, p):
+    # After the delta sign fix, ⟨da, b⟩ = +⟨a, δb⟩ in the interlaced picture too.
+    lat = il.Lattice(D=D, N=N)
+    rng = np.random.default_rng(D * 100 + N * 10 + p)
+    a = lat.random(p)
+    b = lat.random(p + 1) if p < D else np.zeros((2 * N,) * D)
+    if p == D:
+        pytest.skip("d not defined on top form")
+    lhs = (il.d(a) * b).sum()
+    rhs = (a * il.delta(b)).sum()
+    assert np.isclose(lhs, rhs)
+
+
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(1, D + 1)])
+def test_interlaced_star_d_star_equals_shifted_delta(D, N, p):
+    # Same identity as compact but shift is +2*(1,...,1) in interlaced coords
+    # (= +1 in physical coords), because the interlaced star pushes by (+1,...,+1).
+    lat = il.Lattice(D=D, N=N)
+    rng = np.random.default_rng(D * 100 + N * 10 + p)
+    f = lat.random(p)
+    sign = (-1) ** (D * (p - 1) + 1)
+    lhs = il.star(D - p + 1, il.d(il.star(p, f)))
+    rhs = il.delta(f).copy()
+    for ax in range(D):
+        rhs = np.roll(rhs, +2, axis=ax)
+    assert np.allclose(lhs, sign * rhs)
 
 
 @pytest.mark.parametrize("N", (3, 4, 5))

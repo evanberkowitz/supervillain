@@ -16,8 +16,6 @@ class Lattice2D(Lattice):
     from :class:`~supervillain.lattice.Lattice`.  ``Lattice2D`` adds only the
     :py:meth:`plot_form` visualisation helper and the ``nt``/``nx`` aliases.
 
-    .. plot:: example/plot/lattice/layout.py
-
     Parameters
     ----------
     n: int

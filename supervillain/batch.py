@@ -44,7 +44,7 @@ class Batch:
     with shape ``(draw, …)``.
 
     ``extendable`` is for storage only; computation uses ``batch[i]`` (a scalar,
-    ndarray slice, or ``cls``-wrapped element such as :class:`~supervillain.lattice.compact.Form`).
+    ndarray slice, or ``cls``-wrapped element such as :class:`~supervillain.lattice.Form`).
     For whole-column ndarray operations use :attr:`array`.
 
     Parameters
@@ -53,7 +53,7 @@ class Batch:
         If an ``int``, allocate a new zeroed column of that many draws.
         Otherwise wrap existing batched data (draw axis must be 0).
     cls:
-        Optional element class (:class:`~supervillain.lattice.compact.Form`, etc.).
+        Optional element class (:class:`~supervillain.lattice.Form`, etc.).
         ``None`` for plain ndarray / scalar columns.
     shape:
         Spatial shape when ``cls`` is ``None`` and ``draws_or_data`` is an ``int``.
@@ -61,7 +61,7 @@ class Batch:
         Column dtype (default ``float``).
     item_kwargs:
         Column-constant keyword arguments passed to ``cls`` on each draw
-        (e.g. ``degree``, ``lattice`` for :class:`~supervillain.lattice.compact.Form`).
+        (e.g. ``degree``, ``lattice`` for :class:`~supervillain.lattice.Form`).
     '''
 
     def __init__(self, draws_or_data, *, cls=None, shape=None, dtype=float, **item_kwargs):

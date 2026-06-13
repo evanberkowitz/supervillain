@@ -49,3 +49,18 @@ Spin Correlations
    :members:
    :show-inheritance:
 
+
+==================
+Differential Forms
+==================
+
+Interlaced Forms
+================
+
+:class:`~supervillain.lattice.Form` stores a $p$-form compactly, with one slot for every $p$-cell and no wasted space.
+The interlaced reference implementation instead realizes :ref:`the interlaced picture <interlaced>` literally: a $p$-form on an $N^D$ lattice is a $(2N)^D$ array, zero except at points with exactly $p$ odd coordinates.
+Its operators are independent implementations of the exterior calculus with the same :ref:`conventions <sign-conventions>`, giving the compact versions a fixed target for correctness.
+
+.. automodule :: supervillain.lattice.interlaced
+   :members: Lattice, push, pull, d, delta, wedge, star
+
