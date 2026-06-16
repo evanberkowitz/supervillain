@@ -81,6 +81,7 @@ The codifferential is nilpotent, meaning that it satisfies
 
 This identity is tested by the ``test_codifferential_nilpotent`` test in :source:`test/test_lattice.py`.
 
+The continuum identity $\delta = (-1)^{D(k+1)+1}\,\star\,d\,\star$ holds on the lattice only up to a translation; see :ref:`the note below <lattice-star-d-star-shift>`.
 
 Hodge Star
 ==========
@@ -147,6 +148,8 @@ The wedge also satisfies the inner product identity
 
 which holds exactly, as checked by the ``test_wedge_hodge_inner_product`` test in :source:`test/test_lattice.py`.
 
+Unlike the continuum, however, the lattice wedge product is not anti-commutative; see :ref:`the note below <lattice-wedge-commutativity-fail>`.
+
 Differences from the Continuum
 ==============================
 
@@ -158,8 +161,10 @@ In the continuum we expect anti/commutativity
 
 to hold.
 
+.. _lattice-wedge-commutativity-fail:
+
 .. danger::
-   
+
    On the lattice this property fails!
 
 In the continuum, on a Riemannian manifold with Euclidean signature, the Hodge star satisfies
@@ -167,6 +172,8 @@ In the continuum, on a Riemannian manifold with Euclidean signature, the Hodge s
 .. math::
 
    \delta = (-1)^{D(k+1)+1}\, \star\, d\, \star \qquad \text{on } k\text{-forms}.
+
+.. _lattice-star-d-star-shift:
 
 .. danger ::
 

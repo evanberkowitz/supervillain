@@ -119,6 +119,8 @@ The sign $(-1)^{e_i - i}$ equals $(-1)^j$ where $j = \#\{m \in M : m < e_i\}$ is
 
 The nilpotency $\delta^2 = 0$ holds as checked by ``test_delta_nilpotent`` in :source:`test/test_lattice_interlaced.py`.
 
+The continuum identity $\delta = (-1)^{D(k+1)+1}\,\star\,d\,\star$ holds on the interlaced lattice only up to a translation; see :ref:`the note below <interlaced-star-d-star-shift>`.
+
 Hodge Star
 ----------
 
@@ -181,6 +183,8 @@ In contrast to the compact formula (which evaluates $b$ at $x + \hat{e}_A$), the
 
 Bilinearity, associativity, and the Leibniz rule $d(a \wedge b) = da \wedge b + (-1)^n\,a \wedge db$ all hold exactly; they are cross-validated by ``test_compact_wedge_matches_interlaced`` in :source:`test/test_lattice.py`.
 
+Unlike the continuum, however, the lattice wedge product is not anti-commutative; see :ref:`the note below <interlaced-wedge-commutativity-fail>`.
+
 Differences from the Continuum
 -------------------------------
 
@@ -192,8 +196,10 @@ In the continuum we expect anti/commutativity
 
 to hold.
 
+.. _interlaced-wedge-commutativity-fail:
+
 .. danger::
-   
+
    On the lattice this property fails!
 
 In the continuum, on a Riemannian manifold with Euclidean signature, the Hodge star satisfies
@@ -201,6 +207,8 @@ In the continuum, on a Riemannian manifold with Euclidean signature, the Hodge s
 .. math::
 
    \delta = (-1)^{D(k+1)+1}\, \star\, d\, \star \qquad \text{on } k\text{-forms}.
+
+.. _interlaced-star-d-star-shift:
 
 .. danger ::
 
