@@ -4,7 +4,7 @@ import numpy as np
 import supervillain
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
-from supervillain.lattice import delta, push
+from supervillain.lattice import delta
 
 import logging
 logger = logging.getLogger(__name__)
@@ -73,43 +73,48 @@ class VortexUpdate(ReadWriteable, Generator):
         L = self.Action.Lattice
         W = self.Action._W
 
-        metropolis = self.rng.uniform(0, 1, L.dims)
+        n_comps = len(L.components[2])
+
+        # One independent Metropolis draw per (2-form component, site).
+        metropolis = self.rng.uniform(0, 1, (n_comps,) + L.dims)
 
         # Each v only talks to the m on the immediately surrounding links (through δv).  So if we freeze m
         # and only change v one checkerboarding color at a time then the change in action on each link
         # comes from the v of that color.
+        #
+        # In D>2 there are C(D,2) independent 2-form components. We process each independently per color,
+        # using coface_sum() to aggregate per-plaquette ΔS from their boundary links.
         for color in L.checkerboarding:
+            for comp_idx in range(n_comps):
 
-            # We need to compute delta_v every time through the loop because v will get updated on each pass.
-            delta_v = delta(v)
+                # We need to compute delta_v each time because v is updated on each pass.
+                delta_v = delta(v)
 
-            # Randomly bump v
-            if self.Action.W < float('inf'):
-                change_v = L.form(2, dtype=int)
-                change_v[0][color] = self.rng.choice(self.vs, len(color[0]))
-            else:
-                change_v = L.form(2, dtype=float)
-                change_v[0][color] = self.rng.uniform(-self.interval_v, +self.interval_v, len(color[0]))
+                # Randomly bump v at this component and color.
+                if self.Action.W < float('inf'):
+                    change_v = L.form(2, dtype=int)
+                    change_v[comp_idx][color] = self.rng.choice(self.vs, len(color[0]))
+                else:
+                    change_v = L.form(2, dtype=float)
+                    change_v[comp_idx][color] = self.rng.uniform(-self.interval_v, +self.interval_v, len(color[0]))
 
-            # and compute the change of action on each link.
-            change_delta_v = delta(change_v)
-            dS_link = 0.5 / self.Action.kappa * (-change_delta_v / W) * (2*(m - delta_v / W) - change_delta_v / W)
+                # Compute the change of action on each link.
+                change_delta_v = delta(change_v)
+                dS_link = 0.5 / self.Action.kappa * (-change_delta_v / W) * (2*(m - delta_v / W) - change_delta_v / W)
 
-            # The change in action originating from the plaquette on the color under consideration
-            # is just the sum of all the changes from the boundary links.  So we sum them up.
-            dS = dS_link[0] + dS_link[1] + push(dS_link[0], (0, -1)) + push(dS_link[1], (-1, 0))
+                # The change in action from this plaquette is the sum of changes on its boundary links.
+                # coface_sum() accumulates those, giving dS[comp_idx][x] for the plaquette at x.
+                dS = dS_link.coface_sum()
 
-            # Now dS is a 2-form encoding the change in action from the changes in v.  But we should be careful:
-            # dS is not 0 on the off-color plaquettes---those plaquettes still have links touching the current color.
-            # We only want to accept/reject updates on the current color, so we restrict our attention when computing the acceptance.
-            acceptance = np.clip( np.exp(-dS[color]), a_min=0, a_max=1)
-            accepted = (metropolis[color] < acceptance)
+                # dS is not 0 on off-color plaquettes. Only accept/reject on the current color.
+                acceptance = np.clip(np.exp(-dS[comp_idx][color]), a_min=0, a_max=1)
+                accepted = (metropolis[comp_idx][color] < acceptance)
 
-            total_accepted += accepted.sum()
-            total_acceptance += acceptance.sum()
+                total_accepted += accepted.sum()
+                total_acceptance += acceptance.sum()
 
-            # Finally, we update the v where the change is accepted.
-            v[0][color] += change_v[0][color] * accepted
+                # Update v where the change is accepted.
+                v[comp_idx][color] += change_v[comp_idx][color] * accepted
 
         self.proposed += L.cells_of_degree[2]
         self.acceptance += total_acceptance / L.cells_of_degree[2]
