@@ -11,3 +11,4 @@ def _dimension(n):
 
 from supervillain.lattice.two_dimensional import Lattice2D, _Lattice2D
 from supervillain.lattice.compact import Lattice, Form, d, delta, star, wedge, push, pull
+from supervillain.lattice import fourier
