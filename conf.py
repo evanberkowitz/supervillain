@@ -43,6 +43,9 @@ source_link_target = 'GitHub'
 
 
 def _git_branch():
+    rtd = os.environ.get('READTHEDOCS_VERSION')
+    if rtd:
+        return rtd
     try:
         return subprocess.check_output(
             ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
