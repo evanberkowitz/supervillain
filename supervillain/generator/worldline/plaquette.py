@@ -4,6 +4,7 @@ import numpy as np
 import supervillain
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
+from supervillain.lattice import delta
 
 class PlaquetteUpdate(ReadWriteable, Generator):
     r'''
@@ -33,50 +34,73 @@ class PlaquetteUpdate(ReadWriteable, Generator):
 
     def step(self, cfg):
         r'''
-        Performs a sweep of the plaquettes in a randomized order.
+        Performs a sweep over all (site, direction-pair) plaquettes in a randomized order.
+
+        For each plaquette at site x with directions (μ, ν), the 4 boundary links of the
+        plaquette are updated in concert (±Δm with orientation) and v[comp, x] is also
+        updated. This preserves δm=0 because the boundary change is exact: δ(∂A)=0.
+        Direction pairs are processed sequentially to avoid shared-link conflicts.
         '''
 
         kappa = self.Action.kappa
         W     = self.Action._W
-        L = self.Action.Lattice
+        L     = self.Action.Lattice
 
         m = cfg['m'].copy()
         v = cfg['v'].copy()
 
-        for here, change_m, change_v, metropolis in zip(
-                np.random.permutation(L.coordinates),
-                self.rng.choice([-1, +1], L.sites),
-                self.rng.choice([-1, 0, +1], L.sites),
-                self.rng.uniform(0,1,L.sites)
-                ):
+        # Precompute f = m − δv/W; updated incrementally for each accepted change.
+        f = m - delta(v) / W
 
-            north, west, south, east = L.mod(here + np.array([[+1,0], [0,+1], [-1,0], [0,-1]]))
+        n_per_site  = len(L.components[2])   # C(D, 2) direction pairs
+        n_proposals = L.sites * n_per_site
 
-            dS = (change_m - change_v/W) / kappa * (
-                + (m[0][here [0], here [1]] - (v[0, here [0], here [1]] - v[0, east [0], east [1]])/W)
-                - (m[1][here [0], here [1]] - (v[0, south[0], south[1]] - v[0, here [0], here [1]])/W)
-                + (m[1][north[0], north[1]] - (v[0, here [0], here [1]] - v[0, north[0], north[1]])/W)
-                - (m[0][west [0], west [1]] - (v[0, west [0], west [1]] - v[0, here [0], here [1]])/W)
-                + 2 * (change_m - change_v/W)
-            )
-            acceptance = np.clip(np.exp(-dS), a_min=0, a_max=1)
+        change_m_all   = self.rng.choice([-1, +1],   n_proposals)
+        change_v_all   = self.rng.choice([-1, 0, +1], n_proposals)
+        metropolis_all = self.rng.uniform(0, 1,        n_proposals)
 
+        idx = 0
+        for here in np.random.permutation(L.coordinates):
+            here_t = tuple(here)
+            for mu, nu in L.components[2]:
+                change_m_val = change_m_all[idx]
+                change_v_val = change_v_all[idx]
+                met          = metropolis_all[idx]
+                idx += 1
 
-            self.acceptance += acceptance
-            if metropolis < acceptance:
-                # Accept :)
-                m[0][here [0], here [1]] += change_m
-                m[1][here [0], here [1]] -= change_m
-                m[1][north[0], north[1]] += change_m
-                m[0][west [0], west [1]] -= change_m
-                v[0, here[0], here[1]]   += change_v
-                self.accepted+=1
+                comp_idx = L.comp_index[2][(mu, nu)]
+                e_mu     = np.zeros(L.D, dtype=int); e_mu[mu] = 1
+                e_nu     = np.zeros(L.D, dtype=int); e_nu[nu] = 1
+                x_mu     = tuple(L.mod(here + e_mu))
+                x_nu     = tuple(L.mod(here + e_nu))
 
-            else:
-                # Reject :(
-                pass
+                # f at the 4 boundary links (orientations +, +, −, −):
+                # (μ, here), (ν, here+êμ), (μ, here+êν), (ν, here)
+                f1 = f[mu][here_t]
+                f2 = f[nu][x_mu]
+                f3 = f[mu][x_nu]
+                f4 = f[nu][here_t]
 
-        self.proposed += L.sites
+                delta_f = change_m_val - change_v_val / W
+                dS = delta_f / kappa * (f1 + f2 - f3 - f4 + 2 * delta_f)
+
+                acceptance = np.clip(np.exp(-dS), a_min=0, a_max=1)
+                self.acceptance += acceptance
+
+                if met < acceptance:
+                    m[mu][here_t] += +change_m_val
+                    m[nu][x_mu]   += +change_m_val
+                    m[mu][x_nu]   += -change_m_val
+                    m[nu][here_t] += -change_m_val
+                    v[comp_idx][here_t] += change_v_val
+                    # Propagate the f change to keep f = m − δv/W current.
+                    f[mu][here_t] += +delta_f
+                    f[nu][x_mu]   += +delta_f
+                    f[mu][x_nu]   -= +delta_f
+                    f[nu][here_t] -= +delta_f
+                    self.accepted += 1
+
+        self.proposed += n_proposals
         return cfg | {'m': m, 'v': v}
 
     def report(self):
