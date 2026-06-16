@@ -22,15 +22,102 @@ The following continuum identities hold exactly at every finite $N$:
 - $\sum_x (a \wedge \star b)_\mathrm{top}[x] = \langle a, b \rangle$
 - $\delta = (-1)^{D(k+1)+1}\,\star\,d\,\star$ with **no** translational shift
 
+**Why the Leibniz rule fails — and why it cannot be fixed by a momentum
+convention.**
+
 The Leibniz rule $d(a \wedge b) = da \wedge b + (-1)^n a \wedge db$ does
-**not** hold at finite $N$.  The algebraic identity in Fourier space,
-$iq_k(F̂_a ⊛ F̂_b) = (iq_m F̂_a)⊛F̂_b + F̂_a⊛(iq_{k-m}F̂_b)$, requires
-$q_k = q_m + q_{k-m}$ for all pairs of frequency indices.  In the centered
-(FFT-convention) frequency representation this identity fails when the sum
-of two mode frequencies aliases past the Nyquist point, e.g. two modes at
-$\pm\pi$ convolve to give a zero-frequency mode but $(-\pi)+(-\pi)\neq 0$.
-The failure is $O(1)$ for generic random fields.  The Leibniz rule recovers
-in the continuum limit $N\to\infty$ for smooth, band-limited forms.
+**not** hold at finite $N$.
+
+*Umklapp processes.*  In Fourier space the pointwise product of $a$ and $b$
+becomes a circular convolution $\hat{a} \star \hat{b}$.  For each pair of
+modes $(m,\, k{-}m)$ contributing to output mode $k$, the spectral
+derivative multiplies by $iq_k$ on the left-hand side but by
+$iq_m + iq_{k-m}$ on the right-hand side.  When the sum of the two input
+momenta wraps around the Brillouin zone (Umklapp),
+
+.. math::
+
+   q_m + q_{k-m} = q_k \pm 2\pi,
+
+so $i(q_m + q_{k-m}) \neq iq_k$, and Leibniz fails by $O(1)$.
+
+*Why "mod Brillouin zone" does not help.*  One might hope to repair this by
+replacing $q_m + q_{k-m}$ with $(q_m + q_{k-m}) \bmod 2\pi = q_k$.  The
+problem is that this reduction must be applied *after* summing over modes and
+*knowing* the output index $k$ — it cannot be distributed back to the
+individual factors $da$ and $db$.  Carrying it out explicitly on the
+right-hand side just reproduces $iq_k \,(\hat{a} \star \hat{b})[k] = d(a
+\wedge b)[k]$, i.e.\ the left-hand side.  The "fix" is a tautology.
+
+*Why finite-difference derivatives are immune.*  The interlaced and compact
+lattice derivatives use eigenvalues of the form $e^{iq} - 1$ rather than
+$iq$.  Because $e^{i(q+2\pi)} = e^{iq}$, Umklapp processes drop out
+automatically:
+
+.. math::
+
+   e^{i(q_m + q_{k-m})} = e^{i(q_k \pm 2\pi)} = e^{iq_k}.
+
+Any derivative eigenvalue of the form $f(e^{iq})$ inherits this
+Brillouin-zone periodicity and satisfies Leibniz exactly on a finite lattice.
+The spectral eigenvalue $iq$ is the unique continuum limit of these
+expressions — and the only one that is not $2\pi$-periodic — which is
+precisely why it fails.
+
+The failure is $O(1)$ for generic random fields and vanishes as
+$N\to\infty$ for smooth, band-limited forms.  Because this obstruction is
+structural (not a convention choice), the Leibniz rule is simply not listed
+among the properties of this module and no test for it is included.
+
+*No-go: larger stencils cannot fix this.*  One might ask whether a longer-range
+local derivative — second-nearest neighbours, or an arbitrary finite stencil
+— could recover Leibniz while keeping exact anti-commutativity.  The answer is
+no; the obstruction is algebraic, independent of stencil size.
+
+Any local, translation-equivariant derivative has a Fourier-space eigenvalue
+that is a trigonometric polynomial $\hat{g}(q) = \sum_n c_n e^{inq}$.
+Leibniz imposes a functional equation on $\hat{g}$ that depends on the wedge:
+
+- *Pointwise wedge* (anti-commutative, no shift): Leibniz requires
+  $g(q{+}p) = g(q) + g(p)$ for all $q,p$.  Continuous $2\pi$-periodic
+  solutions of this Cauchy equation satisfy $g(q) = cq$, but periodicity
+  forces $c = 0$.  The only solution is $g \equiv 0$.
+
+- *Shifted wedge* (one factor displaced by $s$ lattice steps): Leibniz
+  requires $g(q{+}p) = g(q)e^{isp} + g(p)$.  Comparing $q \leftrightarrow p$
+  forces $g(z) = C\bigl(w(z)-1\bigr)$ where $w : S^1 \to S^1$ is a group
+  homomorphism, hence $w(e^{iq}) = e^{inq}$ for some integer $n$.  The only
+  solutions are $g(q) = C(e^{inq}-1)$ — the $n$-step forward difference
+  $f[x{+}n]-f[x]$, with the wedge shifting its second factor by $n$ steps.
+
+Multi-point stencils such as $c_1(e^{iq}-1) + c_2(e^{2iq}-1)$ satisfy
+neither equation for any fixed shift $s$, and therefore cannot satisfy
+Leibniz for any choice of wedge.  The trade-off is exact:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 30 30
+
+   * - Property
+     - Compact / interlaced
+     - This module
+   * - $d^2 = 0$
+     - ✓
+     - ✓
+   * - Adjointness $\langle da,b\rangle = \langle a,\delta b\rangle$
+     - ✓
+     - ✓
+   * - Leibniz $d(a\wedge b) = da\wedge b + (-1)^n a\wedge db$
+     - ✓
+     - ✗ (Umklapp)
+   * - Anti-commutativity $a\wedge b = (-1)^{nm}b\wedge a$
+     - ✗ (shifted wedge)
+     - ✓
+   * - $\delta = (-1)^{\cdots}\star d\star$ (up to translation)
+     - ✓
+     - ✓ (no shift)
+
+One column or the other — no local formulation achieves both.
 
 The price for the other exact identities is that d (and δ) are non-local:
 each application requires a pair of FFTs at cost $O(N^D \log N)$ instead of
@@ -102,8 +189,9 @@ def d(f):
     $e^{2\pi i\tilde{n}\cdot x/N}$.
 
     Unlike :func:`supervillain.lattice.d`, which uses a one-step forward
-    finite difference, this operator has infinite range in position space but
-    satisfies $d^2 = 0$ and the Leibniz rule exactly.
+    finite difference, this operator has infinite range in position space and
+    satisfies $d^2 = 0$ exactly.  The Leibniz rule fails at finite $N$; see
+    the module docstring.
 
     Parameters
     ----------
@@ -280,8 +368,9 @@ def wedge(a, b):
 
         a \wedge b = (-1)^{nm} \, b \wedge a
 
-    and, together with the spectral :func:`d`, makes the Leibniz rule
-    $d(a \wedge b) = da \wedge b + (-1)^n a \wedge db$ hold exactly.
+    Note that the Leibniz rule $d(a \wedge b) = da \wedge b + (-1)^n a \wedge
+    db$ does **not** hold at finite $N$ — see the module docstring for the
+    Umklapp analysis.
 
     Parameters
     ----------
