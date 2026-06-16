@@ -6,10 +6,14 @@ import h5py as h5
 import numpy as np
 import pytest
 
-from supervillain.lattice import Lattice, d, delta, star, push
+from supervillain.lattice import Lattice, Form, d, delta, star, wedge, push, pull
 from supervillain.lattice.two_dimensional import Lattice2D
 import supervillain.lattice.interlaced as il
 
+
+# ---------------------------------------------------------------------------
+# Lattice round-trips
+# ---------------------------------------------------------------------------
 
 # N=3: every site is origin or boundary — a useful edge case.
 # N=4: even N, exercises Nyquist-frequency wrapping in mod.
@@ -82,6 +86,173 @@ def test_lattice_h5_roundtrip(D, N):
     assert np.array_equal(L2.coordinates, L.coordinates)
 
 
+@pytest.mark.parametrize("N", (3, 4, 5))
+def test_lattice2d_h5_roundtrip(N):
+    L = Lattice2D(N)
+    with tempfile.NamedTemporaryFile(suffix='.h5') as f:
+        with h5.File(f.name, 'w') as hf:
+            L.to_h5(hf.create_group('lattice'))
+            L2 = Lattice2D.from_h5(hf['lattice'])
+    assert L2.D == L.D
+    assert L2.N == L.N
+    assert L2.nt == L.nt
+    assert L2.nx == L.nx
+    assert np.array_equal(L2.coords, L.coords)
+
+
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(D + 1)])
+def test_compact_to_interlaced(D, N, p):
+    lat = Lattice(D=D, N=N)
+    a = lat.random(p)
+    big = a.to_interlaced()
+    odds = np.mod(np.mgrid[(slice(0, 2 * N),) * D], 2).sum(axis=0)
+    assert np.all(big[odds != p] == 0)
+    assert not np.all(big[odds == p] == 0)
+
+
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(D + 1)])
+def test_compact_to_interlaced_roundtrip(D, N, p):
+    lat = Lattice(D=D, N=N)
+    f = lat.random(p)
+    assert (f == Form.from_interlaced(p, f.to_interlaced())).all()
+
+
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(D + 1)])
+def test_interlaced_to_compact_roundtrip(D, N, p):
+    lat = il.Lattice(D=D, N=N)
+    data = lat.random(p)
+    assert (Form.from_interlaced(p, data).to_interlaced() == data).all()
+
+
+# ---------------------------------------------------------------------------
+# Translation: push / pull
+# ---------------------------------------------------------------------------
+
+def _random_shift(D, rng):
+    return tuple(int(s) for s in rng.integers(-3, 4, size=D))
+
+
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(D + 1)])
+def test_push_push_inverse(D, N, p):
+    lat = Lattice(D=D, N=N)
+    f = lat.random(p)
+    s = _random_shift(D, np.random.default_rng(D * 100 + N * 10 + p))
+    assert (push(push(f, s), tuple(-x for x in s)) == f).all()
+
+
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(D + 1)])
+def test_push_pull_inverse(D, N, p):
+    lat = Lattice(D=D, N=N)
+    f = lat.random(p)
+    s = _random_shift(D, np.random.default_rng(D * 100 + N * 10 + p + 1))
+    assert (push(pull(f, s), s) == f).all()
+
+
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(D + 1)])
+def test_pull_push_inverse(D, N, p):
+    lat = Lattice(D=D, N=N)
+    f = lat.random(p)
+    s = _random_shift(D, np.random.default_rng(D * 100 + N * 10 + p + 2))
+    assert (pull(push(f, s), s) == f).all()
+
+
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(D + 1)])
+def test_pull_pull_inverse(D, N, p):
+    lat = Lattice(D=D, N=N)
+    f = lat.random(p)
+    s = _random_shift(D, np.random.default_rng(D * 100 + N * 10 + p + 3))
+    assert (pull(pull(f, s), tuple(-x for x in s)) == f).all()
+
+
+@pytest.mark.parametrize("D,N,p,direction", [(D, N, p, direction) for D in range(2, 5) for N in (3, 4, 5) for p in range(D + 1) for direction in range(D)])
+def test_push_period(D, N, p, direction):
+    lat = Lattice(D=D, N=N)
+    f = lat.random(p)
+    s = tuple(N if k == direction else 0 for k in range(D))
+    assert (push(f, s) == f).all()
+
+
+@pytest.mark.parametrize("D,N,p,direction", [(D, N, p, direction) for D in range(2, 5) for N in (3, 4, 5) for p in range(D + 1) for direction in range(D)])
+def test_pull_period(D, N, p, direction):
+    lat = Lattice(D=D, N=N)
+    f = lat.random(p)
+    s = tuple(N if k == direction else 0 for k in range(D))
+    assert (pull(f, s) == f).all()
+
+
+# ---------------------------------------------------------------------------
+# Exterior derivative
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(D)])
+def test_d_nilpotent(D, N, p):
+    lat = Lattice(D=D, N=N)
+    f = lat.random(p)
+    assert np.isclose(np.asarray(d(d(f))), 0).all()
+
+
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(D)])
+def test_d_nonzero(D, N, p):
+    lat = Lattice(D=D, N=N)
+    assert np.asarray(d(lat.random(p))).any()
+
+
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(D)])
+def test_compact_d_matches_interlaced(D, N, p):
+    lat = Lattice(D=D, N=N)
+    a = lat.random(p)
+    assert (d(a).to_interlaced() == il.d(a.to_interlaced())).all()
+
+
+# ---------------------------------------------------------------------------
+# Codifferential
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(1, D + 1)])
+def test_delta_nilpotent(D, N, p):
+    lat = Lattice(D=D, N=N)
+    f = lat.random(p)
+    assert np.isclose(np.asarray(delta(delta(f))), 0).all()
+
+
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(1, D + 1)])
+def test_delta_nonzero(D, N, p):
+    lat = Lattice(D=D, N=N)
+    assert np.asarray(delta(lat.random(p))).any()
+
+
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(D)])
+def test_compact_adjointness(D, N, p):
+    lat = Lattice(D=D, N=N)
+    a = lat.random(p)
+    b = lat.random(p + 1)
+    assert np.isclose((d(a) * b).sum(), (a * delta(b)).sum())
+
+
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(1, D + 1)])
+def test_compact_delta_matches_interlaced(D, N, p):
+    lat = Lattice(D=D, N=N)
+    a = lat.random(p)
+    assert (delta(a).to_interlaced() == il.delta(a.to_interlaced())).all()
+
+
+# ---------------------------------------------------------------------------
+# Hodge star
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(D + 1)])
+def test_hodge_inner_product(D, N, p):
+    lat = Lattice(D=D, N=N)
+    a = lat.random(p); b = lat.random(p)
+    assert np.isclose((a * b).sum(), wedge(a, star(b)).sum())
+
+
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(D + 1)])
+def test_star_nonzero(D, N, p):
+    lat = Lattice(D=D, N=N)
+    assert np.asarray(star(lat.random(p))).any()
+
+
 @pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(1, D + 1)])
 def test_star_d_star_equals_shifted_delta(D, N, p):
     # On this compact lattice the continuum identity δ = (-1)^{D(p-1)+1} ★d★
@@ -97,43 +268,48 @@ def test_star_d_star_equals_shifted_delta(D, N, p):
 
 
 @pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(D + 1)])
-def test_interlaced_adjointness(D, N, p):
-    # After the delta sign fix, ⟨da, b⟩ = +⟨a, δb⟩ in the interlaced picture too.
-    lat = il.Lattice(D=D, N=N)
-    rng = np.random.default_rng(D * 100 + N * 10 + p)
+def test_compact_star_matches_interlaced(D, N, p):
+    lat = Lattice(D=D, N=N)
     a = lat.random(p)
-    b = lat.random(p + 1) if p < D else np.zeros((2 * N,) * D)
-    if p == D:
-        pytest.skip("d not defined on top form")
-    lhs = (il.d(a) * b).sum()
-    rhs = (a * il.delta(b)).sum()
-    assert np.isclose(lhs, rhs)
+    assert (star(a).to_interlaced() == il.star(a.to_interlaced())).all()
 
 
-@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(1, D + 1)])
-def test_interlaced_star_d_star_equals_shifted_delta(D, N, p):
-    # Same identity as compact but shift is +2*(1,...,1) in interlaced coords
-    # (= +1 in physical coords), because the interlaced star pushes by (+1,...,+1).
-    lat = il.Lattice(D=D, N=N)
-    rng = np.random.default_rng(D * 100 + N * 10 + p)
-    f = lat.random(p)
-    sign = (-1) ** (D * (p - 1) + 1)
-    lhs = il.star(D - p + 1, il.d(il.star(p, f)))
-    rhs = il.delta(f).copy()
-    for ax in range(D):
-        rhs = np.roll(rhs, +2, axis=ax)
-    assert np.allclose(lhs, sign * rhs)
+# ---------------------------------------------------------------------------
+# Wedge product
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("D,N,n,m", [(D, N, n, m) for D in range(2, 5) for N in (3, 4, 5) for n in range(D + 1) for m in range(D + 1) if n + m <= D])
+def test_wedge_nonzero(D, N, n, m):
+    lat = Lattice(D=D, N=N)
+    assert np.asarray(wedge(lat.random(n), lat.random(m))).any()
 
 
-@pytest.mark.parametrize("N", (3, 4, 5))
-def test_lattice2d_h5_roundtrip(N):
-    L = Lattice2D(N)
-    with tempfile.NamedTemporaryFile(suffix='.h5') as f:
-        with h5.File(f.name, 'w') as hf:
-            L.to_h5(hf.create_group('lattice'))
-            L2 = Lattice2D.from_h5(hf['lattice'])
-    assert L2.D == L.D
-    assert L2.N == L.N
-    assert L2.nt == L.nt
-    assert L2.nx == L.nx
-    assert np.array_equal(L2.coords, L.coords)
+@pytest.mark.parametrize("D,N,n,m", [(D, N, n, m) for D in range(2, 5) for N in (3, 4, 5) for n in range(D + 1) for m in range(D + 1) if n + m <= D])
+def test_wedge_bilinear(D, N, n, m):
+    lat = Lattice(D=D, N=N)
+    a = lat.random(n); b = lat.random(n); c = lat.random(m); e = lat.random(m)
+    assert np.isclose(wedge(a + b, c), wedge(a, c) + wedge(b, c)).all()
+    assert np.isclose(wedge(a, c + e), wedge(a, c) + wedge(a, e)).all()
+
+
+@pytest.mark.parametrize("D,N,n,m,q", [(D, N, n, m, q) for D in range(2, 5) for N in (3, 4, 5) for n in range(D + 1) for m in range(D + 1) for q in range(D + 1) if n + m + q <= D])
+def test_wedge_associative(D, N, n, m, q):
+    lat = Lattice(D=D, N=N)
+    a = lat.random(n); b = lat.random(m); c = lat.random(q)
+    assert np.isclose(np.asarray(wedge(wedge(a, b), c)), np.asarray(wedge(a, wedge(b, c)))).all()
+
+
+@pytest.mark.parametrize("D,N,n,m", [(D, N, n, m) for D in range(2, 5) for N in (3, 4, 5) for n in range(D + 1) for m in range(D + 1) if n + m + 1 <= D])
+def test_leibniz_rule(D, N, n, m):
+    lat = Lattice(D=D, N=N)
+    a = lat.random(n); b = lat.random(m)
+    LHS = d(wedge(a, b))
+    RHS = wedge(d(a), b) + (-1)**n * wedge(a, d(b))
+    assert np.isclose(np.asarray(LHS), np.asarray(RHS)).all()
+
+
+@pytest.mark.parametrize("D,N,p,q", [(D, N, p, q) for D in range(2, 5) for N in (3, 4, 5) for p in range(D + 1) for q in range(D + 1) if p + q <= D])
+def test_compact_wedge_matches_interlaced(D, N, p, q):
+    lat = Lattice(D=D, N=N)
+    a = lat.random(p); b = lat.random(q)
+    assert np.isclose(wedge(a, b).to_interlaced(), il.wedge(p, q, a.to_interlaced(), b.to_interlaced())).all()

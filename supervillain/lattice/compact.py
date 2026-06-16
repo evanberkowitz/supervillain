@@ -154,12 +154,14 @@ class Lattice(ReadWriteable):
 
         .. plot:: example/plot/checkerboarding.py
 
-        Returns a tuple of ``np.where`` index-array tuples, one per color.  Each element selects a
-        color's sites from the D spatial axes of a form::
+        Returns
+        -------
+        tuple of index-array tuples
+            One ``np.where`` result per color; each element selects that
+            color's sites from the D spatial axes of a form::
 
-            for i, color in enumerate(L.checkerboarding):
-                form[(slice(None), *color)] = i
-
+                for i, color in enumerate(L.checkerboarding):
+                    form[(slice(None), *color)] = i
 
         .. warning::
             No promise is made about the future sizes of the color partitions.
@@ -189,17 +191,59 @@ class Lattice(ReadWriteable):
     # Factory methods
 
     def zeros(self, p, dtype=float):
-        """Return a zero p-form: shape (C(D,p), N,...,N)."""
+        """
+        Return a zero p-form.
+
+        Parameters
+        ----------
+        p : int
+            Form degree.
+        dtype : data-type, optional
+            np dtype for the underlying array (default ``float``).
+
+        Returns
+        -------
+        Form
+            Zero p-form of shape ``(C(D,p), N,...,N)``.
+        """
         shape = (comb(self.D, p),) + (self.N,) * self.D
         return Form(np.zeros(shape, dtype=dtype), degree=p, lattice=self)
 
     def random(self, p):
-        """Return a p-form with random entries uniform in [0, 1)."""
+        """
+        Return a p-form with entries drawn uniformly from [0, 1).
+
+        Parameters
+        ----------
+        p : int
+            Form degree.
+
+        Returns
+        -------
+        Form
+            Random p-form of shape ``(C(D,p), N,...,N)``.
+        """
         shape = (comb(self.D, p),) + (self.N,) * self.D
         return Form(np.random.random(shape), degree=p, lattice=self)
 
     def form(self, p, dtype=float):
-        """Return a zero p-form.  Alias for zeros(p, dtype=dtype)."""
+        """
+        Return a zero p-form.
+
+        Alias for :meth:`zeros`.
+
+        Parameters
+        ----------
+        p : int
+            Form degree.
+        dtype : data-type, optional
+            NumPy dtype (default ``float``).
+
+        Returns
+        -------
+        Form
+            Zero p-form of shape ``(C(D,p), N,...,N)``.
+        """
         return self.zeros(p, dtype=dtype)
 
     @cached_property
@@ -240,7 +284,19 @@ class Lattice(ReadWriteable):
         )
 
     def mod(self, x):
-        """Mod integer coordinates into FFT-convention lattice values."""
+        """
+        Map integer coordinates into FFT-convention lattice values.
+
+        Parameters
+        ----------
+        x : array_like
+            Integer site coordinates (any shape).
+
+        Returns
+        -------
+        np.ndarray
+            Coordinates in the range ``[-(N//2), N//2)`` (FFT convention).
+        """
         x = np.asarray(x)
         modded = np.mod(x, self.N)
         return self._coord_1d[modded]
@@ -285,12 +341,15 @@ class Lattice(ReadWriteable):
 
         Parameters
         ----------
-        form: np.ndarray
-        axes: tuple of int, optional
+        form : np.ndarray
+            The data to transform.  Spatial axes are the last D axes.
+        axes : tuple of int, optional
+            Override which axes to transform.  Defaults to the last D axes.
 
         Returns
         -------
         np.ndarray
+            The inverse-Fourier-transformed array (complex).
         """
         return np.fft.ifftn(form, axes=(axes if axes is not None else self._spatial_axes()), norm='ortho')
 
@@ -556,50 +615,47 @@ class Form(np.ndarray):
     r"""
     A differential p-form on a Lattice.
 
-    Underlying array shape: ``(C(D,p), N, N, ..., N)``.
-
-    - Axis 0 : component index (C(D,p) values, lexicographic order by direction tuple).
-    - Axes 1…D : physical lattice site n = (n_0, …, n_{D-1}).
-
-    **Relationship to the interlaced layout**
-
     In the :ref:`interlaced <interlaced>` $(2N)^D$ array a p-form component
-    with odd directions $I$ lives at interlaced coordinates $x$ with
+    with odd directions $I$ lives at :ref:`interlaced coordinates <interlaced-forms>` $\xi$ with
 
     .. math::
 
-        x_k = \begin{cases}
-            2 n_k     & k \notin I \\
-            2 n_k + 1 & k \in I
+        \xi_k = \begin{cases}
+            2 x_k     & k \notin I \\
+            2 x_k + 1 & k \in I
         \end{cases}
 
     so the even directions are site directions and the odd directions are the
-    directions the cell spans.  In both cases $\lfloor x_k / 2 \rfloor = n_k$:
+    directions the cell spans.  In both cases $\lfloor \xi_k / 2 \rfloor = x_k$:
     the physical site is always the floor of the interlaced coordinate divided
-    by 2.  This is why from_interlaced can use ``slice(0,None,2)`` and
-    ``slice(1,None,2)`` interchangeably to extract the same physical-site
-    index range for every component.
+    by 2.
 
-    **Arithmetic**
+    Actually storing data in this interlaced layout is very wasteful---for a $p$-form only $\binom{D}{p}/2^D$ of the array elements are used.
+    This introduces a nontrivial memory and speed overhead.
+    Instead, we store the data in a dense format in an array of shape $\left(\binom{D}{p}, N, N, ..., N\right)$.
 
-    Element-wise operations (±, *, /, unary −, abs, **, np.sqrt, np.isclose,
-    ==, …) return a Form of the same degree when all Form operands share a
-    degree.  Reductions (sum, max, …) return plain numpy scalars or arrays.
+    The 0th axis indexes the $\binom{D}{p}$ components, listed in lexicographic order by the sorted tuple of directions that are "form directions".
+    The remaining axes index the physical lattice site itself, $x$.
+
+    A :class:`Form` is a subclass of :class:`numpy.ndarray`, so it supports all the usual numpy operations.
+    Element-wise operations (``±``, ``*``, ``/``, unary ``−``, ``abs``, ``**``, ``np.sqrt``, ``np.isclose``, ``==``, and so on) return a Form of the same degree when all Form operands share a degree.
     Mixed-degree arithmetic is left as a plain ndarray because the degree of
-    the result would be ambiguous.
+    the result would be ambiguous, but :func:`the wedge product <wedge>` is defined below.
 
-    Numpy subclassing protocol:
-
-    - ``__new__``           : attach degree and lattice when the object is created.
-    - ``__array_finalize__``: propagate them when numpy makes an internal view.
-    - ``__array_ufunc__``   : intercept every ufunc call to return a typed Form
-      when the result is unambiguous.
+    Reductions (``sum``, ``max``, ``min``, and so on) return plain numpy scalars or arrays.
     """
 
     __batch_tag__ = 'Form'
 
     @classmethod
     def spatial_shape(cls, *, degree, lattice):
+        r'''
+
+        Returns
+        -------
+        tuple
+            Shape of a form with degree ``degree`` on ``lattice`` with $D$ dimensions and $N$ sites, ``(C(D,p), N, N, ..., N)``.
+        '''
         return (comb(lattice.D, degree),) + (lattice.N,) * lattice.D
 
     def __new__(cls, input_array, *, degree, lattice, dtype=None):
@@ -651,11 +707,16 @@ class Form(np.ndarray):
         """
         View of a single component's spatial data, shape (N,...,N).
 
-        Pass the direction indices as separate arguments or as a tuple:
-            f.component(0, 2)   — the (0,2)-component of a 2-form
-            f.component((0, 2)) — same
+        Parameters
+        ----------
+        *dirs : int or tuple of int
+            Direction indices, either as separate arguments ``f.component(0, 2)``
+            or as a single tuple ``f.component((0, 2))``.
 
-        The return value is a *view*, so writes back to the Form.
+        Returns
+        -------
+        np.ndarray
+            A view of shape ``(N,...,N)``; writes back to the Form.
         """
         # Accept either f.component(0,2) or f.component((0,2))
         if len(dirs) == 1 and hasattr(dirs[0], '__iter__'):
@@ -666,14 +727,18 @@ class Form(np.ndarray):
 
     def to_interlaced(self):
         """
-        Embed the compact form into a $(2N)^D$ :ref:`interlaced <interlaced>`
-        array.  Every site that is not a p-form site is zero.
+        Embed the compact form into a $(2N)^D$ :ref:`interlaced <interlaced-forms>` array.
 
-        Each component indexed by direction tuple `comp` occupies the
-        sub-array where direction k uses odd indices (start=1) if k is
-        in `comp`, and even indices (start=0) otherwise.
+        Component $I$ occupies the sub-array where direction $k$ uses odd
+        indices if $k \\in I$ and even indices otherwise; every non-p-form
+        site is zero.
 
-        Returns a plain numpy.ndarray of shape (2N, 2N, ..., 2N).
+        Inverse of :meth:`from_interlaced`.
+
+        Returns
+        -------
+        np.ndarray
+            Plain array of shape ``(2N, 2N, ..., 2N)``.
         """
         lat = self.lattice
         D, N = lat.D, lat.N
@@ -692,26 +757,26 @@ class Form(np.ndarray):
     @classmethod
     def from_interlaced(cls, p, data, lattice=None):
         """
-        Construct a compact Form from an interlaced $(2N)^D$ array.
+        Construct a dense Form from an interlaced $(2N)^D$ array.
+
+        Inverse of :meth:`to_interlaced`.
 
         Parameters
         ----------
-        p: int
+        p : int
             Form degree.
-        data: np.ndarray
-            Interlaced array of shape (2N, 2N, ..., 2N); only the
-            sites with exactly p odd coordinates are read.
-        lattice: Lattice, optional
+        data : np.ndarray
+            Interlaced array of shape ``(2N, 2N, ..., 2N)``; only sites
+            with exactly p odd coordinates are read.
+        lattice : Lattice, optional
             Inferred from ``data.shape`` if omitted.
 
-        This is the left-inverse of to_interlaced()::
+        Returns
+        -------
+        Form
+            The compact p-form whose interlaced embedding reproduces ``data``
+            at p-form sites.
 
-            Form.from_interlaced(p, f.to_interlaced()) == f   # for any p-Form f
-
-        For a valid interlaced p-form it is also the right-inverse::
-
-            Form.from_interlaced(p, data).to_interlaced() == data
-            # (provided data is zero at all non-p-form sites)
         """
         D = data.ndim
         N = data.shape[0] // 2
@@ -733,16 +798,18 @@ class Form(np.ndarray):
         r"""
         Sum this p-form onto its (p-1)-faces, returning a (p-1)-form.
 
-        A p-cell is bounded by (p-1)-faces.  For each such face $M$ at site $n$,
+        For each (p-1)-form output component $M$ at site $x$:
 
         .. math::
 
-            g_M[n] = \sum_{O \supset M} \big( f_O[n] + f_O[n - \hat{e}_e] \big)
+            g_M[x] = \sum_{O \supset M} \big( f_O[x] + f_O[x - \hat{e}_e] \big)
 
-        where the sum runs over p-cells $O = M \cup \{e\}$.  Example: a 1-form
-        on links summed onto the sites that bound each link gives a 0-form.
+        where the sum runs over p-cells $O = M \cup \{e\}$.
 
-        Unlike $\delta$, all contributions enter with the same sign.
+        Returns
+        -------
+        Form
+            The (p-1)-form face sum, or ``0`` if this is a 0-form.
         """
         lat = self.lattice
         p   = self.degree
@@ -770,17 +837,20 @@ class Form(np.ndarray):
         r"""
         Sum this p-form onto incident (p+1)-cofaces, returning a (p+1)-form.
 
-        A (p+1)-cell has p-faces; for each such coface $O$ at site $n$,
+        For each (p+1)-form output component $O$ at site $x$:
 
         .. math::
 
-            g_O[n] = \sum_{M \subset O} \big( f_M[n] + f_M[n + \hat{e}_{o_j}] \big)
+            g_O[x] = \sum_{M \subset O} \big( f_M[x] + f_M[x + \hat{e}_{o_j}] \big)
 
         where the sum runs over p-faces $M = O \setminus \{o_j\}$ of $O$.
-        Example: a 1-form on links summed onto plaquettes gives a 2-form
-        (vortex Metropolis).
+        Dual to :meth:`face_sum`; unlike :func:`d`, all contributions enter
+        unsigned.
 
-        Dual to :meth:`face_sum`; unlike $d$, all contributions enter unsigned.
+        Returns
+        -------
+        Form
+            The (p+1)-form coface sum, or ``0`` if this is a D-form.
         """
         lat = self.lattice
         p   = self.degree
@@ -815,7 +885,12 @@ class Form(np.ndarray):
 # ---------------------------------------------------------------------------
 
 def push(form, shift):
-    """Translate form forward: result[..., n + shift] = form[..., n]  (periodic).
+    r"""Translate the form forward by $\Delta x$.
+
+    .. math ::
+
+        \texttt{push}(f, \Delta x)[\ldots, x] = f[\ldots, x - \Delta x]  \quad \text{(periodic)}
+
 
     Parameters
     ----------
@@ -836,9 +911,22 @@ def push(form, shift):
 
 
 def pull(form, shift):
-    """Translate form backward: result[..., n] = form[..., n + shift]  (periodic).
+    r"""Translation operator $T_{\Delta x}$: pull content from position $x + \Delta x$ to $x$.
 
-    Equivalent to ``push`` with the sign of each component of ``shift`` reversed.
+    .. math ::
+
+        T_{\Delta x} f[\ldots, x] = \texttt{pull}(f, \Delta x)[\ldots, x] = f[\ldots, x + \Delta x]  \quad \text{(periodic)}
+
+    Parameters
+    ----------
+    form : np.ndarray
+        Array whose last ``len(shift)`` axes are the spatial directions.
+    shift : sequence of int
+        One integer per spatial direction.
+
+    Returns
+    -------
+    np.ndarray
     """
     return push(form, tuple(-s for s in shift))
 
@@ -849,26 +937,27 @@ def pull(form, shift):
 
 def d(f):
     r"""
-    Exterior derivative of a p-form, returning a (p+1)-form.
+    The exterior derivative of a p-form, a (p+1)-form.
 
-    For each output component $O = (o_0, \ldots, o_p)$ the formula is
-
-    .. math::
-
-        (df)_O[n] = \sum_{j=0}^{p} (-1)^j \, \Delta_{o_j} f_{O \setminus \{o_j\}}[n]
-
-    where $\Delta_k$ is the forward finite difference in direction $k$:
+    For each output component $O = (o_0, \ldots, o_p)$:
 
     .. math::
 
-        \Delta_k A[n] = A[n + \hat{e}_k] - A[n]
+        (df)_O[x] = \sum_{j=0}^{p} (-1)^j \, \Delta_{o_j} f_{O \setminus \{o_j\}}[x]
 
-    implemented as ``np.roll(A, -1, axis=k) - A``.
+    where $\Delta_k A[x] = A[x + \hat{e}_k] - A[x]$ is the forward finite difference.
+    The sign $(-1)^j$ is the signature of the permutation sorting $o_j$
+    into the remaining directions (see :ref:`sign-conventions`).
 
-    The sign alternates ±1 over the directions of the target form; it is the
-    sign of the permutation sorting $o_j$ into the remaining directions (see
-    :ref:`sign-conventions`).  Periodic boundary conditions come for free
-    from ``np.roll``.
+    Parameters
+    ----------
+    f : Form
+        A p-form on a :class:`Lattice`.
+
+    Returns
+    -------
+    Form
+        The (p+1)-form $df$, or the scalar ``0`` if $f$ is a D-form.
     """
     lat = f.lattice
     p   = f.degree
@@ -907,25 +996,24 @@ def delta(f):
 
     For each output component $M = (m_0, \ldots, m_{p-1})$ and each direction
     $e \notin M$, let $j = \#\{m \in M : m < e\}$ (the position where $e$
-    would be inserted to keep $M \cup \{e\}$ sorted).  Then
+    would be inserted to keep $M \cup \{e\}$ sorted):
 
     .. math::
 
-        (\delta F)_M[n] = - \sum_{e \notin M} (-1)^j \, \nabla^*_e F_{M \cup \{e\}}[n]
+        (\delta f)_M[x] = - \sum_{e \notin M} (-1)^j \, \nabla^*_e f_{M \cup \{e\}}[x]
 
-    where $\nabla^*_e$ is the backward finite difference in direction $e$:
+    where $\nabla^*_e A[x] = A[x] - A[x - \hat{e}_e]$ is the backward finite difference.
+    With the overall minus, $\delta$ is the formal adjoint of :func:`d` under the componentwise inner product (:eq:`d-delta-formal-adjoint`).
 
-    .. math::
+    Parameters
+    ----------
+    f : Form
+        A p-form on a :class:`Lattice`.
 
-        \nabla^*_e A[n] = A[n] - A[n - \hat{e}_e]
-
-    implemented as ``A - np.roll(A, +1, axis=e)``.
-
-    The sign $(-1)^j$ equals $(-1)^{e-i}$ where $i$ is the position of $e$ in
-    the sorted complement of $M$ in $\{0, \ldots, D-1\}$, because
-    $e - i = \#\{m \in M : m < e\}$.  With the overall minus, $\delta$ is the
-    formal adjoint of :func:`d` under the componentwise inner product (see
-    :ref:`sign-conventions`).
+    Returns
+    -------
+    Form
+        The (p-1)-form $\delta f$, or the scalar ``0`` if $f$ is a 0-form.
     """
     lat = f.lattice
     p   = f.degree
@@ -974,34 +1062,39 @@ def _perm_sign(seq):
 
 def star(f):
     r"""
-    Hodge star of a p-form, returning a (D-p)-form.
+    Hodge star of a p-form, a (D-p)-form.
 
     For each output component $J$ (a sorted $(D-p)$-tuple of directions),
-    let $I$ be the complement of $J$ in $\{0, \ldots, D-1\}$.  Then
+    let $I$ be the complement of $J$ in $\{0, \ldots, D-1\}$:
 
     .. math::
 
-        (\star f)_J[n] = \sigma(I, J) \; f_I[n - \hat{e}_I]
+        (\star f)_J[x] = \sigma(I \frown J) \; f_I[x - \hat{e}_I]
 
-    where $\sigma(I, J) = (-1)^{\#\{(i, j) \in I \times J \,:\, i > j\}}$ is
-    the sign of the permutation sorting the concatenation $(I, J)$ and
-    $\hat{e}_I = \sum_{k \in I} \hat{e}_k$ sums the unit vectors of the $I$
-    directions.  The shift $f_I[n - \hat{e}_I]$ is implemented as successive
-    ``np.roll(…, +1, axis=k)`` calls for $k \in I$.
-
-    **Why the spatial shift?**
+    where $\sigma(I \frown J) = (-1)^{\#\{(i, j) \in I \times J \,:\, i > j\}}$ is
+    the sign of the permutation sorting the concatenation $(I \frown J)$ and
+    $\hat{e}_I = \sum_{k \in I} \hat{e}_k$.
 
     In the discrete :ref:`interlaced <interlaced>` geometry, a p-form and its
-    Hodge dual are "centred" at different lattice positions.  The shift aligns
-    them so that the inner-product identity holds pointwise after summing:
+    Hodge dual are centered at different lattice positions.  The shift aligns
+    them so that the inner-product identity holds after summing over the lattice:
 
     .. math::
 
-        \sum_{n, I} a_I[n] \, b_I[n] = \sum_n (a \wedge \star b)_{(0, \ldots, D-1)}[n]
+        \sum_{x, I} a_I[x] \, b_I[x] = \sum_x (a \wedge \star b)_{(0, \ldots, D-1)}[x]
 
-    For $p = 0$ and $p = D$ the shift is trivial ($|I| = 0$ or the shifts
-    cancel in the wedge), which is why a pure push without signs already
-    works for those two degrees.
+    For $p = 0$ and $p = D$ the shift is trivial ($\hat{e}_I = 0$ or the
+    shifts cancel in the wedge).
+
+    Parameters
+    ----------
+    f : Form
+        A p-form on a :class:`Lattice`.
+
+    Returns
+    -------
+    Form
+        The (D-p)-form $\star f$.
     """
     lat = f.lattice
     p   = f.degree
@@ -1031,30 +1124,36 @@ def star(f):
 
 def wedge(a, b):
     r"""
-    Wedge product of an n-form a and an m-form b, returning an (n+m)-form.
+    Wedge product of an n-form a and an m-form b, an (n+m)-form.
 
-    For each output component $O = (o_0, \ldots, o_{n+m-1})$ we sum over all
-    ways to split $O$ into the $a$-directions $B$ ($n$ of them) and the
-    $b$-directions $A$ ($m$ of them):
+    For each output component $O = (o_0, \ldots, o_{n+m-1})$, the sum over all
+    shuffles $O = A \sqcup B$ ($A$ the $n$ $a$-directions, $B$ the $m$
+    $b$-directions):
 
     .. math::
 
-        (a \wedge b)_O[n] = \sum_{O = B \sqcup A} \sigma(B, A) \; a_B[n] \; b_A[n + \hat{e}_B]
+        (a \wedge b)_O[x] = \sum_{O = A \sqcup B} \sigma(A \frown B) \; a_A[x] \; b_B[x + \hat{e}_A]
 
-    where $\hat{e}_B = \sum_{k \in B} \hat{e}_k$, implemented as successive
-    ``np.roll(…, -1, axis=k)`` calls on the b-component array.
+    where $\hat{e}_A = \sum_{k \in A} \hat{e}_k$ and
+    $\sigma(A \frown B) = (-1)^{\#\{(k, j) \in A \times B \,:\, j < k\}}$ is the
+    sign of the permutation sorting $(A \frown B)$ back into $O$.
 
-    **Sign convention**
+    Parameters
+    ----------
+    a : Form
+        An n-form on a :class:`Lattice`.
+    b : Form
+        An m-form on the same :class:`Lattice`.
 
-    $\sigma(B, A) = (-1)^{\#\{(k, j) \in B \times A \,:\, j < k\}}$ counts
-    the inversions of the concatenation $(B, A)$ — the pairs where an
-    $A$-direction appears before a $B$-direction — i.e. it is the sign of
-    the permutation sorting $(B, A)$ back into $O$ (see
-    :ref:`sign-conventions`).
+    Returns
+    -------
+    Form
+        The (n+m)-form $a \wedge b$.
 
-    This matches the wedge of the interlaced
-    :ref:`reference implementation <reference_implementations>` exactly
-    (verified by tracing the push/pull shifts for several (n,m) pairs).
+    Raises
+    ------
+    ValueError
+        If $n + m > D$.
     """
     lat = a.lattice
     n, m = a.degree, b.degree
@@ -1068,34 +1167,28 @@ def wedge(a, b):
     for out_comp in lat.components[n + m]:
         out_idx = lat.comp_index[n + m][out_comp]
 
-        # Enumerate all size-m subsets of out_comp → these become A_dirs.
-        # The complementary size-n subset becomes B_dirs.
-        for A_dirs in combinations(out_comp, m):
+        # Enumerate all n-element (a-direction) subsets of out_comp as A_dirs;
+        # the complementary m-element (b-direction) subset becomes B_dirs.
+        for A_dirs in combinations(out_comp, n):
             B_dirs = tuple(k for k in out_comp if k not in A_dirs)
-            # B_dirs is already sorted because out_comp is sorted and we
-            # remove elements while preserving order.
 
-            # Compute the sign: count A-before-B inversions.
-            A_set = set(A_dirs)
+            # Sign σ(A⌢B): inversions in (A, B) relative to sorted O,
+            # i.e. pairs (a, b) with a ∈ A, b ∈ B, b < a.
             inversions = sum(
                 1
-                for k in B_dirs
-                for j in A_dirs
+                for k in A_dirs
+                for j in B_dirs
                 if j < k
             )
             sign = (-1) ** inversions
 
-            # a is evaluated at site n using component B_dirs.
-            a_idx = lat.comp_index[n][B_dirs]
+            a_idx = lat.comp_index[n][A_dirs]
             a_spatial = a[a_idx]   # shape (N,...,N)
 
-            # b is evaluated at site n + shift_B, where shift_B moves
-            # +1 in each direction k ∈ B_dirs.
-            # Rolling b by -1 in axis k maps b[n] ← b[n+1_k], which is
-            # equivalent to evaluating b at the site one step forward in k.
-            b_idx = lat.comp_index[m][A_dirs]
+            # b is evaluated at x + hat_e_A: roll by -1 in each direction k ∈ A_dirs.
+            b_idx = lat.comp_index[m][B_dirs]
             b_spatial = b[b_idx]   # shape (N,...,N)
-            for k in B_dirs:
+            for k in A_dirs:
                 b_spatial = np.roll(b_spatial, -1, axis=k)
 
             result[out_idx] += sign * a_spatial * b_spatial
@@ -1218,6 +1311,23 @@ if __name__ == '__main__':
         assert np.isclose(LHS, RHS), \
             f"Hodge identity failed for p={p}: {LHS} vs {RHS}"
         print(f"  ✅ Σ a·b = Σ (a∧★b)  for p={p}")
+
+    # --- Discrete δ = (-1)^{n(k+1)+1} pull(★d★, ê_all) ---------------------
+    # The continuum identity δ = (-1)^{n(k+1)+1} ★d★ acquires a spatial shift
+    # on the compact lattice because the staggered Hodge star accumulates one
+    # step back per application.  The exact discrete relation is:
+    #   ★d★ f = (-1)^{n(k+1)+1} · push(δf, (1,...,1))
+    # equivalently:
+    #   δf    = (-1)^{n(k+1)+1} · pull(★d★ f, (1,...,1))
+    print("\nCODIFFERENTIAL  ★d★ = (-1)^{n(k+1)+1} push(δ, ê_all)")
+    for k in range(1, D + 1):
+        f    = lat.random(k)
+        sign = (-1) ** (D * (k + 1) + 1)
+        lhs  = np.asarray(star(d(star(f))))
+        rhs  = sign * np.asarray(push(delta(f), (1,) * D))
+        assert np.isclose(lhs, rhs).all(), \
+            f"★d★ ≠ (-1)^{{n(k+1)+1}} push(δ, ê_all) on {k}-forms (sign={sign:+d})"
+        print(f"  ✅ ★d★ = (-1)^{{n(k+1)+1}} push(δ, ê_all)  on {k}-forms")
 
     # --- to_interlaced round-trip ------------------------------------------
     # Verify that embedding a compact form into the (2N)^D array places

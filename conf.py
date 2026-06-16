@@ -3,8 +3,10 @@
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
-import sys
 import os
+import subprocess
+import sys
+
 sys.path.insert(0, os.path.abspath('.'))
 
 # -- Project information -----------------------------------------------------
@@ -26,6 +28,7 @@ extensions = [
         'sphinx.ext.viewcode',
         'sphinx_toolbox.collapse',
         'sphinx_toolbox.github',
+        'sphinx_toolbox.source',
         'sphinx_toolbox.sidebar_links',
         'sphinx_favicon',
         'sphinxcontrib.bibtex',
@@ -36,6 +39,27 @@ extensions = [
 # https://sphinx-toolbox.readthedocs.io/en/stable/extensions/github.html
 github_username='evanberkowitz'
 github_repository='supervillain'
+source_link_target = 'GitHub'
+
+
+def _git_branch():
+    try:
+        return subprocess.check_output(
+            ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except (subprocess.SubprocessError, FileNotFoundError):
+        return 'main'
+
+
+def setup(app):
+    # sphinx_toolbox.github hard-codes "master"; use the branch being built.
+    app.connect('config-inited', _set_github_source_url, priority=851)
+
+
+def _set_github_source_url(app, config):
+    config.github_source_url = config.github_url / 'blob' / _git_branch()
 
 templates_path = ['_templates']
 

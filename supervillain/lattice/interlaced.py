@@ -81,10 +81,19 @@ def _structures(D):
 
 def push(data, shift):
     """
-    Translate data by `shift` steps: result[n + shift] = data[n]  (periodic).
+    Translate data by ``shift`` steps: result[n + shift] = data[n]  (periodic).
 
-    shift — tuple or array of D integers, one per spatial direction.
-    D is inferred from data.ndim.
+    Parameters
+    ----------
+    data : np.ndarray
+        A $(2N)^D$ interlaced form array.
+    shift : tuple of int
+        One integer per spatial direction; $D$ is inferred from ``data.ndim``.
+
+    Returns
+    -------
+    np.ndarray
+        Translated array of the same shape.
     """
     result = data
     for axis, s in enumerate(shift):
@@ -95,9 +104,21 @@ def push(data, shift):
 
 def pull(data, shift):
     """
-    Pull data from `shift` steps away: result[n] = data[n + shift].
+    Pull data from ``shift`` steps away: result[n] = data[n + shift]  (periodic).
 
-    Equivalent to push with the sign of shift reversed.
+    Equivalent to :func:`push` with the sign of ``shift`` reversed.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        A $(2N)^D$ interlaced form array.
+    shift : tuple of int
+        One integer per spatial direction.
+
+    Returns
+    -------
+    np.ndarray
+        Translated array of the same shape.
     """
     return push(data, tuple(-s for s in shift))
 
@@ -117,10 +138,17 @@ def d(data):
 
         \sum_{j} (-1)^j \big( \texttt{data}[x + \varepsilon_{o_j}] - \texttt{data}[x - \varepsilon_{o_j}] \big)
 
-    where $\varepsilon_k$ is the unit vector in direction $k$; the shifts
-    are implemented with :func:`pull`.
+    where $\varepsilon_k$ is the unit vector in direction $k$.
 
-    ε, odd, and idx are fetched from the per-D cache rather than globals.
+    Parameters
+    ----------
+    data : np.ndarray
+        A $(2N)^D$ interlaced $p$-form array.
+
+    Returns
+    -------
+    np.ndarray
+        The $(2N)^D$ interlaced $(p+1)$-form $df$.
     """
     D = data.ndim
     ε, odd, even, idx = _structures(D)
@@ -140,15 +168,22 @@ def delta(data):
     r"""
     Codifferential (formal adjoint of d).  Infers D from data.ndim.
 
-    For each (p-1)-form output site $x$ with even directions
-    $E = (e_0, \ldots)$, the contribution at position $i$ in $E$ from
-    direction $e$ is
+    For each $(p-1)$-form output site $x$ with even directions
+    $E = (e_0, \ldots, e_{D-p})$, the contribution is
 
     .. math::
 
-        -(-1)^{e - i} \big( \texttt{data}[x + \varepsilon_e] - \texttt{data}[x - \varepsilon_e] \big)
+        -\sum_{i=0}^{D-p} (-1)^{e_i - i} \big( \texttt{data}[x + \varepsilon_{e_i}] - \texttt{data}[x - \varepsilon_{e_i}] \big).
 
-    (note the overall minus; see :ref:`sign-conventions`).
+    Parameters
+    ----------
+    data : np.ndarray
+        A $(2N)^D$ interlaced $p$-form array.
+
+    Returns
+    -------
+    np.ndarray
+        The $(2N)^D$ interlaced $(p-1)$-form $\delta f$.
     """
     D = data.ndim
     ε, odd, even, idx = _structures(D)
@@ -194,20 +229,38 @@ def _assignments(D, n, m):
 
 def wedge(n, m, a, b):
     r"""
-    Wedge product of an n-form a and an m-form b.  Infers D from a.ndim.
+    Wedge product of an $n$-form $a$ and an $m$-form $b$.  Infers $D$ from
+    \texttt{a.ndim}.
 
-    For each (n+m)-form output site $x$ with odd directions $O$ and each way
-    to split $O$ into directions assigned to $a$ and to $b$, the contribution
-    is
+    At each $(n+m)$-form output site $x$ with odd directions $O$, summing over
+    all shuffles $O = A \sqcup B$ ($A$ the $n$ directions of $a$, $B$ the $m$
+    directions of $b$):
 
     .. math::
 
-        \sigma \; a[x - s_a] \; b[x + s_b]
+        (a \wedge b)[x] = \sum_{O = A \sqcup B}
+            \sigma(B \frown A)\; a[x - \hat{\varepsilon}_A]\; b[x + \hat{\varepsilon}_B]
 
-    where $s_a$ and $s_b$ sum $\varepsilon_o$ over the directions assigned to
-    $a$ and $b$ respectively (implemented with :func:`pull`), and the sign
-    $\sigma$ counts the inversions of the 0/1 assignment tuple (see
-    :ref:`sign-conventions`).
+    where $\hat{\varepsilon}_A = \sum_{k \in A} \varepsilon_k$,
+    $\hat{\varepsilon}_B = \sum_{k \in B} \varepsilon_k$, and
+    $\sigma(B \frown A)$ is the sign of the permutation sorting $(B, A)$
+    back into $O$.
+
+    Parameters
+    ----------
+    n : int
+        Degree of $a$.
+    m : int
+        Degree of $b$.
+    a : np.ndarray
+        A $(2N)^D$ interlaced $n$-form array.
+    b : np.ndarray
+        A $(2N)^D$ interlaced $m$-form array on the same lattice.
+
+    Returns
+    -------
+    np.ndarray
+        The $(2N)^D$ interlaced $(n+m)$-form $a \wedge b$.
     """
     D = a.ndim
     ε, odd, even, idx = _structures(D)
@@ -238,34 +291,57 @@ def _perm_sign(seq):
     )
 
 
-def star(p, data):
-    r"""
-    Hodge star of a p-form, returning a (D-p)-form.  Infers D from data.ndim.
+_sign_unit_cache = {}
 
-    The spatial shift ``push(data, (+1,)*D)`` maps every p-form site to the
-    corresponding (D-p)-form site (it flips all parities).  Each output
-    component $J$ then receives the permutation sign $\sigma(I, J)$, where
-    $I$ is the complement of $J$:
+def _sign_unit(D):
+    """
+    Return the (2,)*D sign array for the Hodge star, cached per D.
+
+    Entry indexed by parity pattern (b_0,...,b_{D-1}) — where b_k=1 means
+    direction k is a form direction — is sigma(I frown J) with J the set of
+    1-directions and I the set of 0-directions.
+    """
+    if D not in _sign_unit_cache:
+        su = np.zeros((2,) * D)
+        for pattern in product((0, 1), repeat=D):
+            J = tuple(k for k, b in enumerate(pattern) if b == 1)
+            I = tuple(k for k, b in enumerate(pattern) if b == 0)
+            su[pattern] = _perm_sign(I + J)
+        _sign_unit_cache[D] = su
+    return _sign_unit_cache[D]
+
+
+def star(data):
+    r"""
+    The Hodge star maps a $p$-form to a $(D-p)$-form.
+    On the interlaced lattice this entails (bijectively) shifting the data by $\varepsilon_{\mathrm{all}} = (1,\ldots,1)$, flipping every coordinate's parity.
+
+    The sign for each output site $\xi$ with odd directions $J$ depends only on $J$:
 
     .. math::
 
-        (\star f)_J = \sigma(I, J) \; \texttt{shifted}_J
+        (\star f)_J[\xi] = \sigma(I \frown J)\; f_I[\xi - \varepsilon_{\mathrm{all}}]
 
-    where $\sigma(I, J)$ is the sign of the permutation sorting the
-    concatenation $(I, J)$.
+    where $I = \{0,\ldots,D-1\} \setminus J$ and $\sigma(I \frown J)$ is the
+    sign of the permutation sorting $(I \frown J)$.
 
-    For $p = 0$ and $p = D$ all signs happen to be +1, which is why a bare
-    push without signs passes those cases but fails for intermediate degrees.
+    Parameters
+    ----------
+    data : np.ndarray
+        A $(2N)^D$ interlaced $p$-form array.
+
+    Returns
+    -------
+    np.ndarray
+        The $(2N)^D$ interlaced $(D-p)$-form $\star f$.
     """
     D = data.ndim
-    ε, odd, even, idx = _structures(D)
-    shifted = push(data, (+1,) * D)
-    result  = np.zeros_like(data)
-    for J_dirs, J_idx in zip(odd[D - p], idx[D - p]):
-        I_dirs = tuple(k for k in range(D) if k not in set(J_dirs))
-        sign   = _perm_sign(I_dirs + J_dirs)
-        result[J_idx] = sign * shifted[J_idx]
-    return result
+    N = data.shape[0] // 2
+    # Because $\sigma$ is a function of the output site alone,
+    # it can be precomputed as a $(2,)^D$ array tiled
+    # to $(2N)^D$ — making the star degree-independent.
+    sign_array = np.tile(_sign_unit(D), (N,) * D)
+    return sign_array * push(data, (+1,) * D)
 
 
 # ---------------------------------------------------------------------------
@@ -395,7 +471,7 @@ if __name__ == '__main__':
     for p in range(D + 1):
         a = lat.random(p); b = lat.random(p)
         LHS = (a * b).sum()
-        RHS = (wedge(p, D-p, a, star(p, b)) * lat.form(D)).sum()
+        RHS = (wedge(p, D-p, a, star(b)) * lat.form(D)).sum()
         assert np.isclose(LHS, RHS), f"p={p}: {LHS} vs {RHS}"
         print(f"  ✅ Σ a·b = Σ (a∧★b)  for p={p}")
 
