@@ -185,5 +185,6 @@ In the continuum, on a Riemannian manifold with Euclidean signature, the Hodge s
 
    where $\hat{e}_{\mathrm{all}} = \sum_\mu \hat{e}_\mu$ and $T_{\Delta x}$ is the translation operator in :func:`~supervillain.lattice.pull` by $\Delta x$.
    The shift by $\hat{e}_{\mathrm{all}}$ drops out of any periodic sum, which is why the adjoint identity :eq:`d-delta-formal-adjoint` holds exactly despite it.
+   This is tested by ``test_star_d_star_equals_shifted_delta`` in :source:`test/test_lattice.py`.
 
 
