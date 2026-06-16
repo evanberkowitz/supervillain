@@ -4,6 +4,7 @@ import numpy as np
 import supervillain.action
 from supervillain.h5 import ReadWriteable
 from supervillain.generator import Generator
+from supervillain.lattice import d
 
 import logging
 logger = logging.getLogger(__name__)
@@ -15,7 +16,7 @@ class NeighborhoodUpdate(ReadWriteable, Generator):
     Proposals are drawn according to
 
     .. math ::
-    
+
         \begin{aligned}
         \Delta\phi_x    &\sim \text{uniform}(-\texttt{interval\_phi}, +\texttt{interval\_phi})
         \\
@@ -25,21 +26,18 @@ class NeighborhoodUpdate(ReadWriteable, Generator):
     We pick :math:`\Delta n_\ell` to be a multiple of the constraint integer $W$ so that if the adjacent plaquettes satisfy the :ref:`winding constraint <winding constraint>` $dn \equiv 0 \text{ mod }W$
     before the update they satisfy it after as well.
 
+    Each site update changes $\phi$ at one site and $n$ on the $2D$ links touching that site (one forward
+    and one backward link per direction).  A checkerboard sweep is used so that the $2D$ adjacent links
+    of each same-color site are disjoint, enabling vectorized proposals and a single :meth:`~supervillain.lattice.Form.face_sum` call for $\Delta S$.
+
     .. seealso ::
        On a small 5×5 example this generator yields about three times as many updates per second than :class:`NeighborhoodUpdateSlow <supervillain.generator.reference_implementation.villain.NeighborhoodUpdateSlow>` on my machine.
        This ratio should *improve* for larger lattices because the change in action is computed directly and is of fixed cost, rather than scaling with the volume.
-
-    .. todo::
-        Generalize to D>2. The current implementation hardcodes D=2: four neighbors (north/south/east/west),
-        two link components, and a four-term ΔS formula. A general implementation would loop over all 2D
-        neighbors and link components. Raises :exc:`NotImplementedError` for D≠2.
     '''
 
     def __init__(self, action, interval_phi=np.pi, interval_n=1):
         if not isinstance(action, supervillain.action.Villain):
             raise ValueError('The Neighborhood Metropolis update requires the Villain action.')
-        if action.Lattice.D != 2:
-            raise NotImplementedError('NeighborhoodUpdate is only implemented for D=2')
         self.Action       = action
         self.Lattice      = action.Lattice
         self.kappa        = action.kappa
@@ -60,7 +58,11 @@ class NeighborhoodUpdate(ReadWriteable, Generator):
 
     def step(self, cfg):
         r'''
-        Make volume's worth of random single-site updates.
+        Make a volume's worth of random single-site updates.
+
+        Uses checkerboarding so that the 2D links adjacent to each same-color site are
+        disjoint, allowing vectorized proposals and a single :func:`~supervillain.lattice.Form.face_sum`
+        to aggregate $\Delta S$ per site.
 
         Parameters
         ----------
@@ -73,61 +75,64 @@ class NeighborhoodUpdate(ReadWriteable, Generator):
             Another configuration of fields.
         '''
 
+        S = self.Action
+        L = S.Lattice
         self.sweeps += 1
+        total_accepted = 0
         total_acceptance = 0
-        accepted = 0
 
         phi = cfg['phi'].copy()
         n   = cfg['n'].copy()
 
-        # Rather than sweeping the lattice in a particular order, we randomly update sites.
-        sites = np.stack((
-            np.random.randint(self.Lattice.dims[0], size=self.Lattice.cells_of_degree[0]),
-            np.random.randint(self.Lattice.dims[1], size=self.Lattice.cells_of_degree[0])
-        )).transpose()
+        metropolis = self.rng.uniform(0, 1, (L.N,) * L.D)
 
-        for here, metropolis in zip(sites, self.rng.uniform(0,1,len(sites))):
-            # Rather than leveraging translational symmetry and reckoning from the origin,
-            # it is faster to do a little bit of index arithmetic and avoid all the data movement.
-            # This is particularly noticable on large lattices.
-            north, south, east, west = self.Lattice.mod(here + np.array([[+1,0],[-1,0],[0,-1],[0,+1]]))
-                # Since time is the zeroeth axis, *west* is the positive space direction.
+        # Precompute residuals r[mu, x] = d(phi)[mu,x] - 2π n[mu,x].
+        # Updated incrementally after each accepted color sweep.
+        r = d(phi) - 2 * np.pi * n
 
-            change_phi =                 self.rng.uniform(-self.interval_phi,+self.interval_phi,None)
-            change_n   = self.Action.W * self.rng.choice(self.n_changes,4)
+        for color in L.checkerboarding:
+            n_sites = len(color[0])
 
-            # We don't even construct a new field until we know whether we know we'll accept or reject.
-            # We can calculate dS directly from just the previous values and the proposed changes.
-            # This formula is the application of the difference of two squares for each changed link.
-            dS = 0.5*self.kappa*(
-                +(-change_phi-2*np.pi*change_n[0])*(2*(phi[0,north[0],north[1]]-phi[0,here [0],here [1]]-2*np.pi*n[0,here [0],here [1]])-change_phi-2*np.pi*change_n[0])
-                +(+change_phi-2*np.pi*change_n[1])*(2*(phi[0,here [0],here [1]]-phi[0,south[0],south[1]]-2*np.pi*n[0,south[0],south[1]])+change_phi-2*np.pi*change_n[1])
-                +(-change_phi-2*np.pi*change_n[2])*(2*(phi[0,west [0],west [1]]-phi[0,here [0],here [1]]-2*np.pi*n[1,here [0],here [1]])-change_phi-2*np.pi*change_n[2])
-                +(+change_phi-2*np.pi*change_n[3])*(2*(phi[0,here [0],here [1]]-phi[0,east [0],east [1]]-2*np.pi*n[1,east [0],east [1]])+change_phi-2*np.pi*change_n[3])
-            )
+            # --- Δφ proposal: non-zero only on this color ---
+            change_phi = L.zeros(0)
+            change_phi[0, *color] = self.rng.uniform(-self.interval_phi, +self.interval_phi, n_sites)
 
-            # Now we Metropolize
-            acceptance = np.clip( np.exp(-dS), a_min=0, a_max=1)
-            total_acceptance += acceptance
-            if metropolis < acceptance:
-                logger.debug(f'Proposal accepted; ∆S = {dS:f}; acceptance probability = {acceptance:f}')
-                accepted += 1
-                # and conditionally update the configuration.
-                phi [0,here [0],here [1]] += change_phi
-                # These assignments are picked to match the unrolled dS calculation.
-                n[0,here [0],here [1]] += change_n[0]
-                n[0,south[0],south[1]] += change_n[1]
-                n[1,here [0],here [1]] += change_n[2]
-                n[1,east [0],east [1]] += change_n[3]
-            else:
-                logger.debug(f'Proposal rejected; ∆S = {dS:f}; acceptance probability = {acceptance:f}')
+            # --- Δn proposals: one for each of the 2D links adjacent to each color-c site.
+            # Forward link (mu, x) for x in color; backward link (mu, x-ê_mu) for x in color.
+            # Same-color sites are ≥2 apart so their adjacent link sets are disjoint.
+            change_n = L.zeros(1, dtype=int)
+            for mu in range(L.D):
+                change_n[mu, *color] = S.W * self.rng.choice(self.n_changes, n_sites)
+                bwd = tuple(np.mod(color[i] - (1 if i == mu else 0), L.N) for i in range(L.D))
+                change_n[mu, *bwd] = S.W * self.rng.choice(self.n_changes, n_sites)
 
-        self.accepted += accepted
-        self.proposed += len(sites)
+            # --- ΔS: change in residual δr = d(Δφ) − 2π Δn on every link ---
+            change_r = d(change_phi) - 2 * np.pi * change_n
+            dS_link  = (S.kappa / 2) * change_r * (2 * r + change_r)
+            dS       = dS_link.face_sum()  # 0-form: ΔS per site
 
-        total_acceptance /= len(sites)
-        self.acceptance += total_acceptance
-        logger.debug(f'Average proposal {acceptance=:.6f}; Actually {accepted = } / {self.Action.Lattice.cells_of_degree[0]} = {accepted / self.Action.Lattice.cells_of_degree[0]}')
+            # --- Accept/reject on this color's sites only ---
+            acceptance = np.clip(np.exp(-dS[0, *color]), a_min=0, a_max=1)
+            accepted   = metropolis[color] < acceptance
+            total_accepted     += accepted.sum()
+            total_acceptance   += acceptance.sum()
+
+            # --- Apply accepted updates: zero out rejected proposals ---
+            change_phi[0, *color] *= accepted
+            for mu in range(L.D):
+                change_n[mu, *color] *= accepted
+                bwd = tuple(np.mod(color[i] - (1 if i == mu else 0), L.N) for i in range(L.D))
+                change_n[mu, *bwd] *= accepted
+
+            phi = phi + change_phi
+            n   = n   + change_n
+            r   = r   + d(change_phi) - 2 * np.pi * change_n
+
+        sites = L.cells_of_degree[0]
+        self.proposed    += sites
+        self.acceptance  += total_acceptance / sites
+        self.accepted    += total_accepted
+        logger.debug(f'Average proposal acceptance {total_acceptance/sites:.6f}; Actually {total_accepted}/{sites}')
 
         return cfg | {'phi': phi, 'n': n}
 
