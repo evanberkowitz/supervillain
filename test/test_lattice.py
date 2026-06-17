@@ -253,6 +253,16 @@ def test_star_nonzero(D, N, p):
     assert np.asarray(star(lat.random(p))).any()
 
 
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(D + 1)])
+def test_star_star(D, N, p):
+    # ★ shifts by ê_I (the p-form directions) in physical coords, so ★★ shifts
+    # by ê_I + ê_J = (1,...,1) — one step in every direction — with sign (-1)^{p(D-p)}.
+    lat = Lattice(D=D, N=N)
+    f = lat.random(p)
+    sign = (-1) ** (p * (D - p))
+    assert np.allclose(np.asarray(star(star(f))), sign * np.asarray(push(f, (1,) * D)))
+
+
 @pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(1, D + 1)])
 def test_star_d_star_equals_shifted_delta(D, N, p):
     # On this compact lattice the continuum identity δ = (-1)^{D(p-1)+1} ★d★

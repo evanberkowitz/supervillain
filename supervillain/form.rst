@@ -153,6 +153,26 @@ Unlike the continuum, however, the lattice wedge product is not anti-commutative
 Differences from the Continuum
 ==============================
 
+In the continuum, on a Riemannian manifold with Euclidean signature, the Hodge star squares to
+
+.. math::
+
+   \star\star a = (-1)^{p(D-p)}\, a \qquad \text{on a } p\text{-form.}
+
+.. _lattice-star-star-shift:
+
+.. danger::
+
+   On the lattice the identity picks up a spatial shift,
+
+   .. math::
+
+      (\star\star f)_I[x] = (-1)^{p(D-p)}\, f_I\!\left[x - \hat{e}_{\mathrm{all}}\right]
+
+   a backward shift of $\hat{e}_{\mathrm{all}} = \sum_\mu \hat{e}_\mu$ — one step in every direction.
+   The shift drops out of any periodic sum.
+   This is tested by ``test_star_star`` in :source:`test/test_lattice.py`.
+
 In the continuum we expect anti/commutativity
 
 .. math::

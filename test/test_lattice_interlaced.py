@@ -127,6 +127,16 @@ def test_star_nonzero(D, N, p):
     assert il.star(lat.random(p)).any()
 
 
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(D + 1)])
+def test_star_star(D, N, p):
+    # Each star pushes by (+1,...,+1) in interlaced coords, so ★★ shifts by (2,...,2)
+    # — one physical lattice step — with sign (-1)^{p(D-p)}.
+    lat = il.Lattice(D=D, N=N)
+    f = lat.random(p)
+    sign = (-1) ** (p * (D - p))
+    assert np.allclose(il.star(il.star(f)), sign * il.push(f, (2,) * D))
+
+
 @pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(1, D + 1)])
 def test_star_d_star_equals_shifted_delta(D, N, p):
     # Same identity as compact but shift is +2*(1,...,1) in interlaced coords

@@ -188,6 +188,26 @@ Unlike the continuum, however, the lattice wedge product is not anti-commutative
 Differences from the Continuum
 -------------------------------
 
+In the continuum, on a Riemannian manifold with Euclidean signature, the Hodge star squares to
+
+.. math::
+
+   \star\star a = (-1)^{p(D-p)}\, a \qquad \text{on a } p\text{-form.}
+
+.. _interlaced-star-star-shift:
+
+.. danger::
+
+   On the lattice the identity picks up a spatial shift.  In interlaced coordinates:
+
+   .. math::
+
+      (\star\star f)[\xi] = (-1)^{p(D-p)}\, f[\xi - 2\varepsilon_{\mathrm{all}}]
+
+   a backward shift of $2\varepsilon_{\mathrm{all}} = (2,\ldots,2)$ — one physical lattice step in each direction.
+   The shift drops out of any periodic sum.
+   This is tested by ``test_star_star`` in :source:`test/test_lattice_interlaced.py`.
+
 In the continuum we expect anti/commutativity
 
 .. math::
