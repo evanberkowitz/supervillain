@@ -141,7 +141,7 @@ class NeighborhoodUpdate(ReadWriteable, Generator):
         Returns a string with some summarizing statistics.
         '''
         return (
-            f'There were {self.accepted} single-site proposals accepted of {self.proposed} proposed updates.'
+            f'There were {self.accepted} neighborhood proposals accepted of {self.proposed} proposed updates.'
             +'\n'+
             f'    {self.accepted/self.proposed:.6f} acceptance rate' 
             +'\n'+

@@ -50,6 +50,8 @@ class WrappingSquared(Scalar, Observable):
     this is positive semi-definite and carries information about the size of
     topological fluctuations.  It is D-agnostic: in D=2 it reduces to
     $\texttt{TWrapping}^2 + \texttt{XWrapping}^2$.
+
+    However, like :class:`~.TorusWrapping` it will not match between the different formulations---the physical content is different.
     '''
 
     @staticmethod

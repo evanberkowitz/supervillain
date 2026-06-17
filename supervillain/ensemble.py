@@ -219,7 +219,7 @@ class Ensemble(Extendable):
             try:
                 auto[name] = autocorrelation_time(getattr(self, name))
             except Exception as E:
-                raise ValueError(f'{name} does not fluctuate enough') from E
+                logging.warning(f'{name} does not fluctuate enough; it is not included in the autocorrelation time calculation.')
 
         if every:
             return auto
