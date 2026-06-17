@@ -11,7 +11,8 @@ from supervillain.analysis import Uncertain
 import supervillain.analysis.comparison_plot as comparison_plot
 supervillain.observable.progress=tqdm
 
-parser = supervillain.cli.ArgumentParser(description = 'The goal is to compute the same observables using both the Villain and Worldline actions and to check that they agree.  The Villain action is sampled with a combination of Site and Link Updates and the worm.')
+parser = supervillain.cli.ArgumentParser(description = 'The goal is to compute the same observables using both the Villain and Worldline actions and to check that they agree.  The Villain action is sampled with a combination of Site and Link Updates and the worm (D=2 only).')
+parser.add_argument('--D', type=int, default=2, help='Number of spacetime dimensions.  Defaults to 2.')
 parser.add_argument('--N', type=int, default=5, help='Sites on a side.  Defaults to 5.')
 parser.add_argument('--kappa', type=float, default=0.5, help='κ.  Defaults to 0.5.')
 parser.add_argument('--W', type=supervillain.cli.W, default=1, help='Constraint integer W.  Defaults to 1')
@@ -26,19 +27,36 @@ import logging
 logger = logging.getLogger(__name__)
 
 # First create the lattices and the two dual actions.
-L = supervillain.lattice.Lattice(D=2, N=args.N)
+L = supervillain.lattice.Lattice(D=args.D, N=args.N)
 
 V = supervillain.action.Villain(L, args.kappa, W=args.W)
 W = supervillain.action.Worldline(L, args.kappa, W=args.W)
 
 # Now sample each action.
 with logging_redirect_tqdm():
-    g = supervillain.generator.villain.Hammer(V)
+    if args.D == 2:
+        g = supervillain.generator.villain.Hammer(V)
+    else:
+        villain_gens = [
+                supervillain.generator.villain.SiteUpdate(V),
+                supervillain.generator.villain.LinkUpdate(V),
+                supervillain.generator.villain.ExactUpdate(V),
+                supervillain.generator.villain.HolonomyUpdate(V),
+        ]
+        g = supervillain.generator.combining.Sequentially(villain_gens)
     v = supervillain.Ensemble(V).generate(args.configurations, g, start='cold', progress=tqdm)
     print(g.report())
 
 with logging_redirect_tqdm():
-    g = supervillain.generator.worldline.Hammer(W)
+    if args.D == 2:
+        g = supervillain.generator.worldline.Hammer(W)
+    else:
+        worldline_gens = [
+                supervillain.generator.worldline.VortexUpdate(W),
+                supervillain.generator.worldline.CoexactUpdate(W),
+                supervillain.generator.worldline.WrappingUpdate(W),
+        ]
+        g = supervillain.generator.combining.Sequentially(worldline_gens)
     w = supervillain.Ensemble(W).generate(args.configurations, g, start='cold', progress=tqdm)
     print(g.report())
 
@@ -79,7 +97,7 @@ comparison_plot.histories(ax,
         observables=args.observables
         )
 
-fig.suptitle(f'N={args.N} κ={args.kappa} W={args.W}')
+fig.suptitle(f'D={args.D} N={args.N} κ={args.kappa} W={args.W}')
 fig.tight_layout()
 
 if args.figure:

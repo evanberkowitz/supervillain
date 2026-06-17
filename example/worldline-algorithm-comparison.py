@@ -41,29 +41,34 @@ with logging_redirect_tqdm():
             supervillain.generator.worldline.WrappingUpdate(S),
         ))
     n = supervillain.Ensemble(S).generate(args.configurations, g, start='cold', progress=tqdm)
+    print(g.report())
     n.measure()
 
-    W = supervillain.generator.combining.Sequentially((
+    local_generators = [
             supervillain.generator.worldline.PlaquetteUpdate(S),
             supervillain.generator.worldline.VortexUpdate(S),
             supervillain.generator.worldline.CoexactUpdate(S),
             supervillain.generator.worldline.WrappingUpdate(S),
-            supervillain.generator.worldline.Worm(S),
-        ))
-    w = supervillain.Ensemble(S).generate(args.configurations, W, start='cold', progress=tqdm)
+    ]
+    if args.D == 2:
+        local_generators.append(supervillain.generator.worldline.Worm(S))
+
+    G = supervillain.generator.combining.Sequentially(local_generators)
+    w = supervillain.Ensemble(S).generate(args.configurations, G, start='cold', progress=tqdm)
+    print(G.report())
     w.measure()
 
 # A first computation of the autocorrelation time will have effects from thermalization.
-n_autocorrelation = n.autocorrelation_time()
-w_autocorrelation = w.autocorrelation_time()
+n_autocorrelation = n.autocorrelation_time(args.observables)
+w_autocorrelation = w.autocorrelation_time(args.observables)
 
 # We aggressively cut to ensure thermalization.
 n_thermalized = n.cut(10*n_autocorrelation)
 w_thermalized = w.cut(10*w_autocorrelation)
 
 # Now we can get a fair computation of the autocorrelation time.
-n_autocorrelation = n_thermalized.autocorrelation_time()
-w_autocorrelation = w_thermalized.autocorrelation_time()
+n_autocorrelation = n_thermalized.autocorrelation_time(args.observables)
+w_autocorrelation = w_thermalized.autocorrelation_time(args.observables )
 
 print(f'Autocorrelation time')
 print(f'--------------------')
