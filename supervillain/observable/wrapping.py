@@ -49,7 +49,7 @@ class WrappingSquared(Scalar, Observable):
     Unlike :class:`~.TorusWrapping` itself (which vanishes in expectation by symmetry),
     this is positive semi-definite and carries information about the size of
     topological fluctuations.  It is D-agnostic: in D=2 it reduces to
-    $\texttt{TWrapping}^2 + \texttt{XWrapping}^2$.
+    $\texttt{TorusWrapping}[0]^2 + \texttt{TorusWrapping}[1]^2 + \ldots$.
 
     However, like :class:`~.TorusWrapping` it will not match between the different formulations---the physical content is different.
     '''
@@ -57,23 +57,3 @@ class WrappingSquared(Scalar, Observable):
     @staticmethod
     def default(S, TorusWrapping):
         return (TorusWrapping**2).sum()
-
-
-class TWrapping(Scalar, Observable):
-    r'''
-    Just the time component of :class:`~.TorusWrapping`.
-    '''
-
-    @staticmethod
-    def default(S, TorusWrapping):
-        return TorusWrapping[0]
-
-
-class XWrapping(Scalar, Observable):
-    r'''
-    Just the space component of :class:`~.TorusWrapping`.
-    '''
-
-    @staticmethod
-    def default(S, TorusWrapping):
-        return TorusWrapping[1]

@@ -25,7 +25,7 @@ class Links(Observable):
         and these are what show up in any observables that talk to links.
         You can see that this combination arises in the action itself and in the :class:`~.ActionTwoPoint`, for example.
         Some observables, like the :class:`~.Spin_Spin` correlation function have 'bare' 0-form $\phi$s but they come in exponentials and are therefore gauge invariant.
-        Others, like :class:`~.XWrapping` live on loops where the $d\phi$ integrates away but are gauge invariant.
+        Others, like :class:`~.TorusWrapping` live on loops where the $d\phi$ integrates away but are gauge invariant.
         '''
 
         return d(phi) - 2*np.pi*n

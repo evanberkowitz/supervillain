@@ -20,8 +20,7 @@ parser.add_argument('--figure', default=False, type=str)
 parser.add_argument('--observables', nargs='*', help='Names of observables to compare.  Defaults to a list of 7 observables.',
                     default=('ActionDensity',
                              'InternalEnergyDensity', 'InternalEnergyDensitySquared',
-                             'WindingSquared',
-                             'TWrapping', 'XWrapping',
+                             'WindingSquared', 'WrappingSquared',
                              ))
 
 args = parser.parse_args()
