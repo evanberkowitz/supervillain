@@ -22,8 +22,7 @@ class TorusWrapping(Observable):
             \texttt{TorusWrapping}_{\mu} = \sum n_\mu
         '''
 
-        L = S.Lattice
-        return n.sum(axis=(-2,-1))
+        return n.sum(axis=tuple(range(1, n.ndim)))
 
     @staticmethod
     def Worldline(S, m):
@@ -31,12 +30,32 @@ class TorusWrapping(Observable):
         The total wrapping in direction $\mu$ is given by the net particle flux in that direction
 
         .. math ::
-            \texttt{TorusWrapping}_{\mu} = \frac{1}{|\mu|} \sum m_\mu
+            \texttt{TorusWrapping}_{\mu} = \frac{1}{N} \sum m_\mu
 
-        where we divide by the length of the dimension because a torus-wrapping $m$ will get contributions from every μ-slice.
+        where we divide by $N$ (the linear lattice size) because a single torus-wrapping worldline
+        contributes one unit for each of the $N$ positions along direction $\mu$.
         '''
 
-        return m.sum(axis=(-2,-1)) / S.Lattice.dims
+        return m.sum(axis=tuple(range(1, m.ndim))) / S.Lattice.N
+
+class WrappingSquared(Scalar, Observable):
+    r'''
+    The sum of squared torus-wrapping numbers over all directions,
+
+    .. math ::
+
+        \texttt{WrappingSquared} = \sum_\mu \texttt{TorusWrapping}_\mu^2.
+
+    Unlike :class:`~.TorusWrapping` itself (which vanishes in expectation by symmetry),
+    this is positive semi-definite and carries information about the size of
+    topological fluctuations.  It is D-agnostic: in D=2 it reduces to
+    $\texttt{TWrapping}^2 + \texttt{XWrapping}^2$.
+    '''
+
+    @staticmethod
+    def default(S, TorusWrapping):
+        return (TorusWrapping**2).sum()
+
 
 class TWrapping(Scalar, Observable):
     r'''
