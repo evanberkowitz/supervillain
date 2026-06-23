@@ -1397,7 +1397,7 @@ if __name__ == '__main__':
     for p in range(D + 1):
         a = lat.random(p)
         path_A = star(a).to_interlaced()
-        path_B = il.star(p, a.to_interlaced())
+        path_B = il.star(a.to_interlaced())
         assert (path_A == path_B).all(), f"compact ★ ≠ interlaced ★ on {p}-forms"
         print(f"  ✅ compact ★ = interlaced ★  on {p}-forms")
 
