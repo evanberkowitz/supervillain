@@ -41,7 +41,7 @@ with logging_redirect_tqdm():
                 supervillain.generator.villain.SiteUpdate(V),
                 supervillain.generator.villain.LinkUpdate(V),
                 supervillain.generator.villain.ExactUpdate(V),
-                supervillain.generator.villain.HolonomyUpdate(V),
+                supervillain.generator.villain.CohomologyUpdate(V),
         ]
         g = supervillain.generator.combining.Sequentially(villain_gens)
     v = supervillain.Ensemble(V).generate(args.configurations, g, start='cold', progress=tqdm)

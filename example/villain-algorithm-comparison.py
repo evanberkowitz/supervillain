@@ -55,7 +55,7 @@ with logging_redirect_tqdm():
             supervillain.generator.villain.LinkUpdate(S),
             supervillain.generator.villain.SiteUpdate(S),
             supervillain.generator.villain.ExactUpdate(S),
-            supervillain.generator.villain.HolonomyUpdate(S),
+            supervillain.generator.villain.CohomologyUpdate(S),
     ]
     if args.D == 2:
         local_generators.append(supervillain.generator.villain.Worm(S))
