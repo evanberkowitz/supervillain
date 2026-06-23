@@ -74,17 +74,17 @@ We can decouple these proposals.
 When $W=1$ the combination of the :class:`~.SiteUpdate` and :class:`~.LinkUpdate` are ergodic.
 But when $W>1$ the :class:`~.LinkUpdate` only offers changes to $n$ by multiples of $W$ to preserve the constraint $dn = 0 \text{ mod }W$.
 For an ergodic algorithm when $W>1$ we need to offer ways to change $n$ by 1 (less than $W$) while maintaining the constraint.
-We need to make closed updates to $n$, which can be broken up into :class:`~.villain.ExactUpdate`\ s (which are automatically closed) and :class:`~.villain.HolonomyUpdate`\ s.
+We need to make closed updates to $n$, which can be broken up into :class:`~.villain.ExactUpdate`\ s (which are automatically closed) and :class:`~.villain.CohomologyUpdate`\ s (which change the global winding sector).
 
 .. autoclass :: supervillain.generator.villain.ExactUpdate
    :members:
 
-.. autoclass :: supervillain.generator.villain.HolonomyUpdate
+.. autoclass :: supervillain.generator.villain.CohomologyUpdate
    :members:
 
-The combination of the :class:`~.SiteUpdate`, :class:`~.LinkUpdate`, :class:`~.ExactUpdate`, and :class:`~.HolonomyUpdate` is ergodic even when $W>1$.
+The combination of the :class:`~.SiteUpdate`, :class:`~.LinkUpdate`, :class:`~.ExactUpdate`, and :class:`~.CohomologyUpdate` is ergodic even when $W>1$.
 But it can be slow to decorrelate.
-As mentioned, the :class:`~.HolonomyUpdate` often rejects because it touches a macroscopic number of variables.
+As mentioned, the :class:`~.CohomologyUpdate` often rejects because it touches a macroscopic number of variables ($N^{D-1}$ links per direction).
 A major issue is that the route across the torus is very rigid: it's just a straight shot.
 Smarter *worm algorithms* can make high-acceptance updates to many variables across the lattice, which can help overcome *critical slowing down*.
 
@@ -176,9 +176,9 @@ So, the worm's displacement histogram can be saved inline as :class:`~.Vortex_Vo
 
 The worm is not ergodic on its own---it doesn't update $\phi$, for example, and it cannot change a link by ±W.
 But, in combination of with :class:`~.villain.SiteUpdate` and :class:`~.villain.LinkUpdate` it is ergodic;
-the worm can replace the combination of :class:`~.villain.ExactUpdate` and :class:`~.villain.HolonomyUpdate`.
+the worm can replace the combination of :class:`~.villain.ExactUpdate` and :class:`~.villain.CohomologyUpdate`.
 The :class:`~.villain.ExactUpdate` can be understood as a very simple worm that takes the tightest nontrivial path,
-while the :class:`~.villain.HolonomyUpdate` can be understood as a worm that goes once around the world.
+while the :class:`~.villain.CohomologyUpdate` can be understood as a worm that goes once around the world in a straight shot.
 The worm offers *dynamically determined constraint-preserving updates* and is much more flexible.
 In can change the holonomy, for example, by finding a route around the torus that isn't a straight shot but
 runs through the valley of the action.

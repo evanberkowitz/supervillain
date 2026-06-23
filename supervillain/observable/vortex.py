@@ -116,7 +116,7 @@ class Vortex_Vortex(Constrained, Observable):
         .. note ::
             The actual path $P_{xy}$ used is irrelevant in expectation, though of course on a fixed configuration you get different measurements if you pick different paths.
             An implementation detail is that the fixed chosen path is the taxicab path that first covers the whole time separation and then the whole space separation.
-            The point is that any other path can be reached by making a combination of :class:`~.ExactUpdate`\s and :class:`~.HolonomyUpdate`\s.
+            The point is that any other path can be reached by making a combination of :class:`~.ExactUpdate`\s and :class:`~.CohomologyUpdate`\s.
 
         Clearly $V_{x,x}=1$, and we can normalize so that $\texttt{Vortex\_Vortex}_{\Delta x = 0} = 1$.
         The methods provided in this observable are already normalized.

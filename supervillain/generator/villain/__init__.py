@@ -2,7 +2,7 @@
 from .site import SiteUpdate
 from .link import LinkUpdate
 from .exact import ExactUpdate
-from .holonomy import HolonomyUpdate
+from .cohomology import CohomologyUpdate
 from .neighborhood import NeighborhoodUpdate
 from .worm import ClassicWorm as Worm
 
@@ -44,13 +44,13 @@ def Hammer(S, worms=1):
                 SiteUpdate(S),
                 LinkUpdate(S),  # <-- changes dn by W, omitted below.
                 ExactUpdate(S),
-                HolonomyUpdate(S),
+                CohomologyUpdate(S),
                 W,
                 ))
-    
+
     return _combining.Sequentially((
             SiteUpdate(S),
             ExactUpdate(S),
-            HolonomyUpdate(S),
+            CohomologyUpdate(S),
             W
             ))
