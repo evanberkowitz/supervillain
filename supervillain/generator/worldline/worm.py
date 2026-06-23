@@ -6,27 +6,108 @@ import supervillain.action
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
 from supervillain.batch import Batch
-
-from supervillain.lattice import _Lattice2D
-from supervillain.lattice import delta
+from supervillain.lattice import delta, Form
 import numba
 
 import logging
 logger = logging.getLogger(__name__)
+
+
+@numba.njit
+def _flat_index(coords, N, D):
+    r"""Flat ``0 … N^D−1`` index for a *D*-component coordinate array, each component taken mod *N*."""
+    idx = np.int64(0)
+    for i in range(D):
+        idx = idx * N + (coords[i] % N)
+    return idx
+
+
+@numba.njit
+def worm_kernel(rng, D, N, coord_1d, kappa, head, tail, m_2d, dvW_2d, change_m):
+    r"""
+    D-general worm kernel (numba-accelerated).
+
+    *m_2d* and *dvW_2d* have shape ``(D, N**D)``; the spatial axes are collapsed so that
+    ``_flat_index(site, N, D)`` selects the correct element.
+
+    Returns the updated *m_2d* and a flat displacement histogram of length ``N**D``.
+    """
+    V = np.int64(1)
+    for _ in range(D):
+        V *= N
+    n_dirs = 2 * D
+    displacements = np.zeros(V, dtype=np.int64)
+
+    while True:
+            # In the general case we uniformly choose between 2D moves,
+            # but if the head and tail are together, we add the g --> z transition.
+            # This has probability 1/(2D+1), making all 2D+1 options equally likely.
+            # If it is proposed, the change in action is 0 and it is automatically accepted as a z configuration.
+            same = True
+            for i in range(D):
+                if head[i] != tail[i]:
+                    same = False
+                    break
+            if same and rng.uniform(0., 1.) < 1.0 / (n_dirs + 1):
+                return m_2d, displacements
+
+            # Conditioned on not transitioning to z, we make a uniform choice of the 2D directions.
+            choice = rng.integers(0, n_dirs)
+            k = choice % D        # which axis
+            forward = choice < D  # True for +ê_k, False for −ê_k
+
+            # Now we propose a move to the next position.
+            # Advance (or retreat) by one step in direction k using FFT-convention coordinates.
+            next_head = head.copy()
+            arr_idx = head[k] % N
+            if forward:
+                next_head[k] = coord_1d[(arr_idx + 1) % N]
+            else:
+                next_head[k] = coord_1d[(arr_idx - 1 + N) % N]
+
+            # in which case we will cross the corresponding link.
+            # Moving +ê_k crosses the link at head; moving −ê_k crosses the link at head−ê_k (= next_head).
+            if forward:
+                link_flat = _flat_index(head, N, D)
+            else:
+                link_flat = _flat_index(next_head, N, D)
+
+            # Crossing the link changes m and therefore the action.
+            change_link = m_2d[k, link_flat] - dvW_2d[k, link_flat]
+            delta_m = change_m[choice]
+            change_S = (1.0 / (2.0 * kappa)) * delta_m * (2.0 * change_link + delta_m)
+
+            # Now we must compute the Metropolis amplitude
+            #
+            #   A = min(1, exp(-ΔS) )
+            #
+            A = min(1.0, np.exp(-change_S))
+
+            # and Metropolis-test the update.
+            if rng.uniform(0., 1.) < A:
+                # If accepted, move the head
+                head = next_head
+                # and cross the link.
+                m_2d[k, link_flat] += delta_m
+
+            # Finally, tally the head−tail displacement for the Spin_Spin correlator,
+            displacements[_flat_index(head - tail, N, D)] += 1
+            # and consider our next move.
+
 
 class ClassicWorm(ReadWriteable, Generator):
     r'''
     This implements the classic worm of Prokof'ev and Svistunov :cite:`PhysRevLett.87.160601` for the worldline links $m\in\mathbb{Z}$ which satisfy $\delta m = 0$ on every site.
 
     On top of a constraint-satisfying configuration we put down a worm and let the head move, changing the crossed links.
-    We uniformly propose a move in all 4 directions and Metropolize the change.
+    We uniformly propose a move in all $2D$ directions and Metropolize the change.
 
-    Additionally, when the head and tail coincide, we allow a fifth possible move, where we remove the worm and emit the updated $z$ configuration into the Markov chain.
-    
+    Additionally, when the head and tail coincide, we allow a $(2D+1)$-th possible move, where we remove the worm and emit the updated configuration into the Markov chain.
+
     As we evolve the worm we tally the histogram that yields the :class:`~.Spin_Spin` correlation function.
 
     .. warning ::
-        
+
         When $W>1$ this update algorithm is not ergodic on its own.  It doesn't change $v$ at all.
         However, when $W=1$ we can always pick $v=0$ (any other choice may be absorbed into $m$), and this generator can stand alone.
 
@@ -49,12 +130,13 @@ class ClassicWorm(ReadWriteable, Generator):
 
         self.worm_lengths = deque()
 
-        # The contributions to the divergence tell you how an m contributes to δm.
-        # Opposite directions contribute oppositely, which is exactly what you want.
-        # That way, if the worm moves north, you increase n by 1, but if the worm then
-        # immediately moves south it would cross the same link but decrease m by 1,
-        # so that the constraint on this cul-de-sac would be restored.
-        self.divergence = np.array([+1, +1, -1, -1]) # east, north, west, south
+        D = S.Lattice.D
+        # Moving the head in direction +ê_k crosses the link at the current site,
+        # shifting (δm) by −1 at the current site and +1 at the next site.
+        # Moving in −ê_k crosses the link behind the head with the opposite sign.
+        # The orientation (±1) drawn once per worm flips all contributions together;
+        # change_m = orientation * divergence is the actual per-direction Δm offered.
+        self.divergence = np.array([+1]*D + [-1]*D, dtype=float)
 
     def __str__(self):
         return 'ClassicWorm'
@@ -73,11 +155,14 @@ class ClassicWorm(ReadWriteable, Generator):
 
     def step(self, configuration):
         r'''
-        Given a constraint-satisfying configuration, returns another constraint-satisfying configuration udpated via worm as described above.
+        Given a constraint-satisfying configuration, returns another constraint-satisfying configuration updated via worm as described above.
         '''
 
         S = self.Action
         L = S.Lattice
+        D = L.D
+        N = L.N
+        V = N**D
 
         m = configuration['m'].copy()
 
@@ -94,79 +179,37 @@ class ClassicWorm(ReadWriteable, Generator):
         # and then simply multiply it into the constraint-restoring proposals.
         change_m = orientation * self.divergence
 
-        # We start with a constraint-satisfying configuration of n that is in the z sector.
+        # We start with a constraint-satisfying configuration of m that is in the z sector,
         # and insert both the head and tail onto any random site---because the head and the tail are
         # coincident, they don't change the action and so any choice should be equally weighted.
-        tail = self.rng.choice(L.coordinates)
+        tail = self.rng.choice(L.coordinates).astype(np.int64)
         head = tail.copy()
-        # by placing the head and tail down we have moved to the g sector!
+        # By placing the head and tail down we have moved to the g sector!
         # Now we are ready to start evolving in z union g.
 
-        new_m, spin_spin = worm_kernel(self.rng,
-            _Lattice2D(self.Action.Lattice.dims),
-            S.kappa,
+        # Collapse spatial axes so the kernel can use a flat site index.
+        m_2d  = np.ascontiguousarray(m.reshape(D, V))
+        dvW_2d = np.ascontiguousarray(delta_v_by_W.reshape(D, V))
+
+        new_m_2d, disp_flat = worm_kernel(
+            self.rng,
+            np.int64(D), np.int64(N),
+            L._coord_1d.astype(np.int64),
+            float(S.kappa),
             head, tail,
-            m, delta_v_by_W, change_m
+            m_2d, dvW_2d,
+            change_m,
         )
 
-        wl = spin_spin.sum()
+        new_m    = Form(new_m_2d.reshape(m.shape), degree=1, lattice=L)
+        # if not S.valid({'m': new_m}):
+        #     raise ValueError('The new configuration does not satisfy the constraint δm = 0 everywhere.')
+        spin_spin = disp_flat.reshape(L.dims)
+
+        wl = int(spin_spin.sum())
         self.worm_lengths.append(wl)
         return configuration | {'m': new_m, 'Spin_Spin': spin_spin, 'Worm_Length': wl}
-
 
     def report(self):
         l = np.array(self.worm_lengths)
         return f'There were {len(l)} worms.\nWorms lengths:\n    mean {l.mean()}\n    std  {l.std()}\n    max  {max(l)}'
-
-@numba.njit
-def worm_kernel(rng, _Lattice, kappa, head, tail, m, delta_v_by_W, change_m):
-
-    displacements = np.zeros((_Lattice.nt, _Lattice.nx), dtype=np.int64)
-
-    L = _Lattice
-
-    while True:
-            # In the general case we will uniformly choose between 4 moves,
-            # but if the head and tail are together, we add the g--> z transition.
-            # This has likelihood of 20%, conditioned on the worm being closed.
-            # If it is proposed, however, the change in action is 0 and it is automatically accepted as a z configuration.
-            if (head == tail).all() and (rng.uniform(0., 1.) >= 0.8):
-                return m, displacements
-
-            # Conditioned on not transitioning to z, we make a uniform choice of the 4 possible directions.
-            choice = rng.integers(0, 4)
-
-            # Now we propose a move to the next position.
-            t, x = L.neighboring_sites(head)
-            nxt = np.array([t[choice], x[choice]], dtype=np.int64)
-            # in which case we will cross the corresponding link.
-            link = L.adjacent_links(0, head)[choice]
-
-            # Crossing the link changes m and therefore the action.
-            change_link = m[link] - delta_v_by_W[link]
-            delta_m = change_m[choice]
-            change_S = (
-                (1 / (2*kappa)) *
-                delta_m *
-                (2*change_link + delta_m)
-            )
-
-            # Now we must compute the Metropolis amplitude
-            #
-            #   A = min(1, exp(-ΔS) )
-            #
-            A = np.min(np.array([1., np.exp(-change_S)])) # numba doesn't support clip?
-
-            # and Metropolis-test the update.
-            if rng.uniform(0., 1.) < A:
-                # If it accepted we move the head
-                head = nxt
-                # and cross the link.
-                m[link] += delta_m
-
-            # Finally, we tally the worm,
-            x, y = L.mod(head-tail)
-            displacements[x, y] +=1
-            # and consider our next move.
-
-
