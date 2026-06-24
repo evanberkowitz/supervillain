@@ -108,6 +108,11 @@ class Lattice(ReadWriteable):
         """Tuple of side lengths (N, N, ..., N), length D."""
         return (self.N,) * self.D
 
+    @cached_property
+    def origin(self):
+        r"""The origin site $(0, \ldots, 0)$, a tuple of length $D$.  Use it as an index, e.g. ``form[lattice.origin]``, to address the zero-displacement element without assuming $D=2$."""
+        return (0,) * self.D
+
     @property
     def dim(self):
         """Number of dimensions (alias for D)."""

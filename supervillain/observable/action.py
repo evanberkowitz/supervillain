@@ -96,7 +96,7 @@ class ActionTwoPoint(Observable):
         # piece of the correlator needs adjustment by the average f.
         # In this case f = density.
 
-        result[0,0] -= density.mean()
+        result[L.origin] -= density.mean()
 
         return result
 
@@ -147,7 +147,7 @@ class ActionTwoPoint(Observable):
 
         delta = m_squared / 2 / kappa
 
-        result[0,0] -= delta.mean()
+        result[L.origin] -= delta.mean()
 
         return result
 

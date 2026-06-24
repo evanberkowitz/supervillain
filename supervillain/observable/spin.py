@@ -127,7 +127,7 @@ class Spin_Spin(Observable):
         # Just go Δt in time first and then Δx in space.
         for i, (Δt, Δx)  in enumerate(L.coordinates):
             if (Δt, Δx) == (0, 0):
-                result[0,0] = 1
+                result[L.origin] = 1
                 continue
 
             key = (L.N, Δt, Δx)
@@ -258,8 +258,7 @@ class Spin_Spin_Normalized(DerivedQuantity):
 
     @staticmethod
     def default(S, Spin_Spin):
-        origin = (0,) * S.Lattice.D
-        return Spin_Spin / Spin_Spin[origin]
+        return Spin_Spin / Spin_Spin[S.Lattice.origin]
 
 class SpinSusceptibility(DerivedQuantity):
     r'''

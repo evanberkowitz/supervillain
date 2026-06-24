@@ -141,7 +141,7 @@ class Vortex_Vortex(Constrained, Observable):
 
         for Δt, Δx in L.coordinates:
             if (Δt, Δx) == (0, 0):
-                correlator[0,0] = 1
+                correlator[L.origin] = 1
                 continue
 
             key = (L.N, Δt, Δx)
@@ -201,8 +201,7 @@ class Vortex_Vortex_Normalized(DerivedQuantity):
 
     @staticmethod
     def default(S, Vortex_Vortex):
-        origin = (0,) * S.Lattice.D
-        return Vortex_Vortex / Vortex_Vortex[origin]
+        return Vortex_Vortex / Vortex_Vortex[S.Lattice.origin]
 
 class VortexSusceptibility(DerivedQuantity):
     r'''
