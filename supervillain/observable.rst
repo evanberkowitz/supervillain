@@ -86,6 +86,10 @@ Spin Correlations
    :members:
    :show-inheritance:
 
+.. autoclass :: supervillain.observable.Spin_Spin_Normalized
+   :members:
+   :show-inheritance:
+
 .. autoclass :: supervillain.observable.SpinSusceptibility
    :members:
    :show-inheritance:
@@ -103,6 +107,10 @@ Vortex Correlations
 ===================
 
 .. autoclass :: supervillain.observable.Vortex_Vortex
+   :members:
+   :show-inheritance:
+
+.. autoclass :: supervillain.observable.Vortex_Vortex_Normalized
    :members:
    :show-inheritance:
 

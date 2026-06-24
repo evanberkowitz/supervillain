@@ -122,7 +122,19 @@ class Vortex_Vortex(Constrained, Observable):
         The methods provided in this observable are already normalized.
         However, inline measurements like those provided by a :class:`worm <supervillain.generator.villain.worm.Classic>` are not,
         and can only be normalized *after* the bootstrap, which is why anything that depends on this observable is a :class:`~.DerivedQuantity`.
+
+        .. note ::
+            This taxicab-path measurement is only implemented for $D=2$ and raises ``NotImplementedError``
+            otherwise.  The :class:`~.Worldline` measurement and the inline worm histogram are
+            dimension-general and work in any $D$.
         '''
+
+        if S.Lattice.D != 2:
+            raise NotImplementedError(
+                'The Villain Vortex_Vortex measurement traces a taxicab path on the dual lattice '
+                'and is only implemented for D=2.  (In the Worldline formulation Vortex_Vortex is '
+                'measured directly and works in any D.)'
+            )
 
         L = S.Lattice
         correlator = np.zeros(L.dims)
@@ -170,19 +182,40 @@ class Vortex_Vortex(Constrained, Observable):
         return correlator
 
 
-class VortexSusceptibility(DerivedQuantity):
+class Vortex_Vortex_Normalized(DerivedQuantity):
     r'''
-    The *vortex susceptibility* is the spacetime integral of the :class:`~.Vortex_Vortex` correlator $V_{\Delta x}$,
+    The :class:`~.Vortex_Vortex` correlator $V_{\Delta x}$ normalized by its value at zero separation,
 
     .. math::
 
-        \texttt{VortexSusceptibility} = \chi_V = \int d^2r\; V(r).
+        \texttt{Vortex\_Vortex\_Normalized}_{\Delta x} = \frac{V_{\Delta x}}{V_0},
+
+    so that $\texttt{Vortex\_Vortex\_Normalized}_0 = 1$.  In the Villain formulation the :class:`~.Vortex_Vortex`
+    correlator is automatically normalized to 1 at the origin, but in the Worldline formulation the inline worm
+    measurement needs to be normalized by the expectation value of the worm's histogram at the origin and
+    therefore cannot be done configuration-by-configuration.
+
+    On the Villain correlator this observable is essentially a no-op but it is a meaningful rescaling of the
+    Worldline correlator required to match the two formulations.
     '''
 
     @staticmethod
     def default(S, Vortex_Vortex):
-        # If Vortex_Vortex was measured inline (by a worm, for example) then we need to normalize it.
-        return np.sum(Vortex_Vortex.real) / Vortex_Vortex[0,0]
+        origin = (0,) * S.Lattice.D
+        return Vortex_Vortex / Vortex_Vortex[origin]
+
+class VortexSusceptibility(DerivedQuantity):
+    r'''
+    The *vortex susceptibility* is the spacetime integral of the :class:`~.Vortex_Vortex_Normalized` correlator $V_{\Delta x}$,
+
+    .. math::
+
+        \texttt{VortexSusceptibility} = \chi_V = \int d^Dr\; V(r).
+    '''
+
+    @staticmethod
+    def default(S, Vortex_Vortex_Normalized):
+        return np.sum(Vortex_Vortex_Normalized.real)
 
 
 class VortexSusceptibilityScaled(VortexSusceptibility):
@@ -191,7 +224,7 @@ class VortexSusceptibilityScaled(VortexSusceptibility):
 
     .. math ::
 
-        \chi_V \sim L^{2-2\Delta(\kappa, W)}
+        \chi_V \sim L^{D-2\Delta(\kappa, W)}
 
     where the scaling at the critical coupling $\kappa_c$ is known and depends on the constraint integer $W$.
 
@@ -199,27 +232,27 @@ class VortexSusceptibilityScaled(VortexSusceptibility):
 
     .. math::
 
-        \texttt{VortexSusceptibilityScaled} = \chi_V / L^{2-2\Delta(\kappa_c, W)}
+        \texttt{VortexSusceptibilityScaled} = \chi_V / L^{D-2\Delta(\kappa_c, W)}
 
     so that at the critical coupling the infinite-volume limit of :class:`~.VortexSusceptibilityScaled` will be a constant.
 
     .. note::
-        The 2 depends on being in 2 dimensions, while the $2\Delta$ comes from the fact that the :class:`~.Vortex_Vortex` correlator is a two-point function.
+        The $2\Delta$ comes from the fact that the :class:`~.Vortex_Vortex` correlator is a two-point function.
     '''
 
     @staticmethod
     def default(S, VortexSusceptibility):
 
-        L = S.Lattice.N
+        L = S.Lattice
         # NOTE: implicitly assumes that the lattice is square!
-        return VortexSusceptibility / L**(2-2*supervillain.observable.Vortex_Vortex.CriticalScalingDimension(S))
+        return VortexSusceptibility / L.N**(L.D-2*supervillain.observable.Vortex_Vortex.CriticalScalingDimension(S))
 
 class VortexCriticalMoment(DerivedQuantity):
     r'''
     The *critical moment* of the vortex correlator :math:`C_V` is the volume-average of the correlator multiplied by its long-distance critical behavior,
 
     .. math::
-        C_V = \frac{1}{L^2} \int d^2r\; r^{2\Delta_V(\kappa_c, W)}\; V(r)
+        C_V = \frac{1}{L^D} \int d^Dr\; r^{2\Delta_V(\kappa_c, W)}\; V(r)
 
     At the critical $\kappa$ the long-distance behavior of the :class:`~.Vortex_Vortex` correlator :math:`V` decays with exactly the required power to cancel the explicit power of $r$ and the integral cancels the normalization, giving 1 in the large-$L$ limit.
 
@@ -229,8 +262,7 @@ class VortexCriticalMoment(DerivedQuantity):
     '''
  
     @staticmethod
-    def default(S, Vortex_Vortex):
+    def default(S, Vortex_Vortex_Normalized):
 
         L = S.Lattice
-        # If Vortex_Vortex was measured inline (by a worm, for example) then we need to normalize it.
-        return np.sum(L.R_squared**(supervillain.observable.Vortex_Vortex.CriticalScalingDimension(S)) * Vortex_Vortex.real) / L.sites / Vortex_Vortex[0,0].real
+        return np.sum(L.R_squared**(supervillain.observable.Vortex_Vortex.CriticalScalingDimension(S)) * Vortex_Vortex_Normalized.real) / L.sites

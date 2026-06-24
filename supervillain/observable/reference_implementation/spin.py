@@ -28,7 +28,15 @@ class Spin_SpinSloppy(Observable):
         r'''
 
         See the :class:`Spin_Spin` documentation.
+
+        .. note ::
+            This taxicab-path measurement is only implemented for $D=2$ and raises ``NotImplementedError`` otherwise.
         '''
+
+        if S.Lattice.D != 2:
+            raise NotImplementedError(
+                'The Worldline Spin_Spin measurement traces a taxicab path and is only implemented for D=2.'
+            )
 
         L = S.Lattice
         kappa = S.kappa
@@ -105,7 +113,15 @@ class Spin_SpinSlow(Observable):
         r'''
         Computes the same result as :class:`~.Spin_Spin` but more slowly.
         Compared to :class:`~.Spin_SpinSloppy` we measure the same correlator but get more juice from each configuration by averaging over translations.
+
+        .. note ::
+            This taxicab-path measurement is only implemented for $D=2$ and raises ``NotImplementedError`` otherwise.
         '''
+
+        if S.Lattice.D != 2:
+            raise NotImplementedError(
+                'The Worldline Spin_Spin measurement traces a taxicab path and is only implemented for D=2.'
+            )
 
         # Note: for a substantially similar but slightly simpler implementation
         # which leaves a lot of information on the table, see the Spin_SpinSloppy
