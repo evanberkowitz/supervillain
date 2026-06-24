@@ -41,7 +41,7 @@ class ClassicWorm(ReadWriteable, Generator):
     .. todo::
         Generalize to D>2. The current implementation is hardcoded for D=2: it uses the
         :class:`~.lattice._Lattice2D` numba struct, four fixed directions (east/north/west/south),
-        and 2D displacement histograms. Raises :exc:`NotImplementedError` for D≠2.
+        and 2D displacement histograms. Raises :exc:`NotImplementedError` for $D \neq 2$.
 
     .. seealso ::
 

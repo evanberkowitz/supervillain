@@ -210,7 +210,7 @@ class ClassicWorm(ReadWriteable, Generator):
     .. todo::
         Generalize to D>2. The current implementation hardcodes D=2: four directions (east/north/west/south)
         in :meth:`_neighboring_plaquettes` and :meth:`_surrounding_links`, and 2D displacement histograms.
-        Raises :exc:`NotImplementedError` for D≠2.
+        Raises :exc:`NotImplementedError` for $D \neq 2$.
     '''
 
     def __init__(self, S):
