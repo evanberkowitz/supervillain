@@ -15,8 +15,14 @@ def Hammer(S, worms=1):
     become available or get improved.
 
     .. note ::
-        
+
         When $W=\infty$ we only include updates that leave $dn=0$ (**NOT** $\text{mod }W$!).
+
+    .. note ::
+
+        The :class:`~.ClassicWorm` is currently only implemented for $D=2$.  In higher
+        dimensions the Hammer omits it, so the returned combination is not ergodic on its
+        own until a $D>2$ worm is available.
 
     Parameters
     ----------
@@ -34,10 +40,14 @@ def Hammer(S, worms=1):
 
     # We omit the NeighborhoodUpdate since it is a simple combination of the Vortex and CoexactUpdates.
 
-
-    W = Worm(S)
-    if worms > 1:
-        W = _combining.KeepEvery(worms, W)
+    # The ClassicWorm is only implemented for D=2; in higher dimensions we omit it.
+    if S.Lattice.D == 2:
+        W = Worm(S)
+        if worms > 1:
+            W = _combining.KeepEvery(worms, W)
+        worm = (W,)
+    else:
+        worm = ()
 
     if S.W < float('inf'):
         return _combining.Sequentially((
@@ -45,12 +55,10 @@ def Hammer(S, worms=1):
                 LinkUpdate(S),  # <-- changes dn by W, omitted below.
                 ExactUpdate(S),
                 CohomologyUpdate(S),
-                W,
-                ))
+                ) + worm)
 
     return _combining.Sequentially((
             SiteUpdate(S),
             ExactUpdate(S),
             CohomologyUpdate(S),
-            W
-            ))
+            ) + worm)
