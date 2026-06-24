@@ -38,7 +38,7 @@ def Hammer(S, worms=1):
 
     '''
 
-    # We omit the NeighborhoodUpdate since it is a simple combination of the Vortex and CoexactUpdates.
+    # We omit the NeighborhoodUpdate since it is a simple combination of the SiteUpdate and ExactUpdate.
 
     # The ClassicWorm is only implemented for D=2; in higher dimensions we omit it.
     if S.Lattice.D == 2:
