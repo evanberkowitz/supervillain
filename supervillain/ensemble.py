@@ -219,12 +219,24 @@ class Ensemble(Extendable):
             try:
                 auto[name] = autocorrelation_time(getattr(self, name))
             except Exception as E:
-                logging.warning(f'{name} does not fluctuate enough; it is not included in the autocorrelation time calculation.')
+                logger.warning(f'{name} does not fluctuate enough; it is not included in the autocorrelation time calculation.')
 
         if every:
             return auto
-        else:
-            return max(auto.values())
+
+        if not auto:
+            # Nothing fluctuated enough to estimate τ.  Rather than crash on an
+            # empty max(), warn and fall back to half the ensemble length, which
+            # corresponds to there being effectively a single independent
+            # configuration (N_eff = N / 2τ = 1).
+            tau = int(np.ceil(len(self) / 2))
+            logger.warning(
+                'No observable fluctuated enough to estimate an autocorrelation time; '
+                f'falling back to τ = {tau} (half the ensemble length).'
+            )
+            return tau
+
+        return max(auto.values())
 
     def cut(self, start):
         r'''
