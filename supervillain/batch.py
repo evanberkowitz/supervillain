@@ -58,13 +58,18 @@ class Batch:
     shape:
         Spatial shape when ``cls`` is ``None`` and ``draws_or_data`` is an ``int``.
     dtype:
-        Column dtype (default ``float``).
+        Column dtype.  When allocating a new column (``draws_or_data`` is an
+        ``int``) it defaults to ``float``.  When wrapping existing data it
+        defaults to the data's own dtype; if given explicitly it must be able
+        to hold the data without loss, otherwise a :exc:`TypeError` is raised
+        (a lossy cast such as complex→float or float→int is rejected rather
+        than silently dropping data).
     item_kwargs:
         Column-constant keyword arguments passed to ``cls`` on each draw
         (e.g. ``degree``, ``lattice`` for :class:`~supervillain.lattice.Form`).
     '''
 
-    def __init__(self, draws_or_data, *, cls=None, shape=None, dtype=float, **item_kwargs):
+    def __init__(self, draws_or_data, *, cls=None, shape=None, dtype=None, **item_kwargs):
         if isinstance(draws_or_data, numbers.Integral) and not isinstance(draws_or_data, bool):
             draws = int(draws_or_data)
             if cls is not None:
@@ -73,9 +78,18 @@ class Batch:
                 raise ValueError('Batch(draws, …) requires shape= when cls is None.')
             else:
                 spatial = shape
-            arr = np.zeros((draws,) + spatial, dtype=dtype)
+            # Allocating a fresh zeroed column; default to float when unspecified.
+            arr = np.zeros((draws,) + spatial, dtype=float if dtype is None else dtype)
         else:
-            arr = np.asarray(draws_or_data, dtype=dtype)
+            # Wrapping existing data: keep its dtype unless a compatible one is requested.
+            arr = np.asarray(draws_or_data)
+            if dtype is not None:
+                if not np.can_cast(arr.dtype, dtype, casting='safe'):
+                    raise TypeError(
+                        f'Batch cannot store {arr.dtype} data as {np.dtype(dtype)} without loss; '
+                        f'convert the data explicitly first (e.g. data.real or data.round().astype(...)).'
+                    )
+                arr = arr.astype(dtype)
 
         self._data = self._as_extendable(arr)
         self.cls = cls
