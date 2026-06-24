@@ -276,6 +276,18 @@ def test_star_d_star_equals_shifted_delta(D, N, p):
     rhs = sign * np.asarray(push(delta(f), (1,) * D))
     assert np.allclose(lhs, rhs)
 
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(1, D + 1)])
+def test_star_d_star_equals_delta_shifted(D, N, p):
+    # On this compact lattice the continuum identity δ = (-1)^{D(p-1)+1} ★d★
+    # acquires a spatial shift: ★d★f = (-1)^{D(p-1)+1} · push(δf, (1,...,1))
+    # where push(f, (1,...,1))[n] = f[n − (1,...,1)].
+    lat = Lattice(D=D, N=N)
+    rng = np.random.default_rng(D * 100 + N * 10 + p)
+    f = lat.random(p)
+    sign = (-1) ** (D * (p - 1) + 1)
+    lhs = np.asarray(star(d(star(f))))
+    rhs = sign * np.asarray(delta(push(f, (1,) * D)))
+    assert np.allclose(lhs, rhs)
 
 @pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(D + 1)])
 def test_compact_star_matches_interlaced(D, N, p):

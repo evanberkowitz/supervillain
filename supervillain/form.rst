@@ -207,4 +207,4 @@ In the continuum, on a Riemannian manifold with Euclidean signature, the Hodge s
    The shift by $\hat{e}_{\mathrm{all}}$ drops out of any periodic sum, which is why the adjoint identity :eq:`d-delta-formal-adjoint` holds exactly despite it.
    This is tested by ``test_star_d_star_equals_shifted_delta`` in :source:`test/test_lattice.py`.
 
-
+   The translation commutes with the other operations, as tested in ``test_star_d_star_equals_delta_shifted`` in :source:`test/test_lattice.py`.
