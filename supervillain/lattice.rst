@@ -5,6 +5,15 @@ Lattices
 
 We work on regular hypercubic lattices in $D$ dimensions with $N$ sites per direction and periodic boundary conditions.
 
+.. note::
+
+   The lattice is specified by a *single* $N$: every direction has the same number of sites.
+   This equal-size (hypercubic) assumption is baked into much of the code — modular arithmetic
+   on coordinates, the Fourier-transform and correlation helpers, and observables that normalize
+   by a length or volume (for example :class:`~.VortexSusceptibilityScaled`, which scales by
+   $N^{D}$).  Anisotropic lattices with a different number of sites in different directions are
+   **not** supported.
+
 .. _interlaced:
 
 The Interlaced Picture
