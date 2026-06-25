@@ -7,6 +7,7 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 import matplotlib.pyplot as plt
 
 import supervillain
+from supervillain.lattice import d
 
 parser = supervillain.cli.ArgumentParser()
 parser.add_argument('--N', type=int, default=5, help='Sites on a side.')
@@ -18,7 +19,7 @@ args = parser.parse_args()
 import logging
 logger = logging.getLogger(__name__)
 
-L = supervillain.Lattice2D(args.N)
+L = supervillain.lattice.Lattice2D(args.N)
 S = supervillain.Villain(L, args.kappa)
 G = supervillain.generator.combining.Sequentially((
         supervillain.generator.villain.SiteUpdate(S),
@@ -37,13 +38,13 @@ cfg = e.configuration[-1]
 phi = cfg['phi']
 n   = cfg['n']
 
-links = (L.d(0, phi) - 2*np.pi*n)
-winding = L.d(1, n)
+links = d(phi) - 2*np.pi*n
+winding = d(n)
 
 # Note: this combination of colormaps is not aesthetically recommended!
-L.plot_form(0, phi,     ax, cmap='rainbow', label='sites')
-L.plot_form(1, links,   ax, cmap='tab20b',  label='links')
-L.plot_form(2, winding, ax, cmap='tab20c',  label='plaquettes')
+L.plot_form(phi,     ax, cmap='rainbow', label='sites')
+L.plot_form(links,   ax, cmap='tab20b',  label='links')
+L.plot_form(winding, ax, cmap='tab20c',  label='plaquettes')
 
 fig.tight_layout()
 plt.show()

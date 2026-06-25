@@ -14,7 +14,7 @@ class Spin_Spin(Observable):
     and reduce to a single relative coordinate
 
     .. math ::
-        \texttt{Spin_Spin}_{\Delta x} = S_{\Delta x} = \frac{1}{\Lambda} \sum_x S_{x,x-\Delta x}
+        \texttt{Spin\_Spin}_{\Delta x} = S_{\Delta x} = \frac{1}{\Lambda} \sum_x S_{x,x-\Delta x}
 
     .. seealso:: 
 
@@ -37,7 +37,7 @@ class Spin_Spin(Observable):
 
         L = S.Lattice
 
-        spin = np.exp(1.j * phi)
+        spin = np.exp(1.j * phi[0])
 
         return L.correlation(spin, spin)
 
@@ -58,11 +58,11 @@ class Spin_Spin(Observable):
         Rather than requiring $\delta m = 0$ everywhere we get $(\delta m)_z = \delta_{y,z} - \delta_{x,z}$,
 
         .. math ::
-           \begin{align}
+           \begin{aligned}
                Z_J[x,y] &= \sum Dm\; e^{-S_J[m]} \left[\delta m = 0 \text{ not on }x, y\right]\left[(\delta m)_x = -1 \right]\left[(\delta m)_y = +1 \right]
                \\
                S_J[m] &= \frac{1}{2\kappa} \sum_\ell \left(m - \frac{\delta J}{2\pi}\right)_\ell^2 + \frac{|\ell|}{2} \ln (2\pi \kappa) - |x| \ln 2\pi
-           \end{align}
+           \end{aligned}
 
         Now define $\hat{m}_\ell = m_{\ell} - [P_{xy}]_\ell$ where $P_{xy}$ traces any fixed path at all whatsoever from $x$ to $y$ and on any link $P$ accumulates $+1$ for every time the path traces along the link and $-1$ every time the path traces against the link.
         For sites visited in the middle of the path $P$ the constraint is maintained while at the endpoints it is violated in exactly the desired way.
@@ -70,9 +70,9 @@ class Spin_Spin(Observable):
         Then we can change the integration variables from $m$ to $\hat{m}$ as long as we also change the action,
 
         .. math ::
-           \begin{align}
+           \begin{aligned}
                Z_J[x,y] &= \sum D\hat{m}\; e^{-S_J[\hat{m} + P_{xy}]} \left[\delta \hat{m} = 0 \text{ not on }x, y\right]\left[(\delta \hat{m})_x = 0 \right]\left[(\delta \hat{m})_y = 0 \right]
-           \end{align}
+           \end{aligned}
 
         with the same $S_J$.  Since in the hatted variables the constraint is satisfied, we can calculate this using constraint-obeying configurations (setting $J=2\pi v/W$ for the constraint) and measuring the operator
 
@@ -87,18 +87,30 @@ class Spin_Spin(Observable):
             An implementation detail is that the fixed chosen path is the taxicab path that first covers the whole time separation and then the whole space separation.
             The point is that any other path can be reached by making a combination of :class:`~.PlaquetteUpdate`\s and :class:`~.WrappingUpdate`\s.
 
-        Clearly $S_{xx}=1$, and we can normalize so that $\texttt{Spin_Spin}_{\Delta x = 0} = 1$.
+        Clearly $S_{xx}=1$, and we can normalize so that $\texttt{Spin\_Spin}_{\Delta x = 0} = 1$.
         The method provided in this observable are already naturally normalized.
         However, inline measurements like those provided by the :class:`worm <supervillain.generator.worldline.worm.Classic>` are not,
         and can only be normalized *after* the bootstrap, which is why anything that depends on this observable is a :class:`~.DerivedQuantity`.
+
+        .. note ::
+            This taxicab-path measurement is only implemented for $D=2$ and raises ``NotImplementedError``
+            otherwise.  The :class:`~.Villain` measurement and the inline worm histogram are
+            dimension-general and work in any $D$.
         '''
+
+        if S.Lattice.D != 2:
+            raise NotImplementedError(
+                'The Worldline Spin_Spin measurement traces a taxicab path on the lattice and is '
+                'only implemented for D=2.  (In the Villain formulation Spin_Spin is measured '
+                'directly and works in any D.)'
+            )
 
         # Note: for a substantially similar but slower implementation see the Spin_SpinSlow observable.
 
         L = S.Lattice
         kappa = S.kappa
 
-        result = L.form(0)
+        result = np.zeros(L.dims)
 
         # For every displacment we will take the taxicab route, as dumb as possible.
         # In Spin_SpinSlow we create stencils that are 0 and ±1, one value for every link.
@@ -115,10 +127,12 @@ class Spin_Spin(Observable):
         # Just go Δt in time first and then Δx in space.
         for i, (Δt, Δx)  in enumerate(L.coordinates):
             if (Δt, Δx) == (0, 0):
-                result[0,0] = 1
+                result[L.origin] = 1
                 continue
 
-            key = (L.nt, L.nx, Δt, Δx)
+            # Include D in the key so caches for different dimensions never collide
+            # (the measurement is D=2-only today, but the key should not assume it).
+            key = (L.D, L.N, Δt, Δx)
             T = np.abs(Δt)
             X = np.abs(Δx)
             length = T+X
@@ -215,7 +229,7 @@ class Spin_Spin(Observable):
         Setting the scaling dimension $(WR)^2 / 2$ of a charge-W vortex operator to 2 yields $R=2/W$.
         The corresponding scaling dimension of the spin operator $e^{i\phi}$ is $\Delta = (1R)^{-2}/2 = W^2/8$.
 
-        This is the critical scaling dimension of a *single* insertion, so the two-point :class:`~.Spin_Spin` scales with twice this dimension at the critical point.
+        This is the critical scaling dimension of a *single* insertion, so the two-point :class:`~.Spin_Spin_Normalized` scales with twice this dimension at the critical point.
 
         When $W=\infty$ every $\kappa>0$ is critical and $\Delta_S = 2/R^2 = 2/2\pi \kappa = 1/\pi \kappa$.
         '''
@@ -226,19 +240,40 @@ class Spin_Spin(Observable):
 
         return 1/S.kappa/np.pi
 
-class SpinSusceptibility(DerivedQuantity):
+class Spin_Spin_Normalized(DerivedQuantity):
     r'''
-    The *spin susceptibility* is the spacetime integral of the :class:`~.Spin_Spin` correlator $S_{\Delta x}$,
+    The :class:`~.Spin_Spin` correlator $S_{\Delta x}$ normalized by its value at zero separation,
 
     .. math::
-        
-        \texttt{SpinSusceptibility} = \chi_S = \int d^2r\; S(r).
+
+        \texttt{Spin\_Spin\_Normalized}_{\Delta x} = \frac{S_{\Delta x}}{S_0},
+
+    so that $\texttt{Spin\_Spin\_Normalized}_0 = 1$. 
+
+    In the Villain formulation the :class:`~.Spin_Spin` correlator is automatically normalized to 1 at the origin,
+    but in the Worldline formulation the inline worm measurement needs to be normalized by the expectation value
+    of the worm's histogram at the origin and therefore cannot be done configuration-by-configuration.
+
+    On the Villain correlator this observable is essentially a no-op but it is a meaningful rescaling of the
+    Worldline correlator required to match the two formulations.
     '''
 
     @staticmethod
     def default(S, Spin_Spin):
-        # If Spin_Spin was measured inline (by a worm, for example) then we need to normalize it.
-        return np.sum(Spin_Spin.real) / Spin_Spin[0,0]
+        return Spin_Spin / Spin_Spin[S.Lattice.origin]
+
+class SpinSusceptibility(DerivedQuantity):
+    r'''
+    The *spin susceptibility* is the spacetime integral of the :class:`~.Spin_Spin_Normalized` correlator $S_{\Delta x}$,
+
+    .. math::
+        
+        \texttt{SpinSusceptibility} = \chi_S = \int d^Dr\; S(r).
+    '''
+
+    @staticmethod
+    def default(S, Spin_Spin_Normalized):
+        return np.sum(Spin_Spin_Normalized.real)
     
 class SpinSusceptibilityScaled(SpinSusceptibility):
     r'''
@@ -246,34 +281,34 @@ class SpinSusceptibilityScaled(SpinSusceptibility):
 
     .. math::
         
-        \chi_S \sim L^{2-2\Delta(\kappa)}.
+        \chi_S \sim L^{D-2\Delta(\kappa)}.
 
     where the scaling dimension at the critical coupling $\kappa_c$ is known and depends on the constraint integer $W$.
 
     So, we scale the susceptibility by the :py:meth:`~.Spin_Spin.CriticalScalingDimension`,
 
     .. math::
-        \texttt{SpinSusceptibilityScaled} = \chi_S / L^{2-2\Delta(\kappa_c)}
+        \texttt{SpinSusceptibilityScaled} = \chi_S / L^{D-2\Delta(\kappa_c)}
 
     so that at the critical coupling the infinite-volume limit of :class:`~.SpinSusceptibilityScaled` will be a constant.
 
     .. note::
-        The 2 depends on being in 2 dimensions, while the $2\Delta$ comes from the fact that the :class:`~.Spin_Spin` is a two-point function.
+        $2\Delta$ comes from the fact that the :class:`~.Spin_Spin` is a two-point function.
     '''
 
     @staticmethod
     def default(S, SpinSusceptibility):
 
-        L = S.Lattice.nx
+        L = S.Lattice
         # NOTE: implicitly assumes that the lattice is square!
-        return SpinSusceptibility / L**(2-2*Spin_Spin.CriticalScalingDimension(S))
+        return SpinSusceptibility / L.N**(L.D-2*Spin_Spin.CriticalScalingDimension(S))
 
 class SpinCriticalMoment(DerivedQuantity):
     r'''
     The *critical moment* of the spin correlator :math:`C_S` is the volume-average of the correlator multiplied by its long-distance critical behavior,
 
     .. math::
-        C_S = \frac{1}{L^2} \int d^2r\; r^{2\Delta_S(\kappa_c, W)}\; S(r)
+        C_S = \frac{1}{L^D} \int d^Dr\; r^{2\Delta_S(\kappa_c, W)}\; S(r)
 
     At the critical $\kappa$ the long-distance behavior of the :class:`~.Spin_Spin` correlator :math:`S` decays with exactly the required power to cancel the explicit power of $r$ and the integral cancels the normalization, giving 1 in the large-$L$ limit.
 
@@ -284,9 +319,8 @@ class SpinCriticalMoment(DerivedQuantity):
     '''
 
     @staticmethod
-    def default(S, Spin_Spin):
+    def default(S, Spin_Spin_Normalized):
 
         L = S.Lattice
-        # If Spin_Spin was measured inline (by a worm, for example) then we need to normalize it.
-        return np.sum(L.R_squared**(supervillain.observable.Spin_Spin.CriticalScalingDimension(S)) * Spin_Spin.real) / L.sites / Spin_Spin[0,0].real
+        return np.sum(L.R_squared**(supervillain.observable.Spin_Spin.CriticalScalingDimension(S)) * Spin_Spin_Normalized.real) / L.sites
 

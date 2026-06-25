@@ -19,8 +19,8 @@ for a, N in zip(ax.flatten(), lattices):
     L = supervillain.lattice.Lattice2D(N)
     x = L.form(2)
     for i, color in enumerate(L.checkerboarding):
-        x[color] = i
+        x[(slice(None), *color)] = i
 
-    L.plot_form(2, x/np.max(x), a, cmap='nipy_spectral')
+    L.plot_form(x/np.max(x), a, cmap='nipy_spectral')
 
 plt.show()

@@ -5,9 +5,10 @@ import numpy as np
 import supervillain.action
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
-import supervillain.h5.extendable as extendable
+from supervillain.batch import Batch
 
 from supervillain.lattice import _Lattice2D
+from supervillain.lattice import d
 import numba
 
 import logging
@@ -37,12 +38,21 @@ class ClassicWorm(ReadWriteable, Generator):
 
         This class contains kernels accelerated using numba.
 
+    .. todo::
+        Generalize to D>2. The current implementation is hardcoded for D=2: it uses the
+        :class:`~.lattice._Lattice2D` numba struct, four fixed directions (east/north/west/south),
+        and 2D displacement histograms. Raises :exc:`NotImplementedError` for $D \neq 2$.
+
     .. seealso ::
 
         There is :class:`a reference implementation without any numba acceleration <supervillain.generator.reference_implementation.villain.ClassicWorm>`.
     '''
 
     def __init__(self, S):
+        if not isinstance(S, supervillain.action.Villain):
+            raise ValueError('Need a Villain action')
+        if S.Lattice.D != 2:
+            raise NotImplementedError('ClassicWorm is only implemented for D=2')
         self.Action = S
         self.rng = np.random.default_rng()
 
@@ -63,9 +73,10 @@ class ClassicWorm(ReadWriteable, Generator):
         We also store the ``Worm_Length`` for each step.
         '''
 
+        L = self.Action.Lattice
         return {
-            'Vortex_Vortex': extendable.array(self.Action.Lattice.form(0, steps)),
-            'Worm_Length':   extendable.array(np.zeros(steps)),
+            'Vortex_Vortex': Batch(steps, shape=(L.N, L.N)),
+            'Worm_Length':   Batch(steps, shape=(), dtype=float),
         }
 
     def step(self, configuration):
@@ -76,12 +87,10 @@ class ClassicWorm(ReadWriteable, Generator):
         S = self.Action
         L = S.Lattice
 
-        displacements = L.form(0)
-
         # This algorithm will not update phi; but it is useful to precompute dphi
         # which is used in the evaluation of the changes in action.
         phi = configuration['phi'].copy()
-        dphi = L.d(0, phi)
+        dphi = d(phi)
 
         # The documentation gives a definitive statement about moving the head only.
         # But we could equally well move the tail, making the opposite moves in the opposite worm evolution.
@@ -112,7 +121,7 @@ class ClassicWorm(ReadWriteable, Generator):
         
         wl = vortex_vortex.sum()
         self.worm_lengths.append(wl)
-        return {'n': new_n, 'phi': phi, 'Vortex_Vortex': vortex_vortex, 'Worm_Length': wl}
+        return configuration | {'n': new_n, 'Vortex_Vortex': vortex_vortex, 'Worm_Length': wl}
 
     def report(self):
         l = np.array(self.worm_lengths)

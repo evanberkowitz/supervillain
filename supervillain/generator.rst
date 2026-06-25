@@ -40,11 +40,11 @@ Picking a site $x$ at random and proposing a change
 
 .. math ::
     
-    \begin{align}
-    \Delta\phi_x    &\sim \text{uniform}(-\texttt{interval_phi}, +\texttt{interval_phi})
+    \begin{aligned}
+    \Delta\phi_x    &\sim \text{uniform}(-\texttt{interval\_phi}, +\texttt{interval\_phi})
     \\
-    \Delta n_\ell   &\sim [-\texttt{interval_n}, +\texttt{interval_n}]
-    \end{align}
+    \Delta n_\ell   &\sim [-\texttt{interval\_n}, +\texttt{interval\_n}]
+    \end{aligned}
 
 for the $\phi$ on $x$ and $n$ on links $\ell$ which touch $x$ is ergodic (once swept over the lattice) and satisfies detailed balance so long as we accept the proposal based on the change of action.
 The :class:`NeighborhoodUpdateSlow <supervillain.generator.reference_implementation.villain.NeighborhoodUpdateSlow>` generator implements this update algorithm but suffers from a variety of defects.
@@ -74,17 +74,17 @@ We can decouple these proposals.
 When $W=1$ the combination of the :class:`~.SiteUpdate` and :class:`~.LinkUpdate` are ergodic.
 But when $W>1$ the :class:`~.LinkUpdate` only offers changes to $n$ by multiples of $W$ to preserve the constraint $dn = 0 \text{ mod }W$.
 For an ergodic algorithm when $W>1$ we need to offer ways to change $n$ by 1 (less than $W$) while maintaining the constraint.
-We need to make closed updates to $n$, which can be broken up into :class:`~.villain.ExactUpdate`\ s (which are automatically closed) and :class:`~.villain.HolonomyUpdate`\ s.
+We need to make closed updates to $n$, which can be broken up into :class:`~.villain.ExactUpdate`\ s (which are automatically closed) and :class:`~.villain.CohomologyUpdate`\ s (which change the global winding sector).
 
 .. autoclass :: supervillain.generator.villain.ExactUpdate
    :members:
 
-.. autoclass :: supervillain.generator.villain.HolonomyUpdate
+.. autoclass :: supervillain.generator.villain.CohomologyUpdate
    :members:
 
-The combination of the :class:`~.SiteUpdate`, :class:`~.LinkUpdate`, :class:`~.ExactUpdate`, and :class:`~.HolonomyUpdate` is ergodic even when $W>1$.
+The combination of the :class:`~.SiteUpdate`, :class:`~.LinkUpdate`, :class:`~.ExactUpdate`, and :class:`~.CohomologyUpdate` is ergodic even when $W>1$.
 But it can be slow to decorrelate.
-As mentioned, the :class:`~.HolonomyUpdate` often rejects because it touches a macroscopic number of variables.
+As mentioned, the :class:`~.CohomologyUpdate` often rejects because it touches a macroscopic number of variables ($N^{D-1}$ links per direction).
 A major issue is that the route across the torus is very rigid: it's just a straight shot.
 Smarter *worm algorithms* can make high-acceptance updates to many variables across the lattice, which can help overcome *critical slowing down*.
 
@@ -92,11 +92,11 @@ Remember that in the :class:`~.Action.Villain` case we are trying to sample acco
 
 .. math ::
 
-   \begin{align}
+   \begin{aligned}
        Z &= \sum\hspace{-1.33em}\int D\phi\; Dn\; Dv\; e^{-S[\phi, n, v]}
        \\
        S[\phi, n, v] &= \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + 2\pi i \sum_p v_p (dn)_p / W
-   \end{align}
+   \end{aligned}
 
 and that we may directly path-integrate out the Lagrange multiplier $v$ in favor of a constraint
 
@@ -176,9 +176,9 @@ So, the worm's displacement histogram can be saved inline as :class:`~.Vortex_Vo
 
 The worm is not ergodic on its own---it doesn't update $\phi$, for example, and it cannot change a link by ±W.
 But, in combination of with :class:`~.villain.SiteUpdate` and :class:`~.villain.LinkUpdate` it is ergodic;
-the worm can replace the combination of :class:`~.villain.ExactUpdate` and :class:`~.villain.HolonomyUpdate`.
+the worm can replace the combination of :class:`~.villain.ExactUpdate` and :class:`~.villain.CohomologyUpdate`.
 The :class:`~.villain.ExactUpdate` can be understood as a very simple worm that takes the tightest nontrivial path,
-while the :class:`~.villain.HolonomyUpdate` can be understood as a worm that goes once around the world.
+while the :class:`~.villain.CohomologyUpdate` can be understood as a worm that goes once around the world in a straight shot.
 The worm offers *dynamically determined constraint-preserving updates* and is much more flexible.
 In can change the holonomy, for example, by finding a route around the torus that isn't a straight shot but
 runs through the valley of the action.
@@ -218,11 +218,11 @@ and rejection.  Just as in the Villain case we can make smarter updates to a dyn
 Unlike the Villain formulation, the Worldline formulation has a constraint even when :math:`W=1`, :math:`\delta m = 0` everywhere, from path-integrating $\phi$
 
 .. math ::
-   \begin{align}
+   \begin{aligned}
    Z &=  (2\pi\kappa)^{-|\ell|/2}\sum\hspace{-1.33em}\int D\phi\; Dm\; Dv\; e^{-S[\phi, m, v]}
    \\
    S[\phi, m, v] &= \frac{1}{2\kappa} \sum_\ell \left(m - \frac{\delta v}{W} \right)_\ell^2 - i \sum_x \left(\delta m\right)_x \phi_x
-   \end{align}
+   \end{aligned}
 
 Thinking about the :class:`~.Spin_Spin` correlation function, we want to insert $e^{i(\phi_x-\phi_y)}$, which shifts the constraint to
 

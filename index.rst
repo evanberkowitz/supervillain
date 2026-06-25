@@ -21,6 +21,7 @@ supervillain
    supervillain/action
    supervillain/worldline
    supervillain/lattice
+   supervillain/form
    supervillain/ensemble
    supervillain/generator
    supervillain/measurement

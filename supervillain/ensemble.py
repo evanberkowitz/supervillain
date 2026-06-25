@@ -7,6 +7,7 @@ import supervillain
 from supervillain.h5 import Extendable
 from supervillain.performance import Timer
 from supervillain.analysis import autocorrelation_time
+from supervillain.batch import Batch
 import supervillain.h5
 
 import logging
@@ -73,8 +74,8 @@ class Ensemble(Extendable):
         self.configuration = self.Action.configurations(steps)
         self.configuration |= generator.inline_observables(steps)
         self.index_stride = index_stride
-        self.index = starting_index + self.index_stride * supervillain.h5.extendable.array(np.arange(steps))
-        self.weight = supervillain.h5.extendable.array(np.ones(steps))
+        self.index = Batch(starting_index + self.index_stride * np.arange(steps))
+        self.weight = Batch(np.ones(steps))
 
         if start == 'cold':
             seed = self.Action.configurations(1)[0]
@@ -218,12 +219,24 @@ class Ensemble(Extendable):
             try:
                 auto[name] = autocorrelation_time(getattr(self, name))
             except Exception as E:
-                raise ValueError(f'{name} does not fluctuate enough') from E
+                logger.warning(f'{name} does not fluctuate enough; it is not included in the autocorrelation time calculation.')
 
         if every:
             return auto
-        else:
-            return max(auto.values())
+
+        if not auto:
+            # Nothing fluctuated enough to estimate τ.  Rather than crash on an
+            # empty max(), warn and fall back to half the ensemble length, which
+            # corresponds to there being effectively a single independent
+            # configuration (N_eff = N / 2τ = 1).
+            tau = int(np.ceil(len(self) / 2))
+            logger.warning(
+                'No observable fluctuated enough to estimate an autocorrelation time; '
+                f'falling back to τ = {tau} (half the ensemble length).'
+            )
+            return tau
+
+        return max(auto.values())
 
     def cut(self, start):
         r'''
@@ -305,8 +318,8 @@ class Ensemble(Extendable):
         if histogram_label is None:
             histogram_label=label
 
-        data = getattr(self, observable)
-        axes[0].plot(self.index, data, color=color, **history_kwargs)
+        data = Batch.as_array(getattr(self, observable))
+        axes[0].plot(Batch.as_array(self.index), data, color=color, **history_kwargs)
         axes[1].hist(data, label=histogram_label,
                      orientation='horizontal',
                      bins=bins, density=density,

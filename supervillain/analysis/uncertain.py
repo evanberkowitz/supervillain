@@ -160,7 +160,7 @@ To mandate a sign even for positive numbers, add a ``+``.
         # If you get to here you can assume the mean mantissa's integer part is 1-9.
 
         # The user might specify a .precision in the formatting string.
-        f_precision = re.search('\.(\d*)', format_spec)
+        f_precision = re.search(r'\.(\d*)', format_spec)
         if f_precision:
             f_precision = int(f_precision.group()[1:])
         else:
@@ -183,7 +183,7 @@ To mandate a sign even for positive numbers, add a ``+``.
         digits    = -precision
 
         # The user might specify a u uncertainty spec
-        u_precision = re.search('u(\d*)', format_spec)
+        u_precision = re.search(r'u(\d*)', format_spec)
         if u_precision:
             u_precision = int(u_precision.group()[1:])
         else:

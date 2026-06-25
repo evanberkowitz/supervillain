@@ -1,4 +1,5 @@
 import numpy as np
+from supervillain.lattice import push
 from supervillain.observable import Observable
 
 class Spin_SpinSloppy(Observable):
@@ -18,7 +19,7 @@ class Spin_SpinSloppy(Observable):
 
         L = S.Lattice
 
-        exp_i_phi = np.exp(1.j * phi)
+        exp_i_phi = np.exp(1.j * phi[0])
 
         return L.correlation(exp_i_phi, exp_i_phi)
 
@@ -27,12 +28,20 @@ class Spin_SpinSloppy(Observable):
         r'''
 
         See the :class:`Spin_Spin` documentation.
+
+        .. note ::
+            This taxicab-path measurement is only implemented for $D=2$ and raises ``NotImplementedError`` otherwise.
         '''
+
+        if S.Lattice.D != 2:
+            raise NotImplementedError(
+                'The Worldline Spin_Spin measurement traces a taxicab path and is only implemented for D=2.'
+            )
 
         L = S.Lattice
         kappa = S.kappa
 
-        result = L.linearize(L.form(0))
+        result = np.zeros(L.sites)
 
         # For every displacment we will take the taxicab route, as dumb as possible.
         # Just go Δt in time first and then Δx in space.
@@ -61,7 +70,7 @@ class Spin_SpinSloppy(Observable):
             # the possible origins.
             result[i] += np.exp(-1/(2*kappa) * (P* (2*Links + P)).sum())
 
-        return L.coordinatize(result)
+        return result.reshape(L.dims)
 
 class Spin_SpinSlow(Observable):
     r'''
@@ -75,7 +84,7 @@ class Spin_SpinSlow(Observable):
     and reduce to a single relative coordinate
 
     .. math ::
-        \texttt{Spin_Spin}_{\Delta x} = S_{\Delta x} = \frac{1}{\Lambda} \sum_x S_{x,x-\Delta x}
+        \texttt{Spin\_Spin}_{\Delta x} = S_{\Delta x} = \frac{1}{\Lambda} \sum_x S_{x,x-\Delta x}
 
     .. seealso::
         Compared to :class:`~.reference_implementation.spin.Spin_SpinSloppy` this implementation gets more juice from each configuration.
@@ -92,7 +101,7 @@ class Spin_SpinSlow(Observable):
 
         L = S.Lattice
 
-        exp_i_phi = np.exp(1.j * phi)
+        exp_i_phi = np.exp(1.j * phi[0])
 
         return L.correlation(exp_i_phi, exp_i_phi)
 
@@ -104,7 +113,15 @@ class Spin_SpinSlow(Observable):
         r'''
         Computes the same result as :class:`~.Spin_Spin` but more slowly.
         Compared to :class:`~.Spin_SpinSloppy` we measure the same correlator but get more juice from each configuration by averaging over translations.
+
+        .. note ::
+            This taxicab-path measurement is only implemented for $D=2$ and raises ``NotImplementedError`` otherwise.
         '''
+
+        if S.Lattice.D != 2:
+            raise NotImplementedError(
+                'The Worldline Spin_Spin measurement traces a taxicab path and is only implemented for D=2.'
+            )
 
         # Note: for a substantially similar but slightly simpler implementation
         # which leaves a lot of information on the table, see the Spin_SpinSloppy
@@ -113,19 +130,19 @@ class Spin_SpinSlow(Observable):
         L = S.Lattice
         kappa = S.kappa
 
-        result = L.linearize(L.form(0))
+        result = np.zeros(L.sites)
 
         # For every displacment we will take the taxicab route, as dumb as possible.
         # Just go Δt in time first and then Δx in space.
         for i, (Δt, Δx)  in enumerate(L.coordinates):
             try:
-                P = Spin_SpinSlow._stencils[(L.nt, L.nx, Δt, Δx)]
+                P = Spin_SpinSlow._stencils[(L.N, Δt, Δx)]
             except KeyError:
                 # Each stencil will hold the path starting on the origin, AND a copy
                 # for every other starting point.
                 #
                 # We construct the one from the origin first, as it is easiest to think about...
-                P = L.form(1, L.sites)
+                P = np.zeros((L.sites,) + L.form(1).shape)
 
                 if Δt >= 0:
                     # Follow the links in the positive t direction.
@@ -145,9 +162,9 @@ class Spin_SpinSlow(Observable):
 
                 # ... and then we just roll it around and store every possible translation.
                 for j, shift in enumerate(L.coordinates):
-                    P[j] = L.roll(P[0], shift)
+                    P[j] = push(P[0], shift)
 
-                Spin_SpinSlow._stencils[(L.nt, L.nx, Δt, Δx)] = P
+                Spin_SpinSlow._stencils[(L.N, Δt, Δx)] = P
 
             # In the full measurement we overlay the stencil on the configuration 
             # in all possible ways and sum.  Then we have measured the dependence on Δx
@@ -163,6 +180,6 @@ class Spin_SpinSlow(Observable):
                 axis=(1,2,3)    # the 0th axis is the broadcast axis, 1,2, and 3 are the vector index, time, and space.
                 )).mean()       # <-- we should average over the different starting points.
 
-        return L.coordinatize(result)
+        return result.reshape(L.dims)
 
 

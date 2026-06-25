@@ -3,6 +3,7 @@
 import numpy as np
 
 import supervillain
+from supervillain.batch import Batch
 from supervillain.h5 import ReadWriteable
 from supervillain.performance import Timer
 
@@ -39,7 +40,7 @@ class Blocking(ReadWriteable):
         r'''How many configurations are dropped from the start of the ensemble to make the blocking come out evenly.'''
         self.blocks  = (cfgs - self.drop) // self.width
         r'''How many blocks are in the blocking.'''
-        self.weight = ensemble.weight[self.drop:].reshape(-1, self.width).mean(axis=1)
+        self.weight = Batch.as_array(ensemble.weight)[self.drop:].reshape(-1, self.width).mean(axis=1)
         r'''The average weight of each block.'''
         self._block_indices = self.drop+np.arange(len(ensemble)-self.drop).reshape(-1, self.width)
         self.index =  self._block_indices.mean(axis=1)
@@ -54,11 +55,13 @@ class Blocking(ReadWriteable):
         return self.blocks
 
     def _block(self, obs):
+        obs = Batch.as_array(obs)
+        weight = Batch.as_array(self.Ensemble.weight)
         shape = obs.shape[1:]
 
         return (
             obs[self.drop:] * np.expand_dims(
-                self.Ensemble.weight[self.drop:],
+                weight[self.drop:],
                 axis=tuple(range(1, 1+len(shape)))
             )
         ).reshape(-1, self.width, *shape).mean(axis=1)
@@ -80,7 +83,7 @@ class Blocking(ReadWriteable):
         if histogram_label is None:
             histogram_label=label
 
-        data = getattr(self, observable)
+        data = Batch.as_array(getattr(self, observable))
         axes[0].plot(self.index, data, color=color, **history_kwargs)
         axes[1].hist(data, label=histogram_label,
                      orientation='horizontal',

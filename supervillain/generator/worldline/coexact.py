@@ -4,6 +4,7 @@ import numpy as np
 import supervillain.action
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
+from supervillain.lattice import delta
 
 import logging
 logger = logging.getLogger(__name__)
@@ -16,11 +17,11 @@ class CoexactUpdate(ReadWriteable, Generator):
 
     .. math ::
 
-        \begin{align}
-            t_p   &\sim [-\texttt{interval_t}, +\texttt{interval_t}] \setminus \{0\}
+        \begin{aligned}
+            t_p   &\sim [-\texttt{interval\_t}, +\texttt{interval\_t}] \setminus \{0\}
             &
             \Delta m_\ell &= (\delta t)_\ell
-        \end{align}
+        \end{aligned}
 
     .. warning ::
         This algorithm is not ergodic on its own.  It does not change $v$ (see the :class:`~.worldline.VortexUpdate`)
@@ -66,18 +67,18 @@ class CoexactUpdate(ReadWriteable, Generator):
 
         self.sweeps += 1
         total_acceptance = 0
-        accepted = 0
+        total_accepted = 0
 
-        v = cfg['v'].copy()
-        delta_v_by_W = self.Lattice.delta(2, v)/self.Action._W
+        v = cfg['v']
+        delta_v_by_W = delta(v) / self.Action._W
 
         m = cfg['m'].copy()
 
         L = self.Lattice
+        n_comps = len(L.components[2])
 
-        metropolis = self.rng.uniform(0, 1, v.shape)
-        total_accepted = 0
-        total_acceptance = 0
+        # One independent Metropolis draw per (2-form component, site).
+        metropolis = self.rng.uniform(0, 1, (n_comps,) + L.dims)
 
         # The idea is to make coordinated changes to m that keep δm=0.  We can do that by letting the change in m
         # be a coexact form δt with t a two-form so that the change in δm is δ^2t = 0.
@@ -90,43 +91,46 @@ class CoexactUpdate(ReadWriteable, Generator):
         # That poses a small problem because if we change the action by changing m, we want to be able to track
         # that change back to a change in t on ONE particular plaquette, and to accept or reject that change independently
         # from other changes in t. Therefore, we use checkerboarding.
+        #
+        # In D>2 there are C(D,2) independent 2-form components. Two plaquettes of the same component at
+        # same-color sites never share boundary links, so we can propose and accept/reject each component
+        # independently. We process components sequentially to avoid conflicts from shared boundary links
+        # between different components at the same site.
         for color in L.checkerboarding:
+            for comp_idx in range(n_comps):
 
+                # We only offer changes to t[comp_idx] on a single color at once.
+                t = L.form(2, dtype=int)
+                t[comp_idx][color] = self.rng.choice(self.ts, len(color[0]))
 
-            # We only offer changes to t on a single color at once.  The benefit is that the surrounding plaquettes
-            # do not have updates.  So we know where any change in m=δt and therefore any change in the action on any link came from:
-            # it came from the plaquette in the partition (color) we are updating.
-            t = L.form(2, dtype=int)
-            t[color] = self.rng.choice(self.ts, len(color[0]))
+                # To keep δm=0 we let the change in m be given by δt, so that δ(change_m) = δ^2(t) = 0.
+                change_m = delta(t)
+                dS_link = 0.5 / self.Action.kappa * change_m * (2*(m - delta_v_by_W) + change_m)
 
-            # To keep δm=0 we let the change in m be given by δt, so that δ(change_m) = δ^2(t) = 0.
-            change_m = L.delta(2, t)
-            dS_link = 0.5 / self.Action.kappa * change_m * (2*(m - delta_v_by_W) + change_m)
+                # The change in action originating from each plaquette is the sum of changes on its
+                # boundary links. coface_sum() accumulates those unsigned boundary contributions,
+                # giving a 2-form where dS[comp_idx][x] is the ΔS for the (comp_idx) plaquette at x.
+                dS = dS_link.coface_sum()
 
-            # The change in action originating from the two form on the color under consideration
-            # is just the sum of all the changes from the adjacent links.  So we sum them up.
-            dS = dS_link[0] + dS_link[1] + L.roll(dS_link[0], (0, -1)) + L.roll(dS_link[1], (-1, 0))
+                # dS is not 0 on off-color plaquettes---those still have links touching the current color.
+                # Only accept/reject on the current color.
+                acceptance = np.clip(np.exp(-dS[comp_idx][color]), a_min=0, a_max=1)
+                accepted = (metropolis[comp_idx][color] < acceptance)
 
-            # Now dS is a 2-form encoding the changes in action from m = delta(the two-form t).  But we should be careful:
-            # dS is not 0 on the off-color plaquettes---those plaquettes still have links that land us on the current color.
-            # We only want to accept/reject updates on the current color, so we restrict our attention when computing the acceptance.
-            acceptance = np.clip( np.exp(-dS[color]), a_min=0, a_max=1)
-            accepted = (metropolis[color] < acceptance)
+                total_accepted += accepted.sum()
+                total_acceptance += acceptance.sum()
 
-            total_accepted += accepted.sum()
-            total_acceptance += acceptance.sum()
+                # Update m where the change is accepted.
+                t[comp_idx][color] *= accepted
+                m = m + delta(t)
 
-            # Finally, we update the m where the change is accepted.
-            t[color] *= accepted
-            m += L.delta(2, t)
-
-        self.proposed += L.sites
-        self.acceptance += total_acceptance / L.plaquettes
+        self.proposed += L.cells_of_degree[2]
+        self.acceptance += total_acceptance / L.cells_of_degree[2]
         self.accepted += total_accepted
 
-        logger.debug(f'Average proposal acceptance {total_acceptance / L.plaquettes:.6f}; Actually accepted {total_accepted} / {L.plaquettes} = {total_accepted / L.plaquettes}')
+        logger.debug(f'Average proposal acceptance {total_acceptance / L.cells_of_degree[2]:.6f}; Actually accepted {total_accepted} / {L.cells_of_degree[2]} = {total_accepted / L.cells_of_degree[2]}')
 
-        return {'m': m, 'v': v}
+        return cfg | {'m': m}
 
 
 
@@ -138,4 +142,3 @@ class CoexactUpdate(ReadWriteable, Generator):
             +'\n'+
             f'    {self.acceptance / self.sweeps:.6f} average Metropolis acceptance probability.'
         )
-

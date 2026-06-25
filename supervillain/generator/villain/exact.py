@@ -4,6 +4,7 @@ import numpy as np
 import supervillain.action
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
+from supervillain.lattice import d
 
 import logging
 logger = logging.getLogger(__name__)
@@ -20,9 +21,9 @@ class ExactUpdate(ReadWriteable, Generator):
 
     .. math ::
 
-        \begin{align}
-        z_x   &\sim [-\texttt{interval_z}, +\texttt{interval_z}] \setminus \{0\}
-        \end{align}
+        \begin{aligned}
+        z_x   &\sim [-\texttt{interval\_z}, +\texttt{interval\_z}] \setminus \{0\}
+        \end{aligned}
     '''
 
     def __init__(self, action, interval_z = 1):
@@ -44,7 +45,7 @@ class ExactUpdate(ReadWriteable, Generator):
         self.sweeps = 0
 
     def __str__(self):
-        return 'SiteUpdate'
+        return 'ExactUpdate'
 
     def step(self, cfg):
         r'''
@@ -53,28 +54,26 @@ class ExactUpdate(ReadWriteable, Generator):
         Parameters
         ----------
         cfg: dict
-            A dictionary with phi and n field variables.
+            A dictionary with phi and n as Forms.
 
         Returns
         -------
         dict
-            Another configuration of fields.
+            Updated configuration.
         '''
+        S = self.Action
+        L = S.Lattice
+
+        n = cfg['n'].copy()
 
         self.sweeps += 1
-        total_acceptance = 0
-        accepted = 0
-
-        phi = cfg['phi'].copy()
-        dphi = self.Lattice.d(0, phi)
-
-        n   = cfg['n'].copy()
-
-        L = self.Lattice
-
-        metropolis = self.rng.uniform(0, 1, phi.shape)
         total_accepted = 0
         total_acceptance = 0
+
+        # dphi stays fixed throughout; we only update n.
+        dphi = d(cfg['phi'])
+
+        metropolis = self.rng.uniform(0, 1, (L.N,) * L.D)
 
         # The idea is to make coordinated changes to n that keep dn=0.  We can do that by letting the change in n
         # be an exact form dz with z a zero form so that the change in dn is d^2z = 0.
@@ -86,46 +85,51 @@ class ExactUpdate(ReadWriteable, Generator):
         #
         # That poses a small problem because if we change the action by changing dz, we want to be able to track
         # that change in dz back to a change in z on ONE particular site, and to accept or reject that change independently
-        # from other changes in z. Therefore, we use checkerboarding.
+        # from other changes in z.  Therefore, we use checkerboarding.
         for color in L.checkerboarding:
-
 
             # We only offer changes to z on a single color at once.  The benefit is that the surrounding sites
             # do not have updates.  So we know where any change in dz and therefore any change in the action on any link came from:
             # it came from the site in the partition (color) we are updating.
-            z = L.form(0, dtype=int)
-            z[color] = self.rng.choice(self.zs, len(color[0]))
+            change_z = L.zeros(0, dtype=int)
+            change_z[0, *color] = self.rng.choice(self.zs, len(color[0]))
 
             # To keep dn=0 we let the change in n be given by d(z), so that d(change_n) = 0, since it is d^2(z).
-            change_n = L.d(0, z)
-            dS_link = 0.5 * self.Action.kappa * (-2*np.pi*change_n) * (2*(dphi - 2*np.pi*n) - 2*np.pi*change_n)
+            change_n = d(change_z)
+
+            dS_link = (
+                -2 * np.pi * S.kappa * change_n
+                * ((dphi - 2 * np.pi * n) - np.pi * change_n)
+            )
 
             # The change in action originating from the zero form on the color under consideration
-            # is just the sum of all the changes from the adjacent links.  So we sum them up.
-            dS = dS_link[0] + dS_link[1] + L.roll(dS_link[0], (+1, 0)) + L.roll(dS_link[1], (0, +1))
+            # is just the sum of all the changes from the adjacent links. face_sum collects them.
+            dS = dS_link.face_sum()
 
             # Now dS is a 0-form encoding the changes in action from n = d(the zero form z).  But we should be careful:
             # dS is not 0 on the off-color sites---those sites still have links that land us on the current color.
             # We only want to accept/reject updates on the current color, so we restrict our attention when computing the acceptance.
-            acceptance = np.clip( np.exp(-dS[color]), a_min=0, a_max=1)
-            accepted = (metropolis[color] < acceptance)
+            acceptance = np.clip(np.exp(-dS[0, *color]), a_min=0, a_max=1)
+            accepted = metropolis[color] < acceptance
 
             total_accepted += accepted.sum()
             total_acceptance += acceptance.sum()
 
             # Finally, we update the n where the change is accepted.
-            z[color] *= accepted
-            n += L.d(0, z)
+            change_z[0, *color] *= accepted
+            n = n + d(change_z)
 
-        self.proposed += L.sites
-        self.acceptance += total_acceptance / L.sites
+        sites = self.Lattice.cells_of_degree[0]
+        self.proposed += sites
+        self.acceptance += total_acceptance / sites
         self.accepted += total_accepted
 
-        logger.debug(f'Average proposal acceptance {total_acceptance / L.sites:.6f}; Actually accepted {total_accepted} / {L.sites} = {total_accepted / L.sites}')
+        logger.debug(f'Average proposal acceptance {total_acceptance / sites:.6f}; Actually accepted {total_accepted} / {sites} = {total_accepted / sites}')
 
-        return {'phi': phi, 'n': n}
+        return cfg | {'n': n}
 
-
+    def inline_observables(self, steps):
+        return {}
 
     def report(self):
         return (
@@ -135,4 +139,3 @@ class ExactUpdate(ReadWriteable, Generator):
             +'\n'+
             f'    {self.acceptance / self.sweeps:.6f} average Metropolis acceptance probability.'
         )
-

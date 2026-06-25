@@ -71,17 +71,8 @@ Wrapping
    :members:
    :show-inheritance:
 
-Calculations of the :func:`~.autocorrelation_time` are easiest for scalars.
-These decouple the two components of the wrapping.
 
-.. warning ::
-   Like :class:`~.TorusWrapping` these are motivated differently for the different formulations.
-
-.. autoclass :: supervillain.observable.TWrapping
-   :members:
-   :show-inheritance:
-
-.. autoclass :: supervillain.observable.XWrapping
+.. autoclass :: supervillain.observable.WrappingSquared
    :members:
    :show-inheritance:
 
@@ -92,6 +83,10 @@ Spin Correlations
 =================
 
 .. autoclass :: supervillain.observable.Spin_Spin
+   :members:
+   :show-inheritance:
+
+.. autoclass :: supervillain.observable.Spin_Spin_Normalized
    :members:
    :show-inheritance:
 
@@ -112,6 +107,10 @@ Vortex Correlations
 ===================
 
 .. autoclass :: supervillain.observable.Vortex_Vortex
+   :members:
+   :show-inheritance:
+
+.. autoclass :: supervillain.observable.Vortex_Vortex_Normalized
    :members:
    :show-inheritance:
 

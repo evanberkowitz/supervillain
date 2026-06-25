@@ -1,4 +1,5 @@
 import numpy as np
+from supervillain.lattice import push
 from supervillain.observable import Observable, DerivedQuantity, Constrained
 import supervillain.action
 
@@ -13,22 +14,27 @@ class Vortex_Vortex(Constrained, Observable):
     and we can use translational invariance to reduce to a single relative coordinate
 
     .. math ::
-        \texttt{Vortex_Vortex}_{\Delta x} = V_{\Delta x} = \frac{1}{\Lambda} \sum_x V_{x,x-\Delta x}
+        \texttt{Vortex\_Vortex}_{\Delta x} = V_{\Delta x} = \frac{1}{\Lambda} \sum_x V_{x,x-\Delta x}
 
     '''
 
     @staticmethod
     def Worldline(S, v):
         r'''
-        $v$ is accessible only in the Worldline formulation.
+        $v$ is accessible only in the Worldline formulation.  For $D>2$ the vortex
+        $e^{2\pi i v/W}$ is a $\binom{D}{2}$-component 2-form (one plaquette orientation
+        per component); by isotropy we average the correlator over the orientations,
+        exactly as :class:`~.Winding_Winding` does (a single orientation when $D=2$).
         '''
 
         L = S.Lattice
+        if L.D < 2:
+            raise NotImplementedError('Vortex observables require D >= 2; there are no plaquettes for D < 2.')
 
-        # When W=∞ we want exp(iv).
+        # When W=∞ we want exp(iv).  v is a C(D,2)-component 2-form.
         vortex = np.exp(2j*np.pi * v / S._W)
 
-        return L.correlation(vortex, vortex)
+        return L.correlation(vortex, vortex).mean(axis=0)
 
     @staticmethod
     def CriticalScalingDimension(S):
@@ -59,13 +65,13 @@ class Vortex_Vortex(Constrained, Observable):
         We can write $V_{x,y}$ as the ratio of two partition functions,
 
         .. math ::
-            \begin{align}
+            \begin{aligned}
                 V_{x,y} &= Z_0[x,y] / Z_0
                 \\
                 Z_J[x,y] &= \sum\hspace{-1.33em}\int D\phi\; Dn\; Dv\; e^{-S_J[\phi, n, v]} e^{2\pi i (v_x - v_y) / W}
                 \\
                 S_J[\phi, n, v] &= \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + 2\pi i \sum_p \left(v/W + J/2\pi \right)_p (dn)_p
-            \end{align}
+            \end{aligned}
 
         where $Z$ is the standard :class:`~.Villain` partition function with action $S$.
         The difference between $Z[x,y]$ and $Z$ is the insertion of the two-point exponential.
@@ -73,13 +79,13 @@ class Vortex_Vortex(Constrained, Observable):
 
         .. math ::
             
-            \begin{align}
+            \begin{aligned}
                 S_0'[\phi, n, v]
                     &=
                 \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + 2\pi i \sum_p \left(v/W\right)_p (dn)_p + 2\pi i (v_x-v_y)/W
                     \\
                 &= \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + 2\pi i \sum_p \left(v/W\right)_p (dn_p + \delta_{xp} - \delta_{yp} )
-            \end{align}
+            \end{aligned}
 
         so integrating out $v$ would now change the :ref:`winding constraint <winding constraint>` to $[dn_p \equiv \delta_{yp} - \delta_{xp} \text{ mod } W]$.
 
@@ -90,48 +96,62 @@ class Vortex_Vortex(Constrained, Observable):
         Then we can change the integration variables from $n$ to $\hat{n}$ as long as  we also change the action,
 
         .. math :: 
-            \begin{align}
+            \begin{aligned}
                 Z_J[x,y] &= \sum\hspace{-1.33em}\int D\phi\; D\hat{n}\; e^{-S_J[\phi, \hat{n} + P]} [d\hat{n} \equiv 0 \text{ mod } W]
-            \end{align}
+            \end{aligned}
 
         with the same $S_J$.  Since in the hatted variables the constraint is satisfied, we can calculate this using constraint-obeying configurations by reweighting,
 
         .. math :: 
 
-            \begin{align}
+            \begin{aligned}
                 Z_J[x,y] &= \sum\hspace{-1.33em}\int D\phi\; D\hat{n}\; e^{-S_J[\phi, \hat{n}]} e^{-(S_J[\phi, \hat{n} + P]-S_J[\phi, \hat{n}])} [d\hat{n} \equiv 0 \text{ mod } W]
-            \end{align}
+            \end{aligned}
 
         Or, in other words, we measure
 
         .. math ::
 
-             \begin{align}
+             \begin{aligned}
                 V_{x,y} &= \left\langle \hat{V}_{x,y} = e^{-(S_J[\phi, \hat{n} + P_{xy}]-S_J[\phi, \hat{n}])} \right\rangle
-            \end{align}
+            \end{aligned}
 
         in our standard ensemble.
 
         .. note ::
             The actual path $P_{xy}$ used is irrelevant in expectation, though of course on a fixed configuration you get different measurements if you pick different paths.
             An implementation detail is that the fixed chosen path is the taxicab path that first covers the whole time separation and then the whole space separation.
-            The point is that any other path can be reached by making a combination of :class:`~.ExactUpdate`\s and :class:`~.HolonomyUpdate`\s.
+            The point is that any other path can be reached by making a combination of :class:`~.ExactUpdate`\s and :class:`~.CohomologyUpdate`\s.
 
-        Clearly $V_{x,x}=1$, and we can normalize so that $\texttt{Vortex_Vortex}_{\Delta x = 0} = 1$.
+        Clearly $V_{x,x}=1$, and we can normalize so that $\texttt{Vortex\_Vortex}_{\Delta x = 0} = 1$.
         The methods provided in this observable are already normalized.
         However, inline measurements like those provided by a :class:`worm <supervillain.generator.villain.worm.Classic>` are not,
         and can only be normalized *after* the bootstrap, which is why anything that depends on this observable is a :class:`~.DerivedQuantity`.
+
+        .. note ::
+            This taxicab-path measurement is only implemented for $D=2$ and raises ``NotImplementedError``
+            otherwise.  The :class:`~.Worldline` measurement and the inline worm histogram are
+            dimension-general and work in any $D$.
         '''
 
+        if S.Lattice.D != 2:
+            raise NotImplementedError(
+                'The Villain Vortex_Vortex measurement traces a taxicab path on the dual lattice '
+                'and is only implemented for D=2.  (In the Worldline formulation Vortex_Vortex is '
+                'measured directly and works in any D.)'
+            )
+
         L = S.Lattice
-        correlator = L.form(0)
+        correlator = np.zeros(L.dims)
 
         for Δt, Δx in L.coordinates:
             if (Δt, Δx) == (0, 0):
-                correlator[0,0] = 1
+                correlator[L.origin] = 1
                 continue
 
-            key = (L.nt, L.nx, Δt, Δx)
+            # Include D in the key so caches for different dimensions never collide
+            # (the measurement is D=2-only today, but the key should not assume it).
+            key = (L.D, L.N, Δt, Δx)
 
             try:
                 change_n = Vortex_Vortex._change_n[key]
@@ -146,15 +166,15 @@ class Vortex_Vortex(Constrained, Observable):
                     stencil[1][:Δt, 0] = +1
                 elif Δt < 0:
                     stencil[1][Δt:, 0] = -1
-                stencil[1] = L.roll(stencil[1], (1, 0))
+                stencil[1] = push(stencil[1], (1, 0))
 
                 if Δx > 0:
                     stencil[0][Δt, :Δx] = -1
                 elif Δx < 0:
                     stencil[0][Δt, Δx:] = +1
-                stencil[0] = L.roll(stencil[0], (0, 1))
+                stencil[0] = push(stencil[0], (0, 1))
 
-                big_change = np.stack([L.roll(stencil, x0) for x0 in L.coordinates])
+                big_change = np.stack([push(stencil, x0) for x0 in L.coordinates])
                 changed_links = np.where(big_change)
                 changed_links = tuple(c.reshape(-1, length) for c in changed_links)
                 change_n = big_change[changed_links]
@@ -169,19 +189,39 @@ class Vortex_Vortex(Constrained, Observable):
         return correlator
 
 
-class VortexSusceptibility(DerivedQuantity):
+class Vortex_Vortex_Normalized(DerivedQuantity):
     r'''
-    The *vortex susceptibility* is the spacetime integral of the :class:`~.Vortex_Vortex` correlator $V_{\Delta x}$,
+    The :class:`~.Vortex_Vortex` correlator $V_{\Delta x}$ normalized by its value at zero separation,
 
     .. math::
 
-        \texttt{VortexSusceptibility} = \chi_V = \int d^2r\; V(r).
+        \texttt{Vortex\_Vortex\_Normalized}_{\Delta x} = \frac{V_{\Delta x}}{V_0},
+
+    so that $\texttt{Vortex\_Vortex\_Normalized}_0 = 1$.  In the Villain formulation the :class:`~.Vortex_Vortex`
+    correlator is automatically normalized to 1 at the origin, but in the Worldline formulation the inline worm
+    measurement needs to be normalized by the expectation value of the worm's histogram at the origin and
+    therefore cannot be done configuration-by-configuration.
+
+    On the Villain correlator this observable is essentially a no-op but it is a meaningful rescaling of the
+    Worldline correlator required to match the two formulations.
     '''
 
     @staticmethod
     def default(S, Vortex_Vortex):
-        # If Vortex_Vortex was measured inline (by a worm, for example) then we need to normalize it.
-        return np.sum(Vortex_Vortex.real) / Vortex_Vortex[0,0]
+        return Vortex_Vortex / Vortex_Vortex[S.Lattice.origin]
+
+class VortexSusceptibility(DerivedQuantity):
+    r'''
+    The *vortex susceptibility* is the spacetime integral of the :class:`~.Vortex_Vortex_Normalized` correlator $V_{\Delta x}$,
+
+    .. math::
+
+        \texttt{VortexSusceptibility} = \chi_V = \int d^Dr\; V(r).
+    '''
+
+    @staticmethod
+    def default(S, Vortex_Vortex_Normalized):
+        return np.sum(Vortex_Vortex_Normalized.real)
 
 
 class VortexSusceptibilityScaled(VortexSusceptibility):
@@ -190,7 +230,7 @@ class VortexSusceptibilityScaled(VortexSusceptibility):
 
     .. math ::
 
-        \chi_V \sim L^{2-2\Delta(\kappa, W)}
+        \chi_V \sim L^{D-2\Delta(\kappa, W)}
 
     where the scaling at the critical coupling $\kappa_c$ is known and depends on the constraint integer $W$.
 
@@ -198,27 +238,27 @@ class VortexSusceptibilityScaled(VortexSusceptibility):
 
     .. math::
 
-        \texttt{VortexSusceptibilityScaled} = \chi_V / L^{2-2\Delta(\kappa_c, W)}
+        \texttt{VortexSusceptibilityScaled} = \chi_V / L^{D-2\Delta(\kappa_c, W)}
 
     so that at the critical coupling the infinite-volume limit of :class:`~.VortexSusceptibilityScaled` will be a constant.
 
     .. note::
-        The 2 depends on being in 2 dimensions, while the $2\Delta$ comes from the fact that the :class:`~.Vortex_Vortex` correlator is a two-point function.
+        The $2\Delta$ comes from the fact that the :class:`~.Vortex_Vortex` correlator is a two-point function.
     '''
 
     @staticmethod
     def default(S, VortexSusceptibility):
 
-        L = S.Lattice.nx
+        L = S.Lattice
         # NOTE: implicitly assumes that the lattice is square!
-        return VortexSusceptibility / L**(2-2*supervillain.observable.Vortex_Vortex.CriticalScalingDimension(S))
+        return VortexSusceptibility / L.N**(L.D-2*supervillain.observable.Vortex_Vortex.CriticalScalingDimension(S))
 
 class VortexCriticalMoment(DerivedQuantity):
     r'''
     The *critical moment* of the vortex correlator :math:`C_V` is the volume-average of the correlator multiplied by its long-distance critical behavior,
 
     .. math::
-        C_V = \frac{1}{L^2} \int d^2r\; r^{2\Delta_V(\kappa_c, W)}\; V(r)
+        C_V = \frac{1}{L^D} \int d^Dr\; r^{2\Delta_V(\kappa_c, W)}\; V(r)
 
     At the critical $\kappa$ the long-distance behavior of the :class:`~.Vortex_Vortex` correlator :math:`V` decays with exactly the required power to cancel the explicit power of $r$ and the integral cancels the normalization, giving 1 in the large-$L$ limit.
 
@@ -228,8 +268,7 @@ class VortexCriticalMoment(DerivedQuantity):
     '''
  
     @staticmethod
-    def default(S, Vortex_Vortex):
+    def default(S, Vortex_Vortex_Normalized):
 
         L = S.Lattice
-        # If Vortex_Vortex was measured inline (by a worm, for example) then we need to normalize it.
-        return np.sum(L.R_squared**(supervillain.observable.Vortex_Vortex.CriticalScalingDimension(S)) * Vortex_Vortex.real) / L.sites / Vortex_Vortex[0,0].real
+        return np.sum(L.R_squared**(supervillain.observable.Vortex_Vortex.CriticalScalingDimension(S)) * Vortex_Vortex_Normalized.real) / L.sites

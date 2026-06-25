@@ -6,9 +6,9 @@ from .links import Links
 from .energy import InternalEnergyDensity, InternalEnergyDensitySquared, InternalEnergyDensityVariance, SpecificHeatCapacity
 from .action import ActionDensity, ActionTwoPoint, Action_Action
 from .winding import WindingSquared, Winding_Winding
-from .wrapping import TorusWrapping, TWrapping, XWrapping
-from .spin import Spin_Spin, SpinSusceptibility, SpinSusceptibilityScaled, SpinCriticalMoment
-from .vortex import Vortex_Vortex, VortexSusceptibility, VortexSusceptibilityScaled, VortexCriticalMoment
+from .wrapping import TorusWrapping, WrappingSquared
+from .spin import Spin_Spin, Spin_Spin_Normalized, SpinSusceptibility, SpinSusceptibilityScaled, SpinCriticalMoment
+from .vortex import Vortex_Vortex, Vortex_Vortex_Normalized, VortexSusceptibility, VortexSusceptibilityScaled, VortexCriticalMoment
 
 def progress(iterable, **kwargs):
     r'''
