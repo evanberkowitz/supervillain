@@ -136,7 +136,7 @@ class ClassicWorm(ReadWriteable, Generator):
         # Moving in −ê_k crosses the link behind the head with the opposite sign.
         # The orientation (±1) drawn once per worm flips all contributions together;
         # change_m = orientation * divergence is the actual per-direction Δm offered.
-        self.divergence = np.array([+1]*D + [-1]*D, dtype=float)
+        self.divergence = np.array([+1]*D + [-1]*D, dtype=int)
 
     def __str__(self):
         return 'ClassicWorm'

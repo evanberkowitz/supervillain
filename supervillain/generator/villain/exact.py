@@ -95,7 +95,7 @@ class ExactUpdate(ReadWriteable, Generator):
             change_z[0, *color] = self.rng.choice(self.zs, len(color[0]))
 
             # To keep dn=0 we let the change in n be given by d(z), so that d(change_n) = 0, since it is d^2(z).
-            change_n = d(change_z).astype(int)
+            change_n = d(change_z)
 
             dS_link = (
                 -2 * np.pi * S.kappa * change_n
@@ -117,7 +117,7 @@ class ExactUpdate(ReadWriteable, Generator):
 
             # Finally, we update the n where the change is accepted.
             change_z[0, *color] *= accepted
-            n = n + d(change_z).astype(int)
+            n = n + d(change_z)
 
         sites = self.Lattice.cells_of_degree[0]
         self.proposed += sites
