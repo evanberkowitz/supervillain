@@ -140,6 +140,43 @@ class Lattice(ReadWriteable):
         return {q: self.cells_of_degree[self.D - q] for q in range(self.D + 1)}
 
     @cached_property
+    def _operator_tables(self):
+        """Incidence tables (out_idx, in_idx, axis, sign) for the shift-and-accumulate
+        operators, built once per lattice and shared across every call."""
+        D = self.D
+        tables = {}
+        # d and coface_sum map p -> p+1 (output component drops one direction k_j).
+        for p in range(D):
+            d_rows, co_rows = [], []
+            for out_comp in self.components[p + 1]:
+                out_idx = self.comp_index[p + 1][out_comp]
+                for j, k_j in enumerate(out_comp):
+                    in_idx = self.comp_index[p][tuple(k for k in out_comp if k != k_j)]
+                    d_rows.append((out_idx, in_idx, k_j, (-1) ** j))
+                    co_rows.append((out_idx, in_idx, k_j, 1))
+            tables[("d", p)] = np.array(d_rows, dtype=np.int64).reshape(-1, 4)
+            tables[("coface_sum", p)] = np.array(co_rows, dtype=np.int64).reshape(-1, 4)
+        # delta and face_sum map p -> p-1 (output component gains one direction e).
+        all_dirs = set(range(D))
+        for p in range(1, D + 1):
+            de_rows, fa_rows = [], []
+            for out_comp in self.components[p - 1]:
+                out_idx = self.comp_index[p - 1][out_comp]
+                M_set = set(out_comp)
+                for e in sorted(all_dirs - M_set):
+                    in_idx = self.comp_index[p][tuple(sorted(M_set | {e}))]
+                    j = sum(1 for m in out_comp if m < e)
+                    de_rows.append((out_idx, in_idx, e, (-1) ** j))
+                    fa_rows.append((out_idx, in_idx, e, 1))
+            tables[("delta", p)] = np.array(de_rows, dtype=np.int64).reshape(-1, 4)
+            tables[("face_sum", p)] = np.array(fa_rows, dtype=np.int64).reshape(-1, 4)
+        return tables
+
+    def operator_table(self, op, degree):
+        """Return the (rows, 4) int64 incidence table for ``op`` at input ``degree``."""
+        return self._operator_tables[(op, degree)]
+
+    @cached_property
     def coords(self):
         """FFT-convention coordinate for each lattice site, shape (D, N, …, N)."""
         return np.stack(
