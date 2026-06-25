@@ -825,7 +825,8 @@ class Form(np.ndarray):
         if p == 0:
             return 0
 
-        result = lat.zeros(p - 1)
+        # face_sum is an integer combination of shifts, so it preserves the input dtype.
+        result = lat.zeros(p - 1, dtype=self.dtype)
         all_dirs = set(range(lat.D))
 
         for M_comp in lat.components[p - 1]:
@@ -866,7 +867,8 @@ class Form(np.ndarray):
         if p == lat.D:
             return 0
 
-        result = lat.zeros(p + 1)
+        # coface_sum is an integer combination of shifts, so it preserves the input dtype.
+        result = lat.zeros(p + 1, dtype=self.dtype)
 
         for O_comp in lat.components[p + 1]:
             out_idx = lat.comp_index[p + 1][O_comp]
@@ -1112,7 +1114,8 @@ def star(f):
     lat = f.lattice
     p   = f.degree
     D   = lat.D
-    result = lat.zeros(D - p)
+    # ★ applies only ±1 signs, so it preserves the input dtype.
+    result = lat.zeros(D - p, dtype=f.dtype)
 
     for J_comp in lat.components[D - p]:
         J_set  = set(J_comp)
@@ -1175,7 +1178,8 @@ def wedge(a, b):
             f"Cannot wedge a {n}-form and a {m}-form in D={lat.D}: {n}+{m} > {lat.D}"
         )
 
-    result = lat.zeros(n + m)
+    # The wedge product is bilinear, so the result dtype is the promotion of the inputs'.
+    result = lat.zeros(n + m, dtype=np.result_type(a.dtype, b.dtype))
 
     for out_comp in lat.components[n + m]:
         out_idx = lat.comp_index[n + m][out_comp]
