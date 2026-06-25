@@ -32,6 +32,8 @@ class WindingSquared(Scalar, Observable):
         Differentiating with respect to $J_p$ gives a $-i\,dn_p$; differentiating twice gives $-dn_p^2$, so that $w_p = dn_p^2$.
         '''
 
+        if S.Lattice.D < 2:
+            raise NotImplementedError('Winding observables require $D \\geq 2$; there are no plaquettes for $D < 2$.')
         return np.mean(d(n)**2)
 
     @staticmethod
@@ -43,8 +45,10 @@ class WindingSquared(Scalar, Observable):
 
             w_p =  \frac{1}{\pi^2 \kappa}-\frac{1}{(2\pi \kappa)^2}\left\langle [d(m-\delta v/W)]_p^2 \right\rangle.
 
-        because $\delta / \delta J_p ( d \delta J_p) = 4$.
+        because $\delta / \delta J_p ( d \delta J_p) = 4$ (the orientation-averaged diagonal of $d\delta$, in any $D$).
         '''
+        if S.Lattice.D < 2:
+            raise NotImplementedError('Winding observables require $D \\geq 2$; there are no plaquettes for $D < 2$.')
         return 1/(np.pi**2 * S.kappa)-np.mean(d(Links)**2) / (2*np.pi*S.kappa)**2
 
 class Winding_Winding(Observable):
@@ -60,19 +64,23 @@ class Winding_Winding(Observable):
         W_{\Delta p} = \frac{1}{\Lambda} \sum_{p} W_{p, p-\Delta p}.
 
     .. note ::
-        You can check that $\texttt{Winding\_Winding[0,0]} = \texttt{WindingSquared}$ configuration by configurations.
+        You can check that $\texttt{Winding\_Winding}$ at the :py:attr:`~supervillain.lattice.Lattice.origin` equals $\texttt{WindingSquared}$ configuration by configuration.
+
+    For $D > 2$ the plaquette winding $dn$ is a 2-form with $\binom{D}{2}$ orientations.  By isotropy we average over them, so $\texttt{Winding\_Winding}$ is the orientation-averaged same-orientation correlator $\frac{1}{\binom{D}{2}} \sum_c \langle dn_c\, dn_c\rangle$ (a single correlator when $D=2$).
 
     '''
 
     @staticmethod
     def Villain(S, n):
         r'''
-        Differentiating twice gives $W_{p,q} = \left\langle dn_p dn_q \right\rangle$; the quantum-disconnected piece vanishes when $J=0$.
+        Differentiating twice gives $W_{p,q} = \left\langle dn_p dn_q \right\rangle$; the quantum-disconnected piece vanishes when $J=0$.  For $D>2$ we average the same-orientation correlator over the $\binom{D}{2}$ plaquette orientations.
         '''
 
         L = S.Lattice
+        if L.D < 2:
+            raise NotImplementedError('Winding observables require $D \\geq 2$; there are no plaquettes for $D < 2$.')
         dn = d(n)
-        return L.correlation(dn, dn)[0]
+        return L.correlation(dn, dn).mean(axis=0)
 
     @staticmethod
     def Worldline(S, Links):
@@ -163,17 +171,26 @@ class Winding_Winding(Observable):
             - \frac{\delta}{\delta J_p} \frac{\delta}{\delta J_q}\log Z = \frac{1}{(2\pi \kappa)^2}\left\{\kappa\left.\frac{\delta}{\delta J_q}(d \delta J_p)\right|_{J=0} - \left\langle (d(m-\delta v/W))_p (d(m-\delta v/W)_q) \right\rangle\right\}
 
         when $J=0$.  In 2D $\left.\frac{\delta}{\delta J_q}(d \delta J_p)\right|_{J=0} = 4 \delta_{pq} - \sum_{\hat{\mu}} \delta_{p+\hat{\mu},q}$ where $\hat{\mu}$ runs over the 4 cardinal directions, reproducing (minus) the standard `2D five-point Laplacian stencil <https://en.wikipedia.org/wiki/Five-point_stencil#In_two_dimensions>`_.
+
+        In 2D the plaquette is the top cell, so $d\,dn = 0$ and $d\delta$ coincides with the Hodge Laplacian.  In $D>2$ that is no longer true: $d\delta$ mixes the $\binom{D}{2}$ plaquette orientations, and only its orientation *diagonal* $(d\delta)_{cc}$ pairs with the same-orientation correlator.  We therefore average that diagonal over orientations (its $J=0$ origin value is $4$ in any $D$).
         '''
         L = S.Lattice
+        if L.D < 2:
+            raise NotImplementedError('Winding observables require $D \\geq 2$; there are no plaquettes for $D < 2$.')
         kappa = S.kappa
         dm = d(Links)
 
-        # δ/δJ_p (d δ (J_q)) doesn't vanish, but neither does it depends on J.
-        # In fact, it is a constant that depends only the relative coordinate.
-        # We can get the stencil by computing δ d (all zeros except at the origin)
-        no_displacement = L.form(2)
-        no_displacement[0][0,0] = 1.
-        d_delta_J = d(delta(no_displacement))
+        # δ/δJ_q(dδJ)_p is J-independent: the orientation-diagonal of dδ, which depends only
+        # on the relative coordinate.  We measure the orientation-averaged same-orientation
+        # correlator, so we use the orientation-average of (dδ)_cc: put a unit source on
+        # component c at the origin, apply dδ, read back component c, and average over c.
+        orientations = len(L.components[2])
+        contact = np.zeros(L.dims)
+        for c in range(orientations):
+            source = L.form(2)
+            source[c][L.origin] = 1.
+            contact += np.asarray(d(delta(source)))[c]
+        contact /= orientations
 
-        return (kappa * d_delta_J - L.correlation(dm, dm)) / (2*np.pi*kappa)**2
+        return (kappa * contact - L.correlation(dm, dm).mean(axis=0)) / (2*np.pi*kappa)**2
 
