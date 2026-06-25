@@ -21,15 +21,20 @@ class Vortex_Vortex(Constrained, Observable):
     @staticmethod
     def Worldline(S, v):
         r'''
-        $v$ is accessible only in the Worldline formulation.
+        $v$ is accessible only in the Worldline formulation.  For $D>2$ the vortex
+        $e^{2\pi i v/W}$ is a $\binom{D}{2}$-component 2-form (one plaquette orientation
+        per component); by isotropy we average the correlator over the orientations,
+        exactly as :class:`~.Winding_Winding` does (a single orientation when $D=2$).
         '''
 
         L = S.Lattice
+        if L.D < 2:
+            raise NotImplementedError('Vortex observables require $D \\geq 2$; there are no plaquettes for $D < 2$.')
 
-        # When W=∞ we want exp(iv).  v is a 2-form; extract the single component.
-        vortex = np.exp(2j*np.pi * v[0] / S._W)
+        # When W=∞ we want exp(iv).  v is a C(D,2)-component 2-form.
+        vortex = np.exp(2j*np.pi * v / S._W)
 
-        return L.correlation(vortex, vortex)
+        return L.correlation(vortex, vortex).mean(axis=0)
 
     @staticmethod
     def CriticalScalingDimension(S):
