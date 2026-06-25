@@ -6,7 +6,7 @@ import h5py as h5
 import numpy as np
 import pytest
 
-from supervillain.lattice import Lattice, Form, d, delta, star, wedge, push, pull
+from supervillain.lattice import Lattice, Form, d, delta, star, wedge, push, pull, laplacian
 from supervillain.lattice.two_dimensional import Lattice2D
 import supervillain.lattice.interlaced as il
 
@@ -335,3 +335,120 @@ def test_compact_wedge_matches_interlaced(D, N, p, q):
     lat = Lattice(D=D, N=N)
     a = lat.random(p); b = lat.random(q)
     assert np.isclose(wedge(a, b).to_interlaced(), il.wedge(p, q, a.to_interlaced(), b.to_interlaced())).all()
+
+
+# ---------------------------------------------------------------------------
+# Hodge–de Rham Laplacian
+# ---------------------------------------------------------------------------
+
+def _laplacian_via_d_delta(f):
+    """Reference Hodge Laplacian Δ = dδ + δd, built straight from d and δ.
+
+    Handles the degenerate ends of the complex: on a 0-form δf is the scalar
+    0 so only δd survives, and on a D-form df is the scalar 0 so only dδ does.
+    """
+    lat = f.lattice
+    result = lat.zeros(f.degree, dtype=float)
+    if f.degree > 0:
+        result = result + d(delta(f))
+    if f.degree < lat.D:
+        result = result + delta(d(f))
+    return result
+
+
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(D + 1)])
+def test_laplacian_matches_d_delta(D, N, p):
+    # The performant direct stencil must agree with dδ + δd component-by-component.
+    lat = Lattice(D=D, N=N)
+    f = lat.random(p)
+    assert np.allclose(np.asarray(laplacian(f)), np.asarray(_laplacian_via_d_delta(f)))
+
+
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(D + 1)])
+def test_laplacian_preserves_degree(D, N, p):
+    lat = Lattice(D=D, N=N)
+    Lf = laplacian(lat.random(p))
+    assert isinstance(Lf, Form)
+    assert Lf.degree == p
+
+
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(D + 1)])
+def test_laplacian_nonzero(D, N, p):
+    lat = Lattice(D=D, N=N)
+    assert np.asarray(laplacian(lat.random(p))).any()
+
+
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(D + 1)])
+def test_laplacian_self_adjoint(D, N, p):
+    # ⟨Δa, b⟩ = ⟨a, Δb⟩ because Δ = dδ + δd is built from adjoint pairs.
+    lat = Lattice(D=D, N=N)
+    a = lat.random(p); b = lat.random(p)
+    assert np.isclose((laplacian(a) * b).sum(), (a * laplacian(b)).sum())
+
+
+def _norm2(x):
+    """L² norm-squared Σ_{x,I} x_I[x]², tolerant of the scalar 0 that d/δ
+    return at the ends of the complex."""
+    a = np.asarray(x)
+    return (a * a).sum()
+
+
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(D + 1)])
+def test_laplacian_weitzenbock_identity(D, N, p):
+    # ⟨Δf, f⟩ = ⟨df, df⟩ + ⟨δf, δf⟩, the equality (not just ≥ 0) that follows
+    # from adjointness ⟨da, b⟩ = ⟨a, δb⟩ applied to both halves of Δ = dδ + δd.
+    lat = Lattice(D=D, N=N)
+    f = lat.random(p)
+    assert np.isclose((laplacian(f) * f).sum(), _norm2(d(f)) + _norm2(delta(f)))
+
+
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(D + 1)])
+def test_laplacian_positive_semidefinite(D, N, p):
+    # ⟨Δf, f⟩ = ⟨df, df⟩ + ⟨δf, δf⟩ ≥ 0.
+    lat = Lattice(D=D, N=N)
+    f = lat.random(p)
+    assert (laplacian(f) * f).sum() >= -1e-9
+
+
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(D)])
+def test_laplacian_commutes_with_d(D, N, p):
+    # Constant-coefficient Δ commutes with d: Δ(df) = d(Δf).
+    lat = Lattice(D=D, N=N)
+    f = lat.random(p)
+    assert np.allclose(np.asarray(laplacian(d(f))), np.asarray(d(laplacian(f))))
+
+
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(1, D + 1)])
+def test_laplacian_commutes_with_delta(D, N, p):
+    # Δ commutes with δ: Δ(δf) = δ(Δf).
+    lat = Lattice(D=D, N=N)
+    f = lat.random(p)
+    assert np.allclose(np.asarray(laplacian(delta(f))), np.asarray(delta(laplacian(f))))
+
+
+@pytest.mark.parametrize("D,N", [(D, N) for D in range(2, 5) for N in (3, 4, 5)])
+def test_laplacian_scalar_is_negative_lattice_laplacian(D, N):
+    # On a 0-form Δ = δd reduces to Σ_k (2f − f[+ê_k] − f[−ê_k]), the negative
+    # of the usual nearest-neighbor discrete scalar Laplacian.
+    lat = Lattice(D=D, N=N)
+    f = lat.random(0)
+    expected = lat.zeros(0, dtype=float)
+    for k in range(D):
+        ax = k - D
+        expected = expected + (2 * f - np.roll(f, -1, axis=ax) - np.roll(f, +1, axis=ax))
+    assert np.allclose(np.asarray(laplacian(f)), np.asarray(expected))
+
+
+@pytest.mark.parametrize("D,N,p", [(D, N, p) for D in range(2, 5) for N in (3, 4, 5) for p in range(D + 1)])
+def test_laplacian_diagonal_on_components(D, N, p):
+    # Δ acts independently component-by-component: applying it to a form with a
+    # single nonzero component leaves every other component zero.
+    lat = Lattice(D=D, N=N)
+    full = lat.random(p)
+    for c in range(full.shape[0]):
+        one = lat.zeros(p, dtype=float)
+        one[c] = full[c]
+        Lone = np.asarray(laplacian(one))
+        for other in range(full.shape[0]):
+            if other != c:
+                assert np.allclose(Lone[other], 0)
