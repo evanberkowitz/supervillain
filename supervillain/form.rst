@@ -83,6 +83,35 @@ This identity is tested by the ``test_codifferential_nilpotent`` test in :source
 
 The continuum identity $\delta = (-1)^{D(k+1)+1}\,\star\,d\,\star$ holds on the lattice only up to a translation; see :ref:`the note below <lattice-star-d-star-shift>`.
 
+Laplacian
+=========
+
+The Hodge--de Rham Laplacian is the symmetric combination of the exterior derivative and the codifferential,
+
+.. math::
+
+   \Delta = d\delta + \delta d,
+
+mapping a $p$-form to a $p$-form.
+Because $\delta$ is the adjoint of $d$ (:eq:`d-delta-formal-adjoint`), the Laplacian is self-adjoint and positive semidefinite,
+
+.. math::
+
+   \langle \Delta f, f \rangle = \langle d f, d f \rangle + \langle \delta f, \delta f \rangle \geq 0,
+
+checked by the ``test_laplacian_self_adjoint`` and ``test_laplacian_positive_semidefinite`` tests in :source:`test/test_lattice.py`.
+
+On the flat periodic lattice $d$ and $\delta$ are constant-coefficient combinations of the commuting shift operators $T_k$, so the Weitzenböck cross-terms cancel through $\{dx_k \wedge,\, \iota_l\} = \delta_{kl}$ and the Laplacian acts *diagonally on each component* $I$ as the negative of the ordinary nearest-neighbor scalar Laplacian,
+
+.. math::
+
+   (\Delta f)_{I}[x] = \sum_{k=0}^{D-1}\big(2 f_I[x] - f_I[x + \hat{e}_k] - f_I[x - \hat{e}_k]\big),
+
+with no mixing between the $\binom{D}{p}$ components.
+This diagonal form agrees with the explicit composition $d\delta + \delta d$, as checked by the ``test_laplacian_matches_d_delta`` test in :source:`test/test_lattice.py`.
+
+.. autofunction :: supervillain.lattice.laplacian
+
 Hodge Star
 ==========
 

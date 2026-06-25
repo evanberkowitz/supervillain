@@ -1064,6 +1064,66 @@ def delta(f):
 
 
 # ---------------------------------------------------------------------------
+# Hodge–de Rham Laplacian  Δ : Ω^p → Ω^p
+# ---------------------------------------------------------------------------
+
+def laplacian(f):
+    r"""
+    Hodge–de Rham Laplacian of a p-form, a p-form of the same degree.
+
+    The Laplacian (or Laplace–de Rham operator) is
+
+    .. math::
+
+        \Delta = d\delta + \delta d,
+
+    the symmetric combination of the :func:`exterior derivative <d>` and its
+    formal adjoint the :func:`codifferential <delta>`.  Because :func:`delta`
+    is the adjoint of :func:`d`, the Laplacian is self-adjoint and positive
+    semidefinite under the componentwise inner product,
+
+    .. math::
+
+        \langle \Delta f, f \rangle
+        = \langle d f, d f \rangle + \langle \delta f, \delta f \rangle \geq 0.
+
+    Parameters
+    ----------
+    f : Form
+        A p-form on a :class:`Lattice`.
+
+    Returns
+    -------
+    Form
+        The p-form $\Delta f = (d\delta + \delta d) f$.
+    """
+    lat = f.lattice
+    D   = lat.D
+
+    # Rather than composing d and δ, evaluate Δ directly: on a flat periodic
+    # lattice d and δ are constant-coefficient combinations of the commuting
+    # shift operators T_k A[x] = A[x + ê_k].  With d = Σ_k (ê_k∧) ∂_k for the
+    # forward difference ∂_k = T_k − 1 and δ = −Σ_k ι_k ∂*_k for the backward
+    # difference ∂*_k = 1 − T_k⁻¹, the cross terms cancel through the
+    # anticommutator {ê_k∧, ι_l} = δ_kl, leaving
+    #     dδ + δd = −Σ_k ∂_k ∂*_k = −Σ_k (T_k − 2 + T_k⁻¹).
+    # So Δ acts diagonally on every component I as the negative of the ordinary
+    # nearest-neighbor scalar Laplacian — no mixing between the C(D,p) components:
+    #     (Δf)_I[x] = Σ_k (2 f_I[x] − f_I[x + ê_k] − f_I[x − ê_k]).
+    # This is 2D array shifts, independent of p, and agrees with dδ + δd
+    # (test_laplacian_matches_d_delta).
+    #
+    # Δ is an exact integer combination of shifts, so it preserves the input dtype.
+    # Spatial axes are the last D axes, so direction k is axis k - D.
+    result = (2 * D) * f
+    for k in range(D):
+        axis = k - D
+        result = result - np.roll(f, -1, axis=axis) - np.roll(f, +1, axis=axis)
+
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Hodge star  ★ : Ω^p → Ω^{D-p}
 # ---------------------------------------------------------------------------
 
@@ -1316,6 +1376,33 @@ if __name__ == '__main__':
         assert not np.isclose(LHS, 0).all()
         assert np.isclose(LHS, RHS).all(), f"Associativity failed for {n},{m},{p}"
         print(f"  ✅ (a∧b)∧c = a∧(b∧c)  for degrees {n}, {m}, {p}")
+
+    # --- Laplacian:  direct stencil  ==  dδ + δd ---------------------------
+    # The performant component-diagonal Laplacian must reproduce the explicit
+    # composition dδ + δd, including the degenerate ends of the complex where
+    # δf (p=0) or df (p=D) is the scalar 0.
+    print("\nLAPLACIAN  Δ = dδ + δd")
+    for p in range(D + 1):
+        f = lat.random(p)
+        direct = np.asarray(laplacian(f))
+
+        ref = np.zeros_like(direct)
+        if p > 0:
+            ref = ref + np.asarray(d(delta(f)))
+        if p < D:
+            ref = ref + np.asarray(delta(d(f)))
+
+        assert np.allclose(direct, ref), f"Δ ≠ dδ+δd on {p}-forms"
+        # Self-adjoint, and the Weitzenböck identity ⟨Δf,f⟩ = ⟨df,df⟩+⟨δf,δf⟩ ≥ 0.
+        b = lat.random(p)
+        assert np.isclose((laplacian(f) * b).sum(), (f * laplacian(b)).sum()), \
+            f"Δ not self-adjoint on {p}-forms"
+        df2 = (np.asarray(d(f)) ** 2).sum()
+        δf2 = (np.asarray(delta(f)) ** 2).sum()
+        assert np.isclose((laplacian(f) * f).sum(), df2 + δf2), \
+            f"⟨Δf,f⟩ ≠ ⟨df,df⟩+⟨δf,δf⟩ on {p}-forms"
+        assert df2 + δf2 >= -1e-9, f"Δ not positive on {p}-forms"
+        print(f"  ✅ Δ = dδ+δd, self-adjoint, ⟨Δf,f⟩ = ⟨df,df⟩+⟨δf,δf⟩ ≥ 0  on {p}-forms")
 
     # --- Hodge star: inner product identity --------------------------------
     # Σ_{n,I} a_I[n] b_I[n]  =  Σ_n (a ∧ ★b)_{0,…,D-1}[n]
