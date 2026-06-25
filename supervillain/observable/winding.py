@@ -173,9 +173,7 @@ class Winding_Winding(Observable):
         .. math::
             - \frac{\delta}{\delta J_p} \frac{\delta}{\delta J_q}\log Z = \frac{1}{(2\pi \kappa)^2}\left\{\kappa\left.\frac{\delta}{\delta J_q}(d \delta J_p)\right|_{J=0} - \left\langle (d(m-\delta v/W))_p (d(m-\delta v/W)_q) \right\rangle\right\}
 
-        when $J=0$.  In 2D $\left.\frac{\delta}{\delta J_q}(d \delta J_p)\right|_{J=0} = 4 \delta_{pq} - \sum_{\hat{\mu}} \delta_{p+\hat{\mu},q}$ where $\hat{\mu}$ runs over the 4 cardinal directions, reproducing (minus) the standard `2D five-point Laplacian stencil <https://en.wikipedia.org/wiki/Five-point_stencil#In_two_dimensions>`_.
-
-        In 2D the plaquette is the top cell, so $d\,dn = 0$ and $d\delta$ coincides with the Hodge Laplacian.  In $D>2$ that is no longer true: $d\delta$ mixes the $\binom{D}{2}$ plaquette orientations, and only its orientation *diagonal* $(d\delta)_{cc}$ pairs with the same-orientation correlator.  We therefore average that diagonal over orientations (its $J=0$ origin value is $4$ in any $D$).
+        when $J=0$.  The contact term $\left.\frac{\delta}{\delta J_q}(d \delta J_p)\right|_{J=0}$ is the lattice operator $d\delta$, which in $D>2$ mixes the $\binom{D}{2}$ plaquette orientations; only its orientation *diagonal* $(d\delta)_{cc}$ pairs with the same-orientation correlator we measure, so we average that diagonal over the orientations (its $J=0$ value at the origin is $4$ in any $D$).  In 2D the plaquette is the top cell, so $d\,dn = 0$, $d\delta$ coincides with the Hodge Laplacian, and the diagonal reduces to $4 \delta_{pq} - \sum_{\hat{\mu}} \delta_{p+\hat{\mu},q}$ over the 4 cardinal directions --- (minus) the standard `2D five-point Laplacian stencil <https://en.wikipedia.org/wiki/Five-point_stencil#In_two_dimensions>`_.
         '''
         L = S.Lattice
         if L.D < 2:

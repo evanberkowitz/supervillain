@@ -65,3 +65,19 @@ def test_winding_requires_D_at_least_2():
         WindingSquared.Villain(S, n)
     with pytest.raises(NotImplementedError):
         Winding_Winding.Villain(S, n)
+
+
+def test_winding_stencil_cache_is_dimension_safe():
+    # The dδ contact-stencil cache is keyed by (D, N), so measuring at one dimension
+    # must not clobber the stencil for another.
+    shapes = {}
+    for D in (2, 3):
+        L = supervillain.lattice.Lattice(D=D, N=4)
+        S = supervillain.action.Worldline(L, kappa=0.5, W=1)
+        Links = _random_one_form(L, float, seed=5)
+        ww = np.asarray(Winding_Winding.Worldline(S, Links))
+        assert ww.shape == L.dims
+        assert np.isclose(ww[L.origin], WindingSquared.Worldline(S, Links))
+        shapes[D] = Winding_Winding._stencil[(D, 4)].shape
+    assert shapes[2] == (4, 4)
+    assert shapes[3] == (4, 4, 4)

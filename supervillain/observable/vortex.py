@@ -149,7 +149,9 @@ class Vortex_Vortex(Constrained, Observable):
                 correlator[L.origin] = 1
                 continue
 
-            key = (L.N, Δt, Δx)
+            # Include D in the key so caches for different dimensions never collide
+            # (the measurement is D=2-only today, but the key should not assume it).
+            key = (L.D, L.N, Δt, Δx)
 
             try:
                 change_n = Vortex_Vortex._change_n[key]
