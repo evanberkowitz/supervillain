@@ -12,6 +12,7 @@ import supervillain.analysis.comparison_plot as comparison_plot
 supervillain.observable.progress=tqdm
 
 parser = supervillain.cli.ArgumentParser(description = 'The goal is to compute the same observables using both the Villain and Worldline actions and to check that they agree.')
+parser.add_argument('--D', type=int, default=2, help='Number of spacetime dimensions.  Defaults to 2.')
 parser.add_argument('--N', type=int, default=5, help='Sites on a side.')
 parser.add_argument('--kappa', type=float, default=0.5, help='κ.  Defaults to 0.5.')
 parser.add_argument('--W', type=supervillain.cli.W, default=1, help='Constraint integer W.  Defaults to 1')
@@ -29,7 +30,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # First create the lattices and the action.
-L = supervillain.lattice.Lattice(D=2, N=args.N)
+L = supervillain.lattice.Lattice(D=args.D, N=args.N)
 S = supervillain.action.Worldline(L, args.kappa, W=args.W)
 
 with logging_redirect_tqdm():
@@ -43,14 +44,14 @@ with logging_redirect_tqdm():
     print(g.report())
     n.measure()
 
+    # The worldline worm is dimension-general, so it is always included.
     local_generators = [
             supervillain.generator.worldline.PlaquetteUpdate(S),
             supervillain.generator.worldline.VortexUpdate(S),
             supervillain.generator.worldline.CoexactUpdate(S),
             supervillain.generator.worldline.WrappingUpdate(S),
+            supervillain.generator.worldline.Worm(S),
     ]
-    if args.D == 2:
-        local_generators.append(supervillain.generator.worldline.Worm(S))
 
     G = supervillain.generator.combining.Sequentially(local_generators)
     w = supervillain.Ensemble(S).generate(args.configurations, G, start='cold', progress=tqdm)
@@ -95,7 +96,7 @@ comparison_plot.histories(ax,
         )
 
 
-fig.suptitle(f'Worldline N={args.N} κ={args.kappa} W={args.W}')
+fig.suptitle(f'Worldline D={args.D} N={args.N} κ={args.kappa} W={args.W}')
 fig.tight_layout()
 
 if args.figure:
