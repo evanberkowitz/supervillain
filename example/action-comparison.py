@@ -95,16 +95,30 @@ comparison_plot.histories(ax_obs,
 fig_obs.suptitle(title)
 fig_obs.tight_layout()
 
-# Figure 2: the normalized Spin_Spin correlator.
+# Figure 2: one panel per correlator, stacked in a column sharing the Δx axis.
 # Spin_Spin_Normalized is the derived quantity Spin_Spin / Spin_Spin[origin].
-fig_corr, ax_corr = plt.subplots()
-v_bootstrap.plot_correlator(ax_corr, 'Spin_Spin_Normalized', label='Villain')
-w_bootstrap.plot_correlator(ax_corr, 'Spin_Spin_Normalized', label='Worldline')
-ax_corr.legend()
-ax_corr.set_xscale('log')
-ax_corr.set_yscale('log')
-ax_corr.set_ylabel('Spin_Spin_Normalized')
-ax_corr.set_xlabel('Δx')
+correlators = (
+    ('Spin_Spin_Normalized', 'log'),
+    ('Winding_Winding',      'linear'),
+)
+fig_corr, ax_corr = plt.subplots(
+        nrows=len(correlators), ncols=1,
+        sharex=True, squeeze=False, figsize=(6, 3 * len(correlators)),
+)
+ax_corr = ax_corr[:, 0]
+
+for ax, (correlator, yscale) in zip(ax_corr, correlators):
+    v_bootstrap.plot_correlator(ax, correlator, label='Villain')
+    w_bootstrap.plot_correlator(ax, correlator, label='Worldline')
+    ax.set_yscale(yscale)
+    ax.set_ylabel(correlator)
+
+# The shared x-axis is log; only the bottom panel keeps its tick labels and title.
+ax_corr[0].legend()
+ax_corr[-1].set_xscale('log')
+for ax in ax_corr[:-1]:
+    ax.set_xlabel('')
+ax_corr[-1].set_xlabel('Δx')
 fig_corr.suptitle(title)
 fig_corr.tight_layout()
 
