@@ -30,6 +30,7 @@ import numpy as np
 
 from supervillain.h5 import ReadWriteable
 from supervillain.lattice import _dimension
+from supervillain.lattice import _kernels
 
 
 def _hyperoctant_pair_mask(coords, b, D):
@@ -857,28 +858,9 @@ class Form(np.ndarray):
         Form
             The (p-1)-form face sum, or ``0`` if this is a 0-form.
         """
-        lat = self.lattice
-        p   = self.degree
-        if p == 0:
+        if self.degree == 0:
             return 0
-
-        # face_sum is an integer combination of shifts, so it preserves the input dtype.
-        result = lat.zeros(p - 1, dtype=self.dtype)
-        all_dirs = set(range(lat.D))
-
-        for M_comp in lat.components[p - 1]:
-            out_idx = lat.comp_index[p - 1][M_comp]
-            M_set   = set(M_comp)
-
-            for e in sorted(all_dirs - M_set):
-                in_comp = tuple(sorted(M_set | {e}))
-                in_idx  = lat.comp_index[p][in_comp]
-                spatial = self[in_idx]
-
-                result[out_idx] += spatial
-                result[out_idx] += np.roll(spatial, +1, axis=e)
-
-        return result
+        return _apply_operator(_kernels.FACE_KERNELS, "face_sum", self, self.degree - 1)
 
     def coface_sum(self):
         r"""
@@ -899,26 +881,9 @@ class Form(np.ndarray):
         Form
             The (p+1)-form coface sum, or ``0`` if this is a D-form.
         """
-        lat = self.lattice
-        p   = self.degree
-        if p == lat.D:
+        if self.degree == self.lattice.D:
             return 0
-
-        # coface_sum is an integer combination of shifts, so it preserves the input dtype.
-        result = lat.zeros(p + 1, dtype=self.dtype)
-
-        for O_comp in lat.components[p + 1]:
-            out_idx = lat.comp_index[p + 1][O_comp]
-
-            for j, k_j in enumerate(O_comp):
-                in_comp = tuple(k for k in O_comp if k != k_j)
-                in_idx  = lat.comp_index[p][in_comp]
-                spatial = self[in_idx]
-
-                result[out_idx] += spatial
-                result[out_idx] += np.roll(spatial, -1, axis=k_j)
-
-        return result
+        return _apply_operator(_kernels.COFACE_KERNELS, "coface_sum", self, self.degree + 1)
 
     def __repr__(self):
         return (
@@ -979,6 +944,26 @@ def pull(form, shift):
     return push(form, tuple(-s for s in shift))
 
 
+
+# ---------------------------------------------------------------------------
+# Shared kernel dispatcher
+# ---------------------------------------------------------------------------
+
+def _apply_operator(kernels, op, f, out_degree):
+    """Dispatch a shift-and-accumulate operator through its numba kernel.
+
+    Handles contiguity, dtype preservation, and serial/parallel selection,
+    then re-wraps the result as a Form of degree ``out_degree``.
+    """
+    lat = f.lattice
+    N, D, S = lat.N, lat.D, lat.sites
+    table = lat.operator_table(op, f.degree)
+    src = np.ascontiguousarray(np.asarray(f)).reshape(f.shape[0], S)
+    out = np.zeros((comb(D, out_degree), S), dtype=f.dtype)
+    _kernels.select(kernels, S)(src, out, table, N, D)
+    return Form(out.reshape((comb(D, out_degree),) + (N,) * D), degree=out_degree, lattice=lat)
+
+
 # ---------------------------------------------------------------------------
 # Exterior derivative  d : Ω^p → Ω^{p+1}
 # ---------------------------------------------------------------------------
@@ -1008,32 +993,10 @@ def d(f):
         The (p+1)-form $df$, or the scalar ``0`` if $f$ is a D-form.
     """
     lat = f.lattice
-    p   = f.degree
+    p = f.degree
     if p == lat.D:
         return 0
-
-    # d is an exact ±1 integer combination of finite differences, so it preserves the
-    # input dtype (an integer form stays integer).
-    result = lat.zeros(p + 1, dtype=f.dtype)
-
-    for out_comp in lat.components[p + 1]:          # each (p+1)-form component
-        out_idx = lat.comp_index[p + 1][out_comp]
-
-        for j, k_j in enumerate(out_comp):
-            # Remove direction k_j from out_comp to get the source p-form component.
-            in_comp = tuple(k for k in out_comp if k != k_j)
-            in_idx  = lat.comp_index[p][in_comp]
-
-            sign = (-1) ** j
-
-            # Forward finite difference of f[in_idx] in direction k_j.
-            # np.roll(A, -1, axis=k) shifts data so result[n] = A[n+1 mod N].
-            spatial = f[in_idx]   # shape (N,...,N)
-            fwd_diff = np.roll(spatial, -1, axis=k_j) - spatial
-
-            result[out_idx] += sign * fwd_diff
-
-    return result
+    return _apply_operator(_kernels.D_KERNELS, "d", f, p + 1)
 
 
 # ---------------------------------------------------------------------------
@@ -1066,36 +1029,10 @@ def delta(f):
         The (p-1)-form $\delta f$, or the scalar ``0`` if $f$ is a 0-form.
     """
     lat = f.lattice
-    p   = f.degree
+    p = f.degree
     if p == 0:
         return 0
-
-    # δ is an exact ±1 integer combination of finite differences, so it preserves the
-    # input dtype (an integer form stays integer).
-    result = lat.zeros(p - 1, dtype=f.dtype)
-
-    all_dirs = set(range(lat.D))
-
-    for out_comp in lat.components[p - 1]:          # each (p-1)-form component
-        out_idx = lat.comp_index[p - 1][out_comp]
-        M_set   = set(out_comp)
-
-        for e in sorted(all_dirs - M_set):          # directions not in M
-            # Position where e is inserted into sorted(M ∪ {e}).
-            j    = sum(1 for m in out_comp if m < e)
-            sign = (-1) ** j
-
-            in_comp = tuple(sorted(M_set | {e}))
-            in_idx  = lat.comp_index[p][in_comp]
-
-            # Backward finite difference of F[in_idx] in direction e.
-            # np.roll(A, +1, axis=e) shifts so result[n] = A[n-1 mod N].
-            spatial  = f[in_idx]
-            bwd_diff = spatial - np.roll(spatial, +1, axis=e)
-
-            result[out_idx] -= sign * bwd_diff
-
-    return result
+    return _apply_operator(_kernels.DELTA_KERNELS, "delta", f, p - 1)
 
 δ = delta
 
