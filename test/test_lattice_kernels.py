@@ -57,8 +57,6 @@ def test_select_threshold():
 def test_parallel_kernel_matches_serial(op, kernels, degree):
     # Force the parallel kernel on a small lattice and demand bit-exactness
     # against the serial reference path.
-    import numpy as np
-    from math import comb
     L = Lattice(D=3, N=5)
     f = L.random(degree)
     table = L.operator_table(op, degree)

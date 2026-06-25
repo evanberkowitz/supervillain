@@ -14,6 +14,8 @@ def _make_kernel(combine, forward, parallel):
     is_diff = (combine == "diff")
     fwd = forward
 
+    # fastmath=True is bit-exact for these ±1-multiply ops ONLY as guaranteed by the
+    # test/test_lattice_kernels.py oracle (kernel == reference, ==). Keep that test in CI.
     @numba.njit(cache=True, fastmath=True, parallel=parallel)
     def kernel(F, res, table, N, D):
         for t in range(table.shape[0]):

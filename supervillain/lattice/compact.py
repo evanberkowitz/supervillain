@@ -175,7 +175,10 @@ class Lattice(ReadWriteable):
 
     def operator_table(self, op, degree):
         """Return the (rows, 4) int64 incidence table for ``op`` at input ``degree``."""
-        return self._operator_tables[(op, degree)]
+        try:
+            return self._operator_tables[(op, degree)]
+        except KeyError:
+            raise ValueError(f"no operator table for op={op!r} at degree={degree}")
 
     @cached_property
     def coords(self):
@@ -942,8 +945,6 @@ def pull(form, shift):
     np.ndarray
     """
     return push(form, tuple(-s for s in shift))
-
-
 
 # ---------------------------------------------------------------------------
 # Shared kernel dispatcher

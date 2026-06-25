@@ -3,7 +3,6 @@
 # Not a pytest: a dev tool to keep the speedup claims and parallel crossover
 # honest.  Run: uv run python benchmark/form_kernels.py
 import timeit
-import numpy as np
 from supervillain.lattice import Lattice, d, delta
 from supervillain.lattice import reference as ref
 
