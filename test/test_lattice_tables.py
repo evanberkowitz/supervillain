@@ -9,13 +9,17 @@ def _apply_table_numpy(f, table, out_degree, combine, forward):
     # table encodes the same incidence the reference computes.
     lat = f.lattice
     result = lat.zeros(out_degree, dtype=f.dtype)
+    # For sum operators (face_sum, coface_sum), accumulate spatial and shifted as
+    # two separate += operations to match the reference's accumulation order,
+    # since floating-point addition is not associative.
     for out_idx, in_idx, axis, sign in table:
         spatial = f[in_idx]
         shifted = np.roll(spatial, -1 if forward else +1, axis=axis)
         if combine == "diff":
             result[out_idx] += sign * ((shifted - spatial) if forward else -(spatial - shifted))
         else:
-            result[out_idx] += spatial + shifted
+            result[out_idx] += spatial
+            result[out_idx] += shifted
     return result
 
 
