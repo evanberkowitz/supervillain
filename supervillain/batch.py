@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import numbers
+import warnings
 
 import numpy as np
 
@@ -82,14 +83,7 @@ class Batch:
             arr = np.zeros((draws,) + spatial, dtype=float if dtype is None else dtype)
         else:
             # Wrapping existing data: keep its dtype unless a compatible one is requested.
-            arr = np.asarray(draws_or_data)
-            if dtype is not None:
-                if not np.can_cast(arr.dtype, dtype, casting='safe'):
-                    raise TypeError(
-                        f'Batch cannot store {arr.dtype} data as {np.dtype(dtype)} without loss; '
-                        f'convert the data explicitly first (e.g. data.real or data.round().astype(...)).'
-                    )
-                arr = arr.astype(dtype)
+            arr = np.asarray(draws_or_data) if dtype is None else self._checked_array(draws_or_data, dtype)
 
         self._data = self._as_extendable(arr)
         self.cls = cls
@@ -208,11 +202,36 @@ class Batch:
         '''
         self._data[index] = self._coerce_item(item)
 
+    @staticmethod
+    def _checked_array(data, dtype):
+        r'''
+        Cast ``data`` to ``dtype``, raising rather than silently dropping data.  The cast
+        is allowed exactly when it preserves every value, so an integer-valued float column
+        may be stored as ``int`` (no information lost) while ``2.7 → int`` or a complex
+        value with a nonzero imaginary part → ``float`` is rejected.  Shared by construction
+        and per-draw writes so both paths enforce the same contract.
+        '''
+        arr = np.asarray(data)
+        dtype = np.dtype(dtype)
+        if arr.dtype == dtype:
+            return arr
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')   # we re-check the cast ourselves below
+            out = arr.astype(dtype)
+        if not np.array_equal(out, arr):
+            raise TypeError(
+                f'Batch cannot store {arr.dtype} data as {dtype} without loss '
+                f'(the values do not round-trip); convert it explicitly first '
+                f'(e.g. data.real or data.round().astype(...)).'
+            )
+        return out
+
     def _coerce_item(self, item):
         r'''
-        Coerce a generator return value to the column :attr:`dtype` for storage.
+        Coerce a generator return value to the column :attr:`dtype` for storage,
+        raising rather than silently dropping data on a lossy cast.
         '''
-        return np.asarray(item, dtype=self.dtype)
+        return self._checked_array(item, self.dtype)
 
     def __iter__(self):
         r'''
