@@ -140,7 +140,9 @@ across all calls and all configurations.
 - **Entire existing suite stays green:** `test_lattice.py`,
   `test_field_dtypes.py`, the generator/observable tests that exercise these
   operators, and the `compact.py` `__main__` self-tests.
-- **Benchmark script** (not a pytest): a small `example`/dev script reporting
+- **Benchmark script** at `benchmark/form_kernels.py` (new top-level
+  `benchmark/` directory, pairing with `test/`: `test/` guards correctness,
+  `benchmark/` guards performance). Not a pytest — a dev script reporting
   per-operator µs and speedup vs reference across a size sweep, so the
   performance claims and the parallel crossover stay measurable and honest.
 
