@@ -33,18 +33,10 @@ L = supervillain.lattice.Lattice(D=args.D, N=args.N)
 V = supervillain.action.Villain(L, args.kappa, W=args.W)
 W = supervillain.action.Worldline(L, args.kappa, W=args.W)
 
-# Now sample each action.
+# Now sample each action.  Hammer already picks the right generators per dimension
+# (it omits the D=2-only worm for D>2) and per W, so we can just call it.
 with logging_redirect_tqdm():
-    if args.D == 2:
-        g = supervillain.generator.villain.Hammer(V)
-    else:
-        villain_gens = [
-                supervillain.generator.villain.SiteUpdate(V),
-                supervillain.generator.villain.LinkUpdate(V),
-                supervillain.generator.villain.ExactUpdate(V),
-                supervillain.generator.villain.CohomologyUpdate(V),
-        ]
-        g = supervillain.generator.combining.Sequentially(villain_gens)
+    g = supervillain.generator.villain.Hammer(V)
     v = supervillain.Ensemble(V).generate(args.configurations, g, start='cold', progress=tqdm)
     print(g.report())
 
