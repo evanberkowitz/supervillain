@@ -177,7 +177,7 @@ class Batch:
         scalar, ndarray, Form, or Batch
             One element, a sub-batch, or a indexed view of the storage array.
         '''
-        if type(index) is int:
+        if isinstance(index, numbers.Integral) and not isinstance(index, bool):
             sliced = self._data[index]
             if self.cls is None:
                 return sliced

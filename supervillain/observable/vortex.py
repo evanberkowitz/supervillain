@@ -29,7 +29,7 @@ class Vortex_Vortex(Constrained, Observable):
 
         L = S.Lattice
         if L.D < 2:
-            raise NotImplementedError('Vortex observables require $D \\geq 2$; there are no plaquettes for $D < 2$.')
+            raise NotImplementedError('Vortex observables require D >= 2; there are no plaquettes for D < 2.')
 
         # When W=∞ we want exp(iv).  v is a C(D,2)-component 2-form.
         vortex = np.exp(2j*np.pi * v / S._W)

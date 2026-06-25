@@ -70,3 +70,14 @@ def test_setitem_coerces_dtype(lattice):
     batch = Batch(1, cls=Form, degree=1, lattice=lattice, dtype=int)
     batch[0] = lattice.zeros(1, dtype=int)
     assert batch[0].dtype == int
+
+
+def test_getitem_accepts_numpy_integer(lattice):
+    # A numpy integer index must wrap the draw in cls just like a Python int does.
+    forms = Batch(3, cls=Form, degree=1, lattice=lattice)
+    assert isinstance(forms[0], Form)
+    assert isinstance(forms[np.int64(0)], Form)
+    assert isinstance(forms[np.int32(1)], Form)
+
+    plain = Batch(3, shape=(2, 2), dtype=float)
+    assert plain[np.int64(0)].shape == (2, 2)

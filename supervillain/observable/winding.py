@@ -33,7 +33,7 @@ class WindingSquared(Scalar, Observable):
         '''
 
         if S.Lattice.D < 2:
-            raise NotImplementedError('Winding observables require $D \\geq 2$; there are no plaquettes for $D < 2$.')
+            raise NotImplementedError('Winding observables require D >= 2; there are no plaquettes for D < 2.')
         return np.mean(d(n)**2)
 
     @staticmethod
@@ -48,7 +48,7 @@ class WindingSquared(Scalar, Observable):
         because $\delta / \delta J_p ( d \delta J_p) = 4$ (the orientation-averaged diagonal of $d\delta$, in any $D$).
         '''
         if S.Lattice.D < 2:
-            raise NotImplementedError('Winding observables require $D \\geq 2$; there are no plaquettes for $D < 2$.')
+            raise NotImplementedError('Winding observables require D >= 2; there are no plaquettes for D < 2.')
         return 1/(np.pi**2 * S.kappa)-np.mean(d(Links)**2) / (2*np.pi*S.kappa)**2
 
 class Winding_Winding(Observable):
@@ -81,7 +81,7 @@ class Winding_Winding(Observable):
 
         L = S.Lattice
         if L.D < 2:
-            raise NotImplementedError('Winding observables require $D \\geq 2$; there are no plaquettes for $D < 2$.')
+            raise NotImplementedError('Winding observables require D >= 2; there are no plaquettes for D < 2.')
         dn = d(n)
         return L.correlation(dn, dn).mean(axis=0)
 
@@ -177,7 +177,7 @@ class Winding_Winding(Observable):
         '''
         L = S.Lattice
         if L.D < 2:
-            raise NotImplementedError('Winding observables require $D \\geq 2$; there are no plaquettes for $D < 2$.')
+            raise NotImplementedError('Winding observables require D >= 2; there are no plaquettes for D < 2.')
         kappa = S.kappa
         dm = d(Links)
 
