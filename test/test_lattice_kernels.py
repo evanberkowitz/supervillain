@@ -40,3 +40,33 @@ def test_scalar_zero_ends():
     assert delta(L.random(0)) == 0
     assert L.random(0).face_sum() == 0
     assert L.random(3).coface_sum() == 0
+
+
+def test_select_threshold():
+    s = _kernels.DELTA_KERNELS
+    assert _kernels.select(s, _kernels.PARALLEL_SITE_THRESHOLD - 1) is s[0]
+    assert _kernels.select(s, _kernels.PARALLEL_SITE_THRESHOLD) is s[1]
+
+
+@pytest.mark.parametrize("op,kernels,degree", [
+    ("d", "D_KERNELS", 1),
+    ("delta", "DELTA_KERNELS", 2),
+    ("face_sum", "FACE_KERNELS", 2),
+    ("coface_sum", "COFACE_KERNELS", 1),
+])
+def test_parallel_kernel_matches_serial(op, kernels, degree):
+    # Force the parallel kernel on a small lattice and demand bit-exactness
+    # against the serial reference path.
+    import numpy as np
+    from math import comb
+    L = Lattice(D=3, N=5)
+    f = L.random(degree)
+    table = L.operator_table(op, degree)
+    S = L.sites
+    out_degree = degree + 1 if op in ("d", "coface_sum") else degree - 1
+    src = np.ascontiguousarray(np.asarray(f)).reshape(f.shape[0], S)
+    serial = np.zeros((comb(3, out_degree), S)); parallel = np.zeros((comb(3, out_degree), S))
+    ks = getattr(_kernels, kernels)
+    ks[0](src, serial, table, L.N, L.D)
+    ks[1](src, parallel, table, L.N, L.D)
+    assert (serial == parallel).all()
