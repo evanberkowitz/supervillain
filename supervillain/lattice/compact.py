@@ -973,7 +973,9 @@ def d(f):
     if p == lat.D:
         return 0
 
-    result = lat.zeros(p + 1)
+    # d is an exact ±1 integer combination of finite differences, so it preserves the
+    # input dtype (an integer form stays integer).
+    result = lat.zeros(p + 1, dtype=f.dtype)
 
     for out_comp in lat.components[p + 1]:          # each (p+1)-form component
         out_idx = lat.comp_index[p + 1][out_comp]
@@ -1029,7 +1031,9 @@ def delta(f):
     if p == 0:
         return 0
 
-    result = lat.zeros(p - 1)
+    # δ is an exact ±1 integer combination of finite differences, so it preserves the
+    # input dtype (an integer form stays integer).
+    result = lat.zeros(p - 1, dtype=f.dtype)
 
     all_dirs = set(range(lat.D))
 
