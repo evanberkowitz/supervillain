@@ -191,7 +191,11 @@ from supervillain.lattice import reference as ref
 
 def _apply_table_numpy(f, table, out_degree, combine, forward):
     # Re-derive an operator from its table with plain numpy, to prove the
-    # table encodes the same incidence the reference computes.
+    # table encodes the same incidence the reference computes.  The sum case
+    # adds `spatial` and `shifted` as TWO separate accumulations (not the
+    # combined `spatial + shifted`): float addition is not associative, and an
+    # output cell receives several rows, so matching the reference's two-`+=`
+    # order is required for bit-exact (`==`) equality.
     lat = f.lattice
     result = lat.zeros(out_degree, dtype=f.dtype)
     for out_idx, in_idx, axis, sign in table:
@@ -200,7 +204,8 @@ def _apply_table_numpy(f, table, out_degree, combine, forward):
         if combine == "diff":
             result[out_idx] += sign * ((shifted - spatial) if forward else -(spatial - shifted))
         else:
-            result[out_idx] += spatial + shifted
+            result[out_idx] += spatial
+            result[out_idx] += shifted
     return result
 
 
@@ -388,8 +393,14 @@ def _make_kernel(combine, forward, parallel):
                         for b in range(B):
                             res[oi, s0 + b] -= sign * (F[ii, s0 + b] - F[ii, sn + b])
                     else:                                    # face_sum / coface_sum
+                        # TWO separate accumulations, matching the reference's
+                        # `result += spatial; result += shifted` order — float
+                        # addition is not associative, so the combined
+                        # `F[s0] + F[sn]` would diverge from the reference at
+                        # machine epsilon and break the bit-exact (`==`) oracle.
                         for b in range(B):
-                            res[oi, s0 + b] += F[ii, s0 + b] + F[ii, sn + b]
+                            res[oi, s0 + b] += F[ii, s0 + b]
+                            res[oi, s0 + b] += F[ii, sn + b]
         return res
 
     return kernel
