@@ -14,7 +14,7 @@ def _random_two_form(L, seed):
     return v
 
 
-@pytest.mark.parametrize('D', [2, 3])
+@pytest.mark.parametrize('D', [2, 3, 4])
 def test_vortex_vortex_worldline_origin_is_one(D):
     # V[origin] = mean_c (1/N^D) Σ_x |exp(2πi v_c/W)|^2 = 1, in any D.
     L = supervillain.lattice.Lattice(D=D, N=4)

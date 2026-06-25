@@ -17,7 +17,7 @@ def _random_one_form(L, dtype, seed):
     return f
 
 
-@pytest.mark.parametrize('D', [2, 3])
+@pytest.mark.parametrize('D', [2, 3, 4])
 def test_winding_winding_origin_equals_winding_squared_villain(D):
     L = supervillain.lattice.Lattice(D=D, N=4)
     S = supervillain.action.Villain(L, kappa=0.5, W=1)
@@ -30,7 +30,7 @@ def test_winding_winding_origin_equals_winding_squared_villain(D):
     assert np.isclose(ww[L.origin], wsq)
 
 
-@pytest.mark.parametrize('D', [2, 3])
+@pytest.mark.parametrize('D', [2, 3, 4])
 def test_winding_winding_origin_equals_winding_squared_worldline(D):
     L = supervillain.lattice.Lattice(D=D, N=4)
     S = supervillain.action.Worldline(L, kappa=0.5, W=1)

@@ -130,7 +130,9 @@ class Spin_Spin(Observable):
                 result[L.origin] = 1
                 continue
 
-            key = (L.N, Δt, Δx)
+            # Include D in the key so caches for different dimensions never collide
+            # (the measurement is D=2-only today, but the key should not assume it).
+            key = (L.D, L.N, Δt, Δx)
             T = np.abs(Δt)
             X = np.abs(Δx)
             length = T+X
