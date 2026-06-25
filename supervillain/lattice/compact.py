@@ -110,7 +110,11 @@ class Lattice(ReadWriteable):
 
     @cached_property
     def origin(self):
-        r"""The origin site $(0, \ldots, 0)$, a tuple of length $D$.  Use it as an index, e.g. ``form[lattice.origin]``, to address the zero-displacement element without assuming $D=2$."""
+        r"""The origin site $(0, \ldots, 0)$, a tuple of length $D$.  Use it to index the
+        zero-displacement element of a scalar field or correlator of shape $(N,)^D$
+        (e.g. ``correlator[lattice.origin]``) without assuming $D=2$.  A
+        :class:`~supervillain.lattice.Form` has a leading component axis, so index the
+        component first: ``form[c][lattice.origin]``."""
         return (0,) * self.D
 
     @property

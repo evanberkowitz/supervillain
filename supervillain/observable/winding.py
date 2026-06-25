@@ -70,6 +70,9 @@ class Winding_Winding(Observable):
 
     '''
 
+    # Cache of the J-independent dδ contact stencil, keyed by (D, N).
+    _stencil = dict()
+
     @staticmethod
     def Villain(S, n):
         r'''
@@ -181,16 +184,22 @@ class Winding_Winding(Observable):
         dm = d(Links)
 
         # δ/δJ_q(dδJ)_p is J-independent: the orientation-diagonal of dδ, which depends only
-        # on the relative coordinate.  We measure the orientation-averaged same-orientation
-        # correlator, so we use the orientation-average of (dδ)_cc: put a unit source on
-        # component c at the origin, apply dδ, read back component c, and average over c.
-        orientations = len(L.components[2])
-        contact = np.zeros(L.dims)
-        for c in range(orientations):
-            source = L.form(2)
-            source[c][L.origin] = 1.
-            contact += np.asarray(d(delta(source)))[c]
-        contact /= orientations
+        # on the lattice (D, N), not on the configuration.  We measure the orientation-averaged
+        # same-orientation correlator, so we use the orientation-average of (dδ)_cc: put a unit
+        # source on component c at the origin, apply dδ, read back component c, average over c.
+        # The stencil is the same for every measurement on a given lattice, so we cache it.
+        key = (L.D, L.N)
+        try:
+            contact = Winding_Winding._stencil[key]
+        except KeyError:
+            orientations = len(L.components[2])
+            contact = np.zeros(L.dims)
+            for c in range(orientations):
+                source = L.form(2)
+                source[c][L.origin] = 1.
+                contact += np.asarray(d(delta(source)))[c]
+            contact /= orientations
+            Winding_Winding._stencil[key] = contact
 
         return (kappa * contact - L.correlation(dm, dm).mean(axis=0)) / (2*np.pi*kappa)**2
 
