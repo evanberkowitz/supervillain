@@ -4,7 +4,7 @@ import numpy as np
 import supervillain.action
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
-from supervillain.lattice import delta, Form
+from supervillain.lattice import delta, delta_sparse, Form
 
 import logging
 logger = logging.getLogger(__name__)
@@ -54,6 +54,13 @@ class CoexactUpdate(ReadWriteable, Generator):
         r'''
         Make a volume's worth of locally-exact updates to m.
 
+        Each proposal changes m by $\delta t$ with $t$ supported on a single
+        2-form component and checkerboard color, so both the proposal's $\delta t$
+        and the accepted patch are evaluated with :func:`~.delta_sparse` instead
+        of a full $\delta$.  $\delta v$ is already constant over the sweep (only m
+        changes), and m is integer, so this is bit-identical to
+        :meth:`step_reference` for every $W$ (checked by ``test/test_coexact_update.py``).
+
         Parameters
         ----------
         cfg: dict
@@ -70,9 +77,10 @@ class CoexactUpdate(ReadWriteable, Generator):
         total_accepted = 0
 
         v = cfg['v']
-        delta_v_by_W = delta(v) / self.Action._W
+        delta_v_by_W = np.asarray(delta(v)) / self.Action._W   # frozen over the sweep
 
         m = cfg['m'].copy()
+        m_raw = np.asarray(m)                                  # patched in place below
 
         L = self.Lattice
         n_comps = len(L.components[2])
@@ -80,33 +88,75 @@ class CoexactUpdate(ReadWriteable, Generator):
         # One independent Metropolis draw per (2-form component, site).
         metropolis = self.rng.uniform(0, 1, (n_comps,) + L.dims)
 
-        # The idea is to make coordinated changes to m that keep δm=0.  We can do that by letting the change in m
-        # be a coexact form δt with t a two-form so that the change in δm is δ^2t = 0.
-        # However, rather than a python-level for loop over space, we can accomplish a lot more at the numpy level,
-        # as in the villain.ExactUpdate.
-
-        # Since the coordinated updates of m are derived from t we can think like we think in the ExactUpdate:
-        # What enters the change in action (per link) is δt, which knows about t on two plaquettes.
-        #
-        # That poses a small problem because if we change the action by changing m, we want to be able to track
-        # that change back to a change in t on ONE particular plaquette, and to accept or reject that change independently
-        # from other changes in t. Therefore, we use checkerboarding.
-        #
-        # In D>2 there are C(D,2) independent 2-form components. Two plaquettes of the same component at
-        # same-color sites never share boundary links, so we can propose and accept/reject each component
-        # independently. We process components sequentially to avoid conflicts from shared boundary links
-        # between different components at the same site.
+        # The change in m is a coexact form δt (t a 2-form) so that δm stays 0 (δ²t = 0).  Two plaquettes
+        # of the same component at same-color sites never share boundary links, so each (component, color)
+        # is proposed and accepted independently; we process components sequentially to avoid conflicts
+        # between different components at the same site.  Both δt's — the proposal and the accepted patch —
+        # act on a single-component, single-color t, so delta_sparse touches only the affected links.
         for color in L.checkerboarding:
             for comp_idx in range(n_comps):
 
-                # We only offer changes to t[comp_idx] on a single color at once.
+                vals = self.rng.choice(self.ts, len(color[0]))
+
+                # change_m = δt, computed sparsely from the one nonzero component+color.
+                cm = delta_sparse(L, 2, comp_idx, color, vals)
+                dS_link = Form(
+                    (0.5 / self.Action.kappa) * cm * (2 * (m_raw - delta_v_by_W) + cm),
+                    degree=1, lattice=L,
+                )
+
+                # The change in action from each plaquette is the sum of changes on its boundary links.
+                # coface_sum() accumulates those, giving dS[comp_idx][x] for the plaquette at x.
+                dS = dS_link.coface_sum()
+
+                # dS is not 0 on off-color plaquettes. Only accept/reject on the current color.
+                acceptance = np.clip(np.exp(-np.asarray(dS[comp_idx])[color]), a_min=0, a_max=1)
+                accepted = (metropolis[comp_idx][color] < acceptance)
+
+                total_accepted += accepted.sum()
+                total_acceptance += acceptance.sum()
+
+                # Apply: m += δ(t restricted to accepted plaquettes), patched in place.
+                delta_sparse(L, 2, comp_idx, color, vals * accepted, out=m_raw)
+
+        self.proposed += L.cells_of_degree[2]
+        self.acceptance += total_acceptance / L.cells_of_degree[2]
+        self.accepted += total_accepted
+
+        logger.debug(f'Average proposal acceptance {total_acceptance / L.cells_of_degree[2]:.6f}; Actually accepted {total_accepted} / {L.cells_of_degree[2]} = {total_accepted / L.cells_of_degree[2]}')
+
+        return cfg | {'m': m}
+
+    def step_reference(self, cfg):
+        r'''
+        Reference (dense) implementation of :meth:`step`.
+
+        Forms each proposal's $\delta t$ densely and re-derives $\delta t$ a
+        second time for the accepted m update.  Kept as the simple,
+        obviously-correct oracle that :meth:`step` is checked against
+        (bit-identical for every $W$); not used in production.
+        '''
+
+        self.sweeps += 1
+        total_acceptance = 0
+        total_accepted = 0
+
+        v = cfg['v']
+        delta_v_by_W = delta(v) / self.Action._W
+
+        m = cfg['m'].copy()
+
+        L = self.Lattice
+        n_comps = len(L.components[2])
+
+        metropolis = self.rng.uniform(0, 1, (n_comps,) + L.dims)
+
+        for color in L.checkerboarding:
+            for comp_idx in range(n_comps):
+
                 t = L.form(2, dtype=int)
                 t[comp_idx][color] = self.rng.choice(self.ts, len(color[0]))
 
-                # To keep δm=0 we let the change in m be given by δt, so that δ(change_m) = δ^2(t) = 0.
-                # The ΔS arithmetic is done on raw ndarrays (np.asarray strips the Form wrapper) so it
-                # does not round-trip through Form.__array_ufunc__ once per binary op; bit-identical to
-                # the Form expression, then re-wrapped once so coface_sum() can run.  (Profiling report §8.)
                 change_m = delta(t)
                 m_raw  = np.asarray(m)
                 dvw    = np.asarray(delta_v_by_W)
@@ -116,28 +166,20 @@ class CoexactUpdate(ReadWriteable, Generator):
                     degree=1, lattice=L,
                 )
 
-                # The change in action originating from each plaquette is the sum of changes on its
-                # boundary links. coface_sum() accumulates those unsigned boundary contributions,
-                # giving a 2-form where dS[comp_idx][x] is the ΔS for the (comp_idx) plaquette at x.
                 dS = dS_link.coface_sum()
 
-                # dS is not 0 on off-color plaquettes---those still have links touching the current color.
-                # Only accept/reject on the current color.
                 acceptance = np.clip(np.exp(-np.asarray(dS[comp_idx])[color]), a_min=0, a_max=1)
                 accepted = (metropolis[comp_idx][color] < acceptance)
 
                 total_accepted += accepted.sum()
                 total_acceptance += acceptance.sum()
 
-                # Update m where the change is accepted.
                 t[comp_idx][color] *= accepted
                 m = m + delta(t)
 
         self.proposed += L.cells_of_degree[2]
         self.acceptance += total_acceptance / L.cells_of_degree[2]
         self.accepted += total_accepted
-
-        logger.debug(f'Average proposal acceptance {total_acceptance / L.cells_of_degree[2]:.6f}; Actually accepted {total_accepted} / {L.cells_of_degree[2]} = {total_accepted / L.cells_of_degree[2]}')
 
         return cfg | {'m': m}
 
