@@ -119,13 +119,35 @@ generator-level speedup approach the per-call `n_colors×`.
    bit-exact comparisons already gate it.
 3. **Villain `SiteUpdate`/`ExactUpdate`.** Sparsify with `d_sparse` (proposal +
    field patch) and `face_sum_at` (acceptance), preserving each old dense `step`
-   as `step_reference`, with a `test_site_sparse`/`test_exact_sparse` bit-exact
-   comparison (mirroring the worldline pattern). Both are bit-exact (table in §3):
+   as `step_reference`. The sparse steps are **bit-exact** (table in §3:
    `SiteUpdate` already accumulates `dφ` incrementally, `ExactUpdate` patches
-   integer `n` — no float-drift caveat.
-4. **Deep localization (optional).** Compute `dS_link` only on the changed link
-   set (§5) so the inner body is O(changed sites). Biggest large-N win; do only
-   if profiling after phases 2–3 still shows `dS_link`/background arithmetic on top.
+   integer `n` — no float-drift caveat), **but they do not speed Villain up** —
+   see the finding below. **Deferred:** the bit-exact sparse Villain steps belong
+   with phase 4, not on their own.
+
+   > **Finding (measured 2026-06-26).** Implementing phase 3 *without* phase 4
+   > **regresses** the Villain updates: D=4 `SiteUpdate`/`ExactUpdate` ran at
+   > 0.84–0.96× of the dense reference at N=9–13 and stayed ≤1× out to N=25
+   > (noisy, occasionally ~1.07× at N=17, never a clear win). The reason is
+   > structural and the inverse of the worldline case: Villain **already** hoists
+   > `dφ`, so there is no dense `delta(v)`-style recompute to remove. The residual
+   > cost is the **O(V) `dS_link` arithmetic** (full background `dφ − 2πn`) plus
+   > the **O(V) zero-allocation** every `d_sparse`/`delta_sparse` does for its full
+   > output array — neither of which the operator swap removes. It just moves the
+   > (cheap) dense `d`/`face_sum` off the fast numba/vectorized path onto
+   > Python-orchestrated sparse indexing. So phase 3 was reverted; the worldline
+   > win in phase 2 stands because there the eliminated `delta(v)` recompute
+   > dominated. **Villain needs phase 4 to benefit.**
+4. **Deep localization (required for Villain; optional elsewhere).** Compute
+   `dS_link` only on the changed link set (§5) — never materializing a full
+   change-image array — so the inner body, the allocation, and the background
+   arithmetic are all O(changed sites). For Villain this is not optional: it is
+   the *only* thing that makes the updates faster (per the phase-3 finding). It
+   requires the spread operators to expose a **sparse representation** (the
+   changed link indices + values) that flows into a local `dS_link` and into
+   `face_sum_at`/`coface_sum_at`, rather than the full-array form they return
+   today. The validated primitives from phase 1 are the foundation; this phase is
+   the real Villain deliverable and warrants its own design pass.
 
 ## 7. Testing & correctness invariants
 
