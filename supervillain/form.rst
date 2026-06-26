@@ -251,12 +251,14 @@ They come in two flavors: *input-sparse spreads* (:func:`~supervillain.lattice.d
    It is often easier to write a correct algorithm using the dense operations and only accelerating it with sparse operations when necessary.
    In particular if the algorithm is not in a hot part of the code or performance critical we prefer the dense operations to ease readability and debugging.
 
+The two flavors also differ in signature: the gathers reduce a whole :class:`~supervillain.lattice.Form`, which already carries its ``lattice`` and ``degree``, so they take just ``(f, component, color)``; the spreads instead receive loose ``values`` with no Form to ride on (materializing one would defeat the sparsity), so they must be told the ``lattice`` and ``degree`` explicitly.
+
 Sparse Exterior Derivative
 --------------------------
 
 The input-sparse counterpart of :func:`~supervillain.lattice.d`, for the single-component, single-color forms that arise in the Villain updates (where the field change is one $0$-form color at a time).
 Because $d$ is linear with a single nonzero input component $c$, only the terms reading $c$ contribute: a value $a$ at the input cell $x$ sends $-\sigma\big((e) \frown (O \setminus e)\big)\, a$ to the coface at $x$ and $+\sigma\big((e) \frown (O \setminus e)\big)\, a$ at $x - \hat{e}_e$ — the two $(p+1)$-cells that have the input cell on their boundary in direction $e$, a *backward* spread mirroring :func:`~supervillain.lattice.delta_sparse`'s forward one.
-:func:`~supervillain.lattice.d_sparse` evaluates only that coboundary and can accumulate into an existing $(p+1)$-form, so $d\phi$ (or the link field $n$) is maintained incrementally as $d(\phi + \Delta\phi) = d\phi + d(\Delta\phi)$.
+:func:`~supervillain.lattice.d_sparse` evaluates only that coboundary and can accumulate into an existing $(p+1)$-form, so that (for example) $d\phi$ is maintained incrementally as $d(\phi + \Delta\phi) = d\phi + d(\Delta\phi)$ rather than by a full :func:`~supervillain.lattice.d` computation.
 
 .. autofunction :: supervillain.lattice.d_sparse
 
@@ -267,14 +269,14 @@ Sparse Codifferential
 
 The input-sparse counterpart of :func:`~supervillain.lattice.delta`, used in the Worldline updates to maintain $\delta v$ as the field $v$ changes one component and color at a time.
 Because $\delta$ is linear and the input has only one nonzero component $c$, only the terms reading $c$ contribute: a value $a$ at the input cell $x$ sends $-\sigma\big((e) \frown M\big)\, a$ to the face at $x$ and $+\sigma\big((e) \frown M\big)\, a$ at $x + \hat{e}_e$, for each direction $e$ with $M \cup \{e\} = c$ — the two $(p-1)$-faces perpendicular to $e$.
-:func:`~supervillain.lattice.delta_sparse` evaluates exactly that boundary instead of the whole lattice, and can accumulate into an existing $(p-1)$-form so that $\delta v$ is maintained incrementally as $\delta(v + \Delta v) = \delta v + \delta(\Delta v)$.
+:func:`~supervillain.lattice.delta_sparse` evaluates exactly that boundary instead of the whole lattice, and can accumulate into an existing $(p-1)$-form so that (for example) $\delta v$ is maintained incrementally as $\delta(v + \Delta v) = \delta v + \delta(\Delta v)$ rather than by a full :func:`~supervillain.lattice.delta` computation.
 
 .. autofunction :: supervillain.lattice.delta_sparse
 
 It is bit-identical to :func:`~supervillain.lattice.delta` of the equivalent dense form across all dimensions, degrees, components, colors, and dtypes, as checked by ``test_delta_sparse_matches_dense_every_component_and_color`` (and the incremental identity by ``test_delta_sparse_accumulates_like_linearity``) in :source:`test/test_sparse_delta.py`.
 
-Output-Sparse Boundary Sums
----------------------------
+Output-Sparse Co/Boundary Sums
+------------------------------
 
 The unsigned boundary sums :meth:`~supervillain.lattice.Form.face_sum` and :meth:`~supervillain.lattice.Form.coface_sum` are needed by the updates only at the cells being proposed — a single output component over one color — to read the change in action $\Delta S$.
 :func:`~supervillain.lattice.face_sum_at` and :func:`~supervillain.lattice.coface_sum_at` return exactly those values, gathering the input only on the cells incident to the requested cells instead of reducing over the whole lattice.
