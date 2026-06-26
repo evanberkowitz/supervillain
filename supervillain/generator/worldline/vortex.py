@@ -4,7 +4,7 @@ import numpy as np
 import supervillain
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
-from supervillain.lattice import delta, delta_sparse, Form
+from supervillain.lattice import delta, delta_sparse, coface_sum_at, Form
 
 import logging
 logger = logging.getLogger(__name__)
@@ -111,12 +111,12 @@ class VortexUpdate(ReadWriteable, Generator):
                     degree=1, lattice=L,
                 )
 
-                # The change in action from this plaquette is the sum of changes on its boundary links.
-                # coface_sum() accumulates those, giving dS[comp_idx][x] for the plaquette at x.
-                dS = dS_link.coface_sum()
+                # ΔS at this plaquette is the sum over its boundary links.  We only need it on the
+                # current (component, color), so coface_sum_at gathers just those links instead of a
+                # full coface_sum over the lattice.
+                dS = coface_sum_at(dS_link, comp_idx, color)
 
-                # dS is not 0 on off-color plaquettes. Only accept/reject on the current color.
-                acceptance = np.clip(np.exp(-np.asarray(dS[comp_idx])[color]), a_min=0, a_max=1)
+                acceptance = np.clip(np.exp(-dS), a_min=0, a_max=1)
                 accepted = (metropolis[comp_idx][color] < acceptance)
 
                 total_accepted += accepted.sum()
