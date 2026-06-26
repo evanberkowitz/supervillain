@@ -238,20 +238,25 @@ In the continuum, on a Riemannian manifold with Euclidean signature, the Hodge s
 
    The translation commutes with the other operations, as tested in ``test_star_d_star_equals_delta_shifted`` in :source:`test/test_lattice.py`.
 
-Sparse Operations
-=================
+Accelerated Sparse Operations
+=============================
 
-The Monte Carlo updates change a field on a single component and a single :attr:`checkerboard color <supervillain.lattice.Lattice.checkerboarding>` at a time.
-For such a change the dense operators above are wasteful: they sweep the whole lattice for a quantity supported on only a handful of cells.
+Monte Carlo update generators sometimes change a field on a single component and a single :attr:`checkerboard color <supervillain.lattice.Lattice.checkerboarding>` at a time.
+For such a change the dense operators above are wasteful: they sweep the whole lattice for a quantity supported on only a fraction of cells.
 The sparse variants below touch only the affected cells and are **bit-identical** to the dense operators.
-They come in two flavors: *input-sparse spreads* (:func:`~supervillain.lattice.d_sparse`, :func:`~supervillain.lattice.delta_sparse`) that propagate a single-component, single-color change to its neighbor links, and *output-sparse gathers* (:func:`~supervillain.lattice.face_sum_at`, :func:`~supervillain.lattice.coface_sum_at`) that evaluate a boundary sum at one component and color.
+They come in two flavors: *input-sparse spreads* (:func:`~supervillain.lattice.d_sparse`, :func:`~supervillain.lattice.delta_sparse`) that propagate a single-component, single-color change to the cells one dimension away that touch it — the coboundary (cofaces) for $d$, the boundary (faces) for $\delta$ — and *output-sparse gathers* (:func:`~supervillain.lattice.face_sum_at`, :func:`~supervillain.lattice.coface_sum_at`) that evaluate a boundary or coboundary sum at one output component and color.
+
+.. note ::
+
+   It is often easier to write a correct algorithm using the dense operations and only accelerating it with sparse operations when necessary.
+   In particular if the algorithm is not in a hot part of the code or performance critical we prefer the dense operations to ease readability and debugging.
 
 Sparse Exterior Derivative
 --------------------------
 
 The input-sparse counterpart of :func:`~supervillain.lattice.d`, for the single-component, single-color forms that arise in the Villain updates (where the field change is one $0$-form color at a time).
-Because $d$ is linear with a single nonzero input component $c$, only the terms reading $c$ contribute: a value $a$ at site $x$ sends $-\sigma\big((e) \frown (O \setminus e)\big)\, a$ to the output link at $x$ and $+\sigma\big((e) \frown (O \setminus e)\big)\, a$ at $x - \hat{e}_e$ — a *backward* spread, mirroring :func:`~supervillain.lattice.delta_sparse`'s forward one.
-:func:`~supervillain.lattice.d_sparse` evaluates only those links and can accumulate into an existing $(p+1)$-form, so $d\phi$ (or the link field $n$) is maintained incrementally as $d(\phi + \Delta\phi) = d\phi + d(\Delta\phi)$.
+Because $d$ is linear with a single nonzero input component $c$, only the terms reading $c$ contribute: a value $a$ at the input cell $x$ sends $-\sigma\big((e) \frown (O \setminus e)\big)\, a$ to the coface at $x$ and $+\sigma\big((e) \frown (O \setminus e)\big)\, a$ at $x - \hat{e}_e$ — the two $(p+1)$-cells that have the input cell on their boundary in direction $e$, a *backward* spread mirroring :func:`~supervillain.lattice.delta_sparse`'s forward one.
+:func:`~supervillain.lattice.d_sparse` evaluates only that coboundary and can accumulate into an existing $(p+1)$-form, so $d\phi$ (or the link field $n$) is maintained incrementally as $d(\phi + \Delta\phi) = d\phi + d(\Delta\phi)$.
 
 .. autofunction :: supervillain.lattice.d_sparse
 
@@ -261,8 +266,8 @@ Sparse Codifferential
 ---------------------
 
 The input-sparse counterpart of :func:`~supervillain.lattice.delta`, used in the Worldline updates to maintain $\delta v$ as the field $v$ changes one component and color at a time.
-Because $\delta$ is linear and the input has only one nonzero component $c$, only the terms reading $c$ contribute: a value $a$ at site $x$ sends $-\sigma\big((e) \frown M\big)\, a$ to the output link at $x$ and $+\sigma\big((e) \frown M\big)\, a$ at $x + \hat{e}_e$, for each direction $e$ with $M \cup \{e\} = c$.
-:func:`~supervillain.lattice.delta_sparse` evaluates exactly these links instead of the whole lattice, and can accumulate into an existing $(p-1)$-form so that $\delta v$ is maintained incrementally as $\delta(v + \Delta v) = \delta v + \delta(\Delta v)$.
+Because $\delta$ is linear and the input has only one nonzero component $c$, only the terms reading $c$ contribute: a value $a$ at the input cell $x$ sends $-\sigma\big((e) \frown M\big)\, a$ to the face at $x$ and $+\sigma\big((e) \frown M\big)\, a$ at $x + \hat{e}_e$, for each direction $e$ with $M \cup \{e\} = c$ — the two $(p-1)$-faces perpendicular to $e$.
+:func:`~supervillain.lattice.delta_sparse` evaluates exactly that boundary instead of the whole lattice, and can accumulate into an existing $(p-1)$-form so that $\delta v$ is maintained incrementally as $\delta(v + \Delta v) = \delta v + \delta(\Delta v)$.
 
 .. autofunction :: supervillain.lattice.delta_sparse
 
@@ -272,7 +277,7 @@ Output-Sparse Boundary Sums
 ---------------------------
 
 The unsigned boundary sums :meth:`~supervillain.lattice.Form.face_sum` and :meth:`~supervillain.lattice.Form.coface_sum` are needed by the updates only at the cells being proposed — a single output component over one color — to read the change in action $\Delta S$.
-:func:`~supervillain.lattice.face_sum_at` and :func:`~supervillain.lattice.coface_sum_at` return exactly those values, gathering the input only on the boundary links of the requested cells instead of reducing over the whole lattice.
+:func:`~supervillain.lattice.face_sum_at` and :func:`~supervillain.lattice.coface_sum_at` return exactly those values, gathering the input only on the cells incident to the requested cells instead of reducing over the whole lattice.
 
 .. autofunction :: supervillain.lattice.coface_sum_at
 

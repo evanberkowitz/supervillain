@@ -1047,15 +1047,16 @@ def delta_sparse(lattice, degree, component, color, values, out=None):
     single-checkerboard-color forms that arise in the Worldline updates.  It
     computes $\delta f$ for a ``degree``-form $f$ that vanishes except on
     ``component`` at the sites ``color``, where it equals ``values`` — touching
-    only the $O(\texttt{len(values)})$ affected links instead of the whole
-    lattice.
+    only the $O(\texttt{len(values)})$ affected boundary cells instead of the
+    whole lattice.
 
     Because $\delta$ is linear and the input is supported on a single component
     $c$, only the table rows that read $c$ contribute.  For each such row with
     output component ``out_idx``, difference direction $e$, and sign, a value
-    $a$ at site $x$ contributes $-\texttt{sign}\cdot a$ to the output link at $x$
-    and $+\texttt{sign}\cdot a$ at $x + \hat{e}_e$ (periodic).  The result is
-    bit-identical to :func:`delta` of the equivalent dense form.
+    $a$ at the input cell $x$ contributes $-\texttt{sign}\cdot a$ to the
+    $(p-1)$-face at $x$ and $+\texttt{sign}\cdot a$ at $x + \hat{e}_e$ (periodic)
+    — the two faces of the cell perpendicular to $e$, i.e. its boundary.  The
+    result is bit-identical to :func:`delta` of the equivalent dense form.
 
     Parameters
     ----------
@@ -1107,14 +1108,17 @@ def d_sparse(lattice, degree, component, color, values, out=None):
 
     The input-sparse $d$ counterpart of :func:`delta_sparse`: $df$ for a
     ``degree``-form $f$ that vanishes except on ``component`` at the sites
-    ``color`` (where it equals ``values``), touching only the affected links.
+    ``color`` (where it equals ``values``), touching only the affected coboundary
+    cells.
 
     Because $d$ is linear and the input has a single nonzero component $c$, only
-    the table rows reading $c$ contribute.  A value $a$ at site $x$ sends
-    $-\texttt{sign}\cdot a$ to the output link at $x$ and $+\texttt{sign}\cdot a$
-    at $x - \hat{e}_e$ (a *backward* spread — the mirror of :func:`delta_sparse`'s
-    forward one), for each row with output component ``out_idx``, direction $e$,
-    and sign.  Bit-identical to :func:`d` of the equivalent dense form.
+    the table rows reading $c$ contribute.  A value $a$ at the input cell $x$
+    sends $-\texttt{sign}\cdot a$ to the $(p+1)$-coface at $x$ and
+    $+\texttt{sign}\cdot a$ at $x - \hat{e}_e$ — the two cofaces that have the
+    cell on their boundary in direction $e$, i.e. its coboundary; a *backward*
+    spread, the mirror of :func:`delta_sparse`'s forward one — for each row with
+    output component ``out_idx``, direction $e$, and sign.  Bit-identical to
+    :func:`d` of the equivalent dense form.
 
     Parameters
     ----------
@@ -1188,7 +1192,7 @@ def coface_sum_at(f, component, color):
 
     Returns the values of the $(p+1)$-form ``f.coface_sum()`` on ``component`` at
     the sites ``color`` (a 1-D array aligned with ``color``), gathering ``f`` only
-    on the boundary links of those cofaces instead of summing over the whole
+    on the boundary of those $(p+1)$-cells instead of summing over the whole
     lattice.  Used to read $\Delta S$ at the proposed cells without materializing
     the full reduction.  Bit-identical to ``np.asarray(f.coface_sum())[component][color]``.
     """
@@ -1201,7 +1205,7 @@ def face_sum_at(f, component, color):
 
     Returns the values of the $(p-1)$-form ``f.face_sum()`` on ``component`` at the
     sites ``color`` (a 1-D array aligned with ``color``), gathering ``f`` only on
-    the boundary links of those faces.  Bit-identical to
+    the coboundary of those $(p-1)$-cells.  Bit-identical to
     ``np.asarray(f.face_sum())[component][color]``.
     """
     return _reduce_sum_at('face_sum', f, component, color, backward=True)
