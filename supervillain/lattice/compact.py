@@ -204,6 +204,12 @@ class Lattice(ReadWriteable):
 
         .. plot:: example/plot/checkerboarding.py
 
+        .. warning::
+            No promise is made about the future sizes of the color partitions.
+            For example, it might be wiser for performance to split the odd-N colors less evenly.
+            All that is promised is that within each color no site shares a nearest-neighbor edge
+            with a site of the same color.
+ 
         Returns
         -------
         tuple of index-array tuples
@@ -213,12 +219,7 @@ class Lattice(ReadWriteable):
                 for i, color in enumerate(L.checkerboarding):
                     form[(slice(None), *color)] = i
 
-        .. warning::
-            No promise is made about the future sizes of the color partitions.
-            For example, it might be wiser for performance to split the odd-N colors less evenly.
-            All that is promised is that within each color no site shares a nearest-neighbor edge
-            with a site of the same color.
-        """
+       """
         D, N = self.D, self.N
         coords = self.coords
         parity = np.mod(self.coords.sum(axis=0), 2)
@@ -1036,6 +1037,68 @@ def delta(f):
     return _apply_operator(_kernels.DELTA_KERNELS, "delta", f, p - 1)
 
 δ = delta
+
+
+def delta_sparse(lattice, degree, component, color, values, out=None):
+    r"""
+    Codifferential of a $p$-form that is nonzero on only one component and color.
+
+    This is the sparse counterpart of :func:`delta`, for the single-component,
+    single-checkerboard-color forms that arise in the Worldline updates.  It
+    computes $\delta f$ for a ``degree``-form $f$ that vanishes except on
+    ``component`` at the sites ``color``, where it equals ``values`` — touching
+    only the $O(\texttt{len(values)})$ affected links instead of the whole
+    lattice.
+
+    Because $\delta$ is linear and the input is supported on a single component
+    $c$, only the table rows that read $c$ contribute.  For each such row with
+    output component ``out_idx``, difference direction $e$, and sign, a value
+    $a$ at site $x$ contributes $-\texttt{sign}\cdot a$ to the output link at $x$
+    and $+\texttt{sign}\cdot a$ at $x + \hat{e}_e$ (periodic).  The result is
+    bit-identical to :func:`delta` of the equivalent dense form.
+
+    Parameters
+    ----------
+    lattice : Lattice
+        The lattice $f$ lives on.
+    degree : int
+        The form degree $p$ (must be $\geq 1$).
+    component : int
+        Index of the single nonzero $p$-form component (into
+        ``lattice.components[degree]``).
+    color : tuple of np.ndarray
+        The sites where $f$ is nonzero, as a tuple of $D$ index arrays (e.g. one
+        entry of :attr:`Lattice.checkerboarding`).
+    values : np.ndarray
+        The values of $f$ on ``component`` at ``color`` (same length as each
+        index array in ``color``).
+    out : np.ndarray, optional
+        A ``(C(D, degree-1), N, ..., N)`` array to accumulate into (the raw
+        array of a $(p-1)$-form).  If omitted a fresh zero array of ``values``'
+        dtype is allocated.  Passing ``out`` lets a caller maintain $\delta v$
+        incrementally: ``delta_sparse(..., out=delta_v)`` adds $\delta(\Delta v)$.
+
+    Returns
+    -------
+    np.ndarray
+        The raw ``(C(D, degree-1), N, ..., N)`` array $\delta f$ (the same object
+        as ``out`` when it is supplied).
+    """
+    if degree < 1:
+        raise ValueError(f'delta_sparse needs degree >= 1, got {degree}')
+    N = lattice.N
+    values = np.asarray(values)
+    if out is None:
+        out = np.zeros(Form.spatial_shape(degree=degree - 1, lattice=lattice), dtype=values.dtype)
+    coords = tuple(np.asarray(c) for c in color)
+    for out_idx, in_idx, e, sign in lattice.operator_table('delta', degree):
+        if in_idx != component:
+            continue
+        fwd = list(coords)
+        fwd[e] = (coords[e] + 1) % N
+        out[out_idx][coords]     -= sign * values
+        out[out_idx][tuple(fwd)] += sign * values
+    return out
 
 
 # ---------------------------------------------------------------------------
