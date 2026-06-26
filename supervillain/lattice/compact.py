@@ -1043,20 +1043,13 @@ def delta_sparse(lattice, degree, component, color, values, out=None):
     r"""
     Codifferential of a $p$-form that is nonzero on only one component and color.
 
-    This is the sparse counterpart of :func:`delta`, for the single-component,
-    single-checkerboard-color forms that arise in the Worldline updates.  It
+    The sparse counterpart of :func:`delta`, for the single-component,
+    single-checkerboard-color forms that arise in the Worldline updates: it
     computes $\delta f$ for a ``degree``-form $f$ that vanishes except on
-    ``component`` at the sites ``color``, where it equals ``values`` — touching
+    ``component`` at the sites ``color`` (where it equals ``values``), touching
     only the $O(\texttt{len(values)})$ affected boundary cells instead of the
-    whole lattice.
-
-    Because $\delta$ is linear and the input is supported on a single component
-    $c$, only the table rows that read $c$ contribute.  For each such row with
-    output component ``out_idx``, difference direction $e$, and sign, a value
-    $a$ at the input cell $x$ contributes $-\texttt{sign}\cdot a$ to the
-    $(p-1)$-face at $x$ and $+\texttt{sign}\cdot a$ at $x + \hat{e}_e$ (periodic)
-    — the two faces of the cell perpendicular to $e$, i.e. its boundary.  The
-    result is bit-identical to :func:`delta` of the equivalent dense form.
+    whole lattice.  The result is bit-identical to :func:`delta` of the
+    equivalent dense form.
 
     Parameters
     ----------
@@ -1092,6 +1085,10 @@ def delta_sparse(lattice, degree, component, color, values, out=None):
     if out is None:
         out = np.zeros(Form.spatial_shape(degree=degree - 1, lattice=lattice), dtype=values.dtype)
     coords = tuple(np.asarray(c) for c in color)
+    # delta is linear and only `component` is nonzero, so only the operator-table
+    # rows reading it contribute.  For each, a value a at the input cell x sends
+    # -sign*a to the (p-1)-face at x and +sign*a to the face at x + e_hat -- the two
+    # faces of the cell perpendicular to e, i.e. its boundary.
     for out_idx, in_idx, e, sign in lattice.operator_table('delta', degree):
         if in_idx != component:
             continue
@@ -1106,23 +1103,15 @@ def d_sparse(lattice, degree, component, color, values, out=None):
     r"""
     Exterior derivative of a $p$-form nonzero on only one component and color.
 
-    The input-sparse $d$ counterpart of :func:`delta_sparse`: $df$ for a
-    ``degree``-form $f$ that vanishes except on ``component`` at the sites
+    The input-sparse $d$ counterpart of :func:`delta_sparse`: it computes $df$ for
+    a ``degree``-form $f$ that vanishes except on ``component`` at the sites
     ``color`` (where it equals ``values``), touching only the affected coboundary
-    cells.
-
-    Because $d$ is linear and the input has a single nonzero component $c$, only
-    the table rows reading $c$ contribute.  A value $a$ at the input cell $x$
-    sends $-\texttt{sign}\cdot a$ to the $(p+1)$-coface at $x$ and
-    $+\texttt{sign}\cdot a$ at $x - \hat{e}_e$ — the two cofaces that have the
-    cell on their boundary in direction $e$, i.e. its coboundary; a *backward*
-    spread, the mirror of :func:`delta_sparse`'s forward one — for each row with
-    output component ``out_idx``, direction $e$, and sign.  Bit-identical to
-    :func:`d` of the equivalent dense form.
+    cells.  The result is bit-identical to :func:`d` of the equivalent dense form.
 
     Parameters
     ----------
     lattice : Lattice
+        The lattice $f$ lives on.
     degree : int
         The input form degree $p$ (must be $< D$, since $d$ raises the degree).
     component : int
@@ -1150,6 +1139,11 @@ def d_sparse(lattice, degree, component, color, values, out=None):
     if out is None:
         out = np.zeros(Form.spatial_shape(degree=degree + 1, lattice=lattice), dtype=values.dtype)
     coords = tuple(np.asarray(c) for c in color)
+    # d is linear and only `component` is nonzero, so only the operator-table rows
+    # reading it contribute.  For each, a value a at the input cell x sends -sign*a
+    # to the (p+1)-coface at x and +sign*a to the coface at x - e_hat -- the two
+    # cofaces with the cell on their boundary in direction e, i.e. its coboundary.
+    # This is the backward mirror of delta_sparse's forward spread.
     for out_idx, in_idx, e, sign in lattice.operator_table('d', degree):
         if in_idx != component:
             continue
@@ -1191,10 +1185,27 @@ def coface_sum_at(f, component, color):
     Output-sparse :meth:`~Form.coface_sum`: $(\texttt{coface\_sum}\,f)$ at one component and color.
 
     Returns the values of the $(p+1)$-form ``f.coface_sum()`` on ``component`` at
-    the sites ``color`` (a 1-D array aligned with ``color``), gathering ``f`` only
-    on the boundary of those $(p+1)$-cells instead of summing over the whole
-    lattice.  Used to read $\Delta S$ at the proposed cells without materializing
-    the full reduction.  Bit-identical to ``np.asarray(f.coface_sum())[component][color]``.
+    the sites ``color``, gathering ``f`` only on the boundary of those
+    $(p+1)$-cells instead of summing over the whole lattice.  Used to read
+    $\Delta S$ at the proposed cells without materializing the full reduction.
+    Bit-identical to ``np.asarray(f.coface_sum())[component][color]``.
+
+    Parameters
+    ----------
+    f : Form
+        The $p$-form to reduce.
+    component : int
+        Index of the output $(p+1)$-form component (into
+        ``f.lattice.components[f.degree + 1]``).
+    color : tuple of np.ndarray
+        The output sites, as a tuple of $D$ index arrays (e.g. one entry of
+        :attr:`Lattice.checkerboarding`).
+
+    Returns
+    -------
+    np.ndarray
+        A 1-D array of $(\texttt{coface\_sum}\,f)$ on ``component`` at ``color``,
+        aligned with ``color``.
     """
     return _reduce_sum_at('coface_sum', f, component, color, backward=False)
 
@@ -1204,9 +1215,26 @@ def face_sum_at(f, component, color):
     Output-sparse :meth:`~Form.face_sum`: $(\texttt{face\_sum}\,f)$ at one component and color.
 
     Returns the values of the $(p-1)$-form ``f.face_sum()`` on ``component`` at the
-    sites ``color`` (a 1-D array aligned with ``color``), gathering ``f`` only on
-    the coboundary of those $(p-1)$-cells.  Bit-identical to
+    sites ``color``, gathering ``f`` only on the coboundary of those $(p-1)$-cells
+    instead of summing over the whole lattice.  Bit-identical to
     ``np.asarray(f.face_sum())[component][color]``.
+
+    Parameters
+    ----------
+    f : Form
+        The $p$-form to reduce.
+    component : int
+        Index of the output $(p-1)$-form component (into
+        ``f.lattice.components[f.degree - 1]``).
+    color : tuple of np.ndarray
+        The output sites, as a tuple of $D$ index arrays (e.g. one entry of
+        :attr:`Lattice.checkerboarding`).
+
+    Returns
+    -------
+    np.ndarray
+        A 1-D array of $(\texttt{face\_sum}\,f)$ on ``component`` at ``color``,
+        aligned with ``color``.
     """
     return _reduce_sum_at('face_sum', f, component, color, backward=True)
 
