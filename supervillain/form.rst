@@ -83,6 +83,17 @@ This identity is tested by the ``test_codifferential_nilpotent`` test in :source
 
 The continuum identity $\delta = (-1)^{D(k+1)+1}\,\star\,d\,\star$ holds on the lattice only up to a translation; see :ref:`the note below <lattice-star-d-star-shift>`.
 
+Sparse Codifferential
+---------------------
+
+Some updates change a $p$-form on only a single component and a single :attr:`checkerboard color <supervillain.lattice.Lattice.checkerboarding>` at a time, so $\delta$ of that change is supported on just the handful of links touching those cells.
+Because $\delta$ is linear and the input has only one nonzero component $c$, only the terms reading $c$ contribute: a value $a$ at site $x$ sends $-\sigma\big((e) \frown M\big)\, a$ to the output link at $x$ and $+\sigma\big((e) \frown M\big)\, a$ at $x + \hat{e}_e$, for each direction $e$ with $M \cup \{e\} = c$.
+:func:`~supervillain.lattice.delta_sparse` evaluates exactly these links instead of the whole lattice, and can accumulate into an existing $(p-1)$-form so that $\delta v$ is maintained incrementally as $\delta(v + \Delta v) = \delta v + \delta(\Delta v)$.
+
+.. autofunction :: supervillain.lattice.delta_sparse
+
+It is bit-identical to :func:`~supervillain.lattice.delta` of the equivalent dense form across all dimensions, degrees, components, colors, and dtypes, as checked by ``test_delta_sparse_matches_dense_every_component_and_color`` (and the incremental identity by ``test_delta_sparse_accumulates_like_linearity``) in :source:`test/test_sparse_delta.py`.
+
 Laplacian
 =========
 
