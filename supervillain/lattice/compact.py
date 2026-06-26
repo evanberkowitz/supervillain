@@ -1085,14 +1085,15 @@ def delta_sparse(lattice, degree, component, color, values, out=None):
     >>> L = Lattice(D=3, N=4)
     >>> color = L.checkerboarding[0]
     >>> values = np.ones(len(color[0]))
-    >>> delta_sparse(L, 2, 0, color, values).shape  # delta of a 2-form on component 0, one color
-    (3, 4, 4, 4)
+    >>> f = L.zeros(2); f[0][color] = values  # the equivalent dense 2-form
+    >>> bool((delta_sparse(L, 2, 0, color, values) == delta(f)).all())
+    True
 
-    Maintain $\delta v$ incrementally instead of recomputing the full $\delta$:
+    ``out`` accumulates in place, so $\delta v$ can be maintained incrementally:
 
-    >>> v = L.random(2)
-    >>> delta_v = np.asarray(delta(v)).copy()
-    >>> _ = delta_sparse(L, 2, 0, color, values, out=delta_v)  # delta_v += delta(change)
+    >>> delta_v = np.asarray(delta(L.random(2)))
+    >>> delta_v is delta_sparse(L, 2, 0, color, values, out=delta_v)
+    True
     """
     if degree < 1:
         raise ValueError(f'delta_sparse needs degree >= 1, got {degree}')
@@ -1151,12 +1152,13 @@ def d_sparse(lattice, degree, component, color, values, out=None):
     Examples
     --------
     >>> import numpy as np
-    >>> from supervillain.lattice import Lattice, d_sparse
+    >>> from supervillain.lattice import Lattice, d, d_sparse
     >>> L = Lattice(D=3, N=4)
     >>> color = L.checkerboarding[0]
     >>> values = np.ones(len(color[0]))
-    >>> d_sparse(L, 0, 0, color, values).shape  # d of a 0-form supported on one color
-    (3, 4, 4, 4)
+    >>> f = L.zeros(0); f[0][color] = values  # the equivalent dense 0-form
+    >>> bool((d_sparse(L, 0, 0, color, values) == d(f)).all())
+    True
     """
     if degree >= lattice.D:
         raise ValueError(f'd_sparse needs degree < D={lattice.D}, got {degree}')
@@ -1237,10 +1239,10 @@ def coface_sum_at(f, component, color):
     --------
     >>> from supervillain.lattice import Lattice, coface_sum_at
     >>> L = Lattice(D=3, N=4)
-    >>> f = L.random(1)                   # a 1-form
+    >>> f = L.random(1)                  # a 1-form
     >>> color = L.checkerboarding[0]
-    >>> coface_sum_at(f, 0, color).shape  # coface_sum on 2-form component 0, at `color`
-    (32,)
+    >>> bool((coface_sum_at(f, 0, color) == f.coface_sum()[0][color]).all())
+    True
     """
     return _reduce_sum_at('coface_sum', f, component, color, backward=False)
 
@@ -1277,8 +1279,8 @@ def face_sum_at(f, component, color):
     >>> L = Lattice(D=3, N=4)
     >>> f = L.random(1)                 # a 1-form
     >>> color = L.checkerboarding[0]
-    >>> face_sum_at(f, 0, color).shape  # face_sum on 0-form component 0, at `color`
-    (32,)
+    >>> bool((face_sum_at(f, 0, color) == f.face_sum()[0][color]).all())
+    True
     """
     return _reduce_sum_at('face_sum', f, component, color, backward=True)
 
