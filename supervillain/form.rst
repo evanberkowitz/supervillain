@@ -283,8 +283,4 @@ The unsigned boundary sums :meth:`~supervillain.lattice.Form.face_sum` and :meth
 
 .. autofunction :: supervillain.lattice.face_sum_at
 
-.. warning ::
-
-   The two boundary contributions are accumulated as **two separate additions**, in table order, to match the dense reduction exactly; a combined ``f[x] + f[neighbor]`` would differ at machine epsilon because floating-point addition is not associative.
-
 Both are bit-identical to indexing the dense reduction, ``np.asarray(f.coface_sum())[component][color]`` and ``np.asarray(f.face_sum())[component][color]``, across all dimensions, degrees, output components, colors, and dtypes, as checked by ``test_coface_sum_at_matches_dense`` and ``test_face_sum_at_matches_dense`` in :source:`test/test_sparse_operators.py`.
