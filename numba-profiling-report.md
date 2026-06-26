@@ -349,3 +349,53 @@ Together (a)+(b) target ~36 of `VortexUpdate`'s 53 s. The acceptance machinery
 (~4.6 s self-time) are secondary; the loop cost only becomes worth attacking
 after (a) and (b), e.g. by batching all components/colors into one vectorized or
 compiled pass.
+
+---
+
+## 9. Re-profile after the sparse generators (latest)
+
+After the sparse work landed — `delta_sparse` with hoisted/incrementally-patched
+`δv` (lever a) and `coface_sum_at` for the acceptance (the §5/§8 follow-ons) — the
+**identical** workload (`--D 4 --N 9 --configurations 1000`, same `cProfile`
+methodology) was re-profiled (`/tmp/prof_now.out`).
+
+### Total profiled CPU: 356.5 → 167.4 → **104.5 s**
+
+**3.4× overall**, and **1.6×** from the sparse work alone on top of the kernels.
+
+| | before (numpy) | + kernels (§7) | + sparse (now) | overall |
+|---|---:|---:|---:|---:|
+| **total** | 356.5 | 167.4 | **104.5** | **3.4×** |
+| `VortexUpdate.step` | 146.7 | 53.2 | **25.0** | 5.9× |
+| `CoexactUpdate.step` | 143.3 | 48.9 | **21.6** | 6.6× |
+| `delta` (cum) | 182.6 | 41.8 | 17.9 | — |
+| `coface_sum` (cum) | 69.3 | 17.5 | 5.9 | — |
+| `Form.__array_ufunc__` (cum) | 162.5 | 36.2 | **6.4** | **25×** |
+
+The `Form.__array_ufunc__` tax that motivated this whole effort is essentially
+gone (162 → 6 s).
+
+### What's on top now — Python orchestration, not math
+
+| self-time | calls | what |
+|---:|---:|---|
+| 16.8 s | 384 k | **`delta_sparse`** — its per-call Python loop (table rows + fancy indexing) |
+| 10.7 s | 1 k | `vortex.step` self — the `color × component` Python loop, rng, bookkeeping |
+| 8.1 s | 1 k | `coexact.step` self |
+| 5.4 s | 192 k | `_reduce_sum_at` — the `coface_sum_at` gather |
+| 4.2 s | 109 k | `_apply_operator` — remaining dense `d`/`δ` wrapper calls (Villain + observables) |
+
+Two takeaways:
+
+1. **The remaining sampling cost is almost entirely Python per-call overhead** —
+   `delta_sparse`'s loop, the generators' `color × component` loops, and the
+   gather. Very little numpy/numba *compute* is left to remove. This is exactly
+   the regime the **generator-specific fused numba kernel
+   ([issue #154](https://github.com/evanberkowitz/supervillain/issues/154))**
+   targets: fusing `delta_sparse` → `dS_link` → `coface_sum_at` → accept into one
+   compiled pass would eliminate the ~384 k Python `delta_sparse` calls and the
+   loop overhead.
+2. **A chunk of the 104.5 s is no longer sampling at all** — e.g. `c_einsum`
+   (9.1 s) and `_hyperoctahedral_permutations` (4.3 s) are the **analysis** phase
+   (`symmetrize`/bootstrap for the correlators), untouched by this work. As the
+   sampling cost shrinks, the post-processing becomes a visible fraction.
