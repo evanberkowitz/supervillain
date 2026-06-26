@@ -22,7 +22,7 @@ class CohomologyUpdate(ReadWriteable, Generator):
     These winding numbers label sectors of $H^1(\mathbb{T}^D, \mathbb{Z}) = \mathbb{Z}^D$.
 
     This update proposes, for each direction $\mu$, adding a constant $h_\mu$ to $n_\mu$ on the
-    single slice $x_\mu = 0$ (all perpendicular positions).  Because $\Delta n_\mu$ is constant
+    single slice $x_\mu = 0$ (all perpendicular positions).  Because $\Delta{}n_\mu$ is constant
     on that slice and zero elsewhere, $d(\Delta n) = 0$ exactly, so the constraint
     $dn \equiv 0\; (\text{mod}\; W)$ is preserved automatically for any $W$.
     The winding number $w_\mu$ changes by $h_\mu$.

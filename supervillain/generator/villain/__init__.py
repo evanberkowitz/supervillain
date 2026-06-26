@@ -20,7 +20,7 @@ def Hammer(S, worms=1):
 
     .. note ::
 
-        The :class:`~.ClassicWorm` is currently only implemented for $D=2$.  In higher
+        The :class:`supervillain.generator.villain.worm.ClassicWorm` is currently only implemented for $D=2$.  In higher
         dimensions the Hammer omits it, so the returned combination is not ergodic on its
         own until a $D>2$ worm is available.
 
