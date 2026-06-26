@@ -4,7 +4,7 @@ import numpy as np
 import supervillain
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
-from supervillain.lattice import delta
+from supervillain.lattice import delta, Form
 
 import logging
 logger = logging.getLogger(__name__)
@@ -98,16 +98,26 @@ class VortexUpdate(ReadWriteable, Generator):
                     change_v = L.form(2, dtype=float)
                     change_v[comp_idx][color] = self.rng.uniform(-self.interval_v, +self.interval_v, len(color[0]))
 
-                # Compute the change of action on each link.
+                # Compute the change of action on each link.  The arithmetic is done on raw
+                # ndarrays (np.asarray strips the Form wrapper) so it does not round-trip through
+                # Form.__array_ufunc__ once per binary op; change_delta_v / W is reused rather than
+                # recomputed.  Bit-identical to the Form expression, then re-wrapped once so
+                # coface_sum() can run.  (See the numba profiling report §8.)
                 change_delta_v = delta(change_v)
-                dS_link = 0.5 / self.Action.kappa * (-change_delta_v / W) * (2*(m - delta_v / W) - change_delta_v / W)
+                m_raw   = np.asarray(m)
+                dv_raw  = np.asarray(delta_v)
+                cdv_W   = np.asarray(change_delta_v) / W
+                dS_link = Form(
+                    (0.5 / self.Action.kappa) * (-cdv_W) * (2 * (m_raw - dv_raw / W) - cdv_W),
+                    degree=1, lattice=L,
+                )
 
                 # The change in action from this plaquette is the sum of changes on its boundary links.
                 # coface_sum() accumulates those, giving dS[comp_idx][x] for the plaquette at x.
                 dS = dS_link.coface_sum()
 
                 # dS is not 0 on off-color plaquettes. Only accept/reject on the current color.
-                acceptance = np.clip(np.exp(-dS[comp_idx][color]), a_min=0, a_max=1)
+                acceptance = np.clip(np.exp(-np.asarray(dS[comp_idx])[color]), a_min=0, a_max=1)
                 accepted = (metropolis[comp_idx][color] < acceptance)
 
                 total_accepted += accepted.sum()

@@ -4,7 +4,7 @@ import numpy as np
 import supervillain.action
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
-from supervillain.lattice import delta
+from supervillain.lattice import delta, Form
 
 import logging
 logger = logging.getLogger(__name__)
@@ -104,8 +104,17 @@ class CoexactUpdate(ReadWriteable, Generator):
                 t[comp_idx][color] = self.rng.choice(self.ts, len(color[0]))
 
                 # To keep δm=0 we let the change in m be given by δt, so that δ(change_m) = δ^2(t) = 0.
+                # The ΔS arithmetic is done on raw ndarrays (np.asarray strips the Form wrapper) so it
+                # does not round-trip through Form.__array_ufunc__ once per binary op; bit-identical to
+                # the Form expression, then re-wrapped once so coface_sum() can run.  (Profiling report §8.)
                 change_m = delta(t)
-                dS_link = 0.5 / self.Action.kappa * change_m * (2*(m - delta_v_by_W) + change_m)
+                m_raw  = np.asarray(m)
+                dvw    = np.asarray(delta_v_by_W)
+                cm     = np.asarray(change_m)
+                dS_link = Form(
+                    (0.5 / self.Action.kappa) * cm * (2 * (m_raw - dvw) + cm),
+                    degree=1, lattice=L,
+                )
 
                 # The change in action originating from each plaquette is the sum of changes on its
                 # boundary links. coface_sum() accumulates those unsigned boundary contributions,
@@ -114,7 +123,7 @@ class CoexactUpdate(ReadWriteable, Generator):
 
                 # dS is not 0 on off-color plaquettes---those still have links touching the current color.
                 # Only accept/reject on the current color.
-                acceptance = np.clip(np.exp(-dS[comp_idx][color]), a_min=0, a_max=1)
+                acceptance = np.clip(np.exp(-np.asarray(dS[comp_idx])[color]), a_min=0, a_max=1)
                 accepted = (metropolis[comp_idx][color] < acceptance)
 
                 total_accepted += accepted.sum()
