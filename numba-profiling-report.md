@@ -319,6 +319,16 @@ coexact hoists `delta_v_by_W = delta(v)/W` out of the loop and uses a simpler
 expression. Fusing vortex's `dS_link` (a small numba kernel on raw arrays, like
 the operators, or restructuring to drop the intermediate `Form`s) attacks this.
 
+> **Update — lever (b) implemented.** The `dS_link` (and acceptance `exp`/`clip`)
+> arithmetic in both `VortexUpdate.step` and `CoexactUpdate.step` now runs on raw
+> `np.asarray` views, re-wrapping as a `Form` once for `coface_sum`, so the ~9
+> `Form` ops per inner iteration no longer round-trip through `__array_ufunc__`.
+> Verified **bit-identical Markov chains** (seeded, both fields). Wall-clock
+> per-step: vortex 44.4 → 38.8 ms, coexact 45.4 → 37.4 ms (**~15%**). The gain is
+> smaller than the profiled 30% because `cProfile` over-weights the Python-level
+> `Form` dispatch relative to wall-clock — the same caveat noted in §7. Lever (a),
+> the sparse/hoisted `delta`, remains the larger, harder follow-on.
+
 Together (a)+(b) target ~36 of `VortexUpdate`'s 53 s. The acceptance machinery
 (`clip`/`exp`/reductions, ~2.7 s) and the Python `color × component` loop itself
 (~4.6 s self-time) are secondary; the loop cost only becomes worth attacking
