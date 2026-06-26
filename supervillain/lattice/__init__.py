@@ -10,4 +10,4 @@ def _dimension(n):
 
 
 from supervillain.lattice.two_dimensional import Lattice2D, _Lattice2D
-from supervillain.lattice.compact import Lattice, Form, d, delta, delta_sparse, laplacian, star, wedge, push, pull
+from supervillain.lattice.compact import Lattice, Form, d, delta, delta_sparse, d_sparse, coface_sum_at, face_sum_at, laplacian, star, wedge, push, pull

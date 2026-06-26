@@ -1101,6 +1101,112 @@ def delta_sparse(lattice, degree, component, color, values, out=None):
     return out
 
 
+def d_sparse(lattice, degree, component, color, values, out=None):
+    r"""
+    Exterior derivative of a $p$-form nonzero on only one component and color.
+
+    The input-sparse $d$ counterpart of :func:`delta_sparse`: $df$ for a
+    ``degree``-form $f$ that vanishes except on ``component`` at the sites
+    ``color`` (where it equals ``values``), touching only the affected links.
+
+    Because $d$ is linear and the input has a single nonzero component $c$, only
+    the table rows reading $c$ contribute.  A value $a$ at site $x$ sends
+    $-\texttt{sign}\cdot a$ to the output link at $x$ and $+\texttt{sign}\cdot a$
+    at $x - \hat{e}_e$ (a *backward* spread — the mirror of :func:`delta_sparse`'s
+    forward one), for each row with output component ``out_idx``, direction $e$,
+    and sign.  Bit-identical to :func:`d` of the equivalent dense form.
+
+    Parameters
+    ----------
+    lattice : Lattice
+    degree : int
+        The input form degree $p$ (must be $< D$, since $d$ raises the degree).
+    component : int
+        Index into ``lattice.components[degree]`` of the single nonzero component.
+    color : tuple of np.ndarray
+        The nonzero sites, as a tuple of $D$ index arrays (e.g. one entry of
+        :attr:`Lattice.checkerboarding`).
+    values : np.ndarray
+        The values of $f$ on ``component`` at ``color``.
+    out : np.ndarray, optional
+        A ``(C(D, degree+1), N, ..., N)`` array to accumulate into; lets a caller
+        maintain $d\phi$ or $n$ incrementally.  A fresh zero array is allocated if
+        omitted.
+
+    Returns
+    -------
+    np.ndarray
+        The raw ``(C(D, degree+1), N, ..., N)`` array $df$ (the same object as
+        ``out`` when supplied).
+    """
+    if degree >= lattice.D:
+        raise ValueError(f'd_sparse needs degree < D={lattice.D}, got {degree}')
+    N = lattice.N
+    values = np.asarray(values)
+    if out is None:
+        out = np.zeros(Form.spatial_shape(degree=degree + 1, lattice=lattice), dtype=values.dtype)
+    coords = tuple(np.asarray(c) for c in color)
+    for out_idx, in_idx, e, sign in lattice.operator_table('d', degree):
+        if in_idx != component:
+            continue
+        bwd = list(coords)
+        bwd[e] = (coords[e] - 1) % N
+        out[out_idx][coords]     -= sign * values
+        out[out_idx][tuple(bwd)] += sign * values
+    return out
+
+
+def _reduce_sum_at(op, f, component, color, backward):
+    r"""Shared engine for :func:`face_sum_at` and :func:`coface_sum_at`.
+
+    Evaluates the unsigned reduction ``op`` ('face_sum' or 'coface_sum') at a
+    single output ``component`` over the sites ``color``, gathering the input
+    ``f`` at each site and its ``backward`` (``x - e``) or forward (``x + e``)
+    neighbor.  The two contributions are accumulated as **two separate** ``+=``
+    in table-row order, matching the dense kernel's summation; a combined
+    ``f[x] + f[neighbor]`` would diverge at machine epsilon (float addition is
+    not associative), so this ordering is what makes the gather bit-exact.
+    """
+    lat = f.lattice
+    A = np.asarray(f)
+    N = lat.N
+    coords = tuple(np.asarray(c) for c in color)
+    result = np.zeros(len(color[0]), dtype=A.dtype)
+    for out_idx, in_idx, e, sign in lat.operator_table(op, f.degree):
+        if out_idx != component:
+            continue
+        nb = list(coords)
+        nb[e] = (coords[e] + (-1 if backward else 1)) % N
+        result += A[in_idx][coords]
+        result += A[in_idx][tuple(nb)]
+    return result
+
+
+def coface_sum_at(f, component, color):
+    r"""
+    Output-sparse :meth:`~Form.coface_sum`: $(\texttt{coface\_sum}\,f)$ at one component and color.
+
+    Returns the values of the $(p+1)$-form ``f.coface_sum()`` on ``component`` at
+    the sites ``color`` (a 1-D array aligned with ``color``), gathering ``f`` only
+    on the boundary links of those cofaces instead of summing over the whole
+    lattice.  Used to read $\Delta S$ at the proposed cells without materializing
+    the full reduction.  Bit-identical to ``np.asarray(f.coface_sum())[component][color]``.
+    """
+    return _reduce_sum_at('coface_sum', f, component, color, backward=False)
+
+
+def face_sum_at(f, component, color):
+    r"""
+    Output-sparse :meth:`~Form.face_sum`: $(\texttt{face\_sum}\,f)$ at one component and color.
+
+    Returns the values of the $(p-1)$-form ``f.face_sum()`` on ``component`` at the
+    sites ``color`` (a 1-D array aligned with ``color``), gathering ``f`` only on
+    the boundary links of those faces.  Bit-identical to
+    ``np.asarray(f.face_sum())[component][color]``.
+    """
+    return _reduce_sum_at('face_sum', f, component, color, backward=True)
+
+
 # ---------------------------------------------------------------------------
 # Hodge–de Rham Laplacian  Δ : Ω^p → Ω^p
 # ---------------------------------------------------------------------------

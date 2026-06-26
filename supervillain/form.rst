@@ -51,6 +51,17 @@ The exterior derivative is exact, meaning that it satisfies
 which is satisfied by :func:`supervillain.lattice.d`.
 This identity is tested by ``test_d_nilpotent`` in :source:`test/test_lattice.py`.
 
+Sparse Exterior Derivative
+--------------------------
+
+The input-sparse counterpart of :func:`~supervillain.lattice.delta_sparse`, for the single-component, single-:attr:`color <supervillain.lattice.Lattice.checkerboarding>` forms that arise in the Villain updates (where the field change is one $0$-form color at a time).
+Because $d$ is linear with a single nonzero input component $c$, only the terms reading $c$ contribute: a value $a$ at site $x$ sends $-\sigma\big((e) \frown (O \setminus e)\big)\, a$ to the output link at $x$ and $+\sigma\big((e) \frown (O \setminus e)\big)\, a$ at $x - \hat{e}_e$ — a *backward* spread, mirroring :func:`~supervillain.lattice.delta_sparse`'s forward one.
+:func:`~supervillain.lattice.d_sparse` evaluates only those links and can accumulate into an existing $(p+1)$-form, so $d\phi$ (or the link field $n$) is maintained incrementally as $d(\phi + \Delta\phi) = d\phi + d(\Delta\phi)$.
+
+.. autofunction :: supervillain.lattice.d_sparse
+
+It is bit-identical to :func:`~supervillain.lattice.d` of the equivalent dense form across all dimensions, degrees, components, colors, and dtypes, as checked by ``test_d_sparse_matches_dense_every_component_and_color`` (and the incremental identity by ``test_d_sparse_accumulates_like_linearity``) in :source:`test/test_sparse_operators.py`.
+
 Codifferential
 ==============
 
@@ -93,6 +104,22 @@ Because $\delta$ is linear and the input has only one nonzero component $c$, onl
 .. autofunction :: supervillain.lattice.delta_sparse
 
 It is bit-identical to :func:`~supervillain.lattice.delta` of the equivalent dense form across all dimensions, degrees, components, colors, and dtypes, as checked by ``test_delta_sparse_matches_dense_every_component_and_color`` (and the incremental identity by ``test_delta_sparse_accumulates_like_linearity``) in :source:`test/test_sparse_delta.py`.
+
+Output-Sparse Boundary Sums
+---------------------------
+
+The unsigned boundary sums :meth:`~supervillain.lattice.Form.face_sum` and :meth:`~supervillain.lattice.Form.coface_sum` are needed by the updates only at the cells being proposed — a single output component over one :attr:`color <supervillain.lattice.Lattice.checkerboarding>` — to read the change in action $\Delta S$.
+:func:`~supervillain.lattice.face_sum_at` and :func:`~supervillain.lattice.coface_sum_at` return exactly those values, gathering the input only on the boundary links of the requested cells instead of reducing over the whole lattice.
+
+.. autofunction :: supervillain.lattice.coface_sum_at
+
+.. autofunction :: supervillain.lattice.face_sum_at
+
+.. warning ::
+
+   The two boundary contributions are accumulated as **two separate additions**, in table order, to match the dense reduction exactly; a combined ``f[x] + f[neighbor]`` would differ at machine epsilon because floating-point addition is not associative.
+
+Both are bit-identical to indexing the dense reduction, ``np.asarray(f.coface_sum())[component][color]`` and ``np.asarray(f.face_sum())[component][color]``, across all dimensions, degrees, output components, colors, and dtypes, as checked by ``test_coface_sum_at_matches_dense`` and ``test_face_sum_at_matches_dense`` in :source:`test/test_sparse_operators.py`.
 
 Laplacian
 =========
