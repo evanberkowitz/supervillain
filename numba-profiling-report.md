@@ -305,6 +305,21 @@ color has changed (`vortex.py:91`). Hoisting / incrementally updating `delta(v)`
 or a **sparse-δ** that touches only the changed component, attacks this directly —
 and pays off *independently of N*, so it matters more at large N.
 
+> **Update — lever (a) implemented.** Added `lattice.delta_sparse` (the
+> codifferential of a p-form supported on one component and checkerboard color —
+> 212 dedicated bit-exact tests, documented in `form.rst`). `VortexUpdate.step`
+> now computes `δv` once and patches it in place via `delta_sparse` (δ's linearity:
+> `δ(v+Δv) = δv + δ(Δv)`), and the proposal's δ is sparse too; `CoexactUpdate.step`
+> (which already hoisted δv) sparsifies both of its `delta(t)` calls. Each old
+> dense step is preserved verbatim as `step_reference`, the oracle: vortex is
+> bit-identical for finite W and coexact for **all** W including ∞
+> (`test_vortex_sparse`, `test_coexact_sparse`). Measured (D=4): vortex ~1.4× at
+> N=9 → ~2.2× at N=15; coexact 1.54× at N=9 → 1.81× at N=13 — and, as predicted,
+> the multiplier **grows with N** (the dense `δ(v)` recompute it removes is O(V),
+> while the per-call overhead is fixed). Remaining O(V) cost per step is now
+> `coface_sum`; since `dS_link` is itself sparse, a sparse `coface_sum` is the
+> natural next lever.
+
 **(b) The most costly generator-level *arithmetic* is the `VortexUpdate` `dS_link`
 line — 1.33 M `Form` ufunc calls, ~15.8 s** (`vortex.py:103`):
 
