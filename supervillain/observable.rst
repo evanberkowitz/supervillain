@@ -51,6 +51,40 @@ Action
    :members:
    :show-inheritance:
 
+==================
+Topological Charge
+==================
+
+The absolute topological-charge density can be measured alongside the action
+density on any generated four-dimensional, :math:`W=1` Villain ensemble:
+
+.. code-block:: python
+
+   import supervillain
+
+   L = supervillain.lattice.Lattice(D=4, N=4)
+   S = supervillain.action.Villain(L, kappa=0.05, W=1)
+   G = supervillain.generator.villain.NeighborhoodUpdate(S)
+
+   ensemble = supervillain.Ensemble(S).generate(
+       1_000,
+       G,
+       start='cold',
+   )
+   measurements = ensemble.measure([
+       'ActionDensity',
+       'AbsoluteTopologicalChargeDensity',
+   ])
+   absolute_charge_density = measurements['AbsoluteTopologicalChargeDensity']
+
+``absolute_charge_density`` contains one scalar value per generated
+configuration.  Accessing ``ensemble.AbsoluteTopologicalChargeDensity`` gives
+the same cached measurement.
+
+.. autoclass :: supervillain.observable.AbsoluteTopologicalChargeDensity
+   :members:
+   :show-inheritance:
+
 =======
 Winding
 =======

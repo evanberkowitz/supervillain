@@ -5,6 +5,7 @@ from .derived import DerivedQuantity
 from .links import Links
 from .energy import InternalEnergyDensity, InternalEnergyDensitySquared, InternalEnergyDensityVariance, SpecificHeatCapacity
 from .action import ActionDensity, ActionTwoPoint, Action_Action
+from .topological import AbsoluteTopologicalChargeDensity
 from .winding import WindingSquared, Winding_Winding
 from .wrapping import TorusWrapping, WrappingSquared
 from .spin import Spin_Spin, Spin_Spin_Normalized, SpinSusceptibility, SpinSusceptibilityScaled, SpinCriticalMoment
