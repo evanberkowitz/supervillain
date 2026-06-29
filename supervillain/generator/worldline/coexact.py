@@ -59,7 +59,7 @@ class CoexactUpdate(ReadWriteable, Generator):
         and the accepted patch are evaluated with :func:`~.delta_sparse` instead
         of a full $\delta$.  $\delta v$ is already constant over the sweep (only m
         changes), and m is integer, so this is bit-identical to
-        :meth:`step_reference` for every $W$ (checked by ``test/test_coexact_update.py``).
+        :meth:`step_reference` for every $W$ (checked by ``test/test_coexact_sparse.py``).
 
         Parameters
         ----------

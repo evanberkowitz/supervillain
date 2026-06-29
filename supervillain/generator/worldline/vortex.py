@@ -55,7 +55,7 @@ class VortexUpdate(ReadWriteable, Generator):
         This maintains $\delta v$ incrementally and uses :func:`~.delta_sparse`,
         so it never recomputes the full $\delta(v)$ inside the loop.  For integer
         $v$ (finite $W$) it is bit-identical to :meth:`step_reference`; that
-        equivalence is what ``test/test_vortex.py`` checks.
+        equivalence is what ``test/test_vortex_sparse.py`` checks.
 
         Parameters
         ----------
