@@ -10,10 +10,10 @@ Contributors
         | `CASA, the Centre for Advanced Simulation and Analytics <https://www.fz-juelich.de/en/research/research-fields/information/supercomputing/copy_of_casa-centre-for-advanced-simulation-and-analytics>`_, institutes of
         | `Forschungszentrum Jülich <https://www.fz-juelich.de/en>`_
 
-    Seth Buesing
-        | sab272@cam.ac.uk
-        | Undergraduate at `Macalester College <https://www.macalester.edu/>`_
-        | Currently at `DAMTP <https://www.damtp.cam.ac.uk/>`_, (MASt Theoretical Physics), `University of Cambridge <https://www.cam.ac.uk/>`_.
+    `Sage Buesing <https://sagebuesing.github.io>`_ |ORCID-buesing|
+        | buesi011@umn.edu
+        | `Graduate Student at School of Phyics and Astronomy <https://cse.umn.edu/physics>`_
+        | `University of Minnesota <https://twin-cities.umn.edu/>`_
 
     `Aleksey Cherman <https://cse.umn.edu/physics/aleksey-cherman>`_ |ORCID-cherman|
         | acherman@umn.edu
@@ -41,6 +41,10 @@ supervillain benefited a great deal from in-depth discussions with many other co
    :target: https://orcid.org/0000-0003-1082-1374
    :alt: ORCID icon
 
+.. |ORCID-buesing| image:: ./_static/ORCID/ORCID-iD_icon-16x16.png
+   :target: https://orcid.org/0000-0002-9998-7356
+   :alt: ORCID icon
+
 .. |ORCID-cherman| image:: ./_static/ORCID/ORCID-iD_icon-16x16.png
    :target: https://orcid.org/0000-0002-1039-8476
    :alt: ORCID icon
@@ -50,4 +54,5 @@ supervillain benefited a great deal from in-depth discussions with many other co
    :alt: ORCID icon
 
 .. |ORCID-sen| image:: ./_static/ORCID/ORCID-iD_icon-16x16.png
-   :target: https://orcid.org/0000-0002-6613-5210Sen,
+   :target: https://orcid.org/0000-0002-6613-5210,
+   :alt: ORCID icon
