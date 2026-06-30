@@ -55,33 +55,53 @@ Action
 Topological Charge
 ==================
 
-The absolute topological-charge density can be measured alongside the action
-density on any generated four-dimensional, :math:`W=1` Villain ensemble:
+In four dimensions we can define a simple 4-form topological charge observable $Q_x$ in the Villain frame,
 
-.. code-block:: python
+.. math ::
 
-   import supervillain
+   \begin{aligned}
+      Q &= \sum_x Q_x
+      &
+      Q_x = (dn \wedge dn)_x.
+   \end{aligned}
 
-   L = supervillain.lattice.Lattice(D=4, N=4)
-   S = supervillain.action.Villain(L, kappa=0.05, W=1)
-   G = supervillain.generator.villain.NeighborhoodUpdate(S)
+In D=4 the density is a top-form.
+The charge density is exact, since
 
-   ensemble = supervillain.Ensemble(S).generate(
-       1_000,
-       G,
-       start='cold',
-   )
-   measurements = ensemble.measure([
-       'ActionDensity',
-       'AbsoluteTopologicalChargeDensity',
-   ])
-   absolute_charge_density = measurements['AbsoluteTopologicalChargeDensity']
+.. math ::
 
-``absolute_charge_density`` contains one scalar value per generated
-configuration.  Accessing ``ensemble.AbsoluteTopologicalChargeDensity`` gives
-the same cached measurement.
+   \begin{aligned}
+      Q_x &= dn \wedge dn = d(n \wedge dn) = (dJ)_x
+      &
+      J &= n \wedge dn
+   \end{aligned}
+
+and the Leibniz rule :eq:`leibniz-rule` holds exactly.
+This means that the charge is locally conserved, and the total charge vanishes configuration by configuration.
+(Of course you could equally well say that $J \sim dn \wedge n$.)
+
 
 .. autoclass :: supervillain.observable.AbsoluteTopologicalChargeDensity
+   :members:
+   :show-inheritance:
+
+.. autoclass :: supervillain.observable.TopologicalChargeDensity
+   :members:
+   :show-inheritance:
+
+.. autoclass :: supervillain.observable.TopologicalCharge
+   :members:
+   :show-inheritance:
+
+.. autoclass :: supervillain.observable.TopologicalChargeSquared
+   :members:
+   :show-inheritance:
+
+.. autoclass :: supervillain.observable.TopologicalTwoPoint
+   :members:
+   :show-inheritance:
+
+.. autoclass :: supervillain.observable.Topological_Topological
    :members:
    :show-inheritance:
 
