@@ -55,14 +55,14 @@ Action
 Topological Charge
 ==================
 
-In four dimensions we can define a simple 4-form topological charge observable $Q_x$ in the Villain frame,
+In four dimensions we can define a simple 4-form topological-charge density $q_x$ in the Villain frame,
 
 .. math ::
 
    \begin{aligned}
-      Q &= \sum_x Q_x
+      Q &= \sum_x q_x
       &
-      Q_x = (dn \wedge dn)_x.
+      q_x = (dn \wedge dn)_x.
    \end{aligned}
 
 In D=4 the density is a top-form.
@@ -71,13 +71,13 @@ The charge density is exact, since
 .. math ::
 
    \begin{aligned}
-      Q_x &= dn \wedge dn = d(n \wedge dn) = (dJ)_x
+      q_x &= dn \wedge dn = d(n \wedge dn) = (dJ)_x
       &
       J &= n \wedge dn
    \end{aligned}
 
 and the Leibniz rule :eq:`leibniz-rule` holds exactly.
-This means that the charge is locally conserved, and the total charge vanishes configuration by configuration.
+This means that the charge is locally conserved, and the total charge $Q$ vanishes configuration by configuration.
 (Of course you could equally well say that $J \sim dn \wedge n$.)
 
 

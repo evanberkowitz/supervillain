@@ -29,7 +29,7 @@ def unit_charge_dipole(L):
 
 
 def charge_density(S, n):
-    r'''The per-configuration charge field Q_x, the ingredient the downstream
+    r'''The per-configuration charge field q_x, the ingredient the downstream
     observables consume.'''
     return TopologicalChargeDensity.Villain(S, n)
 
@@ -48,7 +48,7 @@ def brute_force_correlation(L, f, g):
 
 
 # ---------------------------------------------------------------------------
-# TopologicalChargeDensity: the per-configuration field Q_x, the ingredient
+# TopologicalChargeDensity: the per-configuration field q_x, the ingredient
 # from which the other observables are built.  It is the only observable that
 # depends on n; the rest consume it.
 # ---------------------------------------------------------------------------
@@ -63,7 +63,7 @@ def test_topological_charge_density_equals_exact_form_d_of_n_wedge_dn():
     density = TopologicalChargeDensity.Villain(S, n)
     assert density.shape == L.dims
 
-    # Independent path: Q = dn∧dn = d(n∧dn) by the Leibniz rule (since ddn = 0).
+    # Independent path: q = dn∧dn = d(n∧dn) by the Leibniz rule (since ddn = 0).
     # The observable forms dn first and then wedges; here we wedge first (n∧dn)
     # and then take d, a genuinely different sequence of operations.
     exact_form = np.asarray(d(wedge(n, d(n)))).sum(axis=0)
@@ -71,7 +71,7 @@ def test_topological_charge_density_equals_exact_form_d_of_n_wedge_dn():
 
 
 def test_topological_charge_density_is_bilinear():
-    # Q = dn∧dn is quadratic in n, so scaling n by an integer c scales Q by c².
+    # q = dn∧dn is quadratic in n, so scaling n by an integer c scales q by c².
     L = supervillain.lattice.Lattice(D=4, N=3)
     S = supervillain.action.Villain(L, kappa=0.7, W=1)
     rng = np.random.default_rng(31415)
@@ -156,7 +156,7 @@ def test_topological_charge_density_squared_integrates_with_ensemble():
 
     assert isinstance(values, Batch)
     assert values.shape == (2,)
-    # vacuum → 0; unit dipole → Q² = 1 on two four-cells → 2/Λ.
+    # vacuum → 0; unit dipole → q² = 1 on two four-cells → 2/Λ.
     assert np.array_equal(Batch.as_array(values), [0, 2 / L.cells_of_degree[4]])
     assert ensemble.TopologicalChargeDensitySquared is values
     assert 'TopologicalChargeDensitySquared' in ensemble.measured
@@ -166,7 +166,7 @@ def test_topological_charge_density_squared_integrates_with_ensemble():
 
 
 # ---------------------------------------------------------------------------
-# TopologicalCharge: the signed total Q_total = ∑_x Q_x, a per-configuration
+# TopologicalCharge: the signed total Q = ∑_x q_x, a per-configuration
 # Observable that sums the density.  Identically zero.
 # ---------------------------------------------------------------------------
 
@@ -179,7 +179,7 @@ def test_topological_charge_sums_the_density_to_zero():
 
     for cfg in (L.zeros(1, dtype=int), unit_charge_dipole(L), n):
         density = charge_density(S, cfg)
-        # Independent total via the exact form Q = d(n∧dn): a sum of an exact
+        # Independent total via the exact form q = d(n∧dn): a sum of an exact
         # form over the closed lattice, so it must vanish identically.
         exact_total = np.asarray(d(wedge(cfg, d(cfg)))).sum()
         assert TopologicalCharge.Villain(S, density) == exact_total
@@ -187,7 +187,7 @@ def test_topological_charge_sums_the_density_to_zero():
 
 
 # ---------------------------------------------------------------------------
-# TopologicalChargeDensitySquared: the same-site value ⟨Q_x²⟩.
+# TopologicalChargeDensitySquared: the same-site value ⟨q_x²⟩.
 # ---------------------------------------------------------------------------
 
 def test_topological_charge_density_squared_vacuum_is_zero():
@@ -202,7 +202,7 @@ def test_topological_charge_density_squared_counts_unit_charge_dipole():
     S = supervillain.action.Villain(L, kappa=0.5, W=1)
     density = charge_density(S, unit_charge_dipole(L))
 
-    # Q is ±1 on two 4-cells, so Q² is 1 on two cells and the mean is 2/Λ.
+    # q is ±1 on two 4-cells, so q² is 1 on two cells and the mean is 2/Λ.
     assert TopologicalChargeDensitySquared.Villain(S, density) == 2 / L.cells_of_degree[4]
 
 
@@ -214,7 +214,7 @@ def test_topological_charge_density_squared_equals_brute_force_origin_correlatio
     n[...] = rng.integers(-2, 3, size=n.shape)
     density = charge_density(S, n)
 
-    # Λ⁻¹∑_x Q_x² is the same-site value of the real-space correlator;
+    # Λ⁻¹∑_x q_x² is the same-site value of the real-space correlator;
     # check it against the independent brute-force correlation at Δx = 0.
     expected = brute_force_correlation(L, density, density)[L.origin]
     assert np.isclose(TopologicalChargeDensitySquared.Villain(S, density), expected)
@@ -222,7 +222,7 @@ def test_topological_charge_density_squared_equals_brute_force_origin_correlatio
 
 
 # ---------------------------------------------------------------------------
-# TopologicalTwoPoint: the Δx-resolved correlator ⟨Q_x Q_{x-Δx}⟩.
+# TopologicalTwoPoint: the Δx-resolved correlator ⟨q_x q_{x-Δx}⟩.
 # ---------------------------------------------------------------------------
 
 def test_topological_two_point_matches_brute_force_real_space():
@@ -259,13 +259,13 @@ def test_topological_two_point_sums_to_zero_because_total_charge_vanishes():
     n = L.zeros(1, dtype=int)
     n[...] = rng.integers(-2, 3, size=n.shape)
 
-    # ∑_Δx ⟨Q_x Q_{x-Δx}⟩ = (1/Λ)(∑_x Q_x)² = 0 since Q_total = 0.
+    # ∑_Δx ⟨q_x q_{x-Δx}⟩ = (1/Λ)(∑_x q_x)² = Q²/Λ = 0 since Q = 0.
     two_point = np.asarray(TopologicalTwoPoint.Villain(S, charge_density(S, n)))
     assert np.isclose(two_point.sum(), 0)
 
 
 # ---------------------------------------------------------------------------
-# Topological_Topological: connected correlator = TwoPoint − ⟨Q⟩⊗⟨Q⟩ correlation.
+# Topological_Topological: connected correlator = TwoPoint − ⟨q⟩⊗⟨q⟩ correlation.
 # ---------------------------------------------------------------------------
 
 def test_topological_topological_subtracts_density_disconnected_piece():
@@ -292,7 +292,7 @@ def test_topological_topological_equals_two_point_when_density_expectation_vanis
     n[...] = rng.integers(-2, 3, size=n.shape)
 
     two_point = np.asarray(TopologicalTwoPoint.Villain(S, charge_density(S, n)))
-    # With ⟨Q⟩ = 0 the disconnected piece vanishes and the connected correlator
+    # With ⟨q⟩ = 0 the disconnected piece vanishes and the connected correlator
     # is exactly the two-point function.
     zero_density = charge_density(S, L.zeros(1, dtype=int))
     result = np.asarray(Topological_Topological.default(S, two_point, zero_density))

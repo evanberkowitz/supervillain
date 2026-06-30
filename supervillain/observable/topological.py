@@ -8,22 +8,22 @@ from supervillain.observable import Observable, Scalar, DerivedQuantity
 
 
 def _topological_charge(L, n):
-    r'''The local topological charge.
+    r'''The local topological-charge density.
 
-    For the integer-valued Villain 1-form :math:`n`, the local topological
-    charge is the 4-form
+    For the integer-valued Villain 1-form :math:`n`, the local topological-charge
+    density is the 4-form
 
     .. math::
 
-       Q_x = (dn \wedge dn)_x.
+       q_x = (dn \wedge dn)_x.
 
-    It is a 4-form, so it is only the top form---and therefore the global
-    topological charge density---on a four-dimensional lattice.  We restrict to
-    :math:`D=4`; the :math:`W` constraint :math:`[dn \equiv 0 \bmod W]` is
-    irrelevant to the *measurement*: when :math:`W>1` the field strength
-    :math:`dn` is quantized in units of :math:`W` (so :math:`Q` comes in units
-    of :math:`W^2`), and when :math:`W=\infty` the constraint forces
-    :math:`dn=0` so :math:`Q\equiv 0`.
+    It is a 4-form, so it is the top form only on a four-dimensional lattice,
+    where its lattice sum is the global topological charge :math:`Q = \sum_x q_x`.
+    We restrict to :math:`D=4`; the :math:`W` constraint
+    :math:`[dn \equiv 0 \bmod W]` is irrelevant to the *measurement*: when
+    :math:`W>1` the field strength :math:`dn` is quantized in units of :math:`W`
+    (so :math:`q` comes in units of :math:`W^2`), and when :math:`W=\infty` the
+    constraint forces :math:`dn=0` so :math:`q\equiv 0`.
 
     Parameters
     ----------
@@ -34,7 +34,7 @@ def _topological_charge(L, n):
     Returns
     -------
     np.ndarray
-        The charge 4-form, shape ``(1,) + L.dims``.
+        The charge-density 4-form, shape ``(1,) + L.dims``.
     '''
     if L.D != 4:
         raise NotImplementedError(
@@ -50,7 +50,7 @@ class TopologicalChargeDensity(Observable):
 
     .. math::
 
-       \texttt{TopologicalChargeDensity}_x = Q_x = (dn\wedge dn)_x,
+       \texttt{TopologicalChargeDensity}_x = q_x = (dn\wedge dn)_x,
 
     a field carrying one value per four-cell.
     It is the per-configuration ingredient from which the other
@@ -58,14 +58,14 @@ class TopologicalChargeDensity(Observable):
     it, :class:`~.TopologicalChargeDensitySquared` averages its square, and
     :class:`~.TopologicalTwoPoint` autocorrelates it.
 
-    Because :math:`Q=d(n\wedge dn)` is exact, its sum over the lattice vanishes
-    configuration by configuration, so :math:`\langle Q_x\rangle = 0` pointwise
-    by translation invariance.
+    Because :math:`q=d(n\wedge dn)` is exact, its lattice sum---the total charge
+    :math:`Q`---vanishes configuration by configuration, so
+    :math:`\langle q_x\rangle = 0` pointwise by translation invariance.
     '''
 
     @staticmethod
     def Villain(S, n):
-        r'''Measure the charge field :math:`Q_x = (dn\wedge dn)_x`.'''
+        r'''Measure the charge-density field :math:`q_x = (dn\wedge dn)_x`.'''
 
         charge = _topological_charge(S.Lattice, n)
         return np.asarray(charge).sum(axis=0)
@@ -77,15 +77,16 @@ class TopologicalCharge(Scalar, Observable):
 
     .. math::
 
-       \texttt{TopologicalCharge} = \sum_x Q_x,
+       \texttt{TopologicalCharge} = Q = \sum_x q_x,
 
-    the lattice sum of :class:`~.TopologicalChargeDensity`.  Because the charge
-    density is exact this vanishes identically on the periodic lattice---
+    the lattice sum of :class:`~.TopologicalChargeDensity`.  Because the density
+    :math:`q` is exact this vanishes identically on the periodic lattice---
     configuration by configuration, for every :math:`W`.  It is therefore
-    pointless to measure on its own, but it is the :math:`\langle Q\rangle` that
-    would form the quantum-disconnected piece of
-    :class:`~.Topological_Topological` were the charge to develop a nonzero
-    expectation value (for instance under a topological chemical potential).
+    pointless to measure on its own; a nonzero :math:`\langle Q\rangle`
+    (equivalently a nonzero density expectation
+    :math:`\langle q_x\rangle = \langle Q\rangle/\Lambda`) is what would let the
+    quantum-disconnected piece of :class:`~.Topological_Topological` survive (for
+    instance under a topological chemical potential).
     '''
 
     @classmethod
@@ -99,8 +100,8 @@ class TopologicalCharge(Scalar, Observable):
 
     @staticmethod
     def Villain(S, TopologicalChargeDensity):
-        r'''Measure :math:`\sum_x Q_x`, the lattice sum of the charge field
-        (always zero).'''
+        r'''Measure :math:`Q = \sum_x q_x`, the lattice sum of the charge-density
+        field (always zero).'''
 
         return TopologicalChargeDensity.sum()
 
@@ -112,14 +113,14 @@ class TopologicalChargeDensitySquared(Scalar, Observable):
     .. math::
 
        \texttt{TopologicalChargeDensitySquared}
-       = \frac{1}{\Lambda}\sum_x Q_x^2,
+       = \frac{1}{\Lambda}\sum_x q_x^2,
 
     with :math:`\Lambda` the number of four-cells, the intensive same-site value
-    :math:`\langle Q_x^2\rangle`.  Because :math:`\langle Q\rangle = 0` (see
-    :class:`~.TopologicalCharge`), this is the local topological-charge
-    fluctuation---a proper, sign-respecting measure of local topological
-    activity.  It equals :class:`~.TopologicalTwoPoint` (equivalently
-    :class:`~.Topological_Topological`) evaluated at the
+    :math:`\langle q_x^2\rangle`.  Because :math:`\langle q_x\rangle = 0` (the
+    total charge :math:`Q` vanishes; see :class:`~.TopologicalCharge`), this is
+    the local topological-charge fluctuation---a proper, sign-respecting measure
+    of local topological activity.  It equals :class:`~.TopologicalTwoPoint`
+    (equivalently :class:`~.Topological_Topological`) evaluated at the
     :py:attr:`~supervillain.lattice.Lattice.origin`, configuration by
     configuration.
     '''
@@ -143,33 +144,34 @@ class TopologicalChargeDensitySquared(Scalar, Observable):
 
     @staticmethod
     def Villain(S, TopologicalChargeDensity):
-        r'''Measure :math:`\Lambda^{-1}\sum_x Q_x^2` from the charge field.  The
-        field has one entry per four-cell, so the mean is the average over the
-        :math:`\Lambda` four-cells.'''
+        r'''Measure :math:`\Lambda^{-1}\sum_x q_x^2` from the charge-density field.
+        The field has one entry per four-cell, so the mean is the average over
+        the :math:`\Lambda` four-cells.'''
 
         return np.mean(TopologicalChargeDensity ** 2)
 
 
 class TopologicalTwoPoint(Observable):
-    r'''The translation-averaged two-point function of the local topological
-    charge in the four-dimensional Villain model,
+    r'''The translation-averaged two-point function of the local topological-charge
+    density in the four-dimensional Villain model,
 
     .. math::
 
        \texttt{TopologicalTwoPoint}_{\Delta x}
-       = \frac{1}{\Lambda}\sum_x Q_x\,Q_{x-\Delta x},
+       = \frac{1}{\Lambda}\sum_x q_x\,q_{x-\Delta x},
 
     the autocorrelation of :class:`~.TopologicalChargeDensity` computed with the
     Fourier-accelerated :meth:`~supervillain.lattice.Lattice.correlation`.
 
     Its value at the :py:attr:`~supervillain.lattice.Lattice.origin` equals
-    :class:`~.TopologicalChargeDensitySquared`, and because the total charge vanishes
-    its sum over :math:`\Delta x` is :math:`\Lambda^{-1}(\sum_x Q_x)^2 = 0`.
+    :class:`~.TopologicalChargeDensitySquared`, and because the total charge
+    vanishes its sum over :math:`\Delta x` is
+    :math:`\Lambda^{-1}(\sum_x q_x)^2 = \Lambda^{-1}Q^2 = 0`.
     '''
 
     @staticmethod
     def Villain(S, TopologicalChargeDensity):
-        r'''Measure :math:`\Lambda^{-1}\sum_x Q_x\,Q_{x-\Delta x}` from the charge field.'''
+        r'''Measure :math:`\Lambda^{-1}\sum_x q_x\,q_{x-\Delta x}` from the charge-density field.'''
 
         return S.Lattice.correlation(TopologicalChargeDensity, TopologicalChargeDensity)
 
@@ -183,20 +185,21 @@ class Topological_Topological(DerivedQuantity):
         \begin{aligned}
             \texttt{Topological\_Topological}_{\Delta x}
             &= \frac{1}{\Lambda}\sum_x \left(
-                \langle Q_x Q_{x-\Delta x}\rangle - \langle Q_x\rangle\langle Q_{x-\Delta x}\rangle
+                \langle q_x q_{x-\Delta x}\rangle - \langle q_x\rangle\langle q_{x-\Delta x}\rangle
                 \right)
             \\
             &= \texttt{TopologicalTwoPoint}_{\Delta x}
-                - \texttt{correlation}(\langle Q\rangle, \langle Q\rangle)_{\Delta x}.
+                - \texttt{correlation}(\langle q\rangle, \langle q\rangle)_{\Delta x}.
         \end{aligned}
 
     Both terms are normalized the same way.
 
-    On the periodic lattice the total charge :math:`\sum_x Q_x = 0` configuration by
-    configuration (see :class:`~.TopologicalCharge`), so translation invariance forces
-    :math:`\langle Q_x\rangle = 0` and the disconnected piece vanishes in expectation;
-    the subtraction is retained so that it is restored automatically should the charge
-    ever acquire a nonzero expectation value.
+    On the periodic lattice the total charge :math:`Q = \sum_x q_x = 0`
+    configuration by configuration (see :class:`~.TopologicalCharge`), so
+    translation invariance forces :math:`\langle q_x\rangle = 0` and the
+    disconnected piece vanishes in expectation; the subtraction is retained so
+    that it is restored automatically should the charge ever acquire a nonzero
+    expectation value.
     '''
 
     @staticmethod
