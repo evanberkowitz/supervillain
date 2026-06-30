@@ -55,8 +55,7 @@ class TopologicalChargeDensity(Observable):
     a field carrying one value per four-cell.
     It is the per-configuration ingredient from which the other
     topological-charge observables are built: :class:`~.TopologicalCharge` sums
-    it, :class:`~.AbsoluteTopologicalChargeDensity` averages its magnitude,
-    :class:`~.TopologicalChargeSquared` averages its square, and
+    it, :class:`~.TopologicalChargeSquared` averages its square, and
     :class:`~.TopologicalTwoPoint` autocorrelates it.
 
     Because :math:`Q=d(n\wedge dn)` is exact, its sum over the lattice vanishes
@@ -70,50 +69,6 @@ class TopologicalChargeDensity(Observable):
 
         charge = _topological_charge(S.Lattice, n)
         return np.asarray(charge).sum(axis=0)
-
-
-class AbsoluteTopologicalChargeDensity(Scalar, Observable):
-    r'''The absolute topological-charge density in the four-dimensional Villain
-    model.
-
-    On the periodic lattice the signed charge :math:`Q` (see
-    :class:`~.TopologicalChargeDensity`) is exact, so its signed total vanishes
-    configuration by configuration.  The absolute local charge remains
-    nontrivial: opposite-sign charge defects contribute rather than cancel.
-    Mirroring :class:`~.ActionDensity`, this observable reports the intensive
-    quantity
-
-    .. math::
-
-       \texttt{AbsoluteTopologicalChargeDensity}
-       = \frac{1}{\Lambda}\sum_x \left|Q_x\right|,
-
-    where :math:`\Lambda` is the number of four-cells (equivalently, sites) on
-    the periodic four-dimensional hypercubic lattice.
-    '''
-
-    @classmethod
-    def autocorrelation(cls, ensemble):
-        r'''
-        The observable is only defined for the four-dimensional Villain model, so
-        we restrict the autocorrelation decision to those ensembles before
-        deferring to the usual :class:`~.Scalar` choice.  When :math:`W=\infty`
-        the constraint forces :math:`dn=0`, making the charge an identically-zero
-        constant with no autocorrelation to estimate, so we exclude it there.
-        '''
-        S = ensemble.Action
-        return (
-            isinstance(S, supervillain.action.Villain)
-            and S.Lattice.D == 4
-            and S.W < float('inf')
-            and super().autocorrelation(ensemble)
-        )
-
-    @staticmethod
-    def Villain(S, TopologicalChargeDensity):
-        r'''Measure :math:`\Lambda^{-1}\sum_x |Q_x|` from the charge field.'''
-
-        return np.abs(TopologicalChargeDensity).sum() / S.Lattice.cells_of_degree[4]
 
 
 class TopologicalCharge(Scalar, Observable):
@@ -162,19 +117,21 @@ class TopologicalChargeSquared(Scalar, Observable):
     with :math:`\Lambda` the number of four-cells, the intensive same-site value
     :math:`\langle Q_x^2\rangle`.  Because :math:`\langle Q\rangle = 0` (see
     :class:`~.TopologicalCharge`), this is the local topological-charge
-    fluctuation---the proper, sign-respecting counterpart of
-    :class:`~.AbsoluteTopologicalChargeDensity`.  It equals
-    :class:`~.TopologicalTwoPoint` (equivalently :class:`~.Topological_Topological`)
-    evaluated at the :py:attr:`~supervillain.lattice.Lattice.origin`,
-    configuration by configuration.
+    fluctuation---a proper, sign-respecting measure of local topological
+    activity.  It equals :class:`~.TopologicalTwoPoint` (equivalently
+    :class:`~.Topological_Topological`) evaluated at the
+    :py:attr:`~supervillain.lattice.Lattice.origin`, configuration by
+    configuration.
     '''
 
     @classmethod
     def autocorrelation(cls, ensemble):
         r'''
-        Defined only for the four-dimensional Villain model; excluded when
-        :math:`W=\infty` because the charge is then identically zero.  See
-        :meth:`AbsoluteTopologicalChargeDensity.autocorrelation`.
+        The observable is only defined for the four-dimensional Villain model, so
+        we restrict the autocorrelation decision to those ensembles before
+        deferring to the usual :class:`~.Scalar` choice.  When :math:`W=\infty`
+        the constraint forces :math:`dn=0`, making the charge an identically-zero
+        constant with no autocorrelation to estimate, so we exclude it there.
         '''
         S = ensemble.Action
         return (

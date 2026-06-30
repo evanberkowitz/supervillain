@@ -81,10 +81,6 @@ This means that the charge is locally conserved, and the total charge vanishes c
 (Of course you could equally well say that $J \sim dn \wedge n$.)
 
 
-.. autoclass :: supervillain.observable.AbsoluteTopologicalChargeDensity
-   :members:
-   :show-inheritance:
-
 .. autoclass :: supervillain.observable.TopologicalChargeDensity
    :members:
    :show-inheritance:

@@ -7,7 +7,6 @@ import supervillain
 from supervillain.batch import Batch
 from supervillain.lattice import d, wedge
 from supervillain.observable.topological import (
-    AbsoluteTopologicalChargeDensity,
     TopologicalChargeDensity,
     TopologicalCharge,
     TopologicalChargeSquared,
@@ -109,7 +108,6 @@ def test_topological_charge_density_rejects_non_four_dimensions(D):
 @pytest.mark.parametrize('D', [3, 5])
 @pytest.mark.parametrize('name', [
     'TopologicalChargeDensity',
-    'AbsoluteTopologicalChargeDensity',
     'TopologicalCharge',
     'TopologicalChargeSquared',
     'TopologicalTwoPoint',
@@ -133,63 +131,10 @@ def test_topological_observables_reject_non_four_dimensions_via_ensemble(D, name
 
 
 # ---------------------------------------------------------------------------
-# AbsoluteTopologicalChargeDensity: Λ⁻¹∑|Q(x)|.
+# Ensemble integration: measurement, caching, and registration.
 # ---------------------------------------------------------------------------
 
-def test_absolute_topological_charge_density_vacuum_is_zero():
-    L = supervillain.lattice.Lattice(D=4, N=3)
-    S = supervillain.action.Villain(L, kappa=0.5, W=1)
-
-    assert AbsoluteTopologicalChargeDensity.Villain(S, charge_density(S, L.zeros(1, dtype=int))) == 0
-
-
-@pytest.mark.parametrize('kappa', [0.05, 0.5, 2.0])
-def test_absolute_topological_charge_density_counts_unit_charge_dipole(kappa):
-    L = supervillain.lattice.Lattice(D=4, N=3)
-    S = supervillain.action.Villain(L, kappa=kappa, W=1)
-    n = unit_charge_dipole(L)
-    density = charge_density(S, n)
-
-    assert np.array_equal(np.sort(density[density != 0]), [-1, 1])
-    assert density.sum() == 0
-    assert np.abs(density).sum() == 2
-    assert AbsoluteTopologicalChargeDensity.Villain(S, density) == 2 / L.cells_of_degree[4]
-
-
-def test_absolute_topological_charge_density_matches_wedge_definition():
-    L = supervillain.lattice.Lattice(D=4, N=3)
-    S = supervillain.action.Villain(L, kappa=0.7, W=1)
-    rng = np.random.default_rng(20260629)
-    n = L.zeros(1, dtype=int)
-    n[...] = rng.integers(-2, 3, size=n.shape)
-    density = charge_density(S, n)
-
-    expected = np.abs(density).sum() / L.cells_of_degree[4]
-    measured = AbsoluteTopologicalChargeDensity.Villain(S, density)
-
-    # Q is exact on the periodic lattice, while its L1 norm is nonzero.
-    assert density.sum() == 0
-    assert expected > 0
-    assert measured == expected
-
-
-def test_absolute_topological_charge_density_is_gauge_invariant():
-    L = supervillain.lattice.Lattice(D=4, N=3)
-    S = supervillain.action.Villain(L, kappa=0.7, W=1)
-    n = unit_charge_dipole(L)
-    phi = L.zeros(0)
-    k = L.zeros(0, dtype=int)
-    rng = np.random.default_rng(1234)
-    k[...] = rng.integers(-3, 4, size=k.shape)
-
-    transformed = S.gauge_transform({'phi': phi, 'n': n}, k)
-
-    before = AbsoluteTopologicalChargeDensity.Villain(S, charge_density(S, n))
-    after = AbsoluteTopologicalChargeDensity.Villain(S, charge_density(S, transformed['n']))
-    assert after == before
-
-
-def test_absolute_topological_charge_density_integrates_with_ensemble():
+def test_topological_charge_squared_integrates_with_ensemble():
     L = supervillain.lattice.Lattice(D=4, N=3)
     S = supervillain.action.Villain(L, kappa=0.5, W=1)
     configurations = S.configurations(2)
@@ -198,25 +143,26 @@ def test_absolute_topological_charge_density_integrates_with_ensemble():
     ensemble = supervillain.Ensemble(S).from_configurations(configurations)
 
     assert (
-        supervillain.observable.AbsoluteTopologicalChargeDensity
-        is AbsoluteTopologicalChargeDensity
+        supervillain.observable.TopologicalChargeSquared
+        is TopologicalChargeSquared
     )
     assert (
-        supervillain.observables['AbsoluteTopologicalChargeDensity']
-        is AbsoluteTopologicalChargeDensity
+        supervillain.observables['TopologicalChargeSquared']
+        is TopologicalChargeSquared
     )
 
-    measured = ensemble.measure(['AbsoluteTopologicalChargeDensity'])
-    values = measured['AbsoluteTopologicalChargeDensity']
+    measured = ensemble.measure(['TopologicalChargeSquared'])
+    values = measured['TopologicalChargeSquared']
 
     assert isinstance(values, Batch)
     assert values.shape == (2,)
+    # vacuum → 0; unit dipole → Q² = 1 on two four-cells → 2/Λ.
     assert np.array_equal(Batch.as_array(values), [0, 2 / L.cells_of_degree[4]])
-    assert ensemble.AbsoluteTopologicalChargeDensity is values
-    assert 'AbsoluteTopologicalChargeDensity' in ensemble.measured
+    assert ensemble.TopologicalChargeSquared is values
+    assert 'TopologicalChargeSquared' in ensemble.measured
     # The density ingredient was measured and cached as a side effect.
     assert 'TopologicalChargeDensity' in ensemble.measured
-    assert AbsoluteTopologicalChargeDensity.autocorrelation(ensemble)
+    assert TopologicalChargeSquared.autocorrelation(ensemble)
 
 
 # ---------------------------------------------------------------------------
@@ -241,7 +187,7 @@ def test_topological_charge_sums_the_density_to_zero():
 
 
 # ---------------------------------------------------------------------------
-# TopologicalChargeSquared: the same-site value χ_0 = ⟨Q_x²⟩.
+# TopologicalChargeSquared: the same-site value ⟨Q_x²⟩.
 # ---------------------------------------------------------------------------
 
 def test_topological_charge_squared_vacuum_is_zero():
@@ -268,7 +214,7 @@ def test_topological_charge_squared_equals_brute_force_origin_correlation():
     n[...] = rng.integers(-2, 3, size=n.shape)
     density = charge_density(S, n)
 
-    # χ_0 = Λ⁻¹∑_x Q_x² is the same-site value of the real-space correlator;
+    # Λ⁻¹∑_x Q_x² is the same-site value of the real-space correlator;
     # check it against the independent brute-force correlation at Δx = 0.
     expected = brute_force_correlation(L, density, density)[L.origin]
     assert np.isclose(TopologicalChargeSquared.Villain(S, density), expected)
@@ -372,7 +318,6 @@ def test_topological_observables_allow_finite_W_greater_than_one(W):
     assert density.sum() == 0
 
     assert TopologicalCharge.Villain(S, density) == 0
-    assert AbsoluteTopologicalChargeDensity.Villain(S, density) == 2 * W ** 2 / L.cells_of_degree[4]
     assert TopologicalChargeSquared.Villain(S, density) == 2 * W ** 4 / L.cells_of_degree[4]
     assert np.asarray(TopologicalTwoPoint.Villain(S, density)).shape == L.dims
 
@@ -388,7 +333,6 @@ def test_topological_observables_W_infinite_measure_zero():
     density = charge_density(S, n)
     assert np.all(density == 0)
     assert TopologicalCharge.Villain(S, density) == 0
-    assert AbsoluteTopologicalChargeDensity.Villain(S, density) == 0
     assert TopologicalChargeSquared.Villain(S, density) == 0
     assert np.all(np.asarray(TopologicalTwoPoint.Villain(S, density)) == 0)
 
@@ -444,7 +388,6 @@ def test_topological_charge_squared_autocorrelation_included_for_finite_W():
         S = supervillain.action.Villain(L, kappa=0.5, W=W)
         ensemble = _two_configuration_ensemble(S)
         assert TopologicalChargeSquared.autocorrelation(ensemble)
-        assert AbsoluteTopologicalChargeDensity.autocorrelation(ensemble)
 
 
 def test_topological_charge_squared_autocorrelation_excluded_for_W_infinite():
@@ -453,7 +396,6 @@ def test_topological_charge_squared_autocorrelation_excluded_for_W_infinite():
     ensemble = _two_configuration_ensemble(S)
 
     assert not TopologicalChargeSquared.autocorrelation(ensemble)
-    assert not AbsoluteTopologicalChargeDensity.autocorrelation(ensemble)
 
 
 def test_total_and_density_excluded_from_autocorrelation():
