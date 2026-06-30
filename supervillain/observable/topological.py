@@ -55,7 +55,7 @@ class TopologicalChargeDensity(Observable):
     a field carrying one value per four-cell.
     It is the per-configuration ingredient from which the other
     topological-charge observables are built: :class:`~.TopologicalCharge` sums
-    it, :class:`~.TopologicalChargeSquared` averages its square, and
+    it, :class:`~.TopologicalChargeDensitySquared` averages its square, and
     :class:`~.TopologicalTwoPoint` autocorrelates it.
 
     Because :math:`Q=d(n\wedge dn)` is exact, its sum over the lattice vanishes
@@ -105,13 +105,13 @@ class TopologicalCharge(Scalar, Observable):
         return TopologicalChargeDensity.sum()
 
 
-class TopologicalChargeSquared(Scalar, Observable):
+class TopologicalChargeDensitySquared(Scalar, Observable):
     r'''The same-site topological-charge correlator in the four-dimensional
     Villain model,
 
     .. math::
 
-       \texttt{TopologicalChargeSquared}
+       \texttt{TopologicalChargeDensitySquared}
        = \frac{1}{\Lambda}\sum_x Q_x^2,
 
     with :math:`\Lambda` the number of four-cells, the intensive same-site value
@@ -163,7 +163,7 @@ class TopologicalTwoPoint(Observable):
     Fourier-accelerated :meth:`~supervillain.lattice.Lattice.correlation`.
 
     Its value at the :py:attr:`~supervillain.lattice.Lattice.origin` equals
-    :class:`~.TopologicalChargeSquared`, and because the total charge vanishes
+    :class:`~.TopologicalChargeDensitySquared`, and because the total charge vanishes
     its sum over :math:`\Delta x` is :math:`\Lambda^{-1}(\sum_x Q_x)^2 = 0`.
     '''
 

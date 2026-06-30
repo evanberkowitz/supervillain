@@ -89,7 +89,7 @@ This means that the charge is locally conserved, and the total charge vanishes c
    :members:
    :show-inheritance:
 
-.. autoclass :: supervillain.observable.TopologicalChargeSquared
+.. autoclass :: supervillain.observable.TopologicalChargeDensitySquared
    :members:
    :show-inheritance:
 
