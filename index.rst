@@ -34,6 +34,12 @@ supervillain
    supervillain/reference_implementations
 
 .. toctree::
+   :maxdepth: 1
+   :caption: Interesting Models
+
+   supervillain/no_intersection
+
+.. toctree::
    :caption: Version Information
 
    changes
