@@ -87,3 +87,20 @@ def test_wrapping_loop_update_preserves_validity():
     for _ in range(5):
         cfg = gen.step(cfg)
         assert S.valid(cfg)
+
+
+def test_hammer_steps_stay_valid():
+    S = _action()
+    H = supervillain.generator.no_intersection.Hammer(S)
+    cfg = _cold(S)
+    for _ in range(5):
+        cfg = H.step(cfg)
+        assert S.valid(cfg)
+
+
+def test_ensemble_generate_stays_valid():
+    S = _action()
+    H = supervillain.generator.no_intersection.Hammer(S)
+    e = supervillain.Ensemble(S).generate(10, H, start='cold')
+    for c in e.configuration:
+        assert S.valid(c)
