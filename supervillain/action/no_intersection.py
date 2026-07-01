@@ -15,10 +15,11 @@ class NoIntersections(Villain):
     .. math::
        S = \frac{\kappa}{2} \sum_\ell (d\phi - 2\pi n)_\ell^2
 
-    restricted to configurations obeying the *no-intersection constraint*
+    restricted to configurations obeying the *no-intersection constraint* that the
+    topological-charge density $q$ vanish on every hypercube,
 
     .. math::
-       Q = (dn \wedge dn) = 0 \quad\text{on every hypercube.}
+       q = (dn \wedge dn) = 0 \quad\text{on every hypercube.}
 
     The constraint is the path integral of a Lagrange-multiplier top-form
     $\theta$ entering the action as $S = S_{\text{Villain}} + i\,\theta\,(dn\wedge dn)$;
@@ -47,7 +48,7 @@ class NoIntersections(Villain):
 
     def valid(self, configuration):
         r'''
-        Returns true if the no-intersection constraint $dn \wedge dn = 0$ holds on
+        Returns true if the no-intersection constraint $q = dn \wedge dn = 0$ holds on
         every hypercube.
 
         Parameters

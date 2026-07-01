@@ -28,7 +28,7 @@ _SEED = (
 
 class ThetaWorm(ReadWriteable, Generator):
     r"""
-    Prokof'ev–Svistunov worm for the $Q = dn\wedge dn = 0$ constraint in 4D.
+    Prokof'ev–Svistunov worm for the $q = dn\wedge dn = 0$ constraint in 4D.
 
     The head and tail live on hypercubes (4-cells; there is one per site in 4D).
     Moving the head by one hypercube extends the dragged sheet of $F = dn$ by a clean,
@@ -108,11 +108,11 @@ class ThetaWorm(ReadWriteable, Generator):
             for mu, rs, c in template:
                 site = tuple((head[k] + rs[k]) % N for k in range(4))
                 dn[(mu,) + site] += c
-            dQ = charge(dn) - base
-            nz = np.argwhere(dQ != 0)
+            dq = charge(dn) - base
+            nz = np.argwhere(dq != 0)
             if len(nz) != 2:
                 return None
-            defects = {tuple(int(x) for x in h[1:]): int(dQ[tuple(h)]) for h in nz}
+            defects = {tuple(int(x) for x in h[1:]): int(dq[tuple(h)]) for h in nz}
             (a, va), (b, vb) = sorted(defects.items())
             if {va, vb} != {1, -1}:
                 return None
@@ -159,7 +159,7 @@ class ThetaWorm(ReadWriteable, Generator):
             change[link] = change.get(link, 0) + factor * c
         return change
 
-    def _sheet_segment(self, n, Q_now, head, mu, sign):
+    def _sheet_segment(self, n, q_now, head, mu, sign):
         r"""
         Propose a sheet-extending $\Delta n$ that moves the head by ``sign``$\,\hat
         e_\mu$, choosing **one** library shape uniformly at random and attempting only
@@ -185,9 +185,9 @@ class ThetaWorm(ReadWriteable, Generator):
         trial = n.copy()
         for link, c in change.items():
             trial[link] += c
-        dQ = charge(trial) - Q_now
-        nz = np.argwhere(dQ != 0)
-        defects = {tuple(int(x) for x in h[1:]): int(dQ[tuple(h)]) for h in nz}
+        dq = charge(trial) - q_now
+        nz = np.argwhere(dq != 0)
+        defects = {tuple(int(x) for x in h[1:]): int(dq[tuple(h)]) for h in nz}
         if defects == want:
             return change, target
         return None, None
@@ -232,7 +232,7 @@ class ThetaWorm(ReadWriteable, Generator):
 
         n = configuration['n'].copy()
         dphi = d(configuration['phi'])
-        Q_now = charge(n)
+        q_now = charge(n)
 
         displacements = np.zeros(L.dims)
 
@@ -254,14 +254,14 @@ class ThetaWorm(ReadWriteable, Generator):
             mu = int(self.rng.integers(0, D))
             sign = 1 if self.rng.integers(0, 2) == 0 else -1
 
-            change, target = self._sheet_segment(n, Q_now, head, mu, sign)
+            change, target = self._sheet_segment(n, q_now, head, mu, sign)
             if change is not None:
                 # Metropolis-test the change in the Villain action.
                 dS = self._delta_S(dphi, n, change)
                 if self.rng.uniform(0, 1) < min(1.0, np.exp(-dS)):
                     for link, c in change.items():
                         n[link] += c
-                    Q_now = charge(n)
+                    q_now = charge(n)
                     head = target
             # If no clean library move exists this step, the proposal is simply
             # rejected and the head stays put.

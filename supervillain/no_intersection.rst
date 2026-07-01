@@ -35,23 +35,25 @@ The Action
 The Topological Charge and the Constraint
 =========================================
 
-The no-intersection constraint asks that the topological-charge density
+The no-intersection constraint asks that the topological-charge density $q_x$
+(the same density measured by :class:`~supervillain.observable.TopologicalChargeDensity`)
 
 .. math::
 
-   Q = dn \wedge dn = d(n \wedge dn)
+   q_x = (dn \wedge dn)_x = d(n \wedge dn)_x = (dJ)_x
+   \qquad J = n \wedge dn
 
 vanish on every hypercube.  The second equality is exact on the lattice (the
-Leibniz rule and $d^2 = 0$ both hold), so $Q$ is the divergence of the 3-form
-current $J = n \wedge dn$ and is locally conserved and integer-valued.  A
-localized closed $F = dn$ carries zero total charge, so violations of the
+Leibniz rule and $d^2 = 0$ both hold), so $q$ is the divergence of the 3-form
+current $J$ and is locally conserved and integer-valued.  A localized closed
+$F = dn$ carries zero total charge $Q = \sum_x q_x$, so violations of the
 constraint always come as a $+1$ / $-1$ dipole --- the fact that the
 :class:`~supervillain.generator.no_intersection.ThetaWorm` exploits.
 
 Generators
 ==========
 
-The No-Intersection generators update $n$ while preserving $Q = 0$; combine any
+The No-Intersection generators update $n$ while preserving $q = 0$; combine any
 of them with a $\phi$-update (they are bundled with a
 :class:`~supervillain.generator.villain.SiteUpdate` in the :func:`Hammer` below).
 They are pure-python reference implementations restricted to $D = 4$.

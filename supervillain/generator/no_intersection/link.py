@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class ConstrainedLinkUpdate(ReadWriteable, Generator):
     r"""
-    A *local* fluctuation of $F = dn$ that preserves the $Q = dn\wedge dn = 0$
+    A *local* fluctuation of $F = dn$ that preserves the $q = dn\wedge dn = 0$
     constraint — the $\theta$-theory analog of the worldline
     :class:`~.worldline.CoexactUpdate`.
 
@@ -29,10 +29,10 @@ class ConstrainedLinkUpdate(ReadWriteable, Generator):
     constraint $F\wedge F = 0$ is **quadratic**, so on a background that already carries
     $F \ne 0$ the cross term $d\Delta n\wedge F + F\wedge d\Delta n$ can produce charge.
     Unlike the worldline coexact move, therefore, this update is **not** automatically
-    legal: every proposal is *verified* to keep $Q = 0$ and rejected otherwise.
+    legal: every proposal is *verified* to keep $q = 0$ and rejected otherwise.
 
     Where the worm makes large, coordinated sheet moves (and carries a head/tail dipole
-    through intermediate $Q\ne0$ states), this update makes small, purely local
+    through intermediate $q\ne0$ states), this update makes small, purely local
     $F$-fluctuations that never leave the constraint surface — letting $dn$ breathe
     without a worm.
 
@@ -45,7 +45,7 @@ class ConstrainedLinkUpdate(ReadWriteable, Generator):
 
         The reference check recomputes the global charge for each proposal, which is
         $O(\text{volume})$ per link.  Since only the $\sim$ hypercubes adjacent to the
-        link can change, a local $\Delta Q$ check would be far cheaper; that
+        link can change, a local $\Delta q$ check would be far cheaper; that
         optimization is left for a production version.
     """
 
@@ -76,7 +76,7 @@ class ConstrainedLinkUpdate(ReadWriteable, Generator):
     def step(self, cfg):
         r"""
         One sweep: visit every link in random order and offer it a single-link change
-        $n_{\ell} \to n_{\ell} + c$ that (i) preserves $Q = dn\wedge dn = 0$ everywhere and
+        $n_{\ell} \to n_{\ell} + c$ that (i) preserves $q = dn\wedge dn = 0$ everywhere and
         (ii) passes a Metropolis test against the Villain action.
         """
         L = self.Lattice
@@ -100,7 +100,7 @@ class ConstrainedLinkUpdate(ReadWriteable, Generator):
             self.proposed += 1
             c = self.shifts[self.rng.integers(0, len(self.shifts))]
 
-            # Reject anything that would violate Q = dn ∧ dn = 0.
+            # Reject anything that would violate q = dn ∧ dn = 0.
             trial = n.copy()
             trial[link] += c
             if not np.allclose(charge(trial), 0):

@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class WrappingLoopUpdate(ReadWriteable, Generator):
     r"""
     A *global*, coordinated change of $F = dn$ that preserves the
-    $Q = dn\wedge dn = 0$ constraint by adding a **closed, torus-wrapping loop of
+    $q = dn\wedge dn = 0$ constraint by adding a **closed, torus-wrapping loop of
     single-direction links** to $n$ — proposed and accepted/rejected **atomically**
     (one Metropolis test on the whole loop), not built up one cell at a time.
 
@@ -28,7 +28,7 @@ class WrappingLoopUpdate(ReadWriteable, Generator):
     to an arbitrary single-direction $\Delta n$).  Hence on **any** background $F$,
 
     .. math::
-        \Delta Q(\Delta n) = F\wedge d\Delta n + d\Delta n\wedge F
+        \Delta q(\Delta n) = F\wedge d\Delta n + d\Delta n\wedge F
         \qquad\text{(exactly linear in }\Delta n\text{)} .
 
     A single-direction $\Delta n$ that preserves the constraint is therefore exactly a
@@ -38,10 +38,10 @@ class WrappingLoopUpdate(ReadWriteable, Generator):
     Why a closed, wrapping loop.
     ----------------------------
     The endpoint of a string of $n_\mu$ links is a place where the attached $F$-sheet has
-    a free edge — a $Q\ne 0$ source (this is precisely the worm head/tail).  A move with
-    $\Delta Q = 0$ everywhere can therefore have **no endpoints**: it must be a closed
+    a free edge — a $q\ne 0$ source (this is precisely the worm head/tail).  A move with
+    $\Delta q = 0$ everywhere can therefore have **no endpoints**: it must be a closed
     cycle.  On a generic $F\ne 0$ background (e.g. a frozen configuration) a *contractible*
-    loop still leaks $\Delta Q\ne 0$ where its interior meets the background $F$, so only
+    loop still leaks $\Delta q\ne 0$ where its interior meets the background $F$, so only
     **non-contractible** (torus-wrapping) loops survive.  On an $F = 0$ background the
     cross term vanishes and *every* single-direction loop is clean, so there this update
     freely deposits wrapping $F$-sheets — the genuine $F\ne 0$, $F\wedge F = 0$ moves that
@@ -50,7 +50,7 @@ class WrappingLoopUpdate(ReadWriteable, Generator):
     Why atomic rather than incremental.
     -----------------------------------
     One might hope to walk the loop down cell by cell, accepting each segment in the
-    constraint-lifted ($Q\ne 0$) ensemble — i.e. as a worm.  But on a frozen background
+    constraint-lifted ($q\ne 0$) ensemble — i.e. as a worm.  But on a frozen background
     the clean continuation at each step is **forced** (the cross term with $F$ pins the
     loop's shape: a $(1,1)$ diagonal is clean, a turn or the anti-diagonal relights
     defects).  With no branching, the head's walk is a one-dimensional forced path, and
@@ -66,7 +66,7 @@ class WrappingLoopUpdate(ReadWriteable, Generator):
     Each step draws, from a **state-independent** distribution, a closed single-direction
     loop: a direction $\mu$, a loop type (a thin ring wrapping one transverse axis, or a
     thin diagonal ring wrapping two), random offsets locating it, and a sign $s = \pm 1$.
-    The constraint is then **verified** ($\Delta Q = 0$ on the current $n$); clean
+    The constraint is then **verified** ($\Delta q = 0$ on the current $n$); clean
     proposals are Metropolis-tested against the Villain action, unclean ones are null
     moves (the configuration is unchanged).
 
@@ -75,7 +75,7 @@ class WrappingLoopUpdate(ReadWriteable, Generator):
     single-direction $\Delta n$ —
 
     .. math::
-        \Delta Q_{n'}(-L) = -\bigl(F\wedge dL + dL\wedge F + 2\,dL\wedge dL\bigr) = -\Delta Q_n(L),
+        \Delta q_{n'}(-L) = -\bigl(F\wedge dL + dL\wedge F + 2\,dL\wedge dL\bigr) = -\Delta q_n(L),
         \qquad n' = n + L,
 
     so $L$ is clean on $n$ **iff** $-L$ is clean on $n' = n + L$, on any background.  The
@@ -89,13 +89,13 @@ class WrappingLoopUpdate(ReadWriteable, Generator):
 
         Restricted to $D = 4$.  Updates $n$ only; combine with a $\phi$-update such as
         :class:`~.villain.SiteUpdate`.  The single-direction trick is dimension-general,
-        but the $Q = dn\wedge dn$ constraint is specific to $D = 4$.
+        but the $q = dn\wedge dn$ constraint is specific to $D = 4$.
 
     .. note::
 
         The constraint is verified by a global ``charge`` recompute per proposal
         ($O(\text{volume})$); only the touched links contribute to $\Delta S$.  A local
-        $\Delta Q$ check would be cheaper but is left for a production version, matching
+        $\Delta q$ check would be cheaper but is left for a production version, matching
         the reference-implementation choices in :class:`ThetaWorm` and
         :class:`ConstrainedLinkUpdate`.
 
@@ -103,9 +103,9 @@ class WrappingLoopUpdate(ReadWriteable, Generator):
 
         **Scope of validity vs. efficiency.**  From a cold $F = 0$ start this update
         builds valid wrapping $F$-sheets ($F\ne 0$, $F\wedge F = 0$) while keeping
-        $Q = 0$ at every step — its intended job — and on an (injected) frozen
+        $q = 0$ at every step — its intended job — and on an (injected) frozen
         configuration it does accept coordinated loops that single-link and worm moves
-        cannot, with $Q = 0$ throughout.  It is *not*, however, an efficient un-freezer on
+        cannot, with $q = 0$ throughout.  It is *not*, however, an efficient un-freezer on
         its own: the **uniform-random** loop proposal mostly finds *sideways* clean loops
         (translates of sheets already present) and only rarely the specific
         flux-*cancelling* loop, so the chain mixes poorly on the frozen sublattice and the
@@ -134,7 +134,7 @@ class WrappingLoopUpdate(ReadWriteable, Generator):
         self.diagonal = diagonal
 
         self.proposed = 0       # all proposals
-        self.clean = 0          # proposals that preserved Q (ΔQ = 0)
+        self.clean = 0          # proposals that preserved q (Δq = 0)
         self.accepted = 0       # clean proposals that passed Metropolis
 
     def __str__(self):
@@ -202,12 +202,12 @@ class WrappingLoopUpdate(ReadWriteable, Generator):
     def step(self, configuration):
         r"""
         Propose one closed single-direction wrapping loop, verify it preserves
-        $Q = dn\wedge dn = 0$, and Metropolis-test it against the Villain action.
+        $q = dn\wedge dn = 0$, and Metropolis-test it against the Villain action.
         """
         L = self.Lattice
         n = configuration['n'].copy()
         dphi = d(configuration['phi'])
-        Q_now = charge(n)
+        q_now = charge(n)
 
         self.proposed += 1
         change = self._propose_loop()
@@ -216,8 +216,8 @@ class WrappingLoopUpdate(ReadWriteable, Generator):
         for link, c in change.items():
             trial[link] += c
 
-        # Verify the loop is clean (ΔQ = 0) on THIS background; else a null move.
-        if not np.array_equal(charge(trial), Q_now):
+        # Verify the loop is clean (Δq = 0) on THIS background; else a null move.
+        if not np.array_equal(charge(trial), q_now):
             return configuration | {'n': configuration['n']}
         self.clean += 1
 
