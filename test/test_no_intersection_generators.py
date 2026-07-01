@@ -71,3 +71,19 @@ def test_constrained_link_update_preserves_validity():
     out = gen.step(cfg)
     assert S.valid(out)
     assert out['n'].shape == cfg['n'].shape
+
+
+def test_wrapping_loop_update_requires_no_intersections_action():
+    L = Lattice(4, 5)
+    V = supervillain.action.Villain(L, kappa=0.3, W=1)
+    with pytest.raises(ValueError):
+        supervillain.generator.no_intersection.WrappingLoopUpdate(V)
+
+
+def test_wrapping_loop_update_preserves_validity():
+    S = _action()
+    gen = supervillain.generator.no_intersection.WrappingLoopUpdate(S)
+    cfg = _cold(S)
+    for _ in range(5):
+        cfg = gen.step(cfg)
+        assert S.valid(cfg)

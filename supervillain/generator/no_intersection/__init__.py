@@ -2,3 +2,4 @@
 
 from .worm import ThetaWorm
 from .link import ConstrainedLinkUpdate
+from .wrapping import WrappingLoopUpdate
