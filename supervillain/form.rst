@@ -164,6 +164,7 @@ which is checked by the ``test_wedge_associative`` test in :source:`test/test_la
 The Leibniz rule
 
 .. math::
+   :label: leibniz-rule
 
    d(a \wedge b) = da \wedge b + (-1)^{\deg a}\, a \wedge db
 

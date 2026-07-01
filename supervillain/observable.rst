@@ -51,6 +51,56 @@ Action
    :members:
    :show-inheritance:
 
+==================
+Topological Charge
+==================
+
+In four dimensions we can define a simple 4-form topological-charge density $q_x$ in the Villain frame,
+
+.. math ::
+
+   \begin{aligned}
+      Q &= \sum_x q_x
+      &
+      q_x = (dn \wedge dn)_x.
+   \end{aligned}
+
+In D=4 the density is a top-form.
+The charge density is exact, since
+
+.. math ::
+
+   \begin{aligned}
+      q_x &= dn \wedge dn = d(n \wedge dn) = (dJ)_x
+      &
+      J &= n \wedge dn
+   \end{aligned}
+
+and the Leibniz rule :eq:`leibniz-rule` holds exactly.
+This means that the charge is locally conserved, and the total charge $Q$ vanishes configuration by configuration.
+(Of course you could equally well say that $J \sim dn \wedge n$.)
+
+
+.. autoclass :: supervillain.observable.TopologicalChargeDensity
+   :members:
+   :show-inheritance:
+
+.. autoclass :: supervillain.observable.TopologicalCharge
+   :members:
+   :show-inheritance:
+
+.. autoclass :: supervillain.observable.TopologicalChargeDensitySquared
+   :members:
+   :show-inheritance:
+
+.. autoclass :: supervillain.observable.TopologicalTwoPoint
+   :members:
+   :show-inheritance:
+
+.. autoclass :: supervillain.observable.Topological_Topological
+   :members:
+   :show-inheritance:
+
 =======
 Winding
 =======
