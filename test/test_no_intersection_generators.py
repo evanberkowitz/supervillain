@@ -55,3 +55,19 @@ def test_theta_worm_inline_observable_keys():
     worm = supervillain.generator.no_intersection.ThetaWorm(S)
     obs = worm.inline_observables(3)
     assert set(obs) == {'Theta_Theta', 'Worm_Length'}
+
+
+def test_constrained_link_update_requires_no_intersections_action():
+    L = Lattice(4, 5)
+    V = supervillain.action.Villain(L, kappa=0.3, W=1)
+    with pytest.raises(ValueError):
+        supervillain.generator.no_intersection.ConstrainedLinkUpdate(V)
+
+
+def test_constrained_link_update_preserves_validity():
+    S = _action()
+    gen = supervillain.generator.no_intersection.ConstrainedLinkUpdate(S)
+    cfg = _cold(S)
+    out = gen.step(cfg)
+    assert S.valid(out)
+    assert out['n'].shape == cfg['n'].shape
