@@ -22,7 +22,7 @@ def Hammer(S, worms=1):
 
         The :class:`~supervillain.generator.villain.worm.ClassicWorm` is currently only
         implemented for $D=2$.  In higher dimensions the Hammer omits it, so the returned
-        combination is not ergodic on its own until a $D>2$ worm is available.
+        combination is ergodic but could be very slow to update the torus-wrapping modes.
 
     Parameters
     ----------

@@ -30,6 +30,7 @@ import numpy as np
 
 from supervillain.h5 import ReadWriteable
 from supervillain.lattice import _dimension
+from supervillain.lattice import _kernels
 
 
 def _hyperoctant_pair_mask(coords, b, D):
@@ -140,6 +141,46 @@ class Lattice(ReadWriteable):
         return {q: self.cells_of_degree[self.D - q] for q in range(self.D + 1)}
 
     @cached_property
+    def _operator_tables(self):
+        """Incidence tables (out_idx, in_idx, axis, sign) for the shift-and-accumulate
+        operators, built once per lattice and shared across every call."""
+        D = self.D
+        tables = {}
+        # d and coface_sum map p -> p+1 (output component drops one direction k_j).
+        for p in range(D):
+            d_rows, co_rows = [], []
+            for out_comp in self.components[p + 1]:
+                out_idx = self.comp_index[p + 1][out_comp]
+                for j, k_j in enumerate(out_comp):
+                    in_idx = self.comp_index[p][tuple(k for k in out_comp if k != k_j)]
+                    d_rows.append((out_idx, in_idx, k_j, (-1) ** j))
+                    co_rows.append((out_idx, in_idx, k_j, 1))
+            tables[("d", p)] = np.array(d_rows, dtype=np.int64).reshape(-1, 4)
+            tables[("coface_sum", p)] = np.array(co_rows, dtype=np.int64).reshape(-1, 4)
+        # delta and face_sum map p -> p-1 (output component gains one direction e).
+        all_dirs = set(range(D))
+        for p in range(1, D + 1):
+            de_rows, fa_rows = [], []
+            for out_comp in self.components[p - 1]:
+                out_idx = self.comp_index[p - 1][out_comp]
+                M_set = set(out_comp)
+                for e in sorted(all_dirs - M_set):
+                    in_idx = self.comp_index[p][tuple(sorted(M_set | {e}))]
+                    j = sum(1 for m in out_comp if m < e)
+                    de_rows.append((out_idx, in_idx, e, (-1) ** j))
+                    fa_rows.append((out_idx, in_idx, e, 1))
+            tables[("delta", p)] = np.array(de_rows, dtype=np.int64).reshape(-1, 4)
+            tables[("face_sum", p)] = np.array(fa_rows, dtype=np.int64).reshape(-1, 4)
+        return tables
+
+    def operator_table(self, op, degree):
+        """Return the (rows, 4) int64 incidence table for ``op`` at input ``degree``."""
+        try:
+            return self._operator_tables[(op, degree)]
+        except KeyError:
+            raise ValueError(f"no operator table for op={op!r} at degree={degree}")
+
+    @cached_property
     def coords(self):
         """FFT-convention coordinate for each lattice site, shape (D, N, …, N)."""
         return np.stack(
@@ -163,6 +204,12 @@ class Lattice(ReadWriteable):
 
         .. plot:: example/plot/checkerboarding.py
 
+        .. warning::
+            No promise is made about the future sizes of the color partitions.
+            For example, it might be wiser for performance to split the odd-N colors less evenly.
+            All that is promised is that within each color no site shares a nearest-neighbor edge
+            with a site of the same color.
+ 
         Returns
         -------
         tuple of index-array tuples
@@ -172,12 +219,7 @@ class Lattice(ReadWriteable):
                 for i, color in enumerate(L.checkerboarding):
                     form[(slice(None), *color)] = i
 
-        .. warning::
-            No promise is made about the future sizes of the color partitions.
-            For example, it might be wiser for performance to split the odd-N colors less evenly.
-            All that is promised is that within each color no site shares a nearest-neighbor edge
-            with a site of the same color.
-        """
+       """
         D, N = self.D, self.N
         coords = self.coords
         parity = np.mod(self.coords.sum(axis=0), 2)
@@ -820,28 +862,9 @@ class Form(np.ndarray):
         Form
             The (p-1)-form face sum, or ``0`` if this is a 0-form.
         """
-        lat = self.lattice
-        p   = self.degree
-        if p == 0:
+        if self.degree == 0:
             return 0
-
-        # face_sum is an integer combination of shifts, so it preserves the input dtype.
-        result = lat.zeros(p - 1, dtype=self.dtype)
-        all_dirs = set(range(lat.D))
-
-        for M_comp in lat.components[p - 1]:
-            out_idx = lat.comp_index[p - 1][M_comp]
-            M_set   = set(M_comp)
-
-            for e in sorted(all_dirs - M_set):
-                in_comp = tuple(sorted(M_set | {e}))
-                in_idx  = lat.comp_index[p][in_comp]
-                spatial = self[in_idx]
-
-                result[out_idx] += spatial
-                result[out_idx] += np.roll(spatial, +1, axis=e)
-
-        return result
+        return _apply_operator(_kernels.FACE_KERNELS, "face_sum", self, self.degree - 1)
 
     def coface_sum(self):
         r"""
@@ -862,26 +885,9 @@ class Form(np.ndarray):
         Form
             The (p+1)-form coface sum, or ``0`` if this is a D-form.
         """
-        lat = self.lattice
-        p   = self.degree
-        if p == lat.D:
+        if self.degree == self.lattice.D:
             return 0
-
-        # coface_sum is an integer combination of shifts, so it preserves the input dtype.
-        result = lat.zeros(p + 1, dtype=self.dtype)
-
-        for O_comp in lat.components[p + 1]:
-            out_idx = lat.comp_index[p + 1][O_comp]
-
-            for j, k_j in enumerate(O_comp):
-                in_comp = tuple(k for k in O_comp if k != k_j)
-                in_idx  = lat.comp_index[p][in_comp]
-                spatial = self[in_idx]
-
-                result[out_idx] += spatial
-                result[out_idx] += np.roll(spatial, -1, axis=k_j)
-
-        return result
+        return _apply_operator(_kernels.COFACE_KERNELS, "coface_sum", self, self.degree + 1)
 
     def __repr__(self):
         return (
@@ -941,6 +947,24 @@ def pull(form, shift):
     """
     return push(form, tuple(-s for s in shift))
 
+# ---------------------------------------------------------------------------
+# Shared kernel dispatcher
+# ---------------------------------------------------------------------------
+
+def _apply_operator(kernels, op, f, out_degree):
+    """Dispatch a shift-and-accumulate operator through its numba kernel.
+
+    Handles contiguity, dtype preservation, and serial/parallel selection,
+    then re-wraps the result as a Form of degree ``out_degree``.
+    """
+    lat = f.lattice
+    N, D, S = lat.N, lat.D, lat.sites
+    table = lat.operator_table(op, f.degree)
+    src = np.ascontiguousarray(np.asarray(f)).reshape(f.shape[0], S)
+    out = np.zeros((comb(D, out_degree), S), dtype=f.dtype)
+    _kernels.select(kernels, S)(src, out, table, N, D)
+    return Form(out.reshape((comb(D, out_degree),) + (N,) * D), degree=out_degree, lattice=lat)
+
 
 # ---------------------------------------------------------------------------
 # Exterior derivative  d : Ω^p → Ω^{p+1}
@@ -971,32 +995,10 @@ def d(f):
         The (p+1)-form $df$, or the scalar ``0`` if $f$ is a D-form.
     """
     lat = f.lattice
-    p   = f.degree
+    p = f.degree
     if p == lat.D:
         return 0
-
-    # d is an exact ±1 integer combination of finite differences, so it preserves the
-    # input dtype (an integer form stays integer).
-    result = lat.zeros(p + 1, dtype=f.dtype)
-
-    for out_comp in lat.components[p + 1]:          # each (p+1)-form component
-        out_idx = lat.comp_index[p + 1][out_comp]
-
-        for j, k_j in enumerate(out_comp):
-            # Remove direction k_j from out_comp to get the source p-form component.
-            in_comp = tuple(k for k in out_comp if k != k_j)
-            in_idx  = lat.comp_index[p][in_comp]
-
-            sign = (-1) ** j
-
-            # Forward finite difference of f[in_idx] in direction k_j.
-            # np.roll(A, -1, axis=k) shifts data so result[n] = A[n+1 mod N].
-            spatial = f[in_idx]   # shape (N,...,N)
-            fwd_diff = np.roll(spatial, -1, axis=k_j) - spatial
-
-            result[out_idx] += sign * fwd_diff
-
-    return result
+    return _apply_operator(_kernels.D_KERNELS, "d", f, p + 1)
 
 
 # ---------------------------------------------------------------------------
@@ -1029,38 +1031,258 @@ def delta(f):
         The (p-1)-form $\delta f$, or the scalar ``0`` if $f$ is a 0-form.
     """
     lat = f.lattice
-    p   = f.degree
+    p = f.degree
     if p == 0:
         return 0
-
-    # δ is an exact ±1 integer combination of finite differences, so it preserves the
-    # input dtype (an integer form stays integer).
-    result = lat.zeros(p - 1, dtype=f.dtype)
-
-    all_dirs = set(range(lat.D))
-
-    for out_comp in lat.components[p - 1]:          # each (p-1)-form component
-        out_idx = lat.comp_index[p - 1][out_comp]
-        M_set   = set(out_comp)
-
-        for e in sorted(all_dirs - M_set):          # directions not in M
-            # Position where e is inserted into sorted(M ∪ {e}).
-            j    = sum(1 for m in out_comp if m < e)
-            sign = (-1) ** j
-
-            in_comp = tuple(sorted(M_set | {e}))
-            in_idx  = lat.comp_index[p][in_comp]
-
-            # Backward finite difference of F[in_idx] in direction e.
-            # np.roll(A, +1, axis=e) shifts so result[n] = A[n-1 mod N].
-            spatial  = f[in_idx]
-            bwd_diff = spatial - np.roll(spatial, +1, axis=e)
-
-            result[out_idx] -= sign * bwd_diff
-
-    return result
+    return _apply_operator(_kernels.DELTA_KERNELS, "delta", f, p - 1)
 
 δ = delta
+
+
+def delta_sparse(lattice, degree, component, color, values, out=None):
+    r"""
+    Codifferential of a $p$-form that is nonzero on only one component and color.
+
+    The sparse counterpart of :func:`delta`, for the single-component,
+    single-checkerboard-color forms that arise in the Worldline updates: it
+    computes $\delta f$ for a ``degree``-form $f$ that vanishes except on
+    ``component`` at the sites ``color`` (where it equals ``values``), touching
+    only the $O(\texttt{len(values)})$ affected boundary cells instead of the
+    whole lattice.  The result is bit-identical to :func:`delta` of the
+    equivalent dense form.
+
+    Parameters
+    ----------
+    lattice : Lattice
+        The lattice $f$ lives on.
+    degree : int
+        The form degree $p$ (must be $\geq 1$).
+    component : int
+        Index of the single nonzero $p$-form component (into
+        ``lattice.components[degree]``).
+    color : tuple of np.ndarray
+        The sites where $f$ is nonzero, as a tuple of $D$ index arrays (e.g. one
+        entry of :attr:`Lattice.checkerboarding`).
+    values : np.ndarray
+        The values of $f$ on ``component`` at ``color`` (same length as each
+        index array in ``color``).
+    out : np.ndarray, optional
+        A ``(C(D, degree-1), N, ..., N)`` array to accumulate into (the raw
+        array of a $(p-1)$-form).  If omitted a fresh zero array of ``values``'
+        dtype is allocated.  Passing ``out`` lets a caller maintain $\delta v$
+        incrementally: ``delta_sparse(..., out=delta_v)`` adds $\delta(\Delta v)$.
+
+    Returns
+    -------
+    np.ndarray
+        The raw ``(C(D, degree-1), N, ..., N)`` array $\delta f$ (the same object
+        as ``out`` when it is supplied).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from supervillain.lattice import Lattice, delta, delta_sparse
+    >>> L = Lattice(D=3, N=4)
+    >>> color = L.checkerboarding[0]
+    >>> values = np.ones(len(color[0]))
+    >>> f = L.zeros(2); f[0][color] = values  # the equivalent dense 2-form
+    >>> bool((delta_sparse(L, 2, 0, color, values) == delta(f)).all())
+    True
+
+    ``out`` accumulates in place, so $\delta v$ can be maintained incrementally:
+
+    >>> delta_v = np.asarray(delta(L.random(2)))
+    >>> delta_v is delta_sparse(L, 2, 0, color, values, out=delta_v)
+    True
+    """
+    if degree < 1:
+        raise ValueError(f'delta_sparse needs degree >= 1, got {degree}')
+    N = lattice.N
+    values = np.asarray(values)
+    if out is None:
+        out = np.zeros(Form.spatial_shape(degree=degree - 1, lattice=lattice), dtype=values.dtype)
+    coords = tuple(np.asarray(c) for c in color)
+    # delta is linear and only `component` is nonzero, so only the operator-table
+    # rows reading it contribute.  For each, a value a at the input cell x sends
+    # -sign*a to the (p-1)-face at x and +sign*a to the face at x + e_hat -- the two
+    # faces of the cell perpendicular to e, i.e. its boundary.
+    for out_idx, in_idx, e, sign in lattice.operator_table('delta', degree):
+        if in_idx != component:
+            continue
+        fwd = list(coords)
+        fwd[e] = (coords[e] + 1) % N
+        out[out_idx][coords]     -= sign * values
+        out[out_idx][tuple(fwd)] += sign * values
+    return out
+
+
+def d_sparse(lattice, degree, component, color, values, out=None):
+    r"""
+    Exterior derivative of a $p$-form nonzero on only one component and color.
+
+    The input-sparse $d$ counterpart of :func:`delta_sparse`: it computes $df$ for
+    a ``degree``-form $f$ that vanishes except on ``component`` at the sites
+    ``color`` (where it equals ``values``), touching only the affected coboundary
+    cells.  The result is bit-identical to :func:`d` of the equivalent dense form.
+
+    Parameters
+    ----------
+    lattice : Lattice
+        The lattice $f$ lives on.
+    degree : int
+        The input form degree $p$ (must be $< D$, since $d$ raises the degree).
+    component : int
+        Index into ``lattice.components[degree]`` of the single nonzero component.
+    color : tuple of np.ndarray
+        The nonzero sites, as a tuple of $D$ index arrays (e.g. one entry of
+        :attr:`Lattice.checkerboarding`).
+    values : np.ndarray
+        The values of $f$ on ``component`` at ``color``.
+    out : np.ndarray, optional
+        A ``(C(D, degree+1), N, ..., N)`` array to accumulate into; lets a caller
+        maintain $d\phi$ or $n$ incrementally.  A fresh zero array is allocated if
+        omitted.
+
+    Returns
+    -------
+    np.ndarray
+        The raw ``(C(D, degree+1), N, ..., N)`` array $df$ (the same object as
+        ``out`` when supplied).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from supervillain.lattice import Lattice, d, d_sparse
+    >>> L = Lattice(D=3, N=4)
+    >>> color = L.checkerboarding[0]
+    >>> values = np.ones(len(color[0]))
+    >>> f = L.zeros(0); f[0][color] = values  # the equivalent dense 0-form
+    >>> bool((d_sparse(L, 0, 0, color, values) == d(f)).all())
+    True
+    """
+    if degree >= lattice.D:
+        raise ValueError(f'd_sparse needs degree < D={lattice.D}, got {degree}')
+    N = lattice.N
+    values = np.asarray(values)
+    if out is None:
+        out = np.zeros(Form.spatial_shape(degree=degree + 1, lattice=lattice), dtype=values.dtype)
+    coords = tuple(np.asarray(c) for c in color)
+    # d is linear and only `component` is nonzero, so only the operator-table rows
+    # reading it contribute.  For each, a value a at the input cell x sends -sign*a
+    # to the (p+1)-coface at x and +sign*a to the coface at x - e_hat -- the two
+    # cofaces with the cell on their boundary in direction e, i.e. its coboundary.
+    # This is the backward mirror of delta_sparse's forward spread.
+    for out_idx, in_idx, e, sign in lattice.operator_table('d', degree):
+        if in_idx != component:
+            continue
+        bwd = list(coords)
+        bwd[e] = (coords[e] - 1) % N
+        out[out_idx][coords]     -= sign * values
+        out[out_idx][tuple(bwd)] += sign * values
+    return out
+
+
+def _reduce_sum_at(op, f, component, color, backward):
+    r"""Shared engine for :func:`face_sum_at` and :func:`coface_sum_at`.
+
+    Evaluates the unsigned reduction ``op`` ('face_sum' or 'coface_sum') at a
+    single output ``component`` over the sites ``color``, gathering the input
+    ``f`` at each site and its ``backward`` (``x - e``) or forward (``x + e``)
+    neighbor.  The two contributions are accumulated as **two separate** ``+=``
+    in table-row order, matching the dense kernel's summation; a combined
+    ``f[x] + f[neighbor]`` would diverge at machine epsilon (float addition is
+    not associative), so this ordering is what makes the gather bit-exact.
+    """
+    lat = f.lattice
+    A = np.asarray(f)
+    N = lat.N
+    coords = tuple(np.asarray(c) for c in color)
+    result = np.zeros(len(color[0]), dtype=A.dtype)
+    for out_idx, in_idx, e, sign in lat.operator_table(op, f.degree):
+        if out_idx != component:
+            continue
+        nb = list(coords)
+        nb[e] = (coords[e] + (-1 if backward else 1)) % N
+        result += A[in_idx][coords]
+        result += A[in_idx][tuple(nb)]
+    return result
+
+
+def coface_sum_at(f, component, color):
+    r"""
+    Output-sparse :meth:`~Form.coface_sum`: $(\texttt{coface\_sum}\,f)$ at one component and color.
+
+    Returns the values of the $(p+1)$-form ``f.coface_sum()`` on ``component`` at
+    the sites ``color``, gathering ``f`` only on the boundary of those
+    $(p+1)$-cells instead of summing over the whole lattice.  Used to read
+    $\Delta S$ at the proposed cells without materializing the full reduction.
+    Bit-identical to ``np.asarray(f.coface_sum())[component][color]``.
+
+    Parameters
+    ----------
+    f : Form
+        The $p$-form to reduce.
+    component : int
+        Index of the output $(p+1)$-form component (into
+        ``f.lattice.components[f.degree + 1]``).
+    color : tuple of np.ndarray
+        The output sites, as a tuple of $D$ index arrays (e.g. one entry of
+        :attr:`Lattice.checkerboarding`).
+
+    Returns
+    -------
+    np.ndarray
+        A 1-D array of $(\texttt{coface\_sum}\,f)$ on ``component`` at ``color``,
+        aligned with ``color``.
+
+    Examples
+    --------
+    >>> from supervillain.lattice import Lattice, coface_sum_at
+    >>> L = Lattice(D=3, N=4)
+    >>> f = L.random(1)                  # a 1-form
+    >>> color = L.checkerboarding[0]
+    >>> bool((coface_sum_at(f, 0, color) == f.coface_sum()[0][color]).all())
+    True
+    """
+    return _reduce_sum_at('coface_sum', f, component, color, backward=False)
+
+
+def face_sum_at(f, component, color):
+    r"""
+    Output-sparse :meth:`~Form.face_sum`: $(\texttt{face\_sum}\,f)$ at one component and color.
+
+    Returns the values of the $(p-1)$-form ``f.face_sum()`` on ``component`` at the
+    sites ``color``, gathering ``f`` only on the coboundary of those $(p-1)$-cells
+    instead of summing over the whole lattice.  Bit-identical to
+    ``np.asarray(f.face_sum())[component][color]``.
+
+    Parameters
+    ----------
+    f : Form
+        The $p$-form to reduce.
+    component : int
+        Index of the output $(p-1)$-form component (into
+        ``f.lattice.components[f.degree - 1]``).
+    color : tuple of np.ndarray
+        The output sites, as a tuple of $D$ index arrays (e.g. one entry of
+        :attr:`Lattice.checkerboarding`).
+
+    Returns
+    -------
+    np.ndarray
+        A 1-D array of $(\texttt{face\_sum}\,f)$ on ``component`` at ``color``,
+        aligned with ``color``.
+
+    Examples
+    --------
+    >>> from supervillain.lattice import Lattice, face_sum_at
+    >>> L = Lattice(D=3, N=4)
+    >>> f = L.random(1)                 # a 1-form
+    >>> color = L.checkerboarding[0]
+    >>> bool((face_sum_at(f, 0, color) == f.face_sum()[0][color]).all())
+    True
+    """
+    return _reduce_sum_at('face_sum', f, component, color, backward=True)
 
 
 # ---------------------------------------------------------------------------

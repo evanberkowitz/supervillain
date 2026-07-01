@@ -4,7 +4,7 @@ import numpy as np
 import supervillain
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
-from supervillain.lattice import delta
+from supervillain.lattice import delta, delta_sparse, coface_sum_at, Form
 
 import logging
 logger = logging.getLogger(__name__)
@@ -52,6 +52,11 @@ class VortexUpdate(ReadWriteable, Generator):
         r'''
         Make a volume's worth of changes to v.
 
+        This maintains $\delta v$ incrementally and uses :func:`~.delta_sparse`,
+        so it never recomputes the full $\delta(v)$ inside the loop.  For integer
+        $v$ (finite $W$) it is bit-identical to :meth:`step_reference`; that
+        equivalence is what ``test/test_vortex_sparse.py`` checks.
+
         Parameters
         ----------
         cfg: dict
@@ -80,41 +85,47 @@ class VortexUpdate(ReadWriteable, Generator):
 
         # Each v only talks to the m on the immediately surrounding links (through δv).  So if we freeze m
         # and only change v one checkerboarding color at a time then the change in action on each link
-        # comes from the v of that color.
+        # comes from the v of that color.  In D>2 there are C(D,2) independent 2-form components; we
+        # process each independently per color, using coface_sum() to aggregate per-plaquette ΔS.
         #
-        # In D>2 there are C(D,2) independent 2-form components. We process each independently per color,
-        # using coface_sum() to aggregate per-plaquette ΔS from their boundary links.
+        # δv is maintained incrementally instead of recomputed every pass.  Because δ is linear, an
+        # accepted change Δv updates it by δ(Δv), and both the proposal's δ and that patch act on a form
+        # supported on one component and color, so delta_sparse touches only the affected links.  For
+        # integer v (finite W) the incremental δv is bit-identical to recomputing δ(v) every pass.
+        m_raw   = np.asarray(m)
+        delta_v = np.asarray(delta(v))            # computed once; patched in place below
+
         for color in L.checkerboarding:
             for comp_idx in range(n_comps):
 
-                # We need to compute delta_v each time because v is updated on each pass.
-                delta_v = delta(v)
-
                 # Randomly bump v at this component and color.
                 if self.Action.W < float('inf'):
-                    change_v = L.form(2, dtype=int)
-                    change_v[comp_idx][color] = self.rng.choice(self.vs, len(color[0]))
+                    vals = self.rng.choice(self.vs, len(color[0]))
                 else:
-                    change_v = L.form(2, dtype=float)
-                    change_v[comp_idx][color] = self.rng.uniform(-self.interval_v, +self.interval_v, len(color[0]))
+                    vals = self.rng.uniform(-self.interval_v, +self.interval_v, len(color[0]))
 
-                # Compute the change of action on each link.
-                change_delta_v = delta(change_v)
-                dS_link = 0.5 / self.Action.kappa * (-change_delta_v / W) * (2*(m - delta_v / W) - change_delta_v / W)
+                # change_delta_v = δ(change_v), computed sparsely from the one nonzero component+color.
+                cdv_W = delta_sparse(L, 2, comp_idx, color, vals) / W
+                dS_link = Form(
+                    (0.5 / self.Action.kappa) * (-cdv_W) * (2 * (m_raw - delta_v / W) - cdv_W),
+                    degree=1, lattice=L,
+                )
 
-                # The change in action from this plaquette is the sum of changes on its boundary links.
-                # coface_sum() accumulates those, giving dS[comp_idx][x] for the plaquette at x.
-                dS = dS_link.coface_sum()
+                # ΔS at this plaquette is the sum over its boundary links.  We only need it on the
+                # current (component, color), so coface_sum_at gathers just those links instead of a
+                # full coface_sum over the lattice.
+                dS = coface_sum_at(dS_link, comp_idx, color)
 
-                # dS is not 0 on off-color plaquettes. Only accept/reject on the current color.
-                acceptance = np.clip(np.exp(-dS[comp_idx][color]), a_min=0, a_max=1)
+                acceptance = np.clip(np.exp(-dS), a_min=0, a_max=1)
                 accepted = (metropolis[comp_idx][color] < acceptance)
 
                 total_accepted += accepted.sum()
                 total_acceptance += acceptance.sum()
 
-                # Update v where the change is accepted.
-                v[comp_idx][color] += change_v[comp_idx][color] * accepted
+                # Apply the accepted change to v and patch δv in place with the same sparse δ.
+                applied = vals * accepted
+                v[comp_idx][color] += applied
+                delta_sparse(L, 2, comp_idx, color, applied, out=delta_v)
 
         self.proposed += L.cells_of_degree[2]
         self.acceptance += total_acceptance / L.cells_of_degree[2]
@@ -124,7 +135,67 @@ class VortexUpdate(ReadWriteable, Generator):
 
         return cfg | {'v': v}
 
+    def step_reference(self, cfg):
+        r'''
+        Reference (dense) implementation of :meth:`step`.
 
+        Recomputes the full $\delta(v)$ on every pass and forms each proposal's
+        $\delta$ densely.  Kept as the simple, obviously-correct oracle that
+        :meth:`step` is checked against (bit-identical for integer $v$); not used
+        in production.
+        '''
+
+        self.sweeps += 1
+        total_accepted = 0
+        total_acceptance = 0
+
+        m = cfg['m'].copy()
+        v = cfg['v'].copy()
+
+        L = self.Action.Lattice
+        W = self.Action._W
+
+        n_comps = len(L.components[2])
+
+        metropolis = self.rng.uniform(0, 1, (n_comps,) + L.dims)
+
+        for color in L.checkerboarding:
+            for comp_idx in range(n_comps):
+
+                # We recompute delta_v each time because v is updated on each pass.
+                delta_v = delta(v)
+
+                if self.Action.W < float('inf'):
+                    change_v = L.form(2, dtype=int)
+                    change_v[comp_idx][color] = self.rng.choice(self.vs, len(color[0]))
+                else:
+                    change_v = L.form(2, dtype=float)
+                    change_v[comp_idx][color] = self.rng.uniform(-self.interval_v, +self.interval_v, len(color[0]))
+
+                change_delta_v = delta(change_v)
+                m_raw   = np.asarray(m)
+                dv_raw  = np.asarray(delta_v)
+                cdv_W   = np.asarray(change_delta_v) / W
+                dS_link = Form(
+                    (0.5 / self.Action.kappa) * (-cdv_W) * (2 * (m_raw - dv_raw / W) - cdv_W),
+                    degree=1, lattice=L,
+                )
+
+                dS = dS_link.coface_sum()
+
+                acceptance = np.clip(np.exp(-np.asarray(dS[comp_idx])[color]), a_min=0, a_max=1)
+                accepted = (metropolis[comp_idx][color] < acceptance)
+
+                total_accepted += accepted.sum()
+                total_acceptance += acceptance.sum()
+
+                v[comp_idx][color] += change_v[comp_idx][color] * accepted
+
+        self.proposed += L.cells_of_degree[2]
+        self.acceptance += total_acceptance / L.cells_of_degree[2]
+        self.accepted += total_accepted
+
+        return cfg | {'v': v}
 
     def report(self):
         return (
