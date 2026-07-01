@@ -21,7 +21,7 @@ class NoIntersections(Villain):
        Q = (dn \wedge dn) = 0 \quad\text{on every hypercube.}
 
     The constraint is the path integral of a Lagrange-multiplier top-form
-    $\theta$ entering the action as $S = S_\text{Villain} + i\,\theta\,(dn\wedge dn)$;
+    $\theta$ entering the action as $S = S_{\text{Villain}} + i\,\theta\,(dn\wedge dn)$;
     $\theta$ is never sampled, so the field content is the Villain content
     $\{\phi, n\}$.  Because $dn\wedge dn$ is a 4-form the model is only defined
     (and only interesting --- it carries a mixed axial-vector-vector anomaly) in

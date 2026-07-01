@@ -23,7 +23,7 @@ class ConstrainedLinkUpdate(ReadWriteable, Generator):
     move is **automatically** constraint-preserving (it is a "one-plaquette worm").
 
     Here the minimal local move that changes $F$ is a **single-link** change
-    $n_\ell \to n_\ell \pm 1$.  On an $F = 0$ region it creates no charge at all: its
+    $n_{\ell} \to n_{\ell} \pm 1$.  On an $F = 0$ region it creates no charge at all: its
     self-term $d\Delta n\wedge d\Delta n$ vanishes because all six plaquettes of
     $d\Delta n$ share the link's direction, so no two are complementary.  But the
     constraint $F\wedge F = 0$ is **quadratic**, so on a background that already carries
@@ -76,7 +76,7 @@ class ConstrainedLinkUpdate(ReadWriteable, Generator):
     def step(self, cfg):
         r"""
         One sweep: visit every link in random order and offer it a single-link change
-        $n_\ell \to n_\ell + c$ that (i) preserves $Q = dn\wedge dn = 0$ everywhere and
+        $n_{\ell} \to n_{\ell} + c$ that (i) preserves $Q = dn\wedge dn = 0$ everywhere and
         (ii) passes a Metropolis test against the Villain action.
         """
         L = self.Lattice

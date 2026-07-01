@@ -25,3 +25,44 @@ There may be multiple boring (BKT-like) transitions that take us from one of the
 But the most exciting possibility is that there is one continuous transition yielding an interesting CFT.
 There are only so many 4D CFTs known with the right AVV anomaly structure, and they all include fermions.
 It could be that this model is a back-door strategy for 4D bosonization!
+
+The Action
+==========
+
+.. autoclass:: supervillain.action.NoIntersections
+   :members:
+
+The Topological Charge and the Constraint
+=========================================
+
+The no-intersection constraint asks that the topological-charge density
+
+.. math::
+
+   Q = dn \wedge dn = d(n \wedge dn)
+
+vanish on every hypercube.  The second equality is exact on the lattice (the
+Leibniz rule and $d^2 = 0$ both hold), so $Q$ is the divergence of the 3-form
+current $J = n \wedge dn$ and is locally conserved and integer-valued.  A
+localized closed $F = dn$ carries zero total charge, so violations of the
+constraint always come as a $+1$ / $-1$ dipole --- the fact that the
+:class:`~supervillain.generator.no_intersection.ThetaWorm` exploits.
+
+Generators
+==========
+
+The No-Intersection generators update $n$ while preserving $Q = 0$; combine any
+of them with a $\phi$-update (they are bundled with a
+:class:`~supervillain.generator.villain.SiteUpdate` in the :func:`Hammer` below).
+They are pure-python reference implementations restricted to $D = 4$.
+
+.. autofunction:: supervillain.generator.no_intersection.Hammer
+
+.. autoclass:: supervillain.generator.no_intersection.ThetaWorm
+   :members:
+
+.. autoclass:: supervillain.generator.no_intersection.ConstrainedLinkUpdate
+   :members:
+
+.. autoclass:: supervillain.generator.no_intersection.WrappingLoopUpdate
+   :members:
