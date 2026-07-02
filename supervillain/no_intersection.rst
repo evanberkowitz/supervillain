@@ -141,6 +141,17 @@ We accumulate the histogram as the worm evolves and save it inline with $\phi$ a
 .. autoclass:: supervillain.generator.no_intersection.IntersectionWorm
    :members:
 
+The worm accumulates its head$-$tail displacement histogram inline as the
+``Intersection_Intersection`` observable, and :class:`~.Intersection_Intersection_Normalized`
+divides it by its value at the origin (which can only be done after the
+bootstrap).  Both are attached to the :class:`~.NoIntersections` model only.
+
+.. autoclass:: supervillain.observable.Intersection_Intersection
+   :members:
+
+.. autoclass:: supervillain.observable.Intersection_Intersection_Normalized
+   :members:
+
 .. autoclass:: supervillain.generator.no_intersection.WrappingLoopUpdate
    :members:
 

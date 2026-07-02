@@ -104,3 +104,28 @@ def test_ensemble_generate_stays_valid():
     e = supervillain.Ensemble(S).generate(10, H, start='cold')
     for c in e.configuration:
         assert S.valid(c)
+
+
+def test_intersection_intersection_normalized_is_no_intersections_only():
+    # Attached to the NoIntersections model only: a NoIntersections-named method
+    # and no default / Villain / Worldline implementation.
+    dq = supervillain.observable.Intersection_Intersection_Normalized
+    assert hasattr(dq, 'NoIntersections')
+    assert not hasattr(dq, 'default')
+    assert not hasattr(dq, 'Villain')
+    assert not hasattr(dq, 'Worldline')
+
+
+def test_intersection_intersection_normalized_is_one_at_origin():
+    L = Lattice(4, 3)
+    S = supervillain.action.NoIntersections(L, kappa=0.3)
+    H = supervillain.generator.no_intersection.Hammer(S)
+    e = supervillain.Ensemble(S).generate(40, H, start='cold')
+
+    # The worm fills the inline Intersection_Intersection histogram.
+    assert np.asarray(e.Intersection_Intersection).shape == (len(e),) + L.dims
+
+    b = supervillain.analysis.Bootstrap(e, 25)
+    norm = np.asarray(b.Intersection_Intersection_Normalized)
+    # Normalized to 1 at the origin on every bootstrap sample.
+    assert np.allclose(norm[(slice(None),) + L.origin], 1)
