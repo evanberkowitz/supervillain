@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from collections import deque
-from itertools import combinations, permutations, product
+from itertools import permutations, product
 import numpy as np
 
 import supervillain.action
@@ -9,6 +9,7 @@ from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
 from supervillain.batch import Batch
 from supervillain.lattice import Lattice, Form, d
+from supervillain.generator.no_intersection.charge import dF_entries, local_dq, wedge_pairs
 
 import logging
 logger = logging.getLogger(__name__)
@@ -90,7 +91,7 @@ class IntersectionWorm(ReadWriteable, Generator):
 
         # Complementary plaquette pairs (A, B) and the sign σ(A⌢B) entering the
         # 4-form wedge (a∧b)_{(0,1,2,3)}[x] = Σ σ(A⌢B) a_A[x] b_B[x+ê_A].
-        self._wedge_pairs = self._build_wedge_pairs()
+        self._wedge_pairs = wedge_pairs(self.Lattice)
 
     def __str__(self):
         return 'IntersectionWorm'
@@ -195,21 +196,6 @@ class IntersectionWorm(ReadWriteable, Generator):
                             bucket.append(rebased)
         return {sep: tuple(shapes) for sep, shapes in library.items()}
 
-    def _build_wedge_pairs(self):
-        r"""
-        For the single 4-form component $(0,1,2,3)$, the six ordered complementary
-        plaquette pairs $(A, B)$ with $\sigma(A\frown B)$, matching
-        :func:`supervillain.lattice.wedge`.
-        """
-        pairs = []
-        for A in combinations(range(4), 2):
-            B = tuple(k for k in range(4) if k not in A)
-            sign = (-1) ** sum(1 for k in A for j in B if j < k)
-            A_idx = self.Lattice.comp_index[2][A]
-            B_idx = self.Lattice.comp_index[2][B]
-            pairs.append((A_idx, A, B_idx, sign))
-        return tuple(pairs)
-
     # ------------------------------------------------------------------ helpers
 
     def _place(self, shape, anchor, factor):
@@ -227,66 +213,18 @@ class IntersectionWorm(ReadWriteable, Generator):
 
     def _dF_entries(self, change):
         r"""
-        The plaquette changes $\Delta F = d(\Delta n)$ of a sparse link change, as a
-        dict ``(component_index, site) -> coefficient``.  A link $n_\mu[s]
-        \mathrel{+}= c$ changes the plaquettes $(a, \mu)$ with $a < \mu$ by $+c$ at
-        $s - \hat e_a$ and $-c$ at $s$, and the plaquettes $(\mu, b)$ with $\mu < b$
-        by $-c$ at $s - \hat e_b$ and $+c$ at $s$, matching
-        :func:`supervillain.lattice.d`.
+        The plaquette changes $\Delta F = d(\Delta n)$ of a sparse link change;
+        see :func:`supervillain.generator.no_intersection.charge.dF_entries`.
         """
-        L = self.Lattice
-        N = L.N
-        dF = {}
-
-        def add(comp, site, value):
-            key = (L.comp_index[2][comp], site)
-            dF[key] = dF.get(key, 0) + value
-
-        for (mu, *s), c in change.items():
-            for nu in range(4):
-                if nu == mu:
-                    continue
-                comp = (nu, mu) if nu < mu else (mu, nu)
-                sign = +1 if nu < mu else -1
-                back = tuple((s[k] - (k == nu)) % N for k in range(4))
-                add(comp, back, sign * c)
-                add(comp, tuple(s), -sign * c)
-        return {key: v for key, v in dF.items() if v != 0}
+        return dF_entries(self.Lattice, change)
 
     def _dq(self, F, change):
         r"""
         The change of the charge density $q = F\wedge F$ from a sparse link change,
-        computed locally:
-
-        .. math::
-            \Delta q = \Delta F\wedge F + F\wedge\Delta F + \Delta F\wedge\Delta F,
-            \qquad \Delta F = d(\Delta n),
-
-        where the wedge follows :func:`supervillain.lattice.wedge`,
-        $(a\wedge b)[x] = \sum \sigma(A\frown B)\, a_A[x]\, b_B[x+\hat e_A]$.
-        Returns a dict ``site -> change`` with zero entries dropped.
-
-        ``F`` is the *current* plain integer array $d(n)$ of shape
-        ``(6, N, N, N, N)``.
+        computed locally in $O(1)$;
+        see :func:`supervillain.generator.no_intersection.charge.local_dq`.
         """
-        N = self.Lattice.N
-        dF = self._dF_entries(change)
-        dq = {}
-
-        def add(site, value):
-            dq[site] = dq.get(site, 0) + value
-
-        for (idx, site), v in dF.items():
-            for A_idx, A_dirs, B_idx, sign in self._wedge_pairs:
-                if idx == A_idx:
-                    # ΔF_A[x] (F_B + ΔF_B)[x+ê_A]: the ΔF∧F and ΔF∧ΔF terms together.
-                    ahead = tuple((site[k] + (k in A_dirs)) % N for k in range(4))
-                    add(site, sign * v * (int(F[(B_idx,) + ahead]) + dF.get((B_idx, ahead), 0)))
-                if idx == B_idx:
-                    # F_A[x] ΔF_B[x+ê_A] at x = site - ê_A: the F∧ΔF term.
-                    behind = tuple((site[k] - (k in A_dirs)) % N for k in range(4))
-                    add(behind, sign * int(F[(A_idx,) + behind]) * v)
-        return {site: v for site, v in dq.items() if v != 0}
+        return local_dq(self.Lattice, F, change, pairs=self._wedge_pairs)
 
     def _sheet_segment(self, F, head, mu, sign):
         r"""

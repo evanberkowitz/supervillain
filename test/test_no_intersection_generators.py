@@ -217,3 +217,40 @@ def test_intersection_worm_moves_invert_exactly():
         for link, c in backward.items():
             net[link] = net.get(link, 0) + c
         assert all(v == 0 for v in net.values())
+
+
+def test_constrained_link_update_local_check_matches_global():
+    # Along a trajectory of accepted single-link changes on a valid configuration,
+    # the local constraint check (Δq empty) must agree with the global one
+    # (q of the trial configuration vanishes everywhere), and the incrementally
+    # maintained F must track d(n).
+    from supervillain.generator.no_intersection.charge import charge, dF_entries, local_dq
+
+    S = _action(N=4)
+    L = S.Lattice
+    rng = np.random.default_rng(17)
+
+    n = L.zeros(1, dtype=int)
+    F = np.asarray(d(n)).astype(int)
+
+    checked = accepted = 0
+    for trial in range(300):
+        link = (int(rng.integers(0, 4)),) + tuple(int(x) for x in rng.integers(0, L.N, size=4))
+        c = int(rng.choice([1, -1]))
+        change = {link: c}
+
+        local_ok = not local_dq(L, F, change, pairs=None)
+        trial_n = n.copy()
+        trial_n[link] += c
+        global_ok = bool(np.all(charge(trial_n) == 0))
+        assert local_ok == global_ok
+        checked += 1
+
+        if local_ok:
+            n = trial_n
+            for (idx, site), v in dF_entries(L, change).items():
+                F[(idx,) + site] += v
+            accepted += 1
+
+    assert np.array_equal(F, np.asarray(d(n)))
+    assert accepted > 0 and accepted < checked  # both branches exercised
