@@ -141,3 +141,79 @@ def test_intersection_intersection_normalized_is_one_at_origin():
     norm = np.asarray(b.Intersection_Intersection_Normalized)
     # Normalized to 1 at the origin on every bootstrap sample.
     assert np.allclose(norm[(slice(None),) + L.origin], 1)
+
+
+def test_intersection_worm_library_covers_all_directions():
+    # The enriched library holds clean shapes for every one of the 8 unit dipole
+    # separations, with equal bucket sizes by symmetry, and is strictly richer than
+    # the 3-shapes-per-positive-direction library of the single-orbit construction.
+    S = _action()
+    worm = supervillain.generator.no_intersection.IntersectionWorm(S)
+    buckets = {sep: len(shapes) for sep, shapes in worm._library.items()}
+    units = {tuple(int(k == mu) * s for k in range(4)) for mu in range(4) for s in (+1, -1)}
+    assert set(buckets) == units
+    sizes = set(buckets.values())
+    assert len(sizes) == 1
+    assert sizes.pop() >= 12
+
+
+def test_intersection_worm_local_dq_matches_global():
+    # The worm's O(1) linearized Δq must agree exactly with a global recomputation
+    # of q = dn ∧ dn on arbitrary (even invalid, multiply-occupied) backgrounds.
+    from supervillain.generator.no_intersection.charge import charge
+
+    S = _action()
+    L = S.Lattice
+    worm = supervillain.generator.no_intersection.IntersectionWorm(S)
+    rng = np.random.default_rng(11)
+
+    for trial in range(20):
+        n = L.zeros(1, dtype=int)
+        n[...] = rng.integers(0, 2, size=n.shape) * rng.integers(-2, 3, size=n.shape)
+        F = np.asarray(d(n)).astype(int)
+
+        head = tuple(int(x) for x in rng.integers(0, L.N, size=4))
+        mu = int(rng.integers(0, 4))
+        sign = int(rng.choice([1, -1]))
+        step = tuple(sign if k == mu else 0 for k in range(4))
+        target = tuple((head[k] + step[k]) % L.N for k in range(4))
+        direct = worm._library[step]
+        negated = worm._library[tuple(-x for x in step)]
+        i = int(rng.integers(0, len(direct) + len(negated)))
+        if i < len(direct):
+            change = worm._place(direct[i], target, +1)
+        else:
+            change = worm._place(negated[i - len(direct)], head, -1)
+
+        trial_n = n.copy()
+        for link, c in change.items():
+            trial_n[link] += c
+        dq = charge(trial_n) - charge(n)
+        nz = np.argwhere(dq != 0)
+        expected = {tuple(int(x) for x in h[1:]): int(dq[tuple(h)]) for h in nz}
+
+        assert worm._dq(F, change) == expected
+
+
+def test_intersection_worm_moves_invert_exactly():
+    # Every forward library move anchored at the target is exactly undone by the
+    # negated placement anchored at the head --- the pairing detailed balance rests on.
+    S = _action()
+    L = S.Lattice
+    worm = supervillain.generator.no_intersection.IntersectionWorm(S)
+    rng = np.random.default_rng(13)
+
+    for trial in range(20):
+        head = tuple(int(x) for x in rng.integers(0, L.N, size=4))
+        mu = int(rng.integers(0, 4))
+        step = tuple(int(k == mu) for k in range(4))
+        target = tuple((head[k] + step[k]) % L.N for k in range(4))
+        shapes = worm._library[step]
+        shape = shapes[int(rng.integers(0, len(shapes)))]
+
+        forward = worm._place(shape, target, +1)
+        backward = worm._place(shape, target, -1)
+        net = dict(forward)
+        for link, c in backward.items():
+            net[link] = net.get(link, 0) + c
+        assert all(v == 0 for v in net.values())

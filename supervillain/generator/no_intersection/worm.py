@@ -1,28 +1,30 @@
 #!/usr/bin/env python
 
 from collections import deque
-from itertools import permutations
+from itertools import combinations, permutations, product
 import numpy as np
 
 import supervillain.action
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
 from supervillain.batch import Batch
-from supervillain.lattice import Form, d
-from supervillain.generator.no_intersection.charge import charge
+from supervillain.lattice import Lattice, Form, d
 
 import logging
 logger = logging.getLogger(__name__)
 
 
-# One known clean elementary move, expressed as (direction, site, coefficient) with the
-# +1 (head) defect landing at ``_SEED_HEAD``.  It shifts the head by +ê_3.  Every other
-# clean move we use is generated from this one by relabelling the axes.
+# Known clean elementary moves, expressed as (direction, site, coefficient) triples with
+# the +1 (head) defect landing at ``_SEED_HEAD``.  The full move library is the orbit of
+# these seeds under the hyperoctahedral group (all 384 signed axis permutations) and
+# global negation, re-anchored so the +1 defect defines the head.
 _SEED_HEAD = (1, 1, 0, 2)
-_SEED = (
-    (0, (1, 1, 1, 1), +1),
-    (0, (1, 1, 1, 2), +1),
-    (1, (2, 1, 1, 2), +1),
+_SEEDS = (
+    (
+        (0, (1, 1, 1, 1), +1),
+        (0, (1, 1, 1, 2), +1),
+        (1, (2, 1, 1, 2), +1),
+    ),
 )
 
 
@@ -48,11 +50,19 @@ class IntersectionWorm(ReadWriteable, Generator):
 
     .. note::
 
-        The move library here holds only the orbit of a single clean move shape, which
-        does not always offer a clean step on every trail.  Stalled proposals are
-        simply rejected (the head stays put), which is detailed-balance safe; enriching
-        the library improves efficiency and ergodicity.  See :ref:`the No-Intersection
-        model <no_intersection>`.
+        The move library is the orbit of the seed shapes in ``_SEEDS`` under all 384
+        signed axis permutations and global negation, re-anchored so that the +1
+        defect sits on the head.  Not every shape offers a clean step on every trail;
+        stalled proposals are simply rejected (the head stays put), which is
+        detailed-balance safe.  Additional seed shapes extend the library
+        automatically.  See :ref:`the No-Intersection model <no_intersection>`.
+
+    .. note::
+
+        The change $\Delta q$ of a proposal is computed *locally* from the linearized
+        wedge $\Delta q = \Delta F\wedge F + F\wedge\Delta F + \Delta F\wedge\Delta F$
+        with $\Delta F = d(\Delta n)$ supported on a handful of plaquettes, so each
+        head move costs $O(1)$ rather than $O(\text{volume})$.
 
     .. danger::
 
@@ -73,129 +83,249 @@ class IntersectionWorm(ReadWriteable, Generator):
 
         self.worm_lengths = deque()
 
-        # Build the move library: for each positive direction μ, the clean 3-link
-        # shapes that shift the +1 head by +ê_μ, expressed RELATIVE to the head.
+        # Build the move library: for each of the 8 unit directions ±ê_μ, the clean
+        # 3-link shapes whose dipole separation (+1 site minus −1 site) is that unit
+        # vector, expressed RELATIVE to the +1 defect (the head).
         self._library = self._build_library()
+
+        # Complementary plaquette pairs (A, B) and the sign σ(A⌢B) entering the
+        # 4-form wedge (a∧b)_{(0,1,2,3)}[x] = Σ σ(A⌢B) a_A[x] b_B[x+ê_A].
+        self._wedge_pairs = self._build_wedge_pairs()
 
     def __str__(self):
         return 'IntersectionWorm'
 
     # ------------------------------------------------------------------ library
 
+    @staticmethod
+    def _transformed(template, perm, flips, negate):
+        r"""
+        Apply a signed axis permutation to a template of ``(direction, site,
+        coefficient)`` triples: first send axis $k$ to ``perm[k]``, then reflect the
+        axes with ``flips[k] == -1``.  Reflecting the axis a link points along maps
+        the link $[s, s+\hat e_k]$ to $[-s-\hat e_k, -s]$: the base shifts by
+        $-\hat e_k$ and the coefficient flips.  ``negate`` flips all coefficients
+        (allowed because $q$ is quadratic in $n$: $-\Delta n$ makes the same dipole
+        on an empty background but is a genuinely different move).
+        """
+        out = []
+        for mu, rs, c in template:
+            site = [0, 0, 0, 0]
+            for k in range(4):
+                site[perm[k]] = rs[k]
+            nmu = perm[mu]
+            coeff = c
+            for k in range(4):
+                if flips[k] == -1:
+                    site[k] = -site[k]
+                    if k == nmu:
+                        site[k] -= 1
+                        coeff = -coeff
+            if negate:
+                coeff = -coeff
+            out.append((nmu, tuple(site), coeff))
+        return tuple(sorted(out))
+
     def _build_library(self):
         r"""
-        The orbit of :data:`_SEED` under the 24 axis permutations, bucketed by the
-        unit direction the move shifts the head.  Each entry is a tuple of
-        ``(direction, relative_site, coefficient)`` triples, with the relative site
-        measured from the head (the +1 defect).
+        The orbit of :data:`_SEEDS` under the 384 signed axis permutations and global
+        negation, bucketed by the dipole separation (+1 site minus −1 site, a unit
+        vector) and re-anchored so the +1 defect sits at the origin of the template's
+        relative coordinates.  Each entry is a tuple of ``(direction, relative_site,
+        coefficient)`` triples measured from the head.
         """
-        L = self.Lattice
-        N = L.N
+        from supervillain.observable.topological import _topological_charge
 
-        # Relative form of the seed (links measured from the seed's head).
-        seed_rel = tuple(
-            (mu, tuple(s[k] - _SEED_HEAD[k] for k in range(4)), c)
-            for mu, s, c in _SEED
+        # A scratch lattice comfortably larger than any template, so that placing a
+        # template near the middle cannot wrap around the torus.
+        scratch = Lattice(4, 8)
+        anchor = (4, 4, 4, 4)
+
+        # Relative form of the seeds (links measured from the seed's head).
+        seeds_rel = tuple(
+            tuple((mu, tuple(s[k] - _SEED_HEAD[k] for k in range(4)), c) for mu, s, c in seed)
+            for seed in _SEEDS
         )
 
-        def permuted(perm):
-            out = []
-            for mu, rs, c in seed_rel:
-                nrs = [0, 0, 0, 0]
-                for k in range(4):
-                    nrs[perm[k]] = rs[k]
-                out.append((perm[mu], tuple(nrs), c))
-            return tuple(out)
-
-        # Place a relative template with its head at ``head`` and read off the dipole.
-        base = charge(L.zeros(1, dtype=int))
-
-        def separation(template, head):
-            dn = L.zeros(1, dtype=int)
+        def dipole(template):
+            '''The (+1 site, -1 site) of the template placed at ``anchor`` on an empty lattice.'''
+            n = scratch.zeros(1, dtype=int)
             for mu, rs, c in template:
-                site = tuple((head[k] + rs[k]) % N for k in range(4))
-                dn[(mu,) + site] += c
-            dq = charge(dn) - base
-            nz = np.argwhere(dq != 0)
+                site = tuple((anchor[k] + rs[k]) % scratch.N for k in range(4))
+                n[(mu,) + site] += c
+            q = np.asarray(_topological_charge(scratch, n))
+            nz = np.argwhere(q != 0)
             if len(nz) != 2:
                 return None
-            defects = {tuple(int(x) for x in h[1:]): int(dq[tuple(h)]) for h in nz}
+            defects = {tuple(int(x) for x in h[1:]): int(q[tuple(h)]) for h in nz}
             (a, va), (b, vb) = sorted(defects.items())
             if {va, vb} != {1, -1}:
                 return None
-            plus = np.array(a if va == 1 else b)
-            minus = np.array(b if va == 1 else a)
-            if tuple(int(x) % N for x in plus) != tuple(int(x) % N for x in head):
-                return None  # require the +1 defect to sit on the head
-            sep = tuple(int(x) % N for x in (plus - minus))
-            return tuple(x if x <= N // 2 else x - N for x in sep)
+            return (a, b) if va == 1 else (b, a)
 
-        anchor = (N // 2,) * 4
         library = {}
-        for perm in permutations(range(4)):
-            template = permuted(perm)
-            sep = separation(template, anchor)
-            if sep is not None and sum(abs(x) for x in sep) == 1:
-                library.setdefault(sep, []).append(template)
-        return library
+        seen = set()
+        for seed_rel in seeds_rel:
+            for perm in permutations(range(4)):
+                for flips in product((1, -1), repeat=4):
+                    for negate in (False, True):
+                        template = self._transformed(seed_rel, perm, flips, negate)
+                        if template in seen:
+                            continue
+                        seen.add(template)
+                        pm = dipole(template)
+                        if pm is None:
+                            # Not every transform is an exact lattice symmetry of the
+                            # wedge: single-axis reflections pick up shifts (like ★★)
+                            # and need not preserve dipole cleanliness.  Keep only the
+                            # candidates that do.
+                            continue
+                        plus, minus = pm
+                        sep = tuple(int(p - m) for p, m in zip(plus, minus))
+                        if sum(abs(x) for x in sep) != 1:
+                            continue
+                        # Re-anchor: measure the links from the +1 defect.
+                        shift = tuple(p - a for p, a in zip(plus, anchor))
+                        rebased = tuple(sorted(
+                            (mu, tuple(rs[k] - shift[k] for k in range(4)), c)
+                            for mu, rs, c in template
+                        ))
+                        bucket = library.setdefault(sep, [])
+                        if rebased not in bucket:
+                            bucket.append(rebased)
+        return {sep: tuple(shapes) for sep, shapes in library.items()}
+
+    def _build_wedge_pairs(self):
+        r"""
+        For the single 4-form component $(0,1,2,3)$, the six ordered complementary
+        plaquette pairs $(A, B)$ with $\sigma(A\frown B)$, matching
+        :func:`supervillain.lattice.wedge`.
+        """
+        pairs = []
+        for A in combinations(range(4), 2):
+            B = tuple(k for k in range(4) if k not in A)
+            sign = (-1) ** sum(1 for k in A for j in B if j < k)
+            A_idx = self.Lattice.comp_index[2][A]
+            B_idx = self.Lattice.comp_index[2][B]
+            pairs.append((A_idx, A, B_idx, sign))
+        return tuple(pairs)
 
     # ------------------------------------------------------------------ helpers
 
-    def _change_from_shape(self, head, mu, sign, shape):
+    def _place(self, shape, anchor, factor):
         r"""
-        The $\Delta n$ (as a dict ``link -> coefficient``) for moving the head by
-        ``sign``$\,\hat e_\mu$ using library ``shape``.
-
-        A forward step ($+\hat e_\mu$) places the template with its head at
-        ``head``$+\hat e_\mu$.  A backward step is the *negated* template anchored at
-        ``head`` — exactly the inverse of the forward step that would have arrived
-        here, so backward$\circ$forward $= -\Delta n + \Delta n = 0$.
+        The $\Delta n$ (as a dict ``link -> coefficient``) for library ``shape``
+        anchored (its +1 defect) at ``anchor``, scaled by ``factor``$= \pm 1$.
         """
         N = self.Lattice.N
-        positive = tuple(1 if k == mu else 0 for k in range(4))
-        if sign > 0:
-            anchor = tuple(head[k] + positive[k] for k in range(4))
-            factor = +1
-        else:
-            anchor = tuple(head[k] for k in range(4))
-            factor = -1
         change = {}
         for direction, rs, c in shape:
             site = tuple((anchor[k] + rs[k]) % N for k in range(4))
             link = (direction,) + site
             change[link] = change.get(link, 0) + factor * c
-        return change
+        return {link: c for link, c in change.items() if c != 0}
 
-    def _sheet_segment(self, n, q_now, head, mu, sign):
+    def _dF_entries(self, change):
         r"""
-        Propose a sheet-extending $\Delta n$ that moves the head by ``sign``$\,\hat
-        e_\mu$, choosing **one** library shape uniformly at random and attempting only
-        it.  Returns ``(change, target)`` if that shape gives a clean dipole shift on
-        the current ``n``, else ``(None, None)``.
+        The plaquette changes $\Delta F = d(\Delta n)$ of a sparse link change, as a
+        dict ``(component_index, site) -> coefficient``.  A link $n_\mu[s]
+        \mathrel{+}= c$ changes the plaquettes $(a, \mu)$ with $a < \mu$ by $+c$ at
+        $s - \hat e_a$ and $-c$ at $s$, and the plaquettes $(\mu, b)$ with $\mu < b$
+        by $-c$ at $s - \hat e_b$ and $+c$ at $s$, matching
+        :func:`supervillain.lattice.d`.
+        """
+        L = self.Lattice
+        N = L.N
+        dF = {}
 
-        Selecting a single, uniformly-chosen shape makes the proposal **symmetric**:
-        the reverse move is the same shape with the opposite sign, drawn with the same
-        probability $\tfrac{1}{2D}\cdot\tfrac{1}{K}$, and it is guaranteed clean on the
-        proposed state.  Detailed balance then holds with the plain Metropolis
-        acceptance $\min(1, e^{-\Delta S})$.  (Trying several shapes and taking the
-        first clean one would make $q$ asymmetric and break this.)
+        def add(comp, site, value):
+            key = (L.comp_index[2][comp], site)
+            dF[key] = dF.get(key, 0) + value
+
+        for (mu, *s), c in change.items():
+            for nu in range(4):
+                if nu == mu:
+                    continue
+                comp = (nu, mu) if nu < mu else (mu, nu)
+                sign = +1 if nu < mu else -1
+                back = tuple((s[k] - (k == nu)) % N for k in range(4))
+                add(comp, back, sign * c)
+                add(comp, tuple(s), -sign * c)
+        return {key: v for key, v in dF.items() if v != 0}
+
+    def _dq(self, F, change):
+        r"""
+        The change of the charge density $q = F\wedge F$ from a sparse link change,
+        computed locally:
+
+        .. math::
+            \Delta q = \Delta F\wedge F + F\wedge\Delta F + \Delta F\wedge\Delta F,
+            \qquad \Delta F = d(\Delta n),
+
+        where the wedge follows :func:`supervillain.lattice.wedge`,
+        $(a\wedge b)[x] = \sum \sigma(A\frown B)\, a_A[x]\, b_B[x+\hat e_A]$.
+        Returns a dict ``site -> change`` with zero entries dropped.
+
+        ``F`` is the *current* plain integer array $d(n)$ of shape
+        ``(6, N, N, N, N)``.
         """
         N = self.Lattice.N
-        positive = tuple(1 if k == mu else 0 for k in range(4))
-        shapes = self._library[positive]
-        shape = shapes[self.rng.integers(0, len(shapes))]
+        dF = self._dF_entries(change)
+        dq = {}
 
-        target = tuple((head[k] + (sign if k == mu else 0)) % N for k in range(4))
-        want = {} if target == head else {target: 1, head: -1}
+        def add(site, value):
+            dq[site] = dq.get(site, 0) + value
 
-        change = self._change_from_shape(head, mu, sign, shape)
-        trial = n.copy()
-        for link, c in change.items():
-            trial[link] += c
-        dq = charge(trial) - q_now
-        nz = np.argwhere(dq != 0)
-        defects = {tuple(int(x) for x in h[1:]): int(dq[tuple(h)]) for h in nz}
-        if defects == want:
+        for (idx, site), v in dF.items():
+            for A_idx, A_dirs, B_idx, sign in self._wedge_pairs:
+                if idx == A_idx:
+                    # ΔF_A[x] (F_B + ΔF_B)[x+ê_A]: the ΔF∧F and ΔF∧ΔF terms together.
+                    ahead = tuple((site[k] + (k in A_dirs)) % N for k in range(4))
+                    add(site, sign * v * (int(F[(B_idx,) + ahead]) + dF.get((B_idx, ahead), 0)))
+                if idx == B_idx:
+                    # F_A[x] ΔF_B[x+ê_A] at x = site - ê_A: the F∧ΔF term.
+                    behind = tuple((site[k] - (k in A_dirs)) % N for k in range(4))
+                    add(behind, sign * int(F[(A_idx,) + behind]) * v)
+        return {site: v for site, v in dq.items() if v != 0}
+
+    def _sheet_segment(self, F, head, mu, sign):
+        r"""
+        Propose a sheet-extending $\Delta n$ that moves the head by ``sign``$\,\hat
+        e_\mu$, choosing **one** move uniformly at random from the proposals for that
+        step and attempting only it.  The proposals are the shapes in the
+        ``sign``$\,\hat e_\mu$ bucket anchored at the target (their +1 defect lands
+        on the target) together with the *negated* shapes of the $-$``sign``$\,\hat
+        e_\mu$ bucket anchored at the head (each the exact inverse of a forward step
+        that could have arrived here).  Returns ``(change, target)`` if the chosen
+        move gives a clean dipole shift on the current configuration, else
+        ``(None, None)``.
+
+        Selecting a single, uniformly-chosen move makes the proposal **symmetric**:
+        the exact inverse of every option is one of the reverse step's options, drawn
+        with the same probability $\tfrac{1}{2D}\cdot\tfrac{1}{K}$, and its
+        cleanliness on the proposed state is automatic.  Detailed balance then holds
+        with the plain Metropolis acceptance $\min(1, e^{-\Delta S})$.  (Trying
+        several shapes and taking the first clean one would break this.)
+        """
+        N = self.Lattice.N
+        step = tuple(sign if k == mu else 0 for k in range(4))
+        back = tuple(-x for x in step)
+        direct = self._library.get(step, ())
+        negated = self._library.get(back, ())
+        K = len(direct) + len(negated)
+        if K == 0:
+            return None, None
+
+        target = tuple((head[k] + step[k]) % N for k in range(4))
+
+        i = int(self.rng.integers(0, K))
+        if i < len(direct):
+            change = self._place(direct[i], target, +1)
+        else:
+            change = self._place(negated[i - len(direct)], head, -1)
+
+        want = {target: 1, head: -1}
+        if self._dq(F, change) == want:
             return change, target
         return None, None
 
@@ -239,7 +369,7 @@ class IntersectionWorm(ReadWriteable, Generator):
 
         n = configuration['n'].copy()
         dphi = d(configuration['phi'])
-        q_now = charge(n)
+        F = np.asarray(d(n)).astype(int)   # maintained incrementally as the head moves
 
         displacements = np.zeros(L.dims)
 
@@ -261,17 +391,18 @@ class IntersectionWorm(ReadWriteable, Generator):
             mu = int(self.rng.integers(0, D))
             sign = 1 if self.rng.integers(0, 2) == 0 else -1
 
-            change, target = self._sheet_segment(n, q_now, head, mu, sign)
+            change, target = self._sheet_segment(F, head, mu, sign)
             if change is not None:
                 # Metropolis-test the change in the Villain action.
                 dS = self._delta_S(dphi, n, change)
                 if self.rng.uniform(0, 1) < min(1.0, np.exp(-dS)):
                     for link, c in change.items():
                         n[link] += c
-                    q_now = charge(n)
+                    for (idx, site), v in self._dF_entries(change).items():
+                        F[(idx,) + site] += v
                     head = target
-            # If no clean library move exists this step, the proposal is simply
-            # rejected and the head stays put.
+            # If the chosen move is not clean on the current trail, the proposal is
+            # simply rejected and the head stays put.
 
             # Tally the head−tail displacement for the Intersection_Intersection correlator.
             disp = tuple((head[k] - tail[k]) % N for k in range(D))
