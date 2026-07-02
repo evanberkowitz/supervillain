@@ -50,6 +50,47 @@ def test_intersection_worm_preserves_validity_and_closes():
     assert np.isscalar(out['Worm_Length']) or np.asarray(out['Worm_Length']).shape == ()
 
 
+def test_intersection_worm_library_has_orthogonal_and_diagonal_moves():
+    # The move library carries two families: 3-link steps to the 4 orthogonal (face)
+    # neighbours and 2-link "elbow" steps to the 6 diagonal (ê_μ - ê_ν) neighbours.
+    S = _action()
+    worm = supervillain.generator.no_intersection.IntersectionWorm(S)
+    orthogonal = [d for d in worm._directions if sum(abs(x) for x in d) == 1]
+    diagonal = [d for d in worm._directions if sum(abs(x) for x in d) == 2]
+    assert len(orthogonal) == 4
+    assert len(diagonal) == 6
+    # Every stored direction is canonical (first nonzero component is +1).
+    for d in worm._directions:
+        assert next(x for x in d if x != 0) > 0
+    # Orthogonal shapes are 3-link; diagonal shapes are the minimal 2-link elbow.
+    for d in orthogonal:
+        assert all(len(shape) == 3 for shape in worm._library[d])
+    for d in diagonal:
+        assert all(len(shape) == 2 for shape in worm._library[d])
+
+
+def test_intersection_worm_uses_diagonal_moves_and_stays_valid():
+    # A diagonal 2-link step must be accepted at least once, and every emitted
+    # configuration must still satisfy q = dn∧dn = 0.
+    S = _action()
+    worm = supervillain.generator.no_intersection.IntersectionWorm(S)
+    used = {'diagonal': 0}
+    orig = worm._sheet_segment
+
+    def spy(n, q_now, head, hop, sign):
+        change, target = orig(n, q_now, head, hop, sign)
+        if change is not None and sum(abs(x) for x in hop) == 2:
+            used['diagonal'] += 1
+        return change, target
+
+    worm._sheet_segment = spy
+    cfg = _cold(S)
+    for _ in range(40):
+        cfg = worm.step(cfg)
+        assert S.valid(cfg)
+    assert used['diagonal'] > 0
+
+
 def test_intersection_worm_inline_observable_keys():
     S = _action()
     worm = supervillain.generator.no_intersection.IntersectionWorm(S)

@@ -114,8 +114,9 @@ Worms and the intersection correlator
 A worm is another route to large, coordinated moves --- and the one that additionally yields a physical observable --- just as in the modified Villain model and the worldline formulation.
 We can imagine inserting a worm with a head and tail built of exponentials of Lagrange-multiplier fields (in this case the 4-form $\theta$) on the same hypercube and allowing the head to move from hypercube to hypercube by changing $n$.
 
-However, unlike in $D=2$, where the worm lives on plaquettes and crosses a single link to move to a neighboring plaquette, the worm here must cross a 3-dimensional cube to reach a neighboring hypercube (if you prefer, think of the hypercube as a site on the dual lattice and the cube as a dual link).
+However, unlike in $D=2$, where the worm lives on plaquettes and crosses a single link to move to a neighboring plaquette, the worm here must cross a 3-dimensional cube to reach an orthogonally-adjacent neighboring hypercube (if you prefer, think of the hypercube as a site on the dual lattice and the cube as a dual link).
 Therefore, we expect to need to make coordinated moves simultaneously updating 3 links at once to push the topological defect around.
+In fact, you can make coordinated 2-link moves that push the worm defect diagonally.
 The fact that it is even possible to move $q$ around without a proliferation of constraint violations can be seen as a repercussion of the fact that $q=dJ$ is locally conserved.
 
 To see precisely what such a worm measures, remember that in the :class:`~.NoIntersections` case we are trying to sample according to
