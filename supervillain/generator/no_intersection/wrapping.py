@@ -16,106 +16,42 @@ class WrappingLoopUpdate(ReadWriteable, Generator):
     r"""
     A *global*, coordinated change of $F = dn$ that preserves the
     $q = dn\wedge dn = 0$ constraint by adding a **closed, torus-wrapping loop of
-    single-direction links** to $n$ — proposed and accepted/rejected **atomically**
-    (one Metropolis test on the whole loop), not built up one cell at a time.
+    single-direction links** to $n$, proposed and accepted or rejected **atomically**
+    (one Metropolis test on the whole loop).  It is the coordinated move that unfreezes
+    the frozen configurations described on :ref:`the model page <no_intersection>`.
 
-    Why a single link direction.
-    -----------------------------
-    Confine the change to one link direction $\mu$ (only $n_\mu$ changes).  Then
-    $d\Delta n$ has nonzero components only in the planes $\{\mu\nu\}$, so the self-term
-    $d\Delta n\wedge d\Delta n$ vanishes *identically* — no two complementary planes are
-    ever both present (the same fact that makes a single link's self-term vanish, lifted
-    to an arbitrary single-direction $\Delta n$).  Hence on **any** background $F$,
+    Confining $\Delta n$ to a single link direction makes $\Delta q$ *linear* in
+    $\Delta n$, so a clean move is one in the kernel of that linear map --- reachable
+    even on a frozen background where every single-link move fails.  The move must be a
+    *closed* loop because an open string of $n_\mu$ links leaves a free $F$-sheet edge
+    (a $q\ne 0$ defect) at each end; and on an $F\ne 0$ background only *non-contractible*
+    (torus-wrapping) loops stay clean, since a contractible loop leaks $\Delta q\ne 0$
+    where its interior meets the background.  On an $F = 0$ background every
+    single-direction loop is clean, so there this update freely deposits the wrapping
+    $F$-sheets of the $F\ne 0$, $F\wedge F = 0$ sector.
 
-    .. math::
-        \Delta q(\Delta n) = F\wedge d\Delta n + d\Delta n\wedge F
-        \qquad\text{(exactly linear in }\Delta n\text{)} .
-
-    A single-direction $\Delta n$ that preserves the constraint is therefore exactly a
-    vector in the kernel of this linear map; the frozen configurations are *not*
-    degree-zero vertices once such coordinated moves are allowed.
-
-    Why a closed, wrapping loop.
-    ----------------------------
-    The endpoint of a string of $n_\mu$ links is a place where the attached $F$-sheet has
-    a free edge — a $q\ne 0$ source (this is precisely the worm head/tail).  A move with
-    $\Delta q = 0$ everywhere can therefore have **no endpoints**: it must be a closed
-    cycle.  On a generic $F\ne 0$ background (e.g. a frozen configuration) a *contractible*
-    loop still leaks $\Delta q\ne 0$ where its interior meets the background $F$, so only
-    **non-contractible** (torus-wrapping) loops survive.  On an $F = 0$ background the
-    cross term vanishes and *every* single-direction loop is clean, so there this update
-    freely deposits wrapping $F$-sheets — the genuine $F\ne 0$, $F\wedge F = 0$ moves that
-    the worm alone must otherwise supply.
-
-    Why atomic rather than incremental.
-    -----------------------------------
-    One might hope to walk the loop down cell by cell, accepting each segment in the
-    constraint-lifted ($q\ne 0$) ensemble — i.e. as a worm.  But on a frozen background
-    the clean continuation at each step is **forced** (the cross term with $F$ pins the
-    loop's shape: a $(1,1)$ diagonal is clean, a turn or the anti-diagonal relights
-    defects).  With no branching, the head's walk is a one-dimensional forced path, and
-    the probability of completing the loop incrementally is governed by the *same*
-    Boltzmann factor $e^{-\Delta S}$ as accepting the whole loop at once.  The incremental
-    dressing buys nothing where there is no choice to make, so this update proposes the
-    entire loop and tests it once.  (Where the background *does* offer branching — generic
-    configurations — the incremental worm :class:`IntersectionWorm` is the appropriate tool; the
-    two are complementary.)
-
-    Proposal and detailed balance.
-    ------------------------------
-    Each step draws, from a **state-independent** distribution, a closed single-direction
-    loop: a direction $\mu$, a loop type (a thin ring wrapping one transverse axis, or a
-    thin diagonal ring wrapping two), random offsets locating it, and a sign $s = \pm 1$.
-    The constraint is then **verified** ($\Delta q = 0$ on the current $n$); clean
-    proposals are Metropolis-tested against the Villain action, unclean ones are null
-    moves (the configuration is unchanged).
-
-    The proposal is symmetric: drawing loop $L$ and drawing $-L$ have equal probability
-    (the sign is uniform), and — because $d\Delta n\wedge d\Delta n = 0$ for a
-    single-direction $\Delta n$ —
-
-    .. math::
-        \Delta q_{n'}(-L) = -\bigl(F\wedge dL + dL\wedge F + 2\,dL\wedge dL\bigr) = -\Delta q_n(L),
-        \qquad n' = n + L,
-
-    so $L$ is clean on $n$ **iff** $-L$ is clean on $n' = n + L$, on any background.  The
-    forward and reverse proposals are thus drawn with equal probability and are
-    simultaneously available, and the plain acceptance $\min(1, e^{-\Delta S})$ — with
-    $\Delta S$ the change in the Villain action $\frac{\kappa}{2}(d\phi - 2\pi n)^2$ —
-    satisfies detailed balance.  (This is the same symmetry argument as the one
-    uniformly-chosen shape in :class:`IntersectionWorm`.)
+    **Proposal and detailed balance.**  Each step draws, from a *state-independent*
+    distribution, a closed single-direction loop --- a direction $\mu$, a loop type (a
+    thin ring wrapping one transverse axis, or a diagonal ring wrapping two), a random
+    location, and a sign $s = \pm 1$ --- verifies it preserves $q = 0$ on the current $n$
+    (unclean proposals are null moves), and Metropolis-tests the clean ones against the
+    Villain action.  Because $d\Delta n\wedge d\Delta n = 0$ for a single-direction
+    $\Delta n$, a loop $L$ is clean on $n$ iff $-L$ is clean on $n + L$, and $L$, $-L$ are
+    drawn with equal probability, so the plain acceptance $\min(1, e^{-\Delta S})$
+    satisfies detailed balance.
 
     .. warning::
 
         Restricted to $D = 4$.  Updates $n$ only; combine with a $\phi$-update such as
-        :class:`~.villain.SiteUpdate`.  The single-direction trick is dimension-general,
-        but the $q = dn\wedge dn$ constraint is specific to $D = 4$.
+        :class:`~.villain.SiteUpdate`.
 
     .. note::
 
-        The constraint is verified by a global ``charge`` recompute per proposal
-        ($O(\text{volume})$); only the touched links contribute to $\Delta S$.  A local
-        $\Delta q$ check would be cheaper but is left for a production version, matching
-        the reference-implementation choices in :class:`IntersectionWorm` and
-        :class:`ConstrainedLinkUpdate`.
-
-    .. note::
-
-        **Scope of validity vs. efficiency.**  From a cold $F = 0$ start this update
-        builds valid wrapping $F$-sheets ($F\ne 0$, $F\wedge F = 0$) while keeping
-        $q = 0$ at every step — its intended job — and on an (injected) frozen
-        configuration it does accept coordinated loops that single-link and worm moves
-        cannot, with $q = 0$ throughout.  It is *not*, however, an efficient un-freezer on
-        its own: the **uniform-random** loop proposal mostly finds *sideways* clean loops
-        (translates of sheets already present) and only rarely the specific
-        flux-*cancelling* loop, so the chain mixes poorly on the frozen sublattice and the
-        total flux $\sum F^2$ does not reliably come down.  Deterministically selecting
-        flux-reducing kernel moves (a greedy descent) *does* walk a frozen configuration
-        back to the mobile sector; reproducing that with a symmetric, state-independent
-        proposal — or carrying the Hastings ratio for a state-dependent one — is the open
-        efficiency item, exactly analogous to enriching :class:`IntersectionWorm`'s move library.
-        (In a cold-start physics run the frozen configurations are unreachable anyway, so
-        this update's correctness on the $F = 0$ sector is what matters in practice.)
+        This reference implementation verifies the constraint with a global ``charge``
+        recompute per proposal ($O(\text{volume})$); a local $\Delta q$ check would be
+        cheaper.  From a cold $F = 0$ start it correctly builds wrapping $F$-sheets, but
+        it is not an efficient *un-freezer*: the uniform-random proposal only rarely hits
+        the specific flux-cancelling loop, so it mixes poorly on the frozen sublattice.
     """
 
     def __init__(self, S, diagonal=True):
