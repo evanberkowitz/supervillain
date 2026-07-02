@@ -54,6 +54,13 @@ search  (``--construction search``)
     candidate with the exhaustive check.  In practice it never freezes: the cold-start
     single-link walk does not reach these configurations --- exactly the observation noted
     in :class:`~supervillain.generator.no_intersection.WrappingLoopUpdate`.
+
+The companion script ``unfreeze.py`` imports the constructions and
+:func:`exhaustive_check` from this module to show that the combination of
+:class:`~supervillain.generator.villain.SiteUpdate`,
+:class:`~supervillain.generator.no_intersection.WrappingLoopUpdate`, and
+:class:`~supervillain.generator.no_intersection.ConstrainedLinkUpdate` *leaves* the
+frozen sector.
 """
 
 import argparse

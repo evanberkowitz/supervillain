@@ -80,7 +80,7 @@ A frozen configuration is therefore an isolated point of the single-link move gr
 So :class:`~supervillain.generator.no_intersection.ConstrainedLinkUpdate` can neither escape a frozen configuration nor reach one, and a single-link-only algorithm is **not ergodic**.
 
 These beasts are not hypothetical.
-The example script ``example/no-intersection-frozen.py`` constructs explicit frozen configurations in closed form --- a single-pair family $F_{01} = a(-1)^{x_{0}}$, $F_{23} = b(-1)^{x_{0}+x_{2}+x_{3}}$, and a genuinely six-plane "delicate cancellation" family $F_{\mu\nu} = A_{\mu\nu}(-1)^{x_{\mu}+x_{\nu}}$ with $\mathrm{Pf}(A) = 0$ --- and verifies by exhaustive search that not one of the $2 D N^{D}$ single-link $\pm 1$ moves preserves $q = 0$.
+The example script ``example/no-intersection/frozen.py`` constructs explicit frozen configurations in closed form --- a single-pair family $F_{01} = a(-1)^{x_{0}}$, $F_{23} = b(-1)^{x_{0}+x_{2}+x_{3}}$, and a genuinely six-plane "delicate cancellation" family $F_{\mu\nu} = A_{\mu\nu}(-1)^{x_{\mu}+x_{\nu}}$ with $\mathrm{Pf}(A) = 0$ --- and verifies by exhaustive search that not one of the $2 D N^{D}$ single-link $\pm 1$ moves preserves $q = 0$.
 Its ``--construction search`` mode confirms the complementary fact: a cold-start :class:`~supervillain.generator.no_intersection.ConstrainedLinkUpdate` random walk never *reaches* a frozen configuration, so in a practical cold-start run they are unreachable --- but their mere existence means single-link moves alone cannot be trusted to be ergodic.
 
 Escaping (or reaching) a frozen configuration requires a *coordinated* move that changes several links at once.
@@ -96,6 +96,10 @@ The :class:`~supervillain.generator.no_intersection.WrappingLoopUpdate` is one s
 .. autoclass:: supervillain.generator.no_intersection.WrappingLoopUpdate
    :members:
    :show-inheritance:
+
+The companion script ``example/no-intersection/unfreeze.py`` demonstrates that this works: starting *on* a frozen configuration, interleaving :class:`~supervillain.generator.villain.SiteUpdate`, :class:`~supervillain.generator.no_intersection.WrappingLoopUpdate`, and :class:`~supervillain.generator.no_intersection.ConstrainedLinkUpdate` leaves the frozen sector --- the wrapping loops open up single-link moves, the single-link sweep fires, and the valid-move count cascades.
+Ergodicity here is a statement about the *connectivity* of the moves, not their acceptance rate: it is cleanest to see at $\kappa = 0$, where every constraint-preserving move is accepted, so the trajectory traces exactly which configurations the moves connect.
+At physical $\kappa$ the same moves keep nonzero probability, so the combined chain is still ergodic; the low acceptance of the escape moves is an autocorrelation cost, not an ergodicity failure.
 
 Worms and the intersection correlator
 =====================================
