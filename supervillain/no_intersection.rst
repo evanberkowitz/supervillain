@@ -63,8 +63,9 @@ First, we can use :class:`~supervillain.generator.villain.SiteUpdate` to update 
 
 Second, we can use :class:`~supervillain.generator.villain.ExactUpdate` to update the $n$ field.
 Because it makes exact updates to $n$ it is guaranteed not to alter $dn$ and therefore cannot change the charge density $q$ anywhere, so it manifestly maintains the constraint.
+For the same reason the :class:`~supervillain.generator.villain.CohomologyUpdate` is also a legal move: it changes $n$ by a *closed* (but not exact) form, so $dn$---and hence $q$---is again untouched, while the torus-wrapping holonomy of $n$ that neither the :class:`~supervillain.generator.villain.ExactUpdate` nor the constraint-preserving $n$-updates below can reach does change.
 
-One thing you might hope is to just use the $W=1$ :class:`~supervillain.generator.villain.LinkUpdate` from the Villain model, but that will, in general, generate constraint violations.
+One thing you might hope is that you could just use the $W=1$ :class:`~supervillain.generator.villain.LinkUpdate` from the Villain model, but that will, in general, generate constraint violations.
 But we can try to do something simple: make :class:`~supervillain.generator.villain.LinkUpdate`-like proposals but reject any that violate the constraint.
 
 .. autoclass:: supervillain.generator.no_intersection.ConstrainedLinkUpdate
@@ -140,6 +141,7 @@ We accumulate the histogram as the worm evolves and save it inline with $\phi$ a
 
 .. autoclass:: supervillain.generator.no_intersection.IntersectionWorm
    :members:
+   :show-inheritance:
 
 The worm accumulates its head$-$tail displacement histogram inline as the
 ``Intersection_Intersection`` observable, and :class:`~.Intersection_Intersection_Normalized`
@@ -148,12 +150,15 @@ bootstrap).  Both are attached to the :class:`~.NoIntersections` model only.
 
 .. autoclass:: supervillain.observable.Intersection_Intersection
    :members:
+   :show-inheritance:
 
 .. autoclass:: supervillain.observable.Intersection_Intersection_Normalized
    :members:
+   :show-inheritance:
 
 .. autoclass:: supervillain.generator.no_intersection.WrappingLoopUpdate
    :members:
+   :show-inheritance:
 
 .. autofunction:: supervillain.generator.no_intersection.Hammer
 

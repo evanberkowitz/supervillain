@@ -89,6 +89,16 @@ def test_wrapping_loop_update_preserves_validity():
         assert S.valid(cfg)
 
 
+def test_hammer_includes_constraint_preserving_villain_updates():
+    # The Hammer reuses the Villain ExactUpdate and CohomologyUpdate, which change n
+    # by a closed form and so leave dn (hence q = dn∧dn) untouched.
+    S = _action()
+    H = str(supervillain.generator.no_intersection.Hammer(S))
+    for name in ('SiteUpdate', 'ExactUpdate', 'CohomologyUpdate',
+                 'ConstrainedLinkUpdate', 'WrappingLoopUpdate', 'IntersectionWorm'):
+        assert name in H
+
+
 def test_hammer_steps_stay_valid():
     S = _action()
     H = supervillain.generator.no_intersection.Hammer(S)
@@ -106,14 +116,16 @@ def test_ensemble_generate_stays_valid():
         assert S.valid(c)
 
 
-def test_intersection_intersection_normalized_is_no_intersections_only():
-    # Attached to the NoIntersections model only: a NoIntersections-named method
-    # and no default / Villain / Worldline implementation.
-    dq = supervillain.observable.Intersection_Intersection_Normalized
-    assert hasattr(dq, 'NoIntersections')
-    assert not hasattr(dq, 'default')
-    assert not hasattr(dq, 'Villain')
-    assert not hasattr(dq, 'Worldline')
+def test_intersection_intersection_is_inline_only():
+    # The correlator has no closed-form estimator, so it carries no measurement
+    # method for any action; it is only ever available when the IntersectionWorm
+    # produces it inline.  That is what effectively scopes it (and the normalized
+    # derived quantity built on it) to the NoIntersections model.
+    obs = supervillain.observable.Intersection_Intersection
+    assert not hasattr(obs, 'default')
+    assert not hasattr(obs, 'Villain')
+    assert not hasattr(obs, 'Worldline')
+    assert not hasattr(obs, 'NoIntersections')
 
 
 def test_intersection_intersection_normalized_is_one_at_origin():
