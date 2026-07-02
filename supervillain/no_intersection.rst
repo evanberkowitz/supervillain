@@ -71,7 +71,36 @@ But we can try to do something simple: make :class:`~supervillain.generator.vill
 .. autoclass:: supervillain.generator.no_intersection.ConstrainedLinkUpdate
    :members:
 
-Just as in the modified Villain model and the worldline formulation we can think of another kind of generator that makes large, coordinate moves: worms!
+Frozen configurations
+======================
+
+The :class:`~supervillain.generator.no_intersection.ConstrainedLinkUpdate` *looks* like it should be ergodic --- it is a Metropolis sweep offering every single-link $\pm 1$ move that preserves $q = 0$ --- but it is not.
+Because the constraint is *quadratic* in $n$, there exist valid configurations, which we call **frozen**, on which *every* single-link $\pm 1$ move lights up a defect: each link $\ell$ is *blocked* by the background flux $F = dn$ in the planes complementary to $\ell$'s direction, and a frozen configuration is one in which every link is blocked at once.
+A frozen configuration is therefore an isolated point of the single-link move graph: since every single-link move off it violates the constraint, the reverse (single-link) move onto it from any neighbor is equally forbidden.
+So :class:`~supervillain.generator.no_intersection.ConstrainedLinkUpdate` can neither escape a frozen configuration nor reach one, and a single-link-only algorithm is **not ergodic**.
+
+These beasts are not hypothetical.
+The example script ``example/no-intersection-frozen.py`` constructs explicit frozen configurations in closed form --- a single-pair family $F_{01} = a(-1)^{x_{0}}$, $F_{23} = b(-1)^{x_{0}+x_{2}+x_{3}}$, and a genuinely six-plane "delicate cancellation" family $F_{\mu\nu} = A_{\mu\nu}(-1)^{x_{\mu}+x_{\nu}}$ with $\mathrm{Pf}(A) = 0$ --- and verifies by exhaustive search that not one of the $2 D N^{D}$ single-link $\pm 1$ moves preserves $q = 0$.
+Its ``--construction search`` mode confirms the complementary fact: a cold-start :class:`~supervillain.generator.no_intersection.ConstrainedLinkUpdate` random walk never *reaches* a frozen configuration, so in a practical cold-start run they are unreachable --- but their mere existence means single-link moves alone cannot be trusted to be ergodic.
+
+Escaping (or reaching) a frozen configuration requires a *coordinated* move that changes several links at once.
+The key structural fact is that if $\Delta n$ is confined to a single link direction $\mu$ then $d\Delta n \wedge d\Delta n = 0$ identically, so on *any* background the charge change
+
+.. math::
+
+   \Delta q(\Delta n) = F \wedge d\Delta n + d\Delta n \wedge F
+
+is *linear* in $\Delta n$; a coordinated single-direction move that lands in the kernel of this map preserves $q = 0$ exactly, even where every single-link move fails.
+The :class:`~supervillain.generator.no_intersection.WrappingLoopUpdate` is one such move: a closed, torus-wrapping loop of single-direction links, proposed and accepted or rejected atomically.
+
+.. autoclass:: supervillain.generator.no_intersection.WrappingLoopUpdate
+   :members:
+   :show-inheritance:
+
+Worms and the intersection correlator
+=====================================
+
+A worm is another route to large, coordinated moves --- and the one that additionally yields a physical observable --- just as in the modified Villain model and the worldline formulation.
 We can imagine inserting a worm with a head and tail built of exponentials of Lagrange-multiplier fields (in this case the 4-form $\theta$) on the same hypercube and allowing the head to move from hypercube to hypercube by changing $n$.
 
 However, unlike in $D=2$, where the worm lives on plaquettes and crosses a single link to move to a neighboring plaquette, the worm here must cross a 3-dimensional cube to reach a neighboring hypercube (if you prefer, think of the hypercube as a site on the dual lattice and the cube as a dual link).
@@ -153,10 +182,6 @@ bootstrap).  Both are attached to the :class:`~.NoIntersections` model only.
    :show-inheritance:
 
 .. autoclass:: supervillain.observable.Intersection_Intersection_Normalized
-   :members:
-   :show-inheritance:
-
-.. autoclass:: supervillain.generator.no_intersection.WrappingLoopUpdate
    :members:
    :show-inheritance:
 
