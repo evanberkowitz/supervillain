@@ -81,7 +81,6 @@ So :class:`~supervillain.generator.no_intersection.ConstrainedLinkUpdate` can ne
 
 These beasts are not hypothetical.
 The example script :source:`example/no-intersection/frozen.py` constructs explicit frozen configurations in closed form --- a single-pair family $F_{01} = a(-1)^{x_{0}}$, $F_{23} = b(-1)^{x_{0}+x_{2}+x_{3}}$, and a genuinely six-plane "delicate cancellation" family $F_{\mu\nu} = A_{\mu\nu}(-1)^{x_{\mu}+x_{\nu}}$ with $\mathrm{Pf}(A) = 0$ --- and verifies by exhaustive search that not one of the $2 D N^{D}$ single-link $\pm 1$ moves preserves $q = 0$.
-Its ``--construction search`` mode confirms the complementary fact: a cold-start :class:`~supervillain.generator.no_intersection.ConstrainedLinkUpdate` random walk never *reaches* a frozen configuration, so in a practical cold-start run they are unreachable --- but their mere existence means single-link moves alone cannot be trusted to be ergodic.
 
 Escaping (or reaching) a frozen configuration requires a *coordinated* move that changes several links at once.
 The key structural fact is that if $\Delta n$ is confined to a single link direction $\mu$ then $d\Delta n \wedge d\Delta n = 0$ identically, so on *any* background the charge change
