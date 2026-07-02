@@ -44,6 +44,16 @@ six-plane  (``--construction six-plane``)
 
 Both families are infinite (scale a, b, or move along the Pf(A) = 0 quadric in Z^6)
 and neither exhausts the frozen set; they are the simplest closed forms we know.
+
+search  (``--construction search``)
+    Rather than *construct* a frozen configuration, *look* for one dynamically.  From a
+    cold start (n = 0) at κ = 0 --- where the action is flat so every constraint-preserving
+    single-link move is accepted --- run the library
+    :class:`~supervillain.generator.no_intersection.ConstrainedLinkUpdate` for ``--sweeps``
+    sweeps and watch for it to get stuck (a whole sweep accepting nothing), confirming any
+    candidate with the exhaustive check.  In practice it never freezes: the cold-start
+    single-link walk does not reach these configurations --- exactly the observation noted
+    in :class:`~supervillain.generator.no_intersection.WrappingLoopUpdate`.
 """
 
 import argparse
@@ -51,6 +61,7 @@ import time
 
 import numpy as np
 
+import supervillain
 from supervillain.lattice import Lattice, d
 # q = dn ∧ dn, the topological-charge density; the same quantity the library
 # measures as TopologicalChargeDensity and that NoIntersections.valid() checks.
@@ -267,6 +278,64 @@ def report(n, extra=None):
         print(f"NOT frozen: {n_valid} valid single-link moves remain.")
 
 
+# ─────────────────────────────────────────────── construction 3: dynamical search
+
+# The six 2-form planes in lexicographic (μ<ν) order, matching d(n)'s components.
+_PLANES = [(mu, nu) for mu in range(4) for nu in range(mu + 1, 4)]
+
+
+def search(L, sweeps, probe_every=200):
+    """Look for a frozen configuration by letting ConstrainedLinkUpdate wander.
+
+    At κ = 0 the action is flat, so :class:`~.ConstrainedLinkUpdate` accepts *every*
+    constraint-preserving single-link move and random-walks freely over the surface
+    q = 0.  Should it ever reach a frozen configuration it must stall --- an entire
+    sweep accepts nothing --- so we run the exhaustive check whenever a sweep stalls,
+    and also periodically (every ``probe_every`` sweeps) once at least two F-planes are
+    lit, since a frozen config needs flux in complementary planes.
+    """
+    S = supervillain.action.NoIntersections(L, kappa=0.0)   # κ=0 ⇒ accept every valid move
+    G = supervillain.generator.no_intersection.ConstrainedLinkUpdate(S)
+
+    # Cold start: n = 0 is trivially valid (F = dn = 0, so q = 0).
+    cfg = {'phi': L.zeros(0), 'n': L.zeros(1, dtype=int)}
+
+    prev_accepted = G.accepted          # the generator tallies accepted moves cumulatively
+    for sweep in range(1, sweeps + 1):
+        cfg = G.step(cfg)
+        this_accepted = G.accepted - prev_accepted
+        prev_accepted = G.accepted
+
+        # Which F-planes currently carry flux?
+        F_arr = np.asarray(d(cfg['n']))
+        lit = [f'{mu}{nu}' for k, (mu, nu) in enumerate(_PLANES)
+               if np.abs(F_arr[k]).max() > 0]
+
+        # Only pay for the exhaustive check when it might matter.
+        stalled = (this_accepted == 0)
+        if not (stalled or (len(lit) >= 2 and sweep % probe_every == 0)):
+            continue
+
+        n_valid, n_total, _ = exhaustive_check(cfg['n'])
+        if n_valid == 0:
+            print(f"sweep {sweep:5d}: *** FROZEN *** — 0/{n_total} valid single-link moves")
+            print(f"  F-planes lit: {lit}")
+            return cfg['n']
+
+        # A stalled sweep with valid moves still available just means the random
+        # proposals happened to miss them this pass --- not frozen.
+        if stalled:
+            print(f"sweep {sweep:5d}: sweep accepted 0, but {n_valid}/{n_total} valid moves "
+                  f"exist (proposals missed them); planes {set(lit)}")
+        elif sweep % probe_every == 0:
+            print(f"sweep {sweep:5d}: {len(lit)} F-planes {set(lit)}, "
+                  f"{n_valid}/{n_total} valid moves, {this_accepted} accepted this sweep")
+
+    print(f"\nNo frozen configuration found in {sweeps} sweeps "
+          "(the cold-start single-link walk does not reach one).")
+    return None
+
+
 # ────────────────────────────────────────────────────────────────────────── main
 
 if __name__ == '__main__':
@@ -274,11 +343,14 @@ if __name__ == '__main__':
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument('--construction', choices=['single-pair', 'six-plane'],
+    parser.add_argument('--construction', choices=['single-pair', 'six-plane', 'search'],
                         default='single-pair',
-                        help='which frozen family to build (default: single-pair)')
+                        help='build a single-pair or six-plane frozen config, or dynamically '
+                             'search for one (default: single-pair)')
     parser.add_argument('--N', type=int, default=4, metavar='N',
                         help='lattice size (default: 4; must be ≥ 2; even N gives zero-free F)')
+    parser.add_argument('--sweeps', type=int, default=5000, metavar='S',
+                        help='[search] number of ConstrainedLinkUpdate sweeps (default: 5000)')
 
     # single-pair parameters
     parser.add_argument('--a', type=int, default=1, metavar='A',
@@ -304,7 +376,11 @@ if __name__ == '__main__':
     L = Lattice(D, N)
     print(f"Lattice D={D}, N={N}  ({D * N ** D} links, {N ** D} hypercubes)")
 
-    if args.construction == 'single-pair':
+    if args.construction == 'search':
+        print(f"search:  cold start, κ=0, {args.sweeps} ConstrainedLinkUpdate sweeps\n")
+        search(L, args.sweeps)
+
+    elif args.construction == 'single-pair':
         if args.a == 0 or args.b == 0:
             parser.error('a and b must be nonzero')
         print(f"single-pair:  a={args.a}, b={args.b}, pair={args.pair}\n")
