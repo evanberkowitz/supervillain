@@ -10,9 +10,17 @@ constraint
 --- yet has **zero** legal single-link ±1 moves: every ``n_ℓ → n_ℓ ± 1`` violates
 q = 0 somewhere.  Such a configuration is a dead end for a naive
 :class:`~supervillain.generator.no_intersection.ConstrainedLinkUpdate`, which only
-proposes single-link changes; escaping it requires the *coordinated* moves of the
-:class:`~supervillain.generator.no_intersection.WrappingLoopUpdate` or
-:class:`~supervillain.generator.no_intersection.IntersectionWorm`.  This script builds
+proposes single-link changes.  In fact *every* bounded-support move is blocked
+--- all 2-link templates, straight open segments of any length, and every shape in
+the (exhaustive, ≤3-link) :class:`~supervillain.generator.no_intersection.IntersectionWorm`
+library; see ``example/no-intersection-unfreeze.py`` for the scan.  The staggered
+background is space-filling, so any bounded Δn has an extremal ΔF plaquette in a lit
+plane whose cross term against the everywhere-nonzero complementary background
+deposits uncancellable charge.  Escaping requires moves whose ΔF avoids the lit
+complementary planes entirely, which forces the support to wrap the torus: the
+single-direction rings of the
+:class:`~supervillain.generator.no_intersection.WrappingLoopUpdate` are the minimal
+legal moves, and they do unfreeze both constructions below.  This script builds
 frozen configurations analytically and verifies both properties by brute force.
 
 Because q is quadratic in n, a single link n_ℓ is "blocked" whenever the field

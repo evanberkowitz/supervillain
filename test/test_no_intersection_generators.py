@@ -253,3 +253,90 @@ def test_constrained_link_update_local_check_matches_global():
 
     assert np.array_equal(F, np.asarray(d(n)))
     assert accepted > 0 and accepted < checked  # both branches exercised
+
+
+def _frozen_example():
+    import importlib.util
+    import pathlib
+    path = pathlib.Path(__file__).parent.parent / 'example' / 'no-intersection-frozen.py'
+    spec = importlib.util.spec_from_file_location('frozen_example', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _frozen_configs(L):
+    frozen = _frozen_example()
+    single_pair = frozen.build_single_pair(L, a=1, b=1, pair='01-23')
+    six_plane = frozen.build_six_plane(
+        L, {(0, 1): 1, (0, 2): 2, (0, 3): 1, (1, 2): 1, (1, 3): 1, (2, 3): 1})
+    return {'single-pair': single_pair, 'six-plane': six_plane}
+
+
+def test_frozen_configs_block_bounded_moves_but_not_rings():
+    # On the frozen configurations every bounded-support move is blocked -- single
+    # links and the worm's exhaustive <=3-link library -- while the length-N
+    # single-direction transverse rings (the WrappingLoopUpdate's axis rings) are
+    # legal; for the single-pair {01,23} construction exactly the rings that avoid
+    # producing dF in the lit planes.
+    from itertools import product
+    from supervillain.generator.no_intersection.charge import dF_entries, local_dq, wedge_pairs
+
+    N = 4
+    L = Lattice(4, N)
+    S = supervillain.action.NoIntersections(L, kappa=0.1)
+    pairs = wedge_pairs(L)
+    worm = supervillain.generator.no_intersection.IntersectionWorm(S)
+    worm.rng = np.random.default_rng(2)
+
+    def legal(F, change):
+        merged = {l: c for l, c in change.items() if c != 0}
+        return bool(merged) and bool(dF_entries(L, merged)) and not local_dq(L, F, merged, pairs=pairs)
+
+    for name, n in _frozen_configs(L).items():
+        assert S.valid({'phi': L.zeros(0), 'n': n})
+        F = np.asarray(d(n)).astype(int)
+
+        singles = sum(legal(F, {(mu,) + s: c})
+                      for mu in range(4) for s in product(range(N), repeat=4) for c in (1, -1))
+        assert singles == 0, f'{name}: {singles} legal single links'
+
+        clean = sum(worm._sheet_segment(F,
+                                        tuple(int(x) for x in worm.rng.integers(0, N, size=4)),
+                                        int(worm.rng.integers(0, 4)),
+                                        int(worm.rng.choice([1, -1])))[0] is not None
+                    for _ in range(500))
+        assert clean == 0, f'{name}: {clean} clean worm proposals'
+
+        rings = set()
+        for mu, nu in product(range(4), repeat=2):
+            if nu == mu:
+                continue
+            for base in product(range(2), repeat=4):
+                change = {(mu,) + tuple((base[k] + j * (k == nu)) % N for k in range(4)): 1
+                          for j in range(N)}
+                if legal(F, change):
+                    rings.add((mu, nu))
+        assert rings, f'{name}: no legal transverse rings'
+        if name == 'single-pair':
+            assert rings == {(0, 1), (3, 2)}
+
+
+def test_wrapping_loop_update_escapes_frozen_configs():
+    # The WrappingLoopUpdate (with its local dq check) actually escapes both frozen
+    # constructions: at kappa = 0 every clean loop is accepted, so within a bounded
+    # number of random proposals the configuration changes and remains valid.
+    L = Lattice(4, 4)
+    S = supervillain.action.NoIntersections(L, kappa=0.0)
+
+    for name, n in _frozen_configs(L).items():
+        G = supervillain.generator.no_intersection.WrappingLoopUpdate(S)
+        G.rng = np.random.default_rng(4)
+        cfg = {'phi': L.zeros(0), 'n': n.copy()}
+        for _ in range(2000):
+            cfg = G.step(cfg)
+            if G.accepted:
+                break
+        assert G.accepted > 0, f'{name}: no clean loop accepted in 2000 proposals'
+        assert np.any(np.asarray(cfg['n']) != np.asarray(n)), f'{name}: configuration unchanged'
+        assert S.valid(cfg), f'{name}: escaped to an invalid configuration'
