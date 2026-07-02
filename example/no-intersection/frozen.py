@@ -42,6 +42,12 @@ six-plane  (``--construction six-plane``)
     a superposition of single-pair configs --- here even F_01 depends on two
     coordinates (x_0, x_1), not one.
 
+    Pf(A) = 0 is exactly the condition that A be *decomposable* --- A = u ∧ v for two
+    4-vectors (the Klein/Plücker quadric), i.e. F is a single vortex 2-plane that does
+    not self-intersect.  Over the integers every Pf(A)=0 matrix is some u ∧ v, so
+    passing ``--u``/``--v`` lands on an integer Pf(A)=0 point automatically instead of
+    hand-solving the quadratic for the six entries ``--a01``..``--a23``.
+
 Both families are infinite (scale a, b, or move along the Pf(A) = 0 quadric in Z^6)
 and neither exhausts the frozen set; they are the simplest closed forms we know.
 
@@ -191,6 +197,20 @@ def pfaffian(A):
     q(x) = 2(-1)^{Σx} Pf(A) for the six-plane ansatz, so Pf(A) = 0 ⇔ q ≡ 0.
     """
     return A[(0, 1)] * A[(2, 3)] - A[(0, 2)] * A[(1, 3)] + A[(0, 3)] * A[(1, 2)]
+
+
+def wedge(u, v):
+    r"""A = u ∧ v, i.e. A_{μν} = u_μ v_ν − u_ν v_μ.
+
+    Pf(A) = 0 iff A is *decomposable* (a simple, rank-2 2-form) --- the Klein/Plücker
+    quadric --- and over the integers every such A is exactly some u ∧ v with integer
+    u, v.  So passing two integer 4-vectors is the way to land *exactly* on integer
+    points of the Pf(A) = 0 surface (unlike rounding a real solution, which essentially
+    never has Pf exactly 0).  Physically A = u ∧ v is a single vortex 2-plane
+    span{u, v}: F ∧ F = 0 because the sheet does not self-intersect.
+    """
+    return {(mu, nu): int(u[mu] * v[nu] - u[nu] * v[mu])
+            for mu in range(4) for nu in range(mu + 1, 4)}
 
 
 def build_six_plane(L, A):
@@ -374,6 +394,11 @@ if __name__ == '__main__':
     parser.add_argument('--a12', type=int, default=1, metavar='INT', help='[six-plane] A_12')
     parser.add_argument('--a13', type=int, default=1, metavar='INT', help='[six-plane] A_13')
     parser.add_argument('--a23', type=int, default=1, metavar='INT', help='[six-plane] A_23')
+    parser.add_argument('--u', default=None, metavar='U0,U1,U2,U3',
+                        help='[six-plane] a 4-vector; with --v sets A = u∧v (any integer '
+                             'u,v give Pf(A)=0 automatically, so you need not solve it by hand)')
+    parser.add_argument('--v', default=None, metavar='V0,V1,V2,V3',
+                        help='[six-plane] the second 4-vector; A_{μν} = u_μ v_ν − u_ν v_μ')
 
     args = parser.parse_args()
     if args.N < 2:
@@ -395,11 +420,23 @@ if __name__ == '__main__':
         report(n)
 
     else:  # six-plane
-        # Assemble the antisymmetric matrix A and require Pf(A) = 0 up front.
-        A = {
-            (0, 1): args.a01, (0, 2): args.a02, (0, 3): args.a03,
-            (1, 2): args.a12, (1, 3): args.a13, (2, 3): args.a23,
-        }
+        # Assemble the antisymmetric matrix A.  Two ways to specify it:
+        #   --u/--v : A = u∧v, which is decomposable so Pf(A)=0 for *any* integer u,v;
+        #   --a01.. : the six entries directly (you must arrange Pf(A)=0 yourself).
+        if args.u is not None or args.v is not None:
+            if args.u is None or args.v is None:
+                parser.error('--u and --v must be given together')
+            u = [int(t) for t in args.u.split(',')]
+            v = [int(t) for t in args.v.split(',')]
+            if len(u) != 4 or len(v) != 4:
+                parser.error('--u and --v each take four comma-separated integers')
+            A = wedge(u, v)
+            print(f"six-plane from A = u∧v:  u={u}, v={v}")
+        else:
+            A = {
+                (0, 1): args.a01, (0, 2): args.a02, (0, 3): args.a03,
+                (1, 2): args.a12, (1, 3): args.a13, (2, 3): args.a23,
+            }
         pf = pfaffian(A)
         print("six-plane:  " + "  ".join(f"A_{mu}{nu}={v}" for (mu, nu), v in A.items()))
         print(f"Pf(A) = A01·A23 - A02·A13 + A03·A12 = "
