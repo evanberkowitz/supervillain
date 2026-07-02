@@ -89,13 +89,30 @@ def test_wrapping_loop_update_preserves_validity():
         assert S.valid(cfg)
 
 
+def test_planar_flux_update_requires_no_intersections_action():
+    L = Lattice(4, 5)
+    V = supervillain.action.Villain(L, kappa=0.3, W=1)
+    with pytest.raises(ValueError):
+        supervillain.generator.no_intersection.PlanarFluxUpdate(V)
+
+
+def test_planar_flux_update_preserves_validity():
+    S = _action()
+    gen = supervillain.generator.no_intersection.PlanarFluxUpdate(S)
+    cfg = _cold(S)
+    for _ in range(5):
+        cfg = gen.step(cfg)
+        assert S.valid(cfg)
+        assert cfg['n'].shape == (S.Lattice.D,) + S.Lattice.dims
+
+
 def test_hammer_includes_constraint_preserving_villain_updates():
     # The Hammer reuses the Villain ExactUpdate and CohomologyUpdate, which change n
     # by a closed form and so leave dn (hence q = dn∧dn) untouched.
     S = _action()
     H = str(supervillain.generator.no_intersection.Hammer(S))
-    for name in ('SiteUpdate', 'ExactUpdate', 'CohomologyUpdate',
-                 'ConstrainedLinkUpdate', 'WrappingLoopUpdate', 'IntersectionWorm'):
+    for name in ('SiteUpdate', 'ExactUpdate', 'CohomologyUpdate', 'ConstrainedLinkUpdate',
+                 'WrappingLoopUpdate', 'PlanarFluxUpdate', 'IntersectionWorm'):
         assert name in H
 
 

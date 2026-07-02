@@ -3,6 +3,7 @@
 from .worm import IntersectionWorm
 from .link import ConstrainedLinkUpdate
 from .wrapping import WrappingLoopUpdate
+from .planar import PlanarFluxUpdate
 
 import supervillain.generator.villain as _villain
 import supervillain.generator.combining as _combining
@@ -25,7 +26,9 @@ def Hammer(S):
     :class:`~supervillain.generator.villain.ExactUpdate` moves the exact part of $n$,
     while the :class:`~supervillain.generator.villain.CohomologyUpdate` changes the
     torus-wrapping holonomy of $n$ at fixed $dn$ --- a sector the other $n$-updates do
-    not reach.
+    not reach.  Finally the :class:`PlanarFluxUpdate` contributes a large,
+    whole-lattice tunneling move (deposit a decomposable flux sheet), complementing the
+    local loop and worm moves.
 
     Parameters
     ----------
@@ -41,5 +44,6 @@ def Hammer(S):
         _villain.CohomologyUpdate(S),
         ConstrainedLinkUpdate(S),
         WrappingLoopUpdate(S),
+        PlanarFluxUpdate(S),
         IntersectionWorm(S),
     ))
