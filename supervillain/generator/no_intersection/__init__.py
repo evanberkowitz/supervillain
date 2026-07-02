@@ -3,6 +3,7 @@
 from .worm import IntersectionWorm
 from .link import ConstrainedLinkUpdate
 from .wrapping import WrappingLoopUpdate
+from .string import StringWorm
 
 import supervillain.generator.villain as _villain
 import supervillain.generator.combining as _combining

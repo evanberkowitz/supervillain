@@ -340,3 +340,66 @@ def test_wrapping_loop_update_escapes_frozen_configs():
         assert G.accepted > 0, f'{name}: no clean loop accepted in 2000 proposals'
         assert np.any(np.asarray(cfg['n']) != np.asarray(n)), f'{name}: configuration unchanged'
         assert S.valid(cfg), f'{name}: escaped to an invalid configuration'
+
+
+def test_string_worm_requires_no_intersections_action():
+    L = Lattice(4, 5)
+    V = supervillain.action.Villain(L, kappa=0.3, W=1)
+    with pytest.raises(ValueError):
+        supervillain.generator.no_intersection.StringWorm(V)
+
+
+def test_string_worm_preserves_validity():
+    S = _action(kappa=0.15, N=4)
+    w = supervillain.generator.no_intersection.StringWorm(S)
+    w.rng = np.random.default_rng(5)
+    cfg = _cold(S)
+    for _ in range(30):
+        cfg = w.step(cfg)
+        assert S.valid(cfg)
+
+
+def test_string_worm_valid_on_frozen_texture():
+    # The staggered frozen texture is a local action minimum; the worm must sample
+    # around it without ever emitting an invalid configuration.
+    L = Lattice(4, 4)
+    S = supervillain.action.NoIntersections(L, kappa=0.15)
+    frozen = _frozen_configs(L)['single-pair']
+    w = supervillain.generator.no_intersection.StringWorm(S)
+    w.rng = np.random.default_rng(6)
+    cfg = {'phi': L.zeros(0), 'n': frozen}
+    for _ in range(50):
+        cfg = w.step(cfg)
+        assert S.valid(cfg)
+
+
+def test_string_worm_emits_changed_configurations():
+    # At moderate kappa the worm must actually deposit closed strings sometimes ---
+    # it is not a null update.
+    S = _action(kappa=0.12, N=4)
+    w = supervillain.generator.no_intersection.StringWorm(S)
+    w.rng = np.random.default_rng(7)
+    cfg = _cold(S)
+    for _ in range(300):
+        cfg = w.step(cfg)
+    assert w.emitted_changed > 0
+    assert S.valid(cfg)
+
+
+def test_activity_diagnostic():
+    # link_activity measures the mean |change| between consecutive configurations;
+    # site_activity reduces over the direction axis.
+    from supervillain.analysis import link_activity, site_activity
+    L = Lattice(4, 3)
+    a = L.zeros(1, dtype=int)
+    b = a.copy(); b[0, 0, 0, 0, 0] = 2
+    c = b.copy(); c[1, 1, 0, 0, 0] = -1
+    stream = [{'n': a}, {'n': b}, {'n': c}]
+    act = link_activity(stream)
+    assert act.shape == a.shape
+    assert act[0, 0, 0, 0, 0] == 1.0    # changed by 2 in one of two differences
+    assert act[1, 1, 0, 0, 0] == 0.5
+    assert act.sum() == 1.5
+    site = site_activity(stream)
+    assert site.shape == L.dims
+    assert site[0, 0, 0, 0] == 1.0 and site[1, 0, 0, 0] == 0.5
