@@ -144,17 +144,16 @@ def test_intersection_intersection_normalized_is_one_at_origin():
 
 
 def test_intersection_worm_library_covers_all_directions():
-    # The enriched library holds clean shapes for every one of the 8 unit dipole
-    # separations, with equal bucket sizes by symmetry, and is strictly richer than
-    # the 3-shapes-per-positive-direction library of the single-orbit construction.
+    # The library holds clean shapes for every one of the 8 unit dipole separations
+    # with equal bucket sizes by symmetry.  The orbit expansion of the 93 seed
+    # classes in moves.py must reproduce exactly the 828 moves per direction found
+    # by the exhaustive enumeration in example/no-intersection-move-search.py.
     S = _action()
     worm = supervillain.generator.no_intersection.IntersectionWorm(S)
     buckets = {sep: len(shapes) for sep, shapes in worm._library.items()}
     units = {tuple(int(k == mu) * s for k in range(4)) for mu in range(4) for s in (+1, -1)}
     assert set(buckets) == units
-    sizes = set(buckets.values())
-    assert len(sizes) == 1
-    assert sizes.pop() >= 12
+    assert set(buckets.values()) == {828}
 
 
 def test_intersection_worm_local_dq_matches_global():

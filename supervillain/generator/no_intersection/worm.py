@@ -15,18 +15,18 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-# Known clean elementary moves, expressed as (direction, site, coefficient) triples with
-# the +1 (head) defect landing at ``_SEED_HEAD``.  The full move library is the orbit of
-# these seeds under the hyperoctahedral group (all 384 signed axis permutations) and
-# global negation, re-anchored so the +1 defect defines the head.
-_SEED_HEAD = (1, 1, 0, 2)
-_SEEDS = (
-    (
-        (0, (1, 1, 1, 1), +1),
-        (0, (1, 1, 1, 2), +1),
-        (1, (2, 1, 1, 2), +1),
-    ),
-)
+# The clean elementary moves: one representative per orbit class of every change of
+# at most 3 links with coefficients ±1 whose Δq on an empty background is a clean unit
+# dipole, found by the exhaustive search in example/no-intersection-move-search.py and
+# stored head-relative (the +1 defect at the origin) in the auto-generated moves.py.
+# The full move library is the orbit of these seeds under the hyperoctahedral group
+# (all 384 signed axis permutations) and global negation, re-anchored so the +1 defect
+# defines the head.
+from supervillain.generator.no_intersection.moves import SEEDS as _SEEDS
+
+# The library is a pure geometric object (head-relative templates, independent of the
+# lattice size and the action), so it is built once per process and shared.
+_LIBRARY_CACHE = None
 
 
 class IntersectionWorm(ReadWriteable, Generator):
@@ -51,12 +51,16 @@ class IntersectionWorm(ReadWriteable, Generator):
 
     .. note::
 
-        The move library is the orbit of the seed shapes in ``_SEEDS`` under all 384
-        signed axis permutations and global negation, re-anchored so that the +1
-        defect sits on the head.  Not every shape offers a clean step on every trail;
-        stalled proposals are simply rejected (the head stays put), which is
-        detailed-balance safe.  Additional seed shapes extend the library
-        automatically.  See :ref:`the No-Intersection model <no_intersection>`.
+        The move library contains **every** elementary clean move: all changes of at
+        most 3 links with coefficients $\pm 1$ whose $\Delta q$ on an empty
+        background is a clean unit dipole, as enumerated exhaustively by
+        ``example/no-intersection-move-search.py`` (93 orbit classes, 828 shapes per
+        direction) and expanded from the seeds in the auto-generated ``moves.py``
+        under all 384 signed axis permutations and global negation, re-anchored so
+        that the +1 defect sits on the head.  Not every shape offers a clean step on
+        every trail; stalled proposals are simply rejected (the head stays put),
+        which is detailed-balance safe.  See :ref:`the No-Intersection model
+        <no_intersection>`.
 
     .. note::
 
@@ -129,57 +133,54 @@ class IntersectionWorm(ReadWriteable, Generator):
 
     def _build_library(self):
         r"""
-        The orbit of :data:`_SEEDS` under the 384 signed axis permutations and global
-        negation, bucketed by the dipole separation (+1 site minus −1 site, a unit
-        vector) and re-anchored so the +1 defect sits at the origin of the template's
-        relative coordinates.  Each entry is a tuple of ``(direction, relative_site,
-        coefficient)`` triples measured from the head.
+        The orbit of the ``moves.SEEDS`` under the 384 signed axis permutations and
+        global negation, bucketed by the dipole separation (+1 site minus −1 site, a
+        unit vector) and re-anchored so the +1 defect sits at the origin of the
+        template's relative coordinates.  Each entry is a tuple of ``(direction,
+        relative_site, coefficient)`` triples measured from the head.
+
+        The candidates are validated with the local $\Delta q$ on an empty scratch
+        lattice: not every transform is an exact lattice symmetry of the wedge
+        (single-axis reflections pick up shifts, like ★★), so only the candidates
+        whose dipole stays clean are kept.  The result is cached per process.
         """
-        from supervillain.observable.topological import _topological_charge
+        global _LIBRARY_CACHE
+        if _LIBRARY_CACHE is not None:
+            return _LIBRARY_CACHE
 
         # A scratch lattice comfortably larger than any template, so that placing a
         # template near the middle cannot wrap around the torus.
         scratch = Lattice(4, 8)
         anchor = (4, 4, 4, 4)
-
-        # Relative form of the seeds (links measured from the seed's head).
-        seeds_rel = tuple(
-            tuple((mu, tuple(s[k] - _SEED_HEAD[k] for k in range(4)), c) for mu, s, c in seed)
-            for seed in _SEEDS
-        )
+        pairs = wedge_pairs(scratch)
+        empty = np.zeros((6,) + scratch.dims, dtype=int)
 
         def dipole(template):
             '''The (+1 site, -1 site) of the template placed at ``anchor`` on an empty lattice.'''
-            n = scratch.zeros(1, dtype=int)
+            change = {}
             for mu, rs, c in template:
-                site = tuple((anchor[k] + rs[k]) % scratch.N for k in range(4))
-                n[(mu,) + site] += c
-            q = np.asarray(_topological_charge(scratch, n))
-            nz = np.argwhere(q != 0)
-            if len(nz) != 2:
+                link = (mu,) + tuple((anchor[k] + rs[k]) % scratch.N for k in range(4))
+                change[link] = change.get(link, 0) + c
+            dq = local_dq(scratch, empty, {l: c for l, c in change.items() if c != 0}, pairs=pairs)
+            if len(dq) != 2:
                 return None
-            defects = {tuple(int(x) for x in h[1:]): int(q[tuple(h)]) for h in nz}
-            (a, va), (b, vb) = sorted(defects.items())
+            (a, va), (b, vb) = sorted(dq.items())
             if {va, vb} != {1, -1}:
                 return None
             return (a, b) if va == 1 else (b, a)
 
         library = {}
         seen = set()
-        for seed_rel in seeds_rel:
+        for seed in _SEEDS:
             for perm in permutations(range(4)):
                 for flips in product((1, -1), repeat=4):
                     for negate in (False, True):
-                        template = self._transformed(seed_rel, perm, flips, negate)
+                        template = self._transformed(seed, perm, flips, negate)
                         if template in seen:
                             continue
                         seen.add(template)
                         pm = dipole(template)
                         if pm is None:
-                            # Not every transform is an exact lattice symmetry of the
-                            # wedge: single-axis reflections pick up shifts (like ★★)
-                            # and need not preserve dipole cleanliness.  Keep only the
-                            # candidates that do.
                             continue
                         plus, minus = pm
                         sep = tuple(int(p - m) for p, m in zip(plus, minus))
@@ -191,10 +192,10 @@ class IntersectionWorm(ReadWriteable, Generator):
                             (mu, tuple(rs[k] - shift[k] for k in range(4)), c)
                             for mu, rs, c in template
                         ))
-                        bucket = library.setdefault(sep, [])
-                        if rebased not in bucket:
-                            bucket.append(rebased)
-        return {sep: tuple(shapes) for sep, shapes in library.items()}
+                        library.setdefault(sep, set()).add(rebased)
+
+        _LIBRARY_CACHE = {sep: tuple(sorted(shapes)) for sep, shapes in library.items()}
+        return _LIBRARY_CACHE
 
     # ------------------------------------------------------------------ helpers
 
