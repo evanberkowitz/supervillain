@@ -26,7 +26,7 @@ _SEED = (
 )
 
 
-class ThetaWorm(ReadWriteable, Generator):
+class IntersectionWorm(ReadWriteable, Generator):
     r"""
     Prokof'ev–Svistunov worm for the $q = dn\wedge dn = 0$ constraint in 4D.
 
@@ -36,7 +36,9 @@ class ThetaWorm(ReadWriteable, Generator):
     restored everywhere and the configuration is emitted into the Markov chain.
 
     As the head moves we tally the head$-$tail displacement histogram that yields the
-    :class:`Theta_Theta` correlator $\langle e^{i\theta_h} e^{-i\theta_t}\rangle$.
+    ``Intersection_Intersection`` correlator $\langle e^{i\theta_h} e^{-i\theta_t}\rangle$ ---
+    the two-point function of the operator $e^{i\theta}$ that inserts a unit of
+    vortex-sheet self-intersection $q = dn\wedge dn$.
 
     .. warning::
 
@@ -60,9 +62,9 @@ class ThetaWorm(ReadWriteable, Generator):
 
     def __init__(self, S):
         if not isinstance(S, supervillain.action.NoIntersections):
-            raise ValueError('ThetaWorm requires a NoIntersections action.')
+            raise ValueError('IntersectionWorm requires a NoIntersections action.')
         if S.Lattice.D != 4:
-            raise ValueError('The θ worm is only implemented for D = 4.')
+            raise ValueError('IntersectionWorm is only implemented for D = 4.')
 
         self.Action = S
         self.Lattice = S.Lattice
@@ -76,7 +78,7 @@ class ThetaWorm(ReadWriteable, Generator):
         self._library = self._build_library()
 
     def __str__(self):
-        return 'ThetaWorm'
+        return 'IntersectionWorm'
 
     # ------------------------------------------------------------------ library
 
@@ -215,10 +217,10 @@ class ThetaWorm(ReadWriteable, Generator):
     # ------------------------------------------------------------------ observables
 
     def inline_observables(self, steps):
-        r"""Storage for the inline ``Theta_Theta`` histogram and ``Worm_Length``."""
+        r"""Storage for the inline ``Intersection_Intersection`` histogram and ``Worm_Length``."""
         L = self.Lattice
         return {
-            'Theta_Theta': Batch(steps, shape=L.dims),
+            'Intersection_Intersection': Batch(steps, shape=L.dims),
             'Worm_Length': Batch(steps, shape=(), dtype=float),
         }
 
@@ -253,7 +255,7 @@ class ThetaWorm(ReadWriteable, Generator):
                 wl = displacements.sum()
                 self.worm_lengths.append(wl)
                 new_n = Form(n, degree=1, lattice=L)
-                return configuration | {'n': new_n, 'Theta_Theta': displacements, 'Worm_Length': wl}
+                return configuration | {'n': new_n, 'Intersection_Intersection': displacements, 'Worm_Length': wl}
 
             # Otherwise propose a uniformly random one of the 2D head moves.
             mu = int(self.rng.integers(0, D))
@@ -271,7 +273,7 @@ class ThetaWorm(ReadWriteable, Generator):
             # If no clean library move exists this step, the proposal is simply
             # rejected and the head stays put.
 
-            # Tally the head−tail displacement for the Theta_Theta correlator.
+            # Tally the head−tail displacement for the Intersection_Intersection correlator.
             disp = tuple((head[k] - tail[k]) % N for k in range(D))
             displacements[disp] += 1
 

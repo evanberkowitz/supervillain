@@ -25,36 +25,36 @@ def test_charge_matches_topological_charge():
     assert np.array_equal(charge(n), np.asarray(_topological_charge(L, n)))
 
 
-def test_theta_worm_requires_no_intersections_action():
+def test_intersection_worm_requires_no_intersections_action():
     L = Lattice(4, 5)
     V = supervillain.action.Villain(L, kappa=0.3, W=1)
     with pytest.raises(ValueError):
-        supervillain.generator.no_intersection.ThetaWorm(V)
+        supervillain.generator.no_intersection.IntersectionWorm(V)
 
 
-def test_theta_worm_requires_D4():
+def test_intersection_worm_requires_D4():
     # NoIntersections cannot even be built in D != 4, so a Villain stand-in in D=2
     # exercises the worm's own dimensional guard.
     L = Lattice(2, 4)
     V = supervillain.action.Villain(L, kappa=0.3, W=1)
     with pytest.raises(ValueError):
-        supervillain.generator.no_intersection.ThetaWorm(V)
+        supervillain.generator.no_intersection.IntersectionWorm(V)
 
 
-def test_theta_worm_preserves_validity_and_closes():
+def test_intersection_worm_preserves_validity_and_closes():
     S = _action()
-    worm = supervillain.generator.no_intersection.ThetaWorm(S)
+    worm = supervillain.generator.no_intersection.IntersectionWorm(S)
     out = worm.step(_cold(S))
     assert S.valid(out)
-    assert np.asarray(out['Theta_Theta']).shape == S.Lattice.dims
+    assert np.asarray(out['Intersection_Intersection']).shape == S.Lattice.dims
     assert np.isscalar(out['Worm_Length']) or np.asarray(out['Worm_Length']).shape == ()
 
 
-def test_theta_worm_inline_observable_keys():
+def test_intersection_worm_inline_observable_keys():
     S = _action()
-    worm = supervillain.generator.no_intersection.ThetaWorm(S)
+    worm = supervillain.generator.no_intersection.IntersectionWorm(S)
     obs = worm.inline_observables(3)
-    assert set(obs) == {'Theta_Theta', 'Worm_Length'}
+    assert set(obs) == {'Intersection_Intersection', 'Worm_Length'}
 
 
 def test_constrained_link_update_requires_no_intersections_action():

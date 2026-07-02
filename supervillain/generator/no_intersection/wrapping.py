@@ -58,7 +58,7 @@ class WrappingLoopUpdate(ReadWriteable, Generator):
     Boltzmann factor $e^{-\Delta S}$ as accepting the whole loop at once.  The incremental
     dressing buys nothing where there is no choice to make, so this update proposes the
     entire loop and tests it once.  (Where the background *does* offer branching — generic
-    configurations — the incremental worm :class:`ThetaWorm` is the appropriate tool; the
+    configurations — the incremental worm :class:`IntersectionWorm` is the appropriate tool; the
     two are complementary.)
 
     Proposal and detailed balance.
@@ -83,7 +83,7 @@ class WrappingLoopUpdate(ReadWriteable, Generator):
     simultaneously available, and the plain acceptance $\min(1, e^{-\Delta S})$ — with
     $\Delta S$ the change in the Villain action $\frac{\kappa}{2}(d\phi - 2\pi n)^2$ —
     satisfies detailed balance.  (This is the same symmetry argument as the one
-    uniformly-chosen shape in :class:`ThetaWorm`.)
+    uniformly-chosen shape in :class:`IntersectionWorm`.)
 
     .. warning::
 
@@ -96,7 +96,7 @@ class WrappingLoopUpdate(ReadWriteable, Generator):
         The constraint is verified by a global ``charge`` recompute per proposal
         ($O(\text{volume})$); only the touched links contribute to $\Delta S$.  A local
         $\Delta q$ check would be cheaper but is left for a production version, matching
-        the reference-implementation choices in :class:`ThetaWorm` and
+        the reference-implementation choices in :class:`IntersectionWorm` and
         :class:`ConstrainedLinkUpdate`.
 
     .. note::
@@ -113,7 +113,7 @@ class WrappingLoopUpdate(ReadWriteable, Generator):
         flux-reducing kernel moves (a greedy descent) *does* walk a frozen configuration
         back to the mobile sector; reproducing that with a symmetric, state-independent
         proposal — or carrying the Hastings ratio for a state-dependent one — is the open
-        efficiency item, exactly analogous to enriching :class:`ThetaWorm`'s move library.
+        efficiency item, exactly analogous to enriching :class:`IntersectionWorm`'s move library.
         (In a cold-start physics run the frozen configurations are unreachable anyway, so
         this update's correctness on the $F = 0$ sector is what matters in practice.)
     """

@@ -48,7 +48,7 @@ Leibniz rule and $d^2 = 0$ both hold), so $q$ is the divergence of the 3-form
 current $J$ and is locally conserved and integer-valued.  A localized closed
 $F = dn$ carries zero total charge $Q = \sum_x q_x$, so violations of the
 constraint always come as a $+1$ / $-1$ dipole --- the fact that the
-:class:`~supervillain.generator.no_intersection.ThetaWorm` exploits.
+:class:`~supervillain.generator.no_intersection.IntersectionWorm` exploits.
 
 Generators
 ==========
@@ -93,13 +93,13 @@ and that we may directly path-integrate out the Lagrange multiplier $\theta$ in 
 
    Z = \sum\hspace{-1.33em}\int D\phi\; Dn\; e^{-S[\phi, n]} \prod_x [(dn \wedge dn)_x = 0].
 
-Just as the :class:`~.Vortex_Vortex` correlator is the object conjugate to the Villain winding constraint, the object conjugate to the no-intersection constraint is the two-point function of the charge-insertion operator $e^{i\theta}$,
+The two-point function of the charge-insertion operator $e^{i\theta}$ 
 
 .. math ::
 
-   \Theta_{x,y} = \left\langle e^{i(\theta_x - \theta_y)} \right\rangle,
+   \Theta_{x,y} = \left\langle e^{i(\theta_x - \theta_y)} \right\rangle
 
-which poses the same tricky problem to evaluate: if we sample configurations of $Z$ we integrate $\theta$ out first and can no longer see the observable.
+is conjugate to the no-intersection constraint and poses the same tricky problem to evaluate: if we sample configurations of $Z$ we integrate $\theta$ out first and can no longer see the field needed for the obvious way to compute the observable.
 Instead we absorb the insertion into the action *before* path-integrating out $\theta$.
 Because $\theta_x$ multiplies $q_x = (dn \wedge dn)_x$, integrating $\theta_x$ against the extra $e^{i\theta_x}$ shifts the constraint at the insertions
 
@@ -111,7 +111,8 @@ Because $\theta_x$ multiplies $q_x = (dn \wedge dn)_x$, integrating $\theta_x$ a
    \Theta_{x,y} = \frac{1}{Z} \sum\hspace{-1.33em}\int D\phi\; Dn\; e^{-S[\phi, n]} \prod_p [(dn \wedge dn)_p = \delta_{px} - \delta_{py}]
 
 where now $x$ and $y$ label hypercubes: the insertion demands exactly one unit of topological-charge density at $x$ and a compensating unit at $y$.
-Constructing such a configuration by hand hits exactly the overlap problem of :ref:`the Villain vortex correlator <worm constraint>`---we must lay down a whole sheet of $F = dn$ connecting $y$ to $x$, and unless it threads the valley of the action the change in action is enormous and the correlator is tiny except on rare configurations.
+Constructing such an overlay by hand, as in the :class:`~supervillain.observable.Spin_Spin`'s taxicab Villain-frame implementation, hits a similar overlap problem: we must lay down a whole sheet of $F = dn$ connecting $y$ to $x$, and unless it threads the valley of the action the change in action is enormous and the correlator is tiny except on rare configurations.
+In fact it's much more challenging in this model because the $dn \wedge dn$ constraint is quadratic in $n$ and the overlay must be a sheet of $n$s that satisfies the constraint.
 
 Following Prokof'ev and Svistunov :cite:`PhysRevLett.87.160601` we instead introduce defects where the constraint may be broken, propagate them, and celebrate when they meet.
 Consider the mixed regular+path integral $G$ with unspecified normalization $N$ (which cancels from everything of interest)
@@ -126,7 +127,7 @@ To insert a worm we drop the head and tail on the same randomly-chosen hypercube
 Moving the head then means changing $q$ on both the departure and destination cells---restoring the constraint at the former and breaking it at the latter---which, as described above, requires a coordinated three-link change of $n$ that extends the dragged sheet of $F = dn$.
 Each such move changes the Villain action and so is Metropolis-tested; when the head returns to the tail we may emit the configuration back into the $Z$ chain.
 
-Just as for the vortex correlator, notice that
+Notice that
 
 .. math ::
    :name: theta worm histogram
@@ -135,12 +136,9 @@ Just as for the vortex correlator, notice that
 
 where the expectation values are over configurations drawn from $G$ (not $Z$!).
 If we draw from the larger space of $G$ configurations and histogram the head$-$tail displacement, normalizing that histogram by its value at zero displacement recovers $\Theta_{x,y}$.
-We accumulate the histogram as the worm evolves and save it inline with $\phi$ and $n$ as ``Theta_Theta`` (alongside the ``Worm_Length``), remembering to normalize any :class:`~.DerivedQuantity` built from it by its value at the origin---exactly as for :class:`~.Vortex_Vortex`.
+We accumulate the histogram as the worm evolves and save it inline with $\phi$ and $n$ as ``Intersection_Intersection`` (alongside the ``Worm_Length``), remembering to normalize any :class:`~.DerivedQuantity` built from it by its value at the origin---exactly as for :class:`~.Vortex_Vortex`.
 
-Finally, note that $\Theta_{x,y} = \langle e^{i(\theta_x - \theta_y)}\rangle$ is the correlator of the field *conjugate* to the charge density---the disorder correlator dual to the density--density correlator :class:`~.Topological_Topological` $= \langle q_x q_y\rangle_c$.
-The worm therefore supplies information complementary to what the directly-binned :class:`~.TopologicalTwoPoint` measures; it is not simply that observable up to a normalization.
-
-.. autoclass:: supervillain.generator.no_intersection.ThetaWorm
+.. autoclass:: supervillain.generator.no_intersection.IntersectionWorm
    :members:
 
 .. autoclass:: supervillain.generator.no_intersection.WrappingLoopUpdate

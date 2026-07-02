@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from .worm import ThetaWorm
+from .worm import IntersectionWorm
 from .link import ConstrainedLinkUpdate
 from .wrapping import WrappingLoopUpdate
 
@@ -14,7 +14,7 @@ def Hammer(S):
     No-Intersection generators.  It may change from version to version as new
     generators become available or get improved.
 
-    The :class:`ThetaWorm`, :class:`ConstrainedLinkUpdate`, and
+    The :class:`IntersectionWorm`, :class:`ConstrainedLinkUpdate`, and
     :class:`WrappingLoopUpdate` all update $n$ only; a
     :class:`~supervillain.generator.villain.SiteUpdate` is included to update
     $\phi$, so the combination is ergodic.
@@ -31,5 +31,5 @@ def Hammer(S):
         _villain.SiteUpdate(S),
         ConstrainedLinkUpdate(S),
         WrappingLoopUpdate(S),
-        ThetaWorm(S),
+        IntersectionWorm(S),
     ))
