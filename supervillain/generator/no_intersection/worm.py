@@ -87,23 +87,6 @@ class IntersectionWorm(ReadWriteable, Generator):
         on its own; at least combine it with a $\varphi$-update such as
         :class:`~.villain.SiteUpdate`.
 
-    .. note::
-
-        The move library holds the axis-permutation orbits of two clean move shapes ---
-        the 3-link orthogonal :data:`_SEED` and the 2-link diagonal :data:`_DIAG_SEED` ---
-        which still do not always offer a clean step on every trail.  When the drawn shape
-        is not clean the proposal is rejected and the head stays put.  Like a Metropolis
-        rejection of a clean shape, this is a genuine *self-loop* of the chain, and it is
-        **counted** in the head$-$tail histogram: self-loops leave detailed balance between
-        distinct states untouched, so the histogram still samples the stationary marginal
-        $\propto G(r)$.  Dropping these stay-puts would instead reweight $G(r)$ by the
-        configuration-dependent fraction of clean proposals and bias the correlator.  (One
-        *could* propose only among the clean shapes and count each as a step, but that
-        asymmetric proposal would then require a Metropolis--Hastings correction; treating
-        an unclean draw as an ordinary rejection avoids it.)  Further enriching the library
-        improves efficiency and ergodicity.  See :ref:`the No-Intersection model
-        <no_intersection>`.
-
     .. danger::
 
         It's not clear to us whether this worm is an ergodic update to $n$ even with the combination of the :class:`~supervillain.generator.villain.ExactUpdate`.
@@ -332,10 +315,25 @@ class IntersectionWorm(ReadWriteable, Generator):
                         n[link] += c
                     q_now = charge(n)
                     head = target
-            # If no clean library move exists this step, the proposal is simply
-            # rejected and the head stays put.
+            # The library does not always offer a clean step on every trail, so the drawn
+            # shape may be unclean: its Δn would put charge outside the valid G-space (a
+            # dipole in the wrong place, or a quadrupole) instead of shifting the head's
+            # +1/-1 dipole.  That is not a special "malformed, never-happened" event -- it
+            # is a proposal into a zero-probability region, i.e. an ordinary Metropolis
+            # rejection with acceptance min(1, 0) = 0.  So, exactly like a clean-but-
+            # rejected shape, the head stays put and we fall through to the tally below.
 
             # Tally the head−tail displacement for the Intersection_Intersection correlator.
+            # We tally on EVERY step, including these stay-puts.  A rejection is a genuine
+            # self-loop of the chain, and self-loops leave detailed balance between distinct
+            # states untouched (only clean, symmetric draws move between distinct states), so
+            # the histogram still samples the stationary marginal ∝ G(r).  The estimator is a
+            # time-average whose numerator and denominator share one clock; dropping stay-puts
+            # would reweight G(r) by the configuration- and position-dependent fraction of
+            # clean proposals and bias the correlator.  (One could instead propose only among
+            # the clean shapes and count each as a step, but that proposal is asymmetric and
+            # would then require a Metropolis--Hastings |C(s)|/|C(s')| correction; the single
+            # uniform draw here avoids it.)
             disp = tuple((head[k] - tail[k]) % N for k in range(D))
             displacements[disp] += 1
 
