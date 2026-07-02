@@ -18,7 +18,7 @@ class WrappingLoopUpdate(ReadWriteable, Generator):
     $q = dn\wedge dn = 0$ constraint by adding a **closed, torus-wrapping loop of
     single-direction links** to $n$, proposed and accepted or rejected **atomically**
     (one Metropolis test on the whole loop).  It is the coordinated move that unfreezes
-    the frozen configurations described on :ref:`the model page <no_intersection>`.
+    the frozen configurations described above.
 
     Confining $\Delta n$ to a single link direction makes $\Delta q$ *linear* in
     $\Delta n$, so a clean move is one in the kernel of that linear map --- reachable
