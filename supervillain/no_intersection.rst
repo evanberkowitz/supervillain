@@ -97,13 +97,11 @@ The :class:`~supervillain.generator.no_intersection.WrappingLoopUpdate` is one s
    :show-inheritance:
 
 The companion script :source:`example/no-intersection/unfreeze.py` demonstrates that this works: starting *on* a frozen configuration, interleaving :class:`~supervillain.generator.villain.SiteUpdate`, :class:`~supervillain.generator.no_intersection.WrappingLoopUpdate`, and :class:`~supervillain.generator.no_intersection.ConstrainedLinkUpdate` leaves the frozen sector --- the wrapping loops open up single-link moves, the single-link sweep fires, and the valid-move count cascades.
-Ergodicity here is a statement about the *connectivity* of the moves, not their acceptance rate: it is cleanest to see at $\kappa = 0$, where every constraint-preserving move is accepted, so the trajectory traces exactly which configurations the moves connect.
-At physical $\kappa$ the same moves keep nonzero probability, so the combined chain is still ergodic; the low acceptance of the escape moves is an autocorrelation cost, not an ergodicity failure.
 
 A complementary coordinated move deposits a whole *sheet* of flux at once.
 Recall that $\mathrm{Pf}(A) = 0$ is exactly the condition that $A$ be *decomposable* --- $A = u \wedge v$ for two 4-vectors, a single vortex plane that does not self-intersect --- and that over the integers *any* $u, v$ give such an $A$.
 The :class:`~supervillain.generator.no_intersection.PlanarFluxUpdate` proposes the staggered sheet $F_{\mu\nu}(x) = A_{\mu\nu}(-1)^{(x-t)_\mu + (x-t)_\nu}$ with $u, v \in \{-1,0,1\}^4$ and a random anchor $t$, verifies it keeps $q = 0$, and Metropolis-tests it.
-Because it changes $F$ over the whole lattice it makes large jumps --- a tunneling move well matched to the sheet-like frozen sector (a frozen configuration is itself such a sheet) --- though that same size makes its acceptance low at physical $\kappa$.
+Because it changes $F$ over the whole lattice it makes large jumps --- a tunneling move well matched to the sheet-like frozen sector (a frozen configuration is itself such a sheet) --- though that same size makes its acceptance low at nonzero $\kappa$.
 
 .. autoclass:: supervillain.generator.no_intersection.PlanarFluxUpdate
    :members:

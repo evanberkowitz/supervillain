@@ -30,8 +30,7 @@ class WrappingLoopUpdate(ReadWriteable, Generator):
     single-direction loop is clean, so there this update freely deposits the wrapping
     $F$-sheets of the $F\ne 0$, $F\wedge F = 0$ sector.
 
-    **Proposal and detailed balance.**  Each step draws, from a *state-independent*
-    distribution, a closed single-direction loop --- a direction $\mu$, a loop type (a
+    Each step draws a closed single-direction loop --- a direction $\mu$, a loop type (a
     thin ring wrapping one transverse axis, or a diagonal ring wrapping two), a random
     location, and a sign $s = \pm 1$ --- verifies it preserves $q = 0$ on the current $n$
     (unclean proposals are null moves), and Metropolis-tests the clean ones against the
@@ -42,8 +41,7 @@ class WrappingLoopUpdate(ReadWriteable, Generator):
 
     .. warning::
 
-        Restricted to $D = 4$.  Updates $n$ only; combine with a $\phi$-update such as
-        :class:`~.villain.SiteUpdate`.
+        Restricted to $D = 4$.  Updates $n$ only, and is not ergodic on its own.
 
     .. note::
 

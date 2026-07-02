@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class PlanarFluxUpdate(ReadWriteable, Generator):
     r"""
-    A *global* tunneling move that deposits a single decomposable ("planar") vortex sheet
+    A global tunneling move that deposits a single decomposable ("planar") vortex sheet
     on top of the current configuration.  It proposes a $\Delta n$ whose field strength is
     the staggered constant-$A$ sheet
 
@@ -40,8 +40,7 @@ class PlanarFluxUpdate(ReadWriteable, Generator):
 
     .. warning::
 
-        Restricted to $D = 4$.  Updates $n$ only; combine with a $\phi$-update such as
-        :class:`~.villain.SiteUpdate`.
+        Restricted to $D = 4$.  Updates $n$ only, and is not ergodic on its own.
 
     .. note::
 
