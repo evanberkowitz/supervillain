@@ -6,7 +6,7 @@ import supervillain.action
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
 from supervillain.lattice import Form, d
-from supervillain.generator.no_intersection.charge import charge
+from supervillain.generator.no_intersection.charge import local_dq, wedge_pairs
 
 import logging
 logger = logging.getLogger(__name__)
@@ -93,11 +93,11 @@ class WrappingLoopUpdate(ReadWriteable, Generator):
 
     .. note::
 
-        The constraint is verified by a global ``charge`` recompute per proposal
-        ($O(\text{volume})$); only the touched links contribute to $\Delta S$.  A local
-        $\Delta q$ check would be cheaper but is left for a production version, matching
-        the reference-implementation choices in :class:`IntersectionWorm` and
-        :class:`ConstrainedLinkUpdate`.
+        The constraint is verified with the local linearized
+        $\Delta q = \Delta F\wedge F + F\wedge\Delta F + \Delta F\wedge\Delta F$
+        (see :func:`supervillain.generator.no_intersection.charge.local_dq`), which is
+        supported only near the loop, so the check costs $O(N)$ rather than
+        $O(\text{volume})$; only the touched links contribute to $\Delta S$.
 
     .. note::
 
@@ -132,6 +132,9 @@ class WrappingLoopUpdate(ReadWriteable, Generator):
         # Whether to also propose two-axis diagonal rings (needed to escape some
         # frozen configurations) in addition to single-axis rings.
         self.diagonal = diagonal
+
+        # Complementary plaquette pairs entering the local Δq.
+        self._wedge_pairs = wedge_pairs(self.Lattice)
 
         self.proposed = 0       # all proposals
         self.clean = 0          # proposals that preserved q (Δq = 0)
@@ -207,17 +210,13 @@ class WrappingLoopUpdate(ReadWriteable, Generator):
         L = self.Lattice
         n = configuration['n'].copy()
         dphi = d(configuration['phi'])
-        q_now = charge(n)
+        F = np.asarray(d(n)).astype(int)
 
         self.proposed += 1
         change = self._propose_loop()
 
-        trial = n.copy()
-        for link, c in change.items():
-            trial[link] += c
-
         # Verify the loop is clean (Δq = 0) on THIS background; else a null move.
-        if not np.array_equal(charge(trial), q_now):
+        if local_dq(L, F, change, pairs=self._wedge_pairs):
             return configuration | {'n': configuration['n']}
         self.clean += 1
 
