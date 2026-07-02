@@ -10,7 +10,7 @@ Jacobson observed that the standard Villain model supports an interesting modifi
 .. math ::
    :label: no-intersection
 
-   S = (d\varphi - 2\pi n)^2 + i \theta_p (dn \wedge dn)_p
+   S = (d\phi - 2\pi n)^2 + i \theta_p (dn \wedge dn)_p
 
 with $\theta$ a real-valued 4-form that when path-integrated enforces $dn \wedge dn = 0$.
 The physical interpretation is that vortices may not intersect in this model.
@@ -30,6 +30,7 @@ The Action
 ==========
 
 .. autoclass:: supervillain.action.NoIntersections
+   :show-inheritance:
    :members:
 
 The Topological Charge and the Constraint
@@ -139,7 +140,7 @@ The two-point function of the charge-insertion operator $e^{i\theta}$
 
    \Theta_{x,y} = \left\langle e^{i(\theta_x - \theta_y)} \right\rangle
 
-is conjugate to the no-intersection constraint and poses the same tricky problem to evaluate: if we sample configurations of $Z$ we integrate $\theta$ out first and can no longer see the field needed for the obvious way to compute the observable.
+is conjugate to the no-intersection constraint and poses a tricky problem to evaluate: if we sample configurations of $Z$ we integrate $\theta$ out first and can no longer see the field needed for the obvious way to compute the observable.
 Instead we absorb the insertion into the action *before* path-integrating out $\theta$.
 Because $\theta_x$ multiplies $q_x = (dn \wedge dn)_x$, integrating $\theta_x$ against the extra $e^{i\theta_x}$ shifts the constraint at the insertions
 
@@ -183,9 +184,9 @@ We accumulate the histogram as the worm evolves and save it inline with $\phi$ a
    :show-inheritance:
 
 The worm accumulates its head$-$tail displacement histogram inline as the
-``Intersection_Intersection`` observable, and :class:`~.Intersection_Intersection_Normalized`
+:class:`~.Intersection_Intersection` observable, and :class:`~.Intersection_Intersection_Normalized`
 divides it by its value at the origin (which can only be done after the
-bootstrap).  Both are attached to the :class:`~.NoIntersections` model only.
+bootstrap).
 
 .. autoclass:: supervillain.observable.Intersection_Intersection
    :members:
@@ -194,6 +195,17 @@ bootstrap).  Both are attached to the :class:`~.NoIntersections` model only.
 .. autoclass:: supervillain.observable.Intersection_Intersection_Normalized
    :members:
    :show-inheritance:
+
+In the Villain model constraint is linear and therefore we could construct an :class:`~.ExactUpdate` which was in the kernel of the constraint that was essentially a closed 4-plaquette :class:`~supervillain.generator.villain.ClassicWorm`.
+Similarly in the Worldline model the :class:`~supervillain.generator.worldline.PlaquetteUpdate` could be understood as the smallest nontrivial worm.
+These could be essentially proposed everywhere because they automatically preserve the constraint.
+The essential fact was that the constraint is linear.
+But here we have a quadratic constraint and therefore it is not always legal to just stamp a tight worm on an existing configuration---it could break the constraint.
+
+The Hammer
+==========
+
+We provide the :func:`~supervillain.generator.no_intersection.Hammer` function to :class:`~.Sequentially` combine the various constraint-preserving updates into a single generator.
 
 .. autofunction:: supervillain.generator.no_intersection.Hammer
 

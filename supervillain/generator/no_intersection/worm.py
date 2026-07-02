@@ -36,7 +36,7 @@ class IntersectionWorm(ReadWriteable, Generator):
     restored everywhere and the configuration is emitted into the Markov chain.
 
     As the head moves we tally the head$-$tail displacement histogram that yields the
-    ``Intersection_Intersection`` correlator $\langle e^{i\theta_h} e^{-i\theta_t}\rangle$ ---
+    :class:`~.Intersection_Intersection` correlator $\langle e^{i\theta_h} e^{-i\theta_t}\rangle$ ---
     the two-point function of the operator $e^{i\theta}$ that inserts a unit of
     vortex-sheet self-intersection $q = dn\wedge dn$.
 
