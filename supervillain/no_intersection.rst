@@ -58,13 +58,30 @@ of them with a $\phi$-update (they are bundled with a
 :class:`~supervillain.generator.villain.SiteUpdate` in the :func:`Hammer` below).
 They are pure-python reference implementations restricted to $D = 4$.
 
-.. autofunction:: supervillain.generator.no_intersection.Hammer
+How can we go about updating the fields in a way that obeys the constraint?
+First, we can use :class:`~supervillain.generator.villain.SiteUpdate` to update the $\phi$ field which doesn't directly see the constraint (its action is evaluated in exactly the same way on the constraint surface and on the whole space of unconstrained $n$s).
 
-.. autoclass:: supervillain.generator.no_intersection.ThetaWorm
-   :members:
+Second, we can use :class:`~supervillain.generator.villain.ExactUpdate` to update the $n$ field.
+Because it makes exact updates to $n$ it is guaranteed not to alter $dn$ and therefore cannot change the charge density $q$ anywhere, so it manifestly maintains the constraint.
+
+One thing you might hope is to just use the $W=1$ :class:`~supervillain.generator.villain.LinkUpdate` from the Villain model, but that will, in general, generate constraint violations.
+But we can try to do something simple: make :class:`~supervillain.generator.villain.LinkUpdate`-like proposals but reject any that violate the constraint.
 
 .. autoclass:: supervillain.generator.no_intersection.ConstrainedLinkUpdate
    :members:
 
+Just as in the modified Villain model and the worldline formulation we can think of another kind of generator that makes large, coordinate moves: worms!
+We can imagine inserting a worm with a head and tail built of exponentials of Lagrange-multiplier fields (in this case the 4-form $\theta$) on the same hypercube and allowing the head to move from hypercube to hypercube by changing $n$.
+
+However, unlike in $D=2$, where the worm lives on plaquettes and crosses a single link to move to a neighboring plaquette, the worm here must cross a 3-dimensional cube to reach a neighboring hypercube (if you prefer, think of the hypercube as a site on the dual lattice and the cube as a dual link).
+Therefore, we expect to need to make coordinated moves simultaneously updating 3 links at once to push the topological defect around.
+The fact that it is even possible to move $q$ around without a proliferation of constraint violations can be seen as a repercussion of the fact that $q=dJ$ is locally conserved.
+
+.. autoclass:: supervillain.generator.no_intersection.ThetaWorm
+   :members:
+
 .. autoclass:: supervillain.generator.no_intersection.WrappingLoopUpdate
    :members:
+
+.. autofunction:: supervillain.generator.no_intersection.Hammer
+

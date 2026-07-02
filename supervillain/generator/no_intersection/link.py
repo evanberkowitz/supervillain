@@ -14,29 +14,19 @@ logger = logging.getLogger(__name__)
 
 class ConstrainedLinkUpdate(ReadWriteable, Generator):
     r"""
-    A *local* fluctuation of $F = dn$ that preserves the $q = dn\wedge dn = 0$
-    constraint — the $\theta$-theory analog of the worldline
-    :class:`~.worldline.CoexactUpdate`.
+    In the generic Villain model the :class:`~.villain.LinkUpdate` is a local fluctuation of $n$.
+    This update scheme is exactly the same algorithm---except that it automatically rejects as 
+    invalid any update that would violate the no-intersection constraint.
 
-    In the worldline formulation `CoexactUpdate` adds $\delta(\text{one plaquette})$ to
-    $m$; because the constraint $\delta m = 0$ is *linear* and $\delta\delta = 0$, that
-    move is **automatically** constraint-preserving (it is a "one-plaquette worm").
-
-    Here the minimal local move that changes $F$ is a **single-link** change
-    $n_{\ell} \to n_{\ell} \pm 1$.  On an $F = 0$ region it creates no charge at all: its
-    self-term $d\Delta n\wedge d\Delta n$ vanishes because all six plaquettes of
-    $d\Delta n$ share the link's direction, so no two are complementary.  But the
-    constraint $F\wedge F = 0$ is **quadratic**, so on a background that already carries
+    The minimal local move that changes $F$ is a **single-link** change $n_{\ell} \to n_{\ell} \pm 1$.
+    In a $dn = F = 0$ region it creates no charge at all because the other field strengths in $dn\wedge dn$ vanish.
+    But the constraint $F\wedge F = 0$ is quadratic, so on a background that already carries
     $F \ne 0$ the cross term $d\Delta n\wedge F + F\wedge d\Delta n$ can produce charge.
-    Unlike the worldline coexact move, therefore, this update is **not** automatically
-    legal: every proposal is *verified* to keep $q = 0$ and rejected otherwise.
+    Therefore, this proposal is **not** automatically legal: every proposal must be *verified* to keep $q = 0$ and rejected otherwise.
 
-    Where the worm makes large, coordinated sheet moves (and carries a head/tail dipole
-    through intermediate $q\ne0$ states), this update makes small, purely local
-    $F$-fluctuations that never leave the constraint surface — letting $dn$ breathe
-    without a worm.
+    In a phase with a lot of vortices, most of the proposals will be rejected and this generator will be very inefficient.
 
-    .. warning::
+    .. note ::
 
         Restricted to $D = 4$.  Updates $n$ only; combine with a $\phi$-update such as
         :class:`~.villain.SiteUpdate`.
@@ -47,6 +37,17 @@ class ConstrainedLinkUpdate(ReadWriteable, Generator):
         $O(\text{volume})$ per link.  Since only the $\sim$ hypercubes adjacent to the
         link can change, a local $\Delta q$ check would be far cheaper; that
         optimization is left for a production version.
+
+    .. warning::
+
+        This update is quite slow; there is a lot of room for improvement.
+        Currently each link is visited in randomly-ordered python for loop.
+        The $dn \wedge dn$ check is $O(\text{volume})$ per link rather than local.
+        There is no numba acceleration.
+
+    .. warning ::
+
+        It seems likely, but is actually currently unclear whether this update is ergodic by itself.
     """
 
     def __init__(self, S, interval_n=1):
@@ -69,9 +70,6 @@ class ConstrainedLinkUpdate(ReadWriteable, Generator):
 
     def __str__(self):
         return 'ConstrainedLinkUpdate'
-
-    def inline_observables(self, steps):
-        return {}
 
     def step(self, cfg):
         r"""

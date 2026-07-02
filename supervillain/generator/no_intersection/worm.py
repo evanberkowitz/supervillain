@@ -41,7 +41,7 @@ class ThetaWorm(ReadWriteable, Generator):
     .. warning::
 
         Restricted to $D = 4$.  This generator updates $n$ only, so it is not ergodic
-        on its own; combine it with a $\phi$-update such as
+        on its own; at least combine it with a $\varphi$-update such as
         :class:`~.villain.SiteUpdate`.
 
     .. note::
@@ -51,6 +51,11 @@ class ThetaWorm(ReadWriteable, Generator):
         simply rejected (the head stays put), which is detailed-balance safe; enriching
         the library improves efficiency and ergodicity.  See :ref:`the No-Intersection
         model <no_intersection>`.
+
+    .. danger::
+
+        It's not clear to us whether this worm is an ergodic update to $n$ even with the combination of the :class:`~supervillain.generator.villain.ExactUpdate`.
+        In particular, we've had a hard time understanding whether it creates 2-knots.
     """
 
     def __init__(self, S):
