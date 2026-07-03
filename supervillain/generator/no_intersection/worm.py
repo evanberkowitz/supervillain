@@ -75,15 +75,27 @@ class IntersectionWorm(ReadWriteable, Generator):
     coordinated change of $n$; when the head returns to the tail the constraint is restored
     everywhere and the configuration is emitted into the Markov chain.
 
-    Different families of moves extend the sheet, each leaving the charge changed only by a
-    $\pm 1$ dipole that advances the head:
+    Several kinds of template extend the sheet, each leaving the charge changed only by a
+    $\pm 1$ dipole that advances the head.  Counting each template and its reverse separately,
+    the library carries
 
-    - 8 three-link orthogonal moves following the intuition of crossing a 3-dimensional cube,
-    - 8 two-link orthogonal moves---the surprising part is that the links do not share a corner,
-    - 12 two-link diagonal moves shift the head by $\hat e_{\mu} - \hat e_{\nu}$ to a diagonal
-      neighbour, where the two hypercubes share only a 2-cell.
-    - 12 four-link diagonal moves shift the head to the $\hat e_{\mu} + \hat e_{\nu}$ 'same-sign'
-      diagonal neighbors.
+    - **8 three-link orthogonal** moves $\pm\hat e_{\mu}$ --- the intuition of crossing a
+      3-cube to a face neighbour, where the two hypercubes share a 3-cell;
+    - **8 two-link orthogonal** moves $\pm\hat e_{\mu}$ to those same face neighbours, one link
+      cheaper --- the surprising part being that the two links do *not* share a corner;
+    - **12 two-link diagonal** moves $\pm(\hat e_{\mu} - \hat e_{\nu})$ --- a corner-sharing
+      "elbow" in one 2-plane, where the two hypercubes share only a 2-cell;
+    - **12 four-link diagonal** moves $\pm(\hat e_{\mu} + \hat e_{\nu})$ --- the same-sign
+      partner of the elbow, so the two diagonal families together reach all four corners
+      $\pm(\hat e_{\mu} \pm \hat e_{\nu})$ of every 2-plane.
+
+    To propose a step the worm picks one of these signed neighbour directions uniformly and
+    then, uniformly, one of the templates that realises it.  Drawing the direction
+    first is chosen so the number of proposal slots is the number of *neighbours*, not of
+    templates: enriching a bucket with extra shapes --- the 2-link orthogonal rides in the
+    same $\pm\hat e_{\mu}$ bucket as the 3-link one --- then costs nothing in the rate at which
+    the worm closes, whereas a flat template draw would let every added shape lengthen the
+    worm.
 
     Two links is the *minimum* whose *self*-charge moves anything: a single-link change has
     $d\Delta n \wedge d\Delta n \equiv 0$, so on the flux-free cold background it shifts
@@ -92,24 +104,14 @@ class IntersectionWorm(ReadWriteable, Generator):
     link can even cleanly transport the head --- the library's shapes, keyed by their
     background-independent self-charge, simply do not try to exploit that background-dependent
     effect (see the discussion of frozen configurations in :ref:`the No-Intersection model
-    <no_intersection>`).  The same-sign diagonal is the one short neighbour that *cannot* be
-    built from two links --- four is its minimum --- which is why it carries a heavier shape
-    than its opposite-sign partner.  The library
-    stores the axis-permutation orbits of all four seeds.  Counting *oriented* moves (a
-    displacement and its reverse count separately) there are
+    <no_intersection>`).  The same-sign diagonal, by contrast, is the one short neighbour that
+    *cannot* be built from two links --- four is its minimum --- which is why it carries a
+    heavier shape than its opposite-sign partner.
 
-    - $2 \times 4 = 8$ **orthogonal** moves, one along each signed axis $\pm\hat e_{\mu}$
-      --- the eight face neighbours, one per dual-lattice-link direction; and
-    - $4 \times 6 = 24$ **diagonal** moves: the $\binom{4}{2} = 6$ coordinate 2-planes each
-      now supply *both* signed diagonals $\pm(\hat e_{\mu} - \hat e_{\nu})$ and
-      $\pm(\hat e_{\mu} + \hat e_{\nu})$ --- all four corners of the plane.
-
-    That is $8 + 24 = 32 = 2M$ oriented moves ($M = 16$ canonical displacements --- those
-    whose first nonzero component is $+1$), and each step draws one uniformly.  The families
-    interleave freely: a diagonal step preserves the parity of $\sum_{k} x_{k}$ while an
-    orthogonal step flips it, so together they mix the head's walk more efficiently than
-    either alone.  On the cold background the orthogonal $\pm\hat e_{\mu}$ steps alone already
-    connect every hypercube, so the diagonals and heavier shapes are not needed for
+    The families interleave freely: a diagonal step preserves the parity of $\sum_{k} x_{k}$
+    while an orthogonal step flips it, so together they mix the head's walk more efficiently
+    than either alone.  On the cold background the orthogonal $\pm\hat e_{\mu}$ steps alone
+    already connect every hypercube, so the diagonals and heavier shapes are not needed for
     *reachability* there.  On a nontrivial background they earn their keep differently: a
     coordinated move deposits its net dipole directly, never placing a defect on the
     intermediate hypercube a stepwise decomposition would have to pass a clean hop through, so
@@ -326,7 +328,22 @@ class IntersectionWorm(ReadWriteable, Generator):
         N = L.N
         D = L.D
         # Every canonical displacement d contributes two head moves (+d and -d); together
-        # with the "close" option this gives 2M+1 equally likely choices when head==tail.
+        # with the "close" option this gives 2M+1 equally likely choices when head==tail, so
+        # the worm closes with probability 1/(2M+1).  That count is the number of oriented
+        # NEIGHBOUR moves, 2M --- NOT the number of templates: the per-bucket shape count
+        # cancels out of the g<->z (open/close) balance.  A specific move (direction d, a
+        # sign, and a shape S drawn in _sheet_segment) is proposed at the pivot (head==tail)
+        # with probability
+        #     [2M/(2M+1)]·[1/(2M)]·[1/K]  =  1/[(2M+1)·K]        (K = shapes in d's bucket),
+        # while its reverse, offered from the neighbour it lands on --- a non-pivot state with
+        # no close option --- is proposed with
+        #     [1/(2M)]·[1/K]              =  1/[2M·K].
+        # The 1/K cancels in the forward/reverse ratio, leaving 2M/(2M+1); the closing balance
+        # only ever sees the neighbour count.  So enriching a bucket with extra shapes (e.g.
+        # the 2-link orthogonal sharing the ±ê_μ bucket) leaves the worm's closing rate --- and
+        # detailed balance --- untouched.  (We don't re-derive that 1/(2M+1) is the value that
+        # makes the plain head−tail histogram unbiased at the origin; it is the standard
+        # Prokof'ev–Svistunov prescription, shared with the worldline and villain ClassicWorms.)
         n_moves = 2 * len(self._directions)
 
         n = configuration['n'].copy()
