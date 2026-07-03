@@ -1,0 +1,1357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Worm algorithms for the No-Intersection model</title>
+<script>
+MathJax = { tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] } };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<style>
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    max-width: 54em; margin: 2em auto; padding: 0 1.5em;
+    line-height: 1.55; color: #1a1a1a; background: #fdfdfb;
+  }
+  h1 { font-size: 1.9em; border-bottom: 3px double #888; padding-bottom: .3em; }
+  h2 { font-size: 1.45em; margin-top: 2em; border-bottom: 1px solid #bbb; padding-bottom: .2em; }
+  h3 { font-size: 1.15em; margin-top: 1.6em; }
+  code, pre {
+    font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: .92em;
+    background: #f0efe9; border-radius: 3px;
+  }
+  code { padding: .08em .3em; }
+  pre { padding: .8em 1em; overflow-x: auto; border-left: 3px solid #c9c4b4; }
+  .subtlety {
+    background: #fbf3e4; border-left: 4px solid #c78a2d;
+    padding: .8em 1.2em; margin: 1.2em 0; border-radius: 0 4px 4px 0;
+  }
+  .subtlety .tag { font-weight: bold; color: #8a5a10; font-variant: small-caps; letter-spacing: .04em; }
+  .resolution {
+    background: #eaf3ea; border-left: 4px solid #4a7d4a;
+    padding: .8em 1.2em; margin: 1.2em 0; border-radius: 0 4px 4px 0;
+  }
+  .resolution .tag { font-weight: bold; color: #2d5a2d; font-variant: small-caps; letter-spacing: .04em; }
+  .keypoint {
+    background: #e9eef6; border-left: 4px solid #4a6a9d;
+    padding: .8em 1.2em; margin: 1.2em 0; border-radius: 0 4px 4px 0;
+  }
+  .keypoint .tag { font-weight: bold; color: #2d4a7d; font-variant: small-caps; letter-spacing: .04em; }
+  table { border-collapse: collapse; margin: 1.2em 0; width: 100%; }
+  th, td { border: 1px solid #ccc; padding: .45em .7em; text-align: left; vertical-align: top; }
+  th { background: #efede5; }
+  .num { font-variant-numeric: tabular-nums; }
+  .mono { font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: .9em; }
+  .toc { background: #f4f3ee; padding: 1em 1.6em; border-radius: 6px; }
+  .toc ul { margin: .4em 0; }
+  figure { margin: 1.6em auto; text-align: center; }
+  figure svg { max-width: 100%; height: auto; }
+  .fig-row { display: flex; gap: 1.4em; justify-content: center; flex-wrap: wrap; align-items: flex-start; }
+  figcaption, .caption { font-size: .92em; color: #555; }
+  figcaption { margin-top: .5em; max-width: 46em; margin-left: auto; margin-right: auto; }
+  a { color: #2d4a7d; }
+</style>
+</head>
+<body>
+
+<h1>Worm algorithms for the No-Intersection model</h1>
+<p class="caption">
+The <code>IntersectionWorm</code> and the <code>StringWorm</code>: what they do, the subtleties
+the naive versions ran into, and how each was resolved.
+Branch <code>fix/intersection-worm</code>; all quantitative claims below were measured on that branch
+and are reproducible from the scripts and tests cited in &sect;8.
+</p>
+
+<div class="toc">
+<b>Contents</b>
+<ul>
+  <li>1. The model and its geometry</li>
+  <li>2. Why ordinary local Metropolis struggles</li>
+  <li>3. The worm skeleton both algorithms share</li>
+  <li>4. The IntersectionWorm</li>
+  <li>5. Interlude: frozen configurations</li>
+  <li>6. The StringWorm</li>
+  <li>7. Diagnostics and division of labor</li>
+  <li>8. Where everything lives</li>
+</ul>
+</div>
+
+<h2>1. The model and its geometry</h2>
+
+<p>
+We work with the \(D=4\) Villain model on a periodic hypercubic lattice: a real 0-form
+\(\varphi\) on sites and an integer 1-form \(n\) on links, with action
+\[
+S \;=\; \frac{\kappa}{2}\sum_\ell \bigl(d\varphi - 2\pi n\bigr)_\ell^2 .
+\]
+The vorticity is the integer 2-form \(F = dn\) on plaquettes; its dual is the vortex worldsheet,
+a closed 2-surface on the dual lattice.  The <em>No-Intersection</em> model imposes on every
+hypercube the constraint
+\[
+q \;=\; dn \wedge dn \;=\; 0,
+\]
+which forbids (signed) self-intersections of the worldsheet.  Two lattice facts shape everything
+that follows.
+</p>
+
+<figure>
+<svg viewBox="0 0 700 165" xmlns="http://www.w3.org/2000/svg" font-family="Georgia, serif" font-size="14">
+  <defs>
+    <marker id="ar1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#999"/></marker>
+    <marker id="ar1g" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#4a7d4a"/></marker>
+  </defs>
+  <!-- field labels -->
+  <text x="60"  y="30" text-anchor="middle" fill="#2d4a7d" font-weight="bold">&#966;</text>
+  <text x="205" y="30" text-anchor="middle" fill="#2d4a7d" font-weight="bold">n</text>
+  <text x="350" y="30" text-anchor="middle" fill="#2d4a7d" font-weight="bold">F = dn</text>
+  <text x="495" y="30" text-anchor="middle" fill="#aaa">&#8212;</text>
+  <text x="640" y="30" text-anchor="middle" fill="#2d4a7d" font-weight="bold">q = dn&#8743;dn</text>
+  <!-- glyphs -->
+  <circle cx="60" cy="88" r="5" fill="#333"/>
+  <line x1="185" y1="88" x2="225" y2="88" stroke="#333" stroke-width="2"/>
+  <circle cx="185" cy="88" r="3.5" fill="#333"/><circle cx="225" cy="88" r="3.5" fill="#333"/>
+  <rect x="333" y="71" width="34" height="34" fill="#e9eef6" stroke="#333" stroke-width="2"/>
+  <g stroke="#333" stroke-width="1.6" fill="none">
+    <rect x="480" y="76" width="26" height="26" fill="#f0efe9"/>
+    <path d="M480 76 L491 66 L517 66 L506 76 M506 102 L517 92 L517 66"/>
+  </g>
+  <g stroke="#333" stroke-width="1.4" fill="none">
+    <rect x="622" y="72" width="34" height="34"/>
+    <rect x="631" y="81" width="16" height="16"/>
+    <line x1="622" y1="72" x2="631" y2="81"/><line x1="656" y1="72" x2="647" y2="81"/>
+    <line x1="622" y1="106" x2="631" y2="97"/><line x1="656" y1="106" x2="647" y2="97"/>
+  </g>
+  <!-- d arrows -->
+  <g stroke="#999" stroke-width="1.4" marker-end="url(#ar1)">
+    <line x1="78" y1="88" x2="176" y2="88"/>
+    <line x1="232" y1="88" x2="324" y2="88"/>
+    <line x1="376" y1="88" x2="470" y2="88"/>
+    <line x1="524" y1="88" x2="612" y2="88"/>
+  </g>
+  <g fill="#999" font-style="italic" text-anchor="middle" font-size="12">
+    <text x="127" y="82">d</text><text x="278" y="82">d</text><text x="423" y="82">d</text><text x="568" y="82">d</text>
+  </g>
+  <!-- wedge arc 2-cell -> 4-cell -->
+  <path d="M350 69 C 430 22, 560 22, 636 68" fill="none" stroke="#4a7d4a" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#ar1g)"/>
+  <text x="490" y="24" text-anchor="middle" fill="#4a7d4a" font-size="12" font-style="italic">&#8743; (wedge)</text>
+  <!-- cell names -->
+  <g fill="#555" text-anchor="middle" font-size="12">
+    <text x="60" y="135">site</text><text x="205" y="135">link</text><text x="350" y="135">plaquette</text>
+    <text x="495" y="135">3-cell</text><text x="640" y="135">hypercube</text>
+  </g>
+</svg>
+<figcaption><b>Fig 1. Where the fields live.</b> The exterior derivative <em>d</em> raises cell degree: &#966; on sites &#8594; <em>n</em> on links &#8594; <em>F = dn</em> on plaquettes. The constraint field <em>q = dn&#8743;dn</em> is a 4-form living on hypercubes.</figcaption>
+</figure>
+
+<p>
+<b>The lattice wedge carries a shift.</b>  With plaquette components indexed by ordered pairs,
+\[
+(a\wedge b)_{(0123)}[x] \;=\; \sum_{A\sqcup B}\sigma(A\!\frown\! B)\; a_A[x]\; b_B[x+\hat e_A],
+\qquad \hat e_A = \textstyle\sum_{k\in A}\hat e_k ,
+\]
+the second factor is evaluated at a shifted corner.  Consequences: the intersection density is a
+pairing of <em>complementary</em> plaquettes \(\{(01),(23)\},\{(02),(13)\},\{(03),(12)\}\) at
+diagonally offset positions; and single-axis reflections are <em>not</em> exact symmetries of
+\(q\) (the shift breaks them, the same phenomenon by which \(\star\star\) acquires a lattice
+shift).  Axis permutations, full parity, and the global negation \(n\to-n\) (since \(q\) is
+quadratic) <em>are</em> exact.  This little fact will bite in &sect;4.
+</p>
+
+<figure>
+<svg viewBox="0 0 640 220" xmlns="http://www.w3.org/2000/svg" font-family="Georgia, serif" font-size="13">
+  <defs>
+    <marker id="ar2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#666"/></marker>
+  </defs>
+  <rect x="24" y="24" width="376" height="176" rx="8" fill="none" stroke="#ccc" stroke-dasharray="5 4"/>
+  <text x="36" y="44" fill="#999" font-size="12" font-style="italic">one hypercube at x</text>
+  <rect x="70" y="70" width="66" height="66" fill="#e9eef6" stroke="#2d4a7d" stroke-width="2"/>
+  <text x="103" y="107" text-anchor="middle" fill="#2d4a7d">F&#8320;&#8321;[x]</text>
+  <text x="103" y="156" text-anchor="middle" fill="#666" font-size="11" font-style="italic">(01) plane</text>
+  <rect x="266" y="108" width="66" height="66" fill="#fbf3e4" stroke="#c78a2d" stroke-width="2"/>
+  <text x="299" y="145" text-anchor="middle" fill="#8a5a10">F&#8322;&#8323;[x+&#234;&#8320;]</text>
+  <text x="299" y="192" text-anchor="middle" fill="#666" font-size="11" font-style="italic">(23) plane, shifted</text>
+  <line x1="138" y1="98" x2="264" y2="130" stroke="#666" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#ar2)"/>
+  <text x="196" y="106" text-anchor="middle" fill="#666" font-size="11" font-style="italic">+ diagonal shift</text>
+  <text x="430" y="70" fill="#333">q[x] = &#931;&#8202;&#963;(A&#8994;B)</text>
+  <text x="446" y="92" fill="#333">&#215; F&#8320;&#8321;[x]&#8201;F&#8322;&#8323;[x+&#234;&#8320;]</text>
+  <text x="430" y="120" fill="#555" font-size="12">complementary pairs</text>
+  <text x="430" y="140" fill="#2d4a7d" font-size="12">&#123;01,23&#125;</text>
+  <text x="430" y="160" fill="#c78a2d" font-size="12">&#123;02,13&#125;</text>
+  <text x="430" y="180" fill="#4a7d4a" font-size="12">&#123;03,12&#125;</text>
+</svg>
+<figcaption><b>Fig 2. The intersection density pairs complementary plaquettes at a diagonal offset.</b> Each of the three complementary plane-pairs contributes; the second factor is read at the shifted corner <em>x+&#234;<sub>A</sub></em>. That shift is exactly why single-axis reflections are not symmetries of <em>q</em> &mdash; the trap in &sect;4.2.</figcaption>
+</figure>
+
+<p>
+<b>\(q\) is quadratic in \(n\), so charge changes linearize.</b>  For any sparse change
+\(\Delta n\) with \(\Delta F = d(\Delta n)\),
+\[
+\Delta q \;=\; \Delta F\wedge F \;+\; F\wedge \Delta F \;+\; \Delta F\wedge \Delta F ,
+\]
+and every term is supported within a couple of cells of the changed links.  All constraint checks
+in the code go through this <em>local</em> \(\Delta q\)
+(<code>no_intersection/charge.py: local_dq</code>), validated to agree exactly with a global
+recomputation on 200/200 random cluttered backgrounds.  A single proposal costs \(O(1)\) in the
+volume; the field strength \(F\) is maintained incrementally.
+</p>
+
+<p>
+<b>A special case used constantly:</b> if \(\Delta n\) changes links of only <em>one</em>
+direction \(\mu\), then every component of \(\Delta F\) contains \(\mu\), so no two are
+complementary and
+\[
+\Delta F\wedge\Delta F \;\equiv\; 0
+\qquad\Longrightarrow\qquad
+\Delta q \ \text{is exactly linear in } \Delta n .
+\]
+On a vacuum background (\(F=0\)) such a change can <em>never</em> create charge; on a nonzero
+background the violations come only from the cross terms.
+</p>
+
+<h2>2. Why ordinary local Metropolis struggles</h2>
+
+<p>
+A single-link update \(n_\ell \to n_\ell \pm 1\) is harmless where \(F=0\) nearby, but on a
+background carrying flux the cross terms light up charge, and the proposal must be rejected.
+Three escalating symptoms:
+</p>
+
+<ol>
+<li><b>Dilute sheets:</b> near a moderate-density worldsheet roughly a third of local proposals
+are charge-clean &mdash; annoying but workable.</li>
+<li><b>Dense phases:</b> at \(\sim\)40% plaquette occupancy the clean fraction collapses to
+\(\sim 10^{-3}\); local dynamics effectively stops.</li>
+<li><b>Frozen configurations (&sect;5):</b> there exist valid configurations with
+<em>zero</em> legal bounded-support moves of any kind.  Escaping them requires coordinated moves
+whose shape depends on the background &mdash; which is exactly what worms provide.</li>
+</ol>
+
+<p>
+The alternative of proposing large coordinated moves <em>atomically</em> fails for the usual
+reason: a torus-wrapping loop changes \(O(N)\) links at once, so its acceptance dies like
+\(e^{-c\kappa N}\).  Measured at \(N=6\): the atomic <code>WrappingLoopUpdate</code> was accepted
+<b>0 times in 4000 proposals</b> on thermalized backgrounds at \(\kappa = 0.1\) and \(0.2\); the
+rare charge-clean loops carried median \(\Delta S \approx +13\) and \(+24\) respectively.
+</p>
+
+<h2>3. The worm skeleton both algorithms share</h2>
+
+<p>
+Both worms are Prokof'ev&ndash;Svistunov algorithms on an <em>extended</em> ensemble
+\(Z \cup G\): the physical sector \(Z\) of valid configurations, and an auxiliary sector \(G\) in
+which a specified defect pair (a <em>head</em> and a <em>tail</em>) is permitted.  One compound
+update ("episode") is:
+</p>
+
+<ol>
+<li><b>Insert</b> head and tail on the same uniformly random cell (\(\Delta S = 0\)).</li>
+<li><b>Move the head</b>, one elementary step at a time.  Each step is drawn from a
+<em>state-independent</em> menu such that every move&rsquo;s exact inverse appears on the reverse
+menu with the same probability; each is filtered by a locality/cleanliness condition (a factor in
+the \(G\)-sector weight) and then Metropolis-tested with \(\min(1, e^{-\Delta S})\).</li>
+<li><b>Close</b>: whenever the state is <em>closable</em> (head on tail, constraint restored),
+closure is offered as the \((2D{+}1)\)-th equally likely option; if taken, the configuration is
+emitted into the Markov chain.</li>
+</ol>
+
+<figure>
+<svg viewBox="0 0 720 230" xmlns="http://www.w3.org/2000/svg" font-family="Georgia, serif" font-size="13">
+  <defs>
+    <marker id="ar3" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0 0 L7 3 L0 6 z" fill="#777"/></marker>
+  </defs>
+  <!-- Z box -->
+  <rect x="34" y="86" width="200" height="66" rx="8" fill="#eaf3ea" stroke="#4a7d4a" stroke-width="1.6"/>
+  <text x="134" y="114" text-anchor="middle" fill="#2d5a2d" font-weight="bold">Z &#8212; physical sector</text>
+  <text x="134" y="134" text-anchor="middle" fill="#555" font-size="12">valid config, q = 0 everywhere</text>
+  <!-- G box -->
+  <rect x="420" y="86" width="200" height="66" rx="8" fill="#e9eef6" stroke="#4a6a9d" stroke-width="1.6"/>
+  <text x="520" y="114" text-anchor="middle" fill="#2d4a7d" font-weight="bold">G &#8212; extended sector</text>
+  <text x="520" y="134" text-anchor="middle" fill="#555" font-size="12">head + tail defect present</text>
+  <!-- insert arrow -->
+  <line x1="238" y1="104" x2="416" y2="104" stroke="#777" stroke-width="1.5" marker-end="url(#ar3)"/>
+  <text x="327" y="95" text-anchor="middle" fill="#555" font-size="12">insert head = tail&#8202;&#8202;(&#916;S = 0)</text>
+  <!-- close arrow -->
+  <path d="M416 138 C 320 200, 320 200, 238 138" fill="none" stroke="#777" stroke-width="1.5" marker-end="url(#ar3)"/>
+  <text x="327" y="196" text-anchor="middle" fill="#555" font-size="12">close &amp; emit&#8202;&#8202;(head = tail, q = 0)</text>
+  <!-- self loop on G -->
+  <path d="M572 84 C 616 30, 424 30, 468 84" fill="none" stroke="#4a6a9d" stroke-width="1.4" marker-end="url(#ar3)"/>
+  <text x="520" y="26" text-anchor="middle" fill="#2d4a7d" font-size="11">walk: step head &#8212; local &#916;q check + Metropolis per move</text>
+</svg>
+<figcaption><b>Fig 3. One worm episode.</b> Insert a defect pair for free, walk the head while charge violations stay pinned to the endpoints, then close back into the physical sector when the head rejoins the tail with the constraint restored. Because a path and its reverse are drawn from the same menu &mdash; with the two closable endpoints making the diagonal bookkeeping cancel &mdash; the emitted configurations sample <em>e</em><sup>&minus;S</sup> on the constraint surface.</figcaption>
+</figure>
+
+<div class="keypoint">
+<span class="tag">Why detailed balance holds.</span>
+Consider a completed episode visiting states \(s_0,\dots,s_k\) (both endpoints closable).  Its
+probability is a product of per-step factors; the reversed path is built from the same menu.  Two
+things need checking.  (i) <em>Per step</em>, proposal probabilities pair up exactly (each move vs.
+its inverse), cleanliness of a move implies cleanliness of its inverse, and the Metropolis ratio
+supplies \(e^{-\Delta S}\).  (ii) <em>The diagonal bookkeeping</em>: closable states use step
+probability \(\tfrac1{2D+1}\) instead of \(\tfrac1{2D}\).  The forward product involves the
+closability of \(s_0,\dots,s_{k-1}\) and the reverse that of \(s_1,\dots,s_k\); since \(s_0\) and
+\(s_k\) are <em>both</em> closable, the two factor sets coincide and cancel.  Insertion
+(\(\propto 1/V\)) and closure (\(\tfrac1{2D+1}\)) appear once on each side.  Net:
+\(P(\text{path})/P(\text{reversed}) = e^{-\Delta S_{\text{total}}}\), so the emitted \(Z\)-sector
+configurations sample \(e^{-S}\) restricted to the constraint surface.
+</div>
+
+<p>
+Everything else &mdash; and everything that went wrong in the naive versions &mdash; is about
+<em>which</em> defect the head carries, <em>which</em> elementary steps are on the menu, and
+<em>what weight</em> the \(G\)-sector states get.
+</p>
+
+<table>
+<tr><th></th><th>IntersectionWorm</th><th>StringWorm</th></tr>
+<tr><td>defect carried</td><td>unit of intersection charge \(q=\pm1\)</td>
+<td>endpoint of an open single-direction string</td></tr>
+<tr><td>defect lives on</td><td>hypercubes</td><td>sites (string ends; violations on nearby hypercubes)</td></tr>
+<tr><td>links changed per accepted step</td><td><b>2 or 3</b>, simultaneously (12 / 816 of the 828 shapes per direction)</td>
+<td><b>exactly 1</b> (the crossed \(\mu\)-link)</td></tr>
+<tr><td>which end moves</td><td colspan="2">only the head; the tail is fixed at the insertion cell until annihilation</td></tr>
+<tr><td>mid-episode constraint</td><td>exactly one \(\pm1\) dipole (all else rejected)</td>
+<td>violations confined to endpoint balls, taxed by fugacity \(e^{-\lambda\sum|q|}\)</td></tr>
+<tr><td>closes when</td><td colspan="2">head on tail with \(q \equiv 0\) &mdash; the \((2D{+}1)\)-th equally likely option</td></tr>
+<tr><td>emitted net change</td><td>sheet reconnections / finger moves</td><td>closed contractible loops and wrapped rings of \(n_\mu\)</td></tr>
+</table>
+
+<h2>4. The IntersectionWorm</h2>
+
+<h3>4.1 What it does</h3>
+
+<p>
+The defect is a unit of intersection charge: head and tail live on hypercubes and carry
+\(q = +1\) and \(-1\).  Moving the head one hypercube requires a coordinated few-link change of
+\(n\) whose \(\Delta q\) is a clean dipole,
+\(\{ \text{target}:+1,\ \text{head}:-1 \}\), verified on the live background by the local
+\(\Delta q\).  A proposal draws one of the \(2D\) directions uniformly and <em>one</em> shape
+uniformly from a fixed library bucket for that direction; the menu for a step in direction \(d\)
+consists of the bucket-\(d\) shapes anchored at the target plus the <em>negated</em>
+bucket-\((-d)\) shapes anchored at the head &mdash; the latter are precisely the exact inverses of
+forward steps that could have arrived at the current state, which is what makes the
+proposal-pairing in &sect;3 work.  Unclean draws are simply rejected (the head stalls), which is
+detailed-balance safe.  When the head returns to the tail the two defects cancel and the
+configuration is exactly valid.
+</p>
+
+<p>
+<b>Anatomy of a move.</b>  Only the head moves: the tail is a fixed spectator, holding its
+\(-1\) until the head comes back to annihilate it.  (This mirrors the classic 2d worm; one
+could equally well evolve the tail, but nothing is gained.)  An accepted step changes
+<b>two or three links simultaneously</b> &mdash; of the 828 shapes per direction, 816 are
+3-link and 12 are 2-link &mdash; and the Metropolis test uses the Villain \(\Delta S\) of just
+those links.  For instance the 2-link shape
+\((n_0[t]\,{-}1,\; n_1[t+\hat e_0+\hat e_2]\,{+}1)\), anchored at the target hypercube
+\(t\), moves the \(+1\) defect one unit in \(+\hat e_3\); the generic 3-link shapes add one
+more link, e.g. \(n_0[t-\hat e_3]\,{-}1\).  A drawn shape counts as a <em>move</em> only if
+its local \(\Delta q\) is exactly \(\{t:+1,\ \text{head}:-1\}\); the \(+1\) rides with
+the head by convention, and any other outcome (extra defects, wrong signs) is a stall.
+</p>
+
+<figure>
+<svg viewBox="0 0 700 260" xmlns="http://www.w3.org/2000/svg" font-family="Georgia, serif" font-size="12">
+  <!-- ============ panel A: 2-link ============ -->
+  <text x="165" y="26" text-anchor="middle" fill="#333" font-weight="bold">2-link move&#160;&#160;(12 of 828 shapes)</text>
+  <!-- head + target hypercubes -->
+  <rect x="40"  y="46" width="110" height="110" rx="6" fill="#fdf6ec" stroke="#c78a2d" stroke-width="1.6"/>
+  <rect x="150" y="46" width="110" height="110" rx="6" fill="#eef3fb" stroke="#4a6a9d" stroke-width="1.6"/>
+  <text x="95"  y="172" text-anchor="middle" fill="#8a5a10" font-size="11">head hypercube x</text>
+  <text x="205" y="172" text-anchor="middle" fill="#2d4a7d" font-size="11">target t = x + &#234;&#8323;</text>
+  <!-- defect badges -->
+  <circle cx="75" cy="101" r="12" fill="none" stroke="#c0392b" stroke-width="2"/>
+  <text x="75" y="105" text-anchor="middle" fill="#c0392b" font-size="11">&#8722;1</text>
+  <circle cx="230" cy="101" r="12" fill="#4a6a9d"/>
+  <text x="230" y="105" text-anchor="middle" fill="#fff" font-size="11">+1</text>
+  <!-- changed-link glyphs -->
+  <line x1="162" y1="72" x2="192" y2="72" stroke="#2d5a2d" stroke-width="4"/>
+  <text x="196" y="76" fill="#2d5a2d" font-size="11">&#9312;</text>
+  <line x1="175" y1="118" x2="175" y2="148" stroke="#2d5a2d" stroke-width="4"/>
+  <text x="181" y="136" fill="#2d5a2d" font-size="11">&#9313;</text>
+  <!-- legend -->
+  <text x="40" y="200" fill="#2d5a2d" font-size="11">&#9312;&#160;n&#8320;[t] &#8722;1</text>
+  <text x="40" y="218" fill="#2d5a2d" font-size="11">&#9313;&#160;n&#8321;[t + &#234;&#8320; + &#234;&#8322;] +1</text>
+  <text x="40" y="242" fill="#555" font-size="11">&#916;q = { t : +1,&#160; x : &#8722;1 }</text>
+
+  <!-- ============ panel B: 3-link ============ -->
+  <text x="520" y="26" text-anchor="middle" fill="#333" font-weight="bold">3-link move&#160;&#160;(816 of 828 shapes)</text>
+  <rect x="395" y="46" width="110" height="110" rx="6" fill="#fdf6ec" stroke="#c78a2d" stroke-width="1.6"/>
+  <rect x="505" y="46" width="110" height="110" rx="6" fill="#eef3fb" stroke="#4a6a9d" stroke-width="1.6"/>
+  <text x="450" y="172" text-anchor="middle" fill="#8a5a10" font-size="11">head hypercube x</text>
+  <text x="560" y="172" text-anchor="middle" fill="#2d4a7d" font-size="11">target t = x + &#234;&#8323;</text>
+  <circle cx="430" cy="101" r="12" fill="none" stroke="#c0392b" stroke-width="2"/>
+  <text x="430" y="105" text-anchor="middle" fill="#c0392b" font-size="11">&#8722;1</text>
+  <circle cx="585" cy="101" r="12" fill="#4a6a9d"/>
+  <text x="585" y="105" text-anchor="middle" fill="#fff" font-size="11">+1</text>
+  <!-- glyphs: one link in the head cube (site t - e3), two in/near target -->
+  <line x1="468" y1="72" x2="498" y2="72" stroke="#2d5a2d" stroke-width="4"/>
+  <text x="474" y="62" fill="#2d5a2d" font-size="11">&#9312;</text>
+  <line x1="517" y1="72" x2="547" y2="72" stroke="#2d5a2d" stroke-width="4"/>
+  <text x="551" y="76" fill="#2d5a2d" font-size="11">&#9313;</text>
+  <line x1="530" y1="118" x2="530" y2="148" stroke="#2d5a2d" stroke-width="4"/>
+  <text x="536" y="136" fill="#2d5a2d" font-size="11">&#9314;</text>
+  <text x="395" y="200" fill="#2d5a2d" font-size="11">&#9312;&#160;n&#8320;[t &#8722; &#234;&#8323;] &#8722;1&#160;&#160;&#160;&#9313;&#160;n&#8320;[t] &#8722;1</text>
+  <text x="395" y="218" fill="#2d5a2d" font-size="11">&#9314;&#160;n&#8321;[t + &#234;&#8320; + &#234;&#8322;] +1</text>
+  <text x="395" y="242" fill="#555" font-size="11">&#916;q = { t : +1,&#160; x : &#8722;1 }</text>
+</svg>
+<figcaption><b>Fig 4. Anatomy of the elementary IntersectionWorm moves</b> (shapes taken verbatim
+from the library; glyph placement schematic since the links live in four dimensions, but the
+labels give the exact changed links).  A step changes 2 or 3 links of <em>n</em> at once and must
+produce the clean dipole &#916;q = {target: +1, head: &#8722;1} on the live background.  Only the
+head moves; the tail waits.</figcaption>
+</figure>
+
+<p>
+Physically, an open intersection worm is an <em>immersed</em> worldsheet with a \(\pm1\)
+intersection pair &mdash; transporting the head and annihilating it against the tail implements
+finger/Whitney-type moves.  This is why the worm connects 2-knot sectors that bounded
+constraint-preserving moves cannot: it is the algorithmic finger move.
+</p>
+
+<figure>
+<svg viewBox="0 0 480 180" xmlns="http://www.w3.org/2000/svg" font-family="Georgia, serif" font-size="13">
+  <defs>
+    <marker id="ar4" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0 0 L7 3 L0 6 z" fill="#4a6a9d"/></marker>
+  </defs>
+  <g fill="#e9eef6" stroke="#4a6a9d" stroke-width="1.5">
+    <polygon points="50,120 120,120 140,80 70,80"/>
+    <polygon points="120,120 190,120 210,80 140,80"/>
+    <polygon points="190,120 260,120 280,80 210,80"/>
+    <polygon points="260,120 330,120 350,80 280,80"/>
+  </g>
+  <polygon points="330,120 400,120 420,80 350,80" fill="#f3f6fb" stroke="#4a6a9d" stroke-width="1.3" stroke-dasharray="4 3"/>
+  <text x="150" y="150" text-anchor="middle" fill="#666" font-size="12" font-style="italic">vortex sheet&#8202;&#8202;F = dn</text>
+  <circle cx="82" cy="100" r="13" fill="none" stroke="#c0392b" stroke-width="2"/>
+  <text x="82" y="104" text-anchor="middle" fill="#c0392b" font-size="12">&#8722;1</text>
+  <text x="82" y="68" text-anchor="middle" fill="#c0392b" font-size="11">tail</text>
+  <circle cx="320" cy="100" r="13" fill="#4a6a9d"/>
+  <text x="320" y="104" text-anchor="middle" fill="#fff" font-size="12">+1</text>
+  <text x="320" y="68" text-anchor="middle" fill="#2d4a7d" font-size="11">head</text>
+  <path d="M338 96 C 372 82, 380 82, 400 96" fill="none" stroke="#4a6a9d" stroke-width="1.6" marker-end="url(#ar4)"/>
+  <text x="380" y="60" text-anchor="middle" fill="#2d4a7d" font-size="11">head advances</text>
+</svg>
+<figcaption><b>Fig 5. The IntersectionWorm drags the worldsheet.</b> The head (+1) and tail (&minus;1) are units of intersection charge on hypercubes. Each accepted step is a clean, coordinated few-link change of <em>n</em> that extends the sheet by one cell; when the head returns to the tail the pair annihilates and the sheet is intersection-free again. Transporting the defect is a finger/Whitney move &mdash; the route to other 2-knot sectors.</figcaption>
+</figure>
+
+<figure>
+<svg viewBox="0 0 740 235" xmlns="http://www.w3.org/2000/svg" font-family="Georgia, serif" font-size="11">
+  <defs>
+    <marker id="arF" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#4a6a9d"/></marker>
+  </defs>
+  <text x="90" y="22" text-anchor="middle" fill="#333" font-weight="bold">insert</text>
+  <line x1="20" y1="40" x2="160" y2="40" stroke="#ccc"/>
+  <line x1="20" y1="40" x2="20" y2="180" stroke="#ccc"/>
+  <line x1="20" y1="75" x2="160" y2="75" stroke="#ccc"/>
+  <line x1="55" y1="40" x2="55" y2="180" stroke="#ccc"/>
+  <line x1="20" y1="110" x2="160" y2="110" stroke="#ccc"/>
+  <line x1="90" y1="40" x2="90" y2="180" stroke="#ccc"/>
+  <line x1="20" y1="145" x2="160" y2="145" stroke="#ccc"/>
+  <line x1="125" y1="40" x2="125" y2="180" stroke="#ccc"/>
+  <line x1="20" y1="180" x2="160" y2="180" stroke="#ccc"/>
+  <line x1="160" y1="40" x2="160" y2="180" stroke="#ccc"/>
+  <circle cx="72" cy="127" r="10" fill="none" stroke="#c0392b" stroke-width="2"/>
+  <text x="72" y="131" text-anchor="middle" fill="#c0392b" font-size="10">&#8722;1</text>
+  <circle cx="72" cy="127" r="10" fill="#4a6a9d"/>
+  <text x="72" y="131" text-anchor="middle" fill="#fff" font-size="10">+1</text>
+  <text x="90" y="205" text-anchor="middle" fill="#555">head = tail, &#916;S = 0</text>
+  <text x="275" y="22" text-anchor="middle" fill="#333" font-weight="bold">first move</text>
+  <line x1="205" y1="40" x2="345" y2="40" stroke="#ccc"/>
+  <line x1="205" y1="40" x2="205" y2="180" stroke="#ccc"/>
+  <line x1="205" y1="75" x2="345" y2="75" stroke="#ccc"/>
+  <line x1="240" y1="40" x2="240" y2="180" stroke="#ccc"/>
+  <line x1="205" y1="110" x2="345" y2="110" stroke="#ccc"/>
+  <line x1="275" y1="40" x2="275" y2="180" stroke="#ccc"/>
+  <line x1="205" y1="145" x2="345" y2="145" stroke="#ccc"/>
+  <line x1="310" y1="40" x2="310" y2="180" stroke="#ccc"/>
+  <line x1="205" y1="180" x2="345" y2="180" stroke="#ccc"/>
+  <line x1="345" y1="40" x2="345" y2="180" stroke="#ccc"/>
+  <rect x="276" y="111" width="33" height="33" fill="#e9eef6"/>
+  <line x1="281" y1="110" x2="304" y2="110" stroke="#2d5a2d" stroke-width="4"/>
+  <circle cx="257" cy="127" r="10" fill="none" stroke="#c0392b" stroke-width="2"/>
+  <text x="257" y="131" text-anchor="middle" fill="#c0392b" font-size="10">&#8722;1</text>
+  <circle cx="292" cy="127" r="10" fill="#4a6a9d"/>
+  <text x="292" y="131" text-anchor="middle" fill="#fff" font-size="10">+1</text>
+  <text x="275" y="205" text-anchor="middle" fill="#555">2&#8211;3 links change</text>
+  <text x="460" y="22" text-anchor="middle" fill="#333" font-weight="bold">wander</text>
+  <line x1="390" y1="40" x2="530" y2="40" stroke="#ccc"/>
+  <line x1="390" y1="40" x2="390" y2="180" stroke="#ccc"/>
+  <line x1="390" y1="75" x2="530" y2="75" stroke="#ccc"/>
+  <line x1="425" y1="40" x2="425" y2="180" stroke="#ccc"/>
+  <line x1="390" y1="110" x2="530" y2="110" stroke="#ccc"/>
+  <line x1="460" y1="40" x2="460" y2="180" stroke="#ccc"/>
+  <line x1="390" y1="145" x2="530" y2="145" stroke="#ccc"/>
+  <line x1="495" y1="40" x2="495" y2="180" stroke="#ccc"/>
+  <line x1="390" y1="180" x2="530" y2="180" stroke="#ccc"/>
+  <line x1="530" y1="40" x2="530" y2="180" stroke="#ccc"/>
+  <rect x="461" y="111" width="33" height="33" fill="#e9eef6"/>
+  <rect x="496" y="111" width="33" height="33" fill="#e9eef6"/>
+  <rect x="496" y="76" width="33" height="33" fill="#e9eef6"/>
+  <rect x="461" y="76" width="33" height="33" fill="#e9eef6"/>
+  <rect x="426" y="76" width="33" height="33" fill="#e9eef6"/>
+  <polyline points="477,127 512,127 512,92 477,92 442,92" fill="none" stroke="#4a6a9d" stroke-width="1.3" stroke-dasharray="3 3" marker-end="url(#arF)"/>
+  <line x1="466" y1="110" x2="489" y2="110" stroke="#2d5a2d" stroke-width="4"/>
+  <line x1="501" y1="110" x2="524" y2="110" stroke="#2d5a2d" stroke-width="4"/>
+  <line x1="495" y1="81" x2="495" y2="104" stroke="#2d5a2d" stroke-width="4"/>
+  <line x1="466" y1="75" x2="489" y2="75" stroke="#2d5a2d" stroke-width="4"/>
+  <line x1="425" y1="81" x2="425" y2="104" stroke="#2d5a2d" stroke-width="4"/>
+  <circle cx="442" cy="127" r="10" fill="none" stroke="#c0392b" stroke-width="2"/>
+  <text x="442" y="131" text-anchor="middle" fill="#c0392b" font-size="10">&#8722;1</text>
+  <circle cx="442" cy="92" r="10" fill="#4a6a9d"/>
+  <text x="442" y="96" text-anchor="middle" fill="#fff" font-size="10">+1</text>
+  <text x="460" y="205" text-anchor="middle" fill="#555">per-move Metropolis</text>
+  <text x="645" y="22" text-anchor="middle" fill="#333" font-weight="bold">close</text>
+  <line x1="575" y1="40" x2="715" y2="40" stroke="#ccc"/>
+  <line x1="575" y1="40" x2="575" y2="180" stroke="#ccc"/>
+  <line x1="575" y1="75" x2="715" y2="75" stroke="#ccc"/>
+  <line x1="610" y1="40" x2="610" y2="180" stroke="#ccc"/>
+  <line x1="575" y1="110" x2="715" y2="110" stroke="#ccc"/>
+  <line x1="645" y1="40" x2="645" y2="180" stroke="#ccc"/>
+  <line x1="575" y1="145" x2="715" y2="145" stroke="#ccc"/>
+  <line x1="680" y1="40" x2="680" y2="180" stroke="#ccc"/>
+  <line x1="575" y1="180" x2="715" y2="180" stroke="#ccc"/>
+  <line x1="715" y1="40" x2="715" y2="180" stroke="#ccc"/>
+  <rect x="646" y="111" width="33" height="33" fill="#e9eef6"/>
+  <rect x="681" y="111" width="33" height="33" fill="#e9eef6"/>
+  <rect x="681" y="76" width="33" height="33" fill="#e9eef6"/>
+  <rect x="646" y="76" width="33" height="33" fill="#e9eef6"/>
+  <rect x="611" y="76" width="33" height="33" fill="#e9eef6"/>
+  <rect x="611" y="111" width="33" height="33" fill="#e9eef6"/>
+  <line x1="651" y1="110" x2="674" y2="110" stroke="#2d5a2d" stroke-width="4"/>
+  <line x1="686" y1="110" x2="709" y2="110" stroke="#2d5a2d" stroke-width="4"/>
+  <line x1="680" y1="81" x2="680" y2="104" stroke="#2d5a2d" stroke-width="4"/>
+  <line x1="651" y1="75" x2="674" y2="75" stroke="#2d5a2d" stroke-width="4"/>
+  <line x1="610" y1="81" x2="610" y2="104" stroke="#2d5a2d" stroke-width="4"/>
+  <line x1="610" y1="116" x2="610" y2="139" stroke="#2d5a2d" stroke-width="4"/>
+  <text x="645" y="205" text-anchor="middle" fill="#2d5a2d" font-weight="bold" font-size="12">q &#8801; 0 &#8212; emit &#10003;</text>
+</svg>
+<figcaption><b>Fig 6. One IntersectionWorm episode</b> (schematic 2d slice; cells are hypercubes).
+Insert the pair for free; each accepted head move changes 2&#8211;3 links (green), dragging the
+worldsheet (shaded) behind the +1 defect while the &#8722;1 tail waits; when the head rejoins the
+tail the defects annihilate, the constraint is exactly restored, and the deformed configuration is
+emitted.  Rejected or unclean proposals just leave the head in place.</figcaption>
+</figure>
+
+<h3>4.2 Subtlety: the move library was starved &mdash; and lattice symmetry is smaller than you think</h3>
+
+<div class="subtlety">
+<span class="tag">Symptom.</span>
+The original library held the orbit of one hand-found 3-link shape under the 24 axis
+permutations, and even discarded half of that orbit: <b>3 shapes per direction</b>.  The head was
+far from "moving freely."
+</div>
+
+<p>Three separate issues were tangled together:</p>
+
+<ul>
+<li><b>Re-anchoring.</b>  Odd permutations flip which end of the dipole carries the \(+1\).  The
+naive code required the \(+1\) to land on the template&rsquo;s anchor and threw those away;
+the fix is to <em>re-anchor</em> every transformed template on its \(+1\) defect.</li>
+<li><b>Negation.</b>  Since \(q\) is quadratic, \(-\Delta n\) produces the <em>same</em> dipole on
+an empty background but is a genuinely different move (different links change).  The naive library
+missed all of them.</li>
+<li><b>Reflections are not symmetries.</b>  A first attempt asserted that all 384 signed axis
+permutations preserve dipole cleanliness &mdash; and the assertion <em>fired</em>.  Single-axis
+reflections do not commute with the wedge&rsquo;s \(x+\hat e_A\) shift (&sect;1).  Transformed
+candidates must be <em>filtered</em> by re-validating on an empty background, never assumed clean.</li>
+</ul>
+
+<div class="resolution">
+<span class="tag">Resolution: enumerate, don&rsquo;t guess.</span>
+<code>example/no-intersection-move-search.py</code> exhaustively enumerates <em>every</em> change
+of at most 3 links with coefficients \(\pm1\) whose \(\Delta q\) on an empty background is a
+clean unit dipole.  Result: <b>828 distinct moves per direction</b>, falling into 41 symmetry classes
+(&sect;4.3) &mdash; the original seed&rsquo;s full equivalence class covers just 12 of the 828 (1.4%).  The class
+representatives are stored in the auto-generated <code>moves.py</code>; the library builder
+expands them under the signed permutations and negation with the empty-background filter, and
+reproduces exactly 828 per bucket in all 8 directions &mdash; a nontrivial consistency check
+between the orbit machinery and the brute-force search, pinned by a test.
+</div>
+
+<div class="keypoint">
+<span class="tag">A physics surprise.</span>
+The minimal clean move has <b>two</b> links, not three.  The old documentation reasoned that
+moving the head across a 3-cube requires a coordinated 3-link change; the search found two 2-link
+classes (their dipole arises purely from the \(\Delta F\wedge\Delta F\) cross term).  Being one
+link cheaper, their bare acceptance is a factor \(e^{2\pi^2\kappa/\dots}\sim 7\times\) better at
+\(\kappa=0.1\).
+</div>
+
+<div class="keypoint">
+<span class="tag">What library size does and does not buy.</span>
+Measured near a moderate-density worldsheet, the clean-proposal ("stall") rate barely moved:
+\(\approx 0.36\) with 3 shapes/direction vs. \(\approx 0.34\) with 828.  Stalling is controlled by
+the local geometry, not the catalog size.  What completeness buys is <em>coverage</em> &mdash;
+69&times; more distinct sheet-dragging maneuvers per step, including the cheap 2-link ones &mdash;
+i.e. ergodicity headroom, not a lower rejection rate.  (&sect;4.3 quantifies exactly this
+with coverage measurements.)
+</div>
+
+<h3>4.3 The elementary moves: minimality, completeness, and the 41 classes</h3>
+
+<p>
+<b>Why two and three links?</b>  Work up from the smallest support.  A <em>single</em> link can
+never be an elementary move: its \(\Delta F\) lives on the six plaquettes containing that link,
+every one of which contains the link&rsquo;s direction \(\mu\) &mdash; so no two of them are
+complementary, \(\Delta F\wedge\Delta F\equiv 0\), and one link creates <em>no</em> charge on
+an empty background (Fig&nbsp;7; the exhaustive search confirms: zero 1-link moves).  Charge
+creation therefore needs \(\Delta F\) in two complementary planes, hence at least <b>two links of
+distinct directions</b>, and placed just so: exactly 12 shapes per direction achieve the clean
+dipole this way, and they are the action-cheapest moves in the library.  The <b>generic</b>
+elementary move has <b>three links</b> (816 shapes per direction, spread over ten
+direction-patterns).  The cap at three is a design judgment, not a theorem: each additional fresh
+link multiplies the bare acceptance by \(e^{-2\pi^2\kappa}\) (a factor \(\sim 7\) at
+\(\kappa=0.1\)), and long coordinated maneuvers are better built by <em>chaining</em> elementary
+moves through the \(G\)-sector &mdash; which is what a worm is for &mdash; than by enumerating
+ever-larger atomic proposals.
+</p>
+
+<figure>
+<svg viewBox="0 0 680 200" xmlns="http://www.w3.org/2000/svg" font-family="Georgia, serif" font-size="12">
+  <!-- left: a link and its plaquette fan -->
+  <line x1="90" y1="140" x2="180" y2="140" stroke="#333" stroke-width="5"/>
+  <circle cx="90" cy="140" r="4" fill="#333"/><circle cx="180" cy="140" r="4" fill="#333"/>
+  <text x="135" y="192" text-anchor="middle" fill="#333">the link, direction &#956;</text>
+  <g stroke-width="1.5" fill-opacity="0.5">
+    <polygon points="90,140 180,140 200,100 110,100" fill="#e9eef6" stroke="#4a6a9d"/>
+    <polygon points="90,140 180,140 160,66 70,66" fill="#fbf3e4" stroke="#c78a2d"/>
+    <polygon points="90,140 180,140 210,170 120,170" fill="#eaf3ea" stroke="#4a7d4a"/>
+  </g>
+  <text x="150" y="90" text-anchor="middle" fill="#8a5a10" font-size="11">(&#956;&#957;&#8321;)</text>
+  <text x="196" y="118" text-anchor="middle" fill="#2d4a7d" font-size="11">(&#956;&#957;&#8322;)</text>
+  <text x="238" y="170" text-anchor="middle" fill="#2d5a2d" font-size="11">(&#956;&#957;&#8323;)</text>
+  <text x="150" y="34" text-anchor="middle" fill="#555" font-size="11" font-style="italic">every plaquette of the link</text>
+  <text x="150" y="49" text-anchor="middle" fill="#555" font-size="11" font-style="italic">contains &#956;</text>
+  <!-- right: the pair table -->
+  <g fill="#333">
+    <text x="390" y="66">complementary pairs need a plane <tspan font-style="italic">without</tspan> &#956;:</text>
+    <text x="410" y="94" fill="#2d4a7d">(&#956;&#957;) &#8596; complement &#8713; &#956;-planes&#160;&#160;&#10007;</text>
+    <text x="390" y="130">&#8658;&#160; &#916;F &#8743; &#916;F &#8801; 0 for one link</text>
+    <text x="390" y="156">&#8658;&#160; &#916;q = 0 on vacuum: no dipole, ever</text>
+  </g>
+</svg>
+<figcaption><b>Fig 7. Why one link can never be an elementary move.</b> All six plaquettes of a
+link contain its direction &#956;, so &#916;F never occupies two complementary planes and the
+quadratic term vanishes identically: a single link cannot create intersection charge on an empty
+background.  The minimal charge-creating move has two links of distinct directions.</figcaption>
+</figure>
+
+<p>
+<b>Completeness.</b>  The library is complete by direct enumeration within a precisely stated
+class: <em>every</em> \(\Delta n\) supported on at most 3 links, with coefficients \(\pm1\),
+whose \(\Delta q\) on the empty background is a clean unit dipole
+(<code>example/no-intersection-move-search.py</code>).  The enumeration takes all 1-, 2- and
+3-subsets of the links that can influence the charge of the two defect hypercubes, and separately
+allows the third link of a 3-link candidate to sit <em>anywhere</em> that could cancel the residue
+left by two on-target links &mdash; that stage finds nothing, closing the &ldquo;off-target
+helper&rdquo; loophole.  One dipole direction is enumerated; the other seven buckets follow from
+axis permutations and full parity, which are exact symmetries of \(q\).  As an independent
+cross-check, the library builder regenerates <em>exactly</em> 828 shapes per direction in all 8
+buckets from the stored representatives &mdash; two very different computations agreeing on the
+count, pinned by a CI test.  Three honest caveats: coefficients \(\pm2\) and beyond are not
+enumerated (they cost \(4\times\) the action per link); supports of 4+ links are not enumerated;
+and &ldquo;clean&rdquo; is judged on the <em>empty</em> background.  Moves that are clean only
+against a particular background exist &mdash; even a single link can be, when the cross terms
+conspire &mdash; but they cannot live in a fixed, state-independent catalog without
+Metropolis&ndash;Hastings corrections; the worm reaches such background-adapted maneuvers by
+composition instead.
+</p>
+
+<p>
+<b>Where the classes come from.</b>  Call two moves equivalent when a symmetry of the constraint
+maps one to the other: a lattice translation, a signed axis permutation (the hyperoctahedral group
+of the hypercube, \(4!\times 2^4 = 384\) elements), or the global negation \(n\to-n\) (legal
+because \(q\) is quadratic).  Translations are absorbed by re-anchoring every template on its
+\(+1\) defect, leaving \(384\times 2 = 768\) transforms.  Two caveats make this a
+<em>filtered</em> action rather than a clean group action on the library: only the 96-element
+subgroup generated by permutations, parity, and negation is an exact symmetry of the lattice
+\(q\) (single-axis reflections fail, by the wedge shift of &sect;1), so a transform can carry a
+clean move to an unclean template that the filter discards; and an orbit spreads over all eight
+direction buckets, so we classify within one bucket.  The result, verified numerically as an exact
+partition: <b>the 828 moves per direction fall into 41 equivalence classes</b>,
+</p>
+
+<figure>
+<svg viewBox="0 0 700 210" xmlns="http://www.w3.org/2000/svg" font-family="Georgia, serif" font-size="12">
+  <defs>
+    <marker id="arP" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#777"/></marker>
+  </defs>
+  <!-- pipeline -->
+  <rect x="20" y="40" width="130" height="52" rx="7" fill="#eaf3ea" stroke="#4a7d4a" stroke-width="1.5"/>
+  <text x="85" y="62" text-anchor="middle" fill="#2d5a2d" font-weight="bold">41 classes</text>
+  <text x="85" y="80" text-anchor="middle" fill="#2d5a2d" font-size="10">(one representative each)</text>
+  <line x1="152" y1="66" x2="212" y2="66" stroke="#777" stroke-width="1.4" marker-end="url(#arP)"/>
+  <text x="182" y="52" text-anchor="middle" fill="#555" font-size="10">&#215;768</text>
+  <rect x="215" y="40" width="150" height="52" rx="7" fill="#e9eef6" stroke="#4a6a9d" stroke-width="1.5"/>
+  <text x="290" y="60" text-anchor="middle" fill="#2d4a7d" font-size="11">signed permutations,</text>
+  <text x="290" y="76" text-anchor="middle" fill="#2d4a7d" font-size="11">negation, re-anchor</text>
+  <line x1="367" y1="66" x2="427" y2="66" stroke="#777" stroke-width="1.4" marker-end="url(#arP)"/>
+  <text x="397" y="52" text-anchor="middle" fill="#8a5a10" font-size="10">filter</text>
+  <rect x="430" y="40" width="120" height="52" rx="7" fill="#fbf3e4" stroke="#c78a2d" stroke-width="1.5"/>
+  <text x="490" y="60" text-anchor="middle" fill="#8a5a10" font-size="11">clean on empty</text>
+  <text x="490" y="76" text-anchor="middle" fill="#8a5a10" font-size="11">background?</text>
+  <line x1="552" y1="66" x2="608" y2="66" stroke="#777" stroke-width="1.4" marker-end="url(#arP)"/>
+  <rect x="610" y="30" width="76" height="72" rx="7" fill="#f0efe9" stroke="#888" stroke-width="1.5"/>
+  <text x="648" y="58" text-anchor="middle" fill="#333" font-weight="bold">8 &#215; 828</text>
+  <text x="648" y="76" text-anchor="middle" fill="#555" font-size="10">buckets</text>
+  <!-- class-size histogram -->
+  <text x="90" y="132" fill="#555" font-size="11">class sizes within a bucket:</text>
+  <g fill="#4a6a9d">
+    <rect x="250" y="168" width="26" height="9"  /><text x="263" y="196" text-anchor="middle" font-size="10" fill="#333">6 (&#215;3)</text>
+    <rect x="320" y="123" width="26" height="54" /><text x="333" y="196" text-anchor="middle" font-size="10" fill="#333">12 (&#215;18)</text>
+    <rect x="390" y="174" width="26" height="3"  /><text x="403" y="196" text-anchor="middle" font-size="10" fill="#333">18 (&#215;1)</text>
+    <rect x="460" y="135" width="26" height="42" /><text x="473" y="196" text-anchor="middle" font-size="10" fill="#333">24 (&#215;14)</text>
+    <rect x="530" y="162" width="26" height="15" /><text x="543" y="196" text-anchor="middle" font-size="10" fill="#333">48 (&#215;5)</text>
+  </g>
+</svg>
+<figcaption><b>Fig 8. From 41 representatives to the full library.</b> Each class representative
+is expanded under the 768 transforms (signed axis permutations &#215; global negation, with
+translations absorbed by re-anchoring on the +1 defect); candidates that survive the
+empty-background cleanliness filter fill the eight direction buckets with 828 shapes each.  Class
+sizes are irregular (histogram: size &#215; multiplicity) because reflections are not exact
+symmetries and orbits spread over all buckets.  Exactly two classes &mdash; both of size 6 &mdash;
+are the 2-link moves; the original hand-found seed&rsquo;s class has size 12.</figcaption>
+</figure>
+
+<p>
+with sizes \(6\,(\times3)\), \(12\,(\times18)\), \(18\,(\times1)\),
+\(24\,(\times14)\), \(48\,(\times5)\).
+</p>
+
+<div class="keypoint">
+<span class="tag">So where does the number 93 come from?</span>
+The search script and the library builder use two <em>different</em> equivalence relations, and
+93 is the count under the finer one.  When the search groups its 828 finds into classes, it
+applies the 768 transforms but <b>not the re-anchoring translation</b>: a signed permutation that
+lands the \(+1\) defect away from the template&rsquo;s origin (odd permutations swap the dipole
+ends; reflections displace it through the wedge shift) produces a template that matches another
+found move only <em>after re-centering on its \(+1\) defect</em> &mdash; and without that
+translation the two are filed as different classes.  Under this translation-blind relation the
+828 moves fall into <b>93 &ldquo;frames,&rdquo;</b> and one representative of each is what
+<code>moves.py</code> stores.  Adding the missing translations merges the frames into the
+<b>41 true classes</b>: checking each stored seed&rsquo;s full orbit shows the 93 distribute over
+the 41 as \(93 = 5\!\times\!1 + 27\!\times\!2 + 2\!\times\!3 + 7\!\times\!4\)
+(five classes stored once, twenty-seven twice, two three times, seven four times).  The redundancy
+is harmless &mdash; the library builder de-duplicates after expansion, so the resulting 828-per-bucket
+library is <em>identical</em> whether built from 93 frames or 41 class representatives &mdash; but
+41 is the honest count of genuinely inequivalent elementary moves.
+</div>
+
+<p>
+<b>Would a smaller set do?</b>  Three answers for three senses of &ldquo;smaller.&rdquo;
+Under symmetry, the library <em>is</em> 41 classes &mdash; but that is bookkeeping, not
+redundancy: at proposal time, orbit-mates anchored at the same head are genuinely different moves
+(different links, different \(\Delta S\), independently blocked or clean on a live background),
+and likewise each shape and its negation.  As a <em>generating set</em> the answer is
+density-dependent, and we measured it: sampling (head, direction) situations and counting how many
+of the candidate moves are clean,
+</p>
+
+<table>
+<tr><th>sub-library</th><th>shapes offered per step</th>
+<th colspan="2">dilute (beside the trefoil sheet)</th>
+<th colspan="2">dense (47% plaquette occupancy)</th></tr>
+<tr><th></th><th></th><th>P(&#8805;1 clean)</th><th>mean # clean</th><th>P(&#8805;1 clean)</th><th>mean # clean</th></tr>
+<tr><td>full library</td><td class="num">1656</td><td class="num">1.000</td><td class="num">553.7</td><td class="num"><b>0.060</b></td><td class="num">1.89</td></tr>
+<tr><td>2-link shapes only</td><td class="num">24</td><td class="num">0.992</td><td class="num">9.0</td><td class="num">0.037</td><td class="num">0.13</td></tr>
+<tr><td>original seed&rsquo;s class</td><td class="num">12</td><td class="num">0.998</td><td class="num">8.6</td><td class="num"><b>0.007</b></td><td class="num">0.01</td></tr>
+</table>
+
+<figure>
+<svg viewBox="0 0 680 240" xmlns="http://www.w3.org/2000/svg" font-family="Georgia, serif" font-size="12">
+  <!-- left panel: dilute -->
+  <text x="170" y="24" text-anchor="middle" fill="#333" font-weight="bold">dilute background</text>
+  <line x1="60" y1="180" x2="290" y2="180" stroke="#333" stroke-width="1.2"/>
+  <line x1="60" y1="180" x2="60" y2="45" stroke="#333" stroke-width="1.2"/>
+  <text x="46" y="52"  text-anchor="end" fill="#555" font-size="10">1.0</text>
+  <text x="46" y="184" text-anchor="end" fill="#555" font-size="10">0</text>
+  <g>
+    <rect x="85"  y="50.0" width="44" height="130.0" fill="#4a6a9d"/>
+    <rect x="155" y="51.0" width="44" height="129.0" fill="#8fac8f"/>
+    <rect x="225" y="50.3" width="44" height="129.7" fill="#c9a15a"/>
+  </g>
+  <text x="107" y="196" text-anchor="middle" font-size="10" fill="#333">full</text>
+  <text x="177" y="196" text-anchor="middle" font-size="10" fill="#333">2-link</text>
+  <text x="247" y="196" text-anchor="middle" font-size="10" fill="#333">original</text>
+  <text x="107" y="44" text-anchor="middle" font-size="10" fill="#2d4a7d">1.000</text>
+  <text x="177" y="45" text-anchor="middle" font-size="10" fill="#2d5a2d">0.992</text>
+  <text x="247" y="44" text-anchor="middle" font-size="10" fill="#8a5a10">0.998</text>
+  <text x="170" y="222" text-anchor="middle" fill="#555" font-size="11" font-style="italic">any small set suffices</text>
+  <!-- right panel: dense (own scale) -->
+  <text x="510" y="24" text-anchor="middle" fill="#333" font-weight="bold">dense background</text>
+  <line x1="400" y1="180" x2="630" y2="180" stroke="#333" stroke-width="1.2"/>
+  <line x1="400" y1="180" x2="400" y2="45" stroke="#333" stroke-width="1.2"/>
+  <text x="392" y="52"  text-anchor="end" fill="#555" font-size="10">0.06</text>
+  <text x="392" y="184" text-anchor="end" fill="#555" font-size="10">0</text>
+  <g>
+    <rect x="425" y="50.0"  width="44" height="130.0" fill="#4a6a9d"/>
+    <rect x="495" y="99.8"  width="44" height="80.2"  fill="#8fac8f"/>
+    <rect x="565" y="164.8" width="44" height="15.2"  fill="#c9a15a"/>
+  </g>
+  <text x="447" y="196" text-anchor="middle" font-size="10" fill="#333">full</text>
+  <text x="517" y="196" text-anchor="middle" font-size="10" fill="#333">2-link</text>
+  <text x="587" y="196" text-anchor="middle" font-size="10" fill="#333">original</text>
+  <text x="447" y="44"  text-anchor="middle" font-size="10" fill="#2d4a7d">0.060</text>
+  <text x="517" y="94"  text-anchor="middle" font-size="10" fill="#2d5a2d">0.037</text>
+  <text x="587" y="159" text-anchor="middle" font-size="10" fill="#8a5a10">0.007</text>
+  <text x="510" y="222" text-anchor="middle" fill="#555" font-size="11" font-style="italic">completeness buys ~9&#215; mobility</text>
+  <text x="345" y="115" text-anchor="middle" fill="#555" font-size="11">P(&#8805;1</text>
+  <text x="345" y="130" text-anchor="middle" fill="#555" font-size="11">clean)</text>
+</svg>
+<figcaption><b>Fig 9. Would a smaller set do?  Only where it isn&rsquo;t needed.</b>
+Fraction of sampled (head, direction) situations with at least one clean move, per sub-library
+(note the different vertical scales).  Beside a dilute worldsheet the redundancy is enormous
+(554 clean options on average) and even 12 shapes cover 99.8% of situations; on a dense background
+the full library unlocks 9&#215; more situations than the original class &mdash; and pruning only
+enlarges the worm-blocked set, whose extreme case is the frozen configurations of &sect;5.</figcaption>
+</figure>
+
+<p>
+So a smaller set &ldquo;would do&rdquo; only in the dilute regime, where it doesn&rsquo;t matter;
+in cluttered environments &mdash; exactly where ergodicity is fragile &mdash; every pruning
+strictly enlarges the set of worm-impassable situations.  And since completeness is free at run
+time (drawing 1 of 1656 costs the same as 1 of 24; the build is 3 seconds, cached per process),
+there is no efficiency argument for pruning.  The principled version of the question &mdash; the
+smallest subset whose induced worm walk remains irreducible on the constraint surface &mdash; is
+precisely the open ergodicity question of &sect;4.1&rsquo;s docstring, and the original
+library&rsquo;s history (a plausible-looking set that turned out to be 1.4% of the elementary
+moves) argues for settling that question before pruning anything.  If anything, the profitable
+direction is the opposite: <em>reweighting</em> the draw toward the cheap 2-link shapes, which is
+detailed-balance-legal for any state-independent weights.
+</p>
+
+<h3>4.4 Subtlety: the global charge recomputation</h3>
+
+<div class="subtlety">
+<span class="tag">Symptom.</span>
+The naive implementation recomputed the <em>global</em> charge \(q = dn\wedge dn\)
+(\(O(\text{volume})\)) once per proposal &mdash; and twice per proposal in the single-link update,
+making a sweep \(O(V^2)\).
+</div>
+
+<div class="resolution">
+<span class="tag">Resolution.</span>
+The linearized local \(\Delta q\) of &sect;1, plus incremental maintenance of \(F\).  Every
+generator now checks constraints at \(O(1)\) (worm, link update) or \(O(N)\) (wrapping loops)
+cost.  The single-link sweep went from volume-scaling to a flat \(\sim\!18\,\mu s\) per link.
+</div>
+
+<h3>4.5 Validation</h3>
+<ul>
+<li>Local vs. global \(\Delta q\): exact agreement, 200/200 random cluttered backgrounds
+(including \(|n| \ge 2\) and invalid ones).</li>
+<li>Move inversion: every forward library placement is exactly undone by the negated placement
+(the pairing detailed balance rests on) &mdash; tested.</li>
+<li>Distribution: ensembles generated by Hammers with and without the worm agree on action
+density, winding\(^2\), wrapping\(^2\) (pulls \(\le 0.8\sigma\)); every emitted configuration
+valid.</li>
+<li>Mechanism: seeded with an explicitly-constructed spun-trefoil worldsheet (a knotted embedded
+2-sphere with \(q\equiv0\), see <code>example/spun-trefoil.py</code>), the worm freely dissolves
+and reorganizes the knotted sheet in the condensed phase with validity maintained throughout.</li>
+</ul>
+
+<h2>5. Interlude: frozen configurations</h2>
+
+<p>
+Evan&rsquo;s constructions (<code>example/no-intersection-frozen.py</code>) build valid
+configurations with space-filling <em>staggered</em> flux &mdash; e.g. the single-pair family
+\(F_{01}\propto(-1)^{x_0}\), \(F_{23}\propto(-1)^{x_0+x_2+x_3}\), where \(q\) cancels between the
+two wedge orderings; and the six-plane family \(F_{\mu\nu} = A_{\mu\nu}(-1)^{x_\mu+x_\nu}\) with
+\(\mathrm{Pf}(A)=0\).  The exhaustive scan
+(<code>example/no-intersection-unfreeze.py</code>) shows how rigid they are:
+</p>
+
+<table>
+<tr><th>move class</th><th>single-pair \(\{01,23\}\)</th><th>six-plane \(\mathrm{Pf}(A)=0\)</th></tr>
+<tr><td>single links (all \(\pm1\))</td><td class="num">0 legal</td><td class="num">0 legal</td></tr>
+<tr><td>all 2-link templates (offsets \(\le1\))</td><td class="num">0</td><td class="num">0</td></tr>
+<tr><td>straight open segments (any length)</td><td class="num">0</td><td class="num">0</td></tr>
+<tr><td>IntersectionWorm proposals (exhaustive \(\le3\)-link library)</td><td class="num">0 / 3000 clean</td><td class="num">0 / 3000 clean</td></tr>
+<tr><td><b>transverse rings</b> (\(n_\mu\pm1\) on a full \(\nu\)-ring, \(\nu\ne\mu\))</td>
+<td><b>legal:</b> \((\mu,\nu)=(0,1),(3,2)\)</td><td><b>legal:</b> 8 of 12 classes</td></tr>
+</table>
+
+<div class="keypoint">
+<span class="tag">Why locality must fail: the extremal-plaquette argument.</span>
+The backgrounds are space-filling.  Any \(\Delta n\) of bounded support has an extremal
+\(\Delta F\) plaquette; if it lies in a plane whose complement is lit, its cross term against the
+everywhere-nonzero background deposits charge at the extremal corner, where nothing else can
+cancel it.  A legal move must therefore have \(\Delta F\equiv0\) in every plane complementary to a
+lit one &mdash; e.g. \(\Delta F_{01}=\Delta F_{23}=0\) for the single-pair family, i.e.
+\(\Delta n_0\) constant along \(x_1\) &mdash; and constancy along a torus direction forces the
+support to <em>wrap</em>.  The minimal legal moves are the length-\(N\) rings, which is exactly
+the axis-ring branch of <code>WrappingLoopUpdate</code>.  (Note: since only one link direction
+changes, \(\Delta q\) is exactly linear, and the legal rings are kernel vectors of that linear
+map.)
+</div>
+
+<figure>
+<svg viewBox="0 0 640 260" xmlns="http://www.w3.org/2000/svg" font-family="Georgia, serif" font-size="12">
+  <defs>
+    <marker id="ar5" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0 0 L7 3 L0 6 z" fill="#4a7d4a"/></marker>
+  </defs>
+  <!-- Panel A: staggered flux + blocked bounded move -->
+  <text x="150" y="26" text-anchor="middle" fill="#333" font-weight="bold">bounded move &#8594; blocked</text>
+  <!-- grid 5x5 -->
+  <g stroke="#ddd" stroke-width="1">
+    <rect x="40" y="40" width="160" height="160" fill="none" stroke="#ccc"/>
+    <line x1="72"  y1="40" x2="72"  y2="200"/><line x1="104" y1="40" x2="104" y2="200"/><line x1="136" y1="40" x2="136" y2="200"/><line x1="168" y1="40" x2="168" y2="200"/>
+    <line x1="40" y1="72"  x2="200" y2="72"/><line x1="40" y1="104" x2="200" y2="104"/><line x1="40" y1="136" x2="200" y2="136"/><line x1="40" y1="168" x2="200" y2="168"/>
+  </g>
+  <!-- staggered +/- flux markers -->
+  <g font-size="13" text-anchor="middle">
+    <text x="56"  y="61" fill="#c0392b">+</text><text x="88"  y="61" fill="#2d6a9d">&#8722;</text><text x="120" y="61" fill="#c0392b">+</text><text x="152" y="61" fill="#2d6a9d">&#8722;</text><text x="184" y="61" fill="#c0392b">+</text>
+    <text x="56"  y="93" fill="#2d6a9d">&#8722;</text><text x="88"  y="93" fill="#c0392b">+</text><text x="120" y="93" fill="#2d6a9d">&#8722;</text><text x="152" y="93" fill="#c0392b">+</text><text x="184" y="93" fill="#2d6a9d">&#8722;</text>
+    <text x="56"  y="125" fill="#c0392b">+</text><text x="88"  y="125" fill="#2d6a9d">&#8722;</text><text x="120" y="125" fill="#c0392b">+</text><text x="152" y="125" fill="#2d6a9d">&#8722;</text><text x="184" y="125" fill="#c0392b">+</text>
+    <text x="56"  y="157" fill="#2d6a9d">&#8722;</text><text x="88"  y="157" fill="#c0392b">+</text><text x="120" y="157" fill="#2d6a9d">&#8722;</text><text x="152" y="157" fill="#c0392b">+</text><text x="184" y="157" fill="#2d6a9d">&#8722;</text>
+    <text x="56"  y="189" fill="#c0392b">+</text><text x="88"  y="189" fill="#2d6a9d">&#8722;</text><text x="120" y="189" fill="#c0392b">+</text><text x="152" y="189" fill="#2d6a9d">&#8722;</text><text x="184" y="189" fill="#c0392b">+</text>
+  </g>
+  <!-- bounded patch outline -->
+  <rect x="72" y="72" width="64" height="64" fill="none" stroke="#8a5a10" stroke-width="1.8" stroke-dasharray="4 3"/>
+  <!-- uncancelled corner charge -->
+  <g stroke="#c0392b" stroke-width="2.2"><line x1="66" y1="66" x2="78" y2="78"/><line x1="78" y1="66" x2="66" y2="78"/></g>
+  <text x="150" y="222" text-anchor="middle" fill="#8a5a10" font-size="11">extremal corner leaks charge (&#10007;)</text>
+
+  <!-- Panel B: wrapping ring -->
+  <text x="480" y="26" text-anchor="middle" fill="#333" font-weight="bold">length-N ring &#8594; legal</text>
+  <g stroke="#ddd" stroke-width="1">
+    <rect x="370" y="40" width="160" height="160" fill="none" stroke="#ccc"/>
+    <line x1="402" y1="40" x2="402" y2="200"/><line x1="434" y1="40" x2="434" y2="200"/><line x1="466" y1="40" x2="466" y2="200"/><line x1="498" y1="40" x2="498" y2="200"/>
+    <line x1="370" y1="72"  x2="530" y2="72"/><line x1="370" y1="104" x2="530" y2="104"/><line x1="370" y1="136" x2="530" y2="136"/><line x1="370" y1="168" x2="530" y2="168"/>
+  </g>
+  <g font-size="13" text-anchor="middle" opacity="0.5">
+    <text x="386" y="61" fill="#c0392b">+</text><text x="418" y="61" fill="#2d6a9d">&#8722;</text><text x="450" y="61" fill="#c0392b">+</text><text x="482" y="61" fill="#2d6a9d">&#8722;</text><text x="514" y="61" fill="#c0392b">+</text>
+    <text x="386" y="93" fill="#2d6a9d">&#8722;</text><text x="418" y="93" fill="#c0392b">+</text><text x="450" y="93" fill="#2d6a9d">&#8722;</text><text x="482" y="93" fill="#c0392b">+</text><text x="514" y="93" fill="#2d6a9d">&#8722;</text>
+    <text x="386" y="157" fill="#2d6a9d">&#8722;</text><text x="418" y="157" fill="#c0392b">+</text><text x="450" y="157" fill="#2d6a9d">&#8722;</text><text x="482" y="157" fill="#c0392b">+</text><text x="514" y="157" fill="#2d6a9d">&#8722;</text>
+    <text x="386" y="189" fill="#c0392b">+</text><text x="418" y="189" fill="#2d6a9d">&#8722;</text><text x="450" y="189" fill="#c0392b">+</text><text x="482" y="189" fill="#2d6a9d">&#8722;</text><text x="514" y="189" fill="#c0392b">+</text>
+  </g>
+  <!-- wrapping ring band across row 3 -->
+  <rect x="366" y="123" width="168" height="26" rx="13" fill="#eaf3ea" stroke="#4a7d4a" stroke-width="1.8"/>
+  <line x1="374" y1="136" x2="526" y2="136" stroke="#4a7d4a" stroke-width="1.6" marker-end="url(#ar5)"/>
+  <text x="450" y="222" text-anchor="middle" fill="#2d5a2d" font-size="11">wraps the torus; &#916;F avoids lit planes</text>
+</svg>
+<figcaption><b>Fig 10. Why frozen textures need wrapping moves.</b> On the space-filling staggered flux (&plusmn; markers), any bounded change has an extremal plaquette whose cross term against the everywhere-nonzero background deposits an uncancellable charge (left, &#10007;). Only a change whose &#916;F is constant along a lattice direction &mdash; hence <em>wraps the torus</em> (right) &mdash; escapes; these are the length-<em>N</em> rings of <code>WrappingLoopUpdate</code>.</figcaption>
+</figure>
+
+<p>
+Two sobering measurements sharpen the picture at \(\kappa\ne0\).  First, the atomic ring update is
+essentially never accepted on generic backgrounds (0/4000, &sect;2).  Second, even on the frozen
+texture itself, <em>no clean ring is downhill</em>: of 231 clean proposals in 4000, all had
+\(\Delta S > 0\).  A ring&rsquo;s \(\Delta F\) is a <em>dipole</em> &mdash; opposite flux tubes at
+adjacent transverse positions &mdash; so on a saturated staggered background it always cancels one
+tube&rsquo;s worth and augments the neighbor&rsquo;s.  The frozen texture at \(\kappa>0\) is a
+genuine local action minimum.  Because the interior blocking argument is local, a finite
+<em>patch</em> of such texture is equally locked from within at any \(\kappa\); its action is
+extensive in the patch volume, so this is a <em>metastability</em> issue (quenches, seeded starts,
+corrupted autocorrelations), not an equilibrium-bias one.  This is the problem the StringWorm was
+built for.
+</p>
+
+<h2>6. The StringWorm</h2>
+
+<h3>6.1 What it does</h3>
+
+<p>
+The StringWorm is the incremental version of the coordinated single-direction moves.  An episode
+fixes \((\mu, s)\) and inserts head = tail on a random site.  Each step moves the head one unit in
+a uniformly random direction \(\pm\hat e_\nu\) (any \(\nu\), including \(\mu\)) and deposits
+\(\pm s\) on the \(\mu\)-link it crosses &mdash; the classic 2d-worm crossing rule, so stepping
+back undoes the deposit and every step&rsquo;s inverse is on the reverse menu with probability
+\(\tfrac18\).  Since only \(n_\mu\) changes, \(\Delta F\wedge\Delta F\equiv0\) (&sect;1): on
+vacuum the string creates no charge at all, and on a background the violations are precisely the
+<em>endpoint structure</em> of the open string, tracked incrementally via the local \(\Delta q\).
+Closure requires head on tail with all violations gone.
+In contrast to the IntersectionWorm&rsquo;s coordinated 2&ndash;3-link shapes, each StringWorm step
+changes exactly <b>one</b> link; and as there, <b>only the head moves</b> &mdash; the tail marks
+the insertion site until the episode closes.
+</p>
+
+<p>
+Its emitted \(Z\)-sector outcomes are of two kinds: <b>wrapped strings</b> (the rings of &sect;5,
+now built stepwise) and &mdash; the real payoff &mdash; <b>contractible closed strings</b>: local,
+coordinated multi-link moves of <em>arbitrary background-adapted shape</em>, which no fixed
+catalog can enumerate.  These are exactly what a frozen droplet&rsquo;s boundary needs.
+</p>
+
+<figure>
+<svg viewBox="0 0 560 200" xmlns="http://www.w3.org/2000/svg" font-family="Georgia, serif" font-size="12">
+  <defs>
+    <marker id="ar6" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0 0 L7 3 L0 6 z" fill="#333"/></marker>
+    <marker id="ar6d" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0 0 L7 3 L0 6 z" fill="#999"/></marker>
+  </defs>
+  <!-- site lattice -->
+  <g fill="#bbb"><circle cx="80" cy="60" r="3"/><circle cx="220" cy="60" r="3"/><circle cx="360" cy="60" r="3"/><circle cx="480" cy="60" r="3"/>
+     <circle cx="80" cy="140" r="3"/><circle cx="220" cy="140" r="3"/><circle cx="360" cy="140" r="3"/><circle cx="480" cy="140" r="3"/></g>
+  <!-- tail (origin) -->
+  <circle cx="80" cy="140" r="7" fill="none" stroke="#c0392b" stroke-width="2"/>
+  <text x="80" y="164" text-anchor="middle" fill="#c0392b" font-size="11">tail</text>
+  <!-- head at a site, steps east -->
+  <circle cx="220" cy="140" r="7" fill="#333"/>
+  <text x="220" y="164" text-anchor="middle" fill="#333" font-size="11">head</text>
+  <line x1="232" y1="140" x2="348" y2="140" stroke="#333" stroke-width="1.8" marker-end="url(#ar6)"/>
+  <text x="290" y="132" text-anchor="middle" fill="#333" font-size="11">step&#8202;+&#234;&#957;</text>
+  <text x="366" y="144" fill="#333" font-size="11">new head</text>
+  <!-- crossed mu-link, deposited -->
+  <line x1="290" y1="60" x2="290" y2="140" stroke="#4a7d4a" stroke-width="4"/>
+  <text x="300" y="55" fill="#2d5a2d" font-size="12">+s on n&#956;&#8202;&#8202;(the crossed link)</text>
+  <!-- reverse undo -->
+  <path d="M340 158 C 300 186, 240 186, 232 160" fill="none" stroke="#999" stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#ar6d)"/>
+  <text x="286" y="196" text-anchor="middle" fill="#999" font-size="11" font-style="italic">stepping back removes it</text>
+</svg>
+<figcaption><b>Fig 11. The StringWorm crossing rule.</b> The head steps one site in a random direction and deposits &plusmn;<em>s</em> on the single <em>&mu;</em>-link it crosses (the classic 2d-worm rule). Only <em>n<sub>&mu;</sub></em> changes, so &#916;F&#8743;&#916;F&#8801;0 and charge can appear only at the open string&rsquo;s endpoints; stepping back exactly undoes the deposit, which is what makes the proposal symmetric.</figcaption>
+</figure>
+
+<figure>
+<svg viewBox="0 0 720 260" xmlns="http://www.w3.org/2000/svg" font-family="Georgia, serif" font-size="11">
+  <defs>
+    <marker id="arS" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#777"/></marker>
+  </defs>
+  <!-- ===== left: mid-episode open string ===== -->
+  <text x="130" y="24" text-anchor="middle" fill="#333" font-weight="bold">mid-episode: open string</text>
+  <!-- site dots -->
+  <g fill="#ccc">
+    <circle cx="40" cy="90" r="2.5"/><circle cx="85" cy="90" r="2.5"/><circle cx="130" cy="90" r="2.5"/><circle cx="175" cy="90" r="2.5"/><circle cx="220" cy="90" r="2.5"/>
+    <circle cx="40" cy="140" r="2.5"/><circle cx="85" cy="140" r="2.5"/><circle cx="130" cy="140" r="2.5"/><circle cx="175" cy="140" r="2.5"/><circle cx="220" cy="140" r="2.5"/>
+  </g>
+  <!-- deposited mu-links (vertical ticks) along the head's path -->
+  <g stroke="#2d5a2d" stroke-width="4">
+    <line x1="62"  y1="100" x2="62"  y2="130"/>
+    <line x1="107" y1="100" x2="107" y2="130"/>
+    <line x1="152" y1="100" x2="152" y2="130"/>
+  </g>
+  <text x="107" y="165" text-anchor="middle" fill="#2d5a2d" font-size="10">deposited n&#956; links (&#177;s)</text>
+  <!-- violation clouds at both ends -->
+  <g fill="#c0392b" opacity="0.18"><circle cx="47" cy="115" r="17"/><circle cx="170" cy="115" r="17"/></g>
+  <g fill="none" stroke="#c0392b" stroke-width="1.3" stroke-dasharray="3 2"><circle cx="47" cy="115" r="17"/><circle cx="170" cy="115" r="17"/></g>
+  <text x="47"  y="192" text-anchor="middle" fill="#c0392b" font-size="10">tail-end violations</text>
+  <text x="176" y="66" text-anchor="middle" fill="#c0392b" font-size="10">head-end violations</text>
+  <text x="130" y="215" text-anchor="middle" fill="#8a5a10" font-size="10">each unit of |q| costs the fugacity e<tspan baseline-shift="super" font-size="8">&#8722;&#955;</tspan></text>
+  <!-- branch arrows -->
+  <line x1="248" y1="88"  x2="320" y2="62"  stroke="#777" stroke-width="1.4" marker-end="url(#arS)"/>
+  <line x1="248" y1="142" x2="320" y2="176" stroke="#777" stroke-width="1.4" marker-end="url(#arS)"/>
+  <!-- ===== right top: contractible closure ===== -->
+  <text x="520" y="24" text-anchor="middle" fill="#333" font-weight="bold">contractible closure &#8594; local coordinated move</text>
+  <g fill="#ccc">
+    <circle cx="400" cy="52" r="2.5"/><circle cx="445" cy="52" r="2.5"/><circle cx="490" cy="52" r="2.5"/><circle cx="535" cy="52" r="2.5"/>
+    <circle cx="400" cy="97" r="2.5"/><circle cx="445" cy="97" r="2.5"/><circle cx="490" cy="97" r="2.5"/><circle cx="535" cy="97" r="2.5"/>
+  </g>
+  <g stroke="#2d5a2d" stroke-width="4">
+    <line x1="422" y1="45" x2="422" y2="59"/><line x1="467" y1="45" x2="467" y2="59"/>
+    <line x1="422" y1="90" x2="422" y2="104"/><line x1="467" y1="90" x2="467" y2="104"/>
+  </g>
+  <rect x="404" y="56" width="127" height="37" fill="none" stroke="#4a6a9d" stroke-width="1.2" stroke-dasharray="4 3"/>
+  <text x="620" y="66" fill="#2d5a2d" font-size="10">&#916;q &#8801; 0,</text>
+  <text x="620" y="80" fill="#2d5a2d" font-size="10">shape adapted</text>
+  <text x="620" y="94" fill="#2d5a2d" font-size="10">to background</text>
+  <!-- ===== right bottom: wrapping closure ===== -->
+  <text x="520" y="152" text-anchor="middle" fill="#333" font-weight="bold">wrapping closure &#8594; ring update</text>
+  <g fill="#ccc">
+    <circle cx="380" cy="185" r="2.5"/><circle cx="425" cy="185" r="2.5"/><circle cx="470" cy="185" r="2.5"/><circle cx="515" cy="185" r="2.5"/><circle cx="560" cy="185" r="2.5"/><circle cx="605" cy="185" r="2.5"/>
+    <circle cx="380" cy="225" r="2.5"/><circle cx="425" cy="225" r="2.5"/><circle cx="470" cy="225" r="2.5"/><circle cx="515" cy="225" r="2.5"/><circle cx="560" cy="225" r="2.5"/><circle cx="605" cy="225" r="2.5"/>
+  </g>
+  <g stroke="#2d5a2d" stroke-width="4">
+    <line x1="402" y1="192" x2="402" y2="218"/><line x1="447" y1="192" x2="447" y2="218"/><line x1="492" y1="192" x2="492" y2="218"/>
+    <line x1="537" y1="192" x2="537" y2="218"/><line x1="582" y1="192" x2="582" y2="218"/>
+  </g>
+  <g stroke="#999" stroke-width="1.2" stroke-dasharray="4 3">
+    <line x1="368" y1="180" x2="368" y2="230"/><line x1="617" y1="180" x2="617" y2="230"/>
+  </g>
+  <text x="648" y="200" fill="#555" font-size="10">periodic</text>
+  <text x="648" y="214" fill="#555" font-size="10">wrap</text>
+</svg>
+<figcaption><b>Fig 12. What a StringWorm episode can leave behind.</b> Mid-episode the open
+string&rsquo;s endpoint violations are confined near head and tail and pay the fugacity.  Closure
+either contracts into a <em>closed contractible loop</em> &mdash; a background-adapted local
+coordinated move no fixed catalog enumerates &mdash; or wraps the torus, reproducing the
+<code>WrappingLoopUpdate</code> ring, now built stepwise with a Metropolis test per link.
+(Retracing exactly is the third, null outcome.)</figcaption>
+</figure>
+
+<p>
+The naive version of this algorithm failed in three distinct, instructive ways.
+</p>
+
+<h3>6.2 Subtlety: the charged-blob catastrophe</h3>
+
+<div class="subtlety">
+<span class="tag">Symptom.</span>
+With the \(G\)-sector weighted by \(e^{-S}\) times a (roomy, radius-3) confinement indicator,
+episodes locked into states carrying 8&ndash;17 persistent violations and \(\sim90\) units of
+deposited links, with the head hovering near the tail for millions of iterations.
+</div>
+
+<p>
+<b>Diagnosis.</b>  Charge violations cost <em>nothing</em> in that ensemble &mdash; only the action
+of the deposited links enters \(\Delta S\).  The set of confined charged states is combinatorially
+enormous (a Chebyshev-radius-3 ball holds \(7^4 = 2401\) sites), so <em>entropy</em> favors a
+messy endpoint blob over the measure-zero-ish constraint surface.  The IntersectionWorm never had
+this failure mode because its per-move cleanliness filter admits exactly one dipole; the
+StringWorm&rsquo;s permissive endpoint structure re-opened it.
+</p>
+
+<div class="resolution">
+<span class="tag">Resolution: charge the defects rent.</span>
+The \(G\)-sector weight is now
+\[
+w_G \;\propto\; e^{-S \;-\; \lambda \sum_x |q_x|}\times
+\chi\bigl(\text{violations within radius } r \text{ of head or tail};\ \textstyle\sum|q| \le \text{ceiling}\bigr).
+\]
+The fugacity \(\lambda\) (default 0.5) makes each unit of violation cost \(e^{-\lambda}\) in the
+step acceptance, and the ceiling bounds the state space outright.  Crucially, all of this
+reweights or restricts only the <em>auxiliary</em> sector: every emission has
+\(\sum|q| = 0\), so the physical \(Z\)-marginal is untouched.  The radius default \(r=2\) is
+measured, not guessed: a single deposit&rsquo;s violations on the staggered background reach
+Chebyshev distance 1 of the link (2 of the head) with \(\sum|q|\) up to 8.
+</div>
+
+<h3>6.3 Subtlety: the algorithm has its own phase transition</h3>
+
+<div class="subtlety">
+<span class="tag">Symptom.</span>
+Even after the blob fix, episode lengths at \(\kappa=0.1\) had wild outliers
+(\(3\times10^4\)&ndash;\(10^6\) iterations), getting worse as \(\kappa\) decreased.
+</div>
+
+<p>
+<b>Diagnosis.</b>  From a fresh region, depositing a link costs
+\(\Delta S = \tfrac{\kappa}{2}(2\pi)^2 = 2\pi^2\kappa\), while retracting the last deposit is free
+(and always accepted when proposed).  Per iteration the head has \(2D-1 = 7\) "outward" options
+accepted with probability \(e^{-2\pi^2\kappa}\) against essentially one inward one: the excursion
+is a <em>branching random walk</em> that goes critical when
+\[
+(2D-1)\, e^{-2\pi^2\kappa} \;=\; 1
+\qquad\Longleftrightarrow\qquad
+\kappa^\ast \;=\; \frac{\ln 7}{2\pi^2} \;\approx\; 0.099 .
+\]
+Below and near \(\kappa^\ast\) the return times acquire the heavy tails of critical branching
+(the free 4d walk is transient), and mean episode lengths diverge.  It is amusing &mdash; and
+worth remembering &mdash; that the <em>sampler</em> has a sharp transition at a coupling with a
+closed-form expression.
+</p>
+
+<figure>
+<svg viewBox="0 0 640 220" xmlns="http://www.w3.org/2000/svg" font-family="Georgia, serif" font-size="12">
+  <defs>
+    <marker id="ar7" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#c0392b"/></marker>
+    <marker id="ar7b" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#2d5a2d"/></marker>
+  </defs>
+  <!-- branching tree -->
+  <circle cx="90" cy="40" r="6" fill="#333"/>
+  <g stroke="#c0392b" stroke-width="1.3" marker-end="url(#ar7)">
+    <line x1="90" y1="46" x2="40"  y2="120"/><line x1="90" y1="46" x2="70"  y2="120"/>
+    <line x1="90" y1="46" x2="100" y2="120"/><line x1="90" y1="46" x2="130" y2="120"/>
+    <line x1="90" y1="46" x2="160" y2="120"/>
+  </g>
+  <text x="100" y="88" fill="#c0392b" font-size="11">2D&#8722;1 = 7 &#8220;grow&#8221;</text>
+  <text x="100" y="103" fill="#c0392b" font-size="11">&#215; e<tspan baseline-shift="super" font-size="8">&#8722;2&#960;&#178;&#954;</tspan> each</text>
+  <line x1="90" y1="46" x2="90" y2="118" stroke="#2d5a2d" stroke-width="2.4" marker-end="url(#ar7b)"/>
+  <text x="40" y="140" fill="#2d5a2d" font-size="11">1 &#8220;shrink&#8221; (free)</text>
+  <!-- critical condition -->
+  <text x="330" y="42" text-anchor="middle" fill="#333">(2D&#8722;1)&#8202;e<tspan baseline-shift="super" font-size="9">&#8722;2&#960;&#178;&#954;</tspan> = 1</text>
+  <text x="330" y="66" text-anchor="middle" fill="#8a5a10">&#8658;&#8194;&#954;* = ln 7 / (2&#960;&#178;) &#8776; 0.099</text>
+  <!-- kappa axis -->
+  <line x1="230" y1="150" x2="620" y2="150" stroke="#333" stroke-width="1.4"/>
+  <text x="230" y="172" fill="#555" font-size="11">&#954; = 0</text>
+  <text x="612" y="172" fill="#555" font-size="11">0.2</text>
+  <!-- kappa* tick -->
+  <line x1="424" y1="142" x2="424" y2="158" stroke="#8a5a10" stroke-width="2"/>
+  <text x="424" y="192" text-anchor="middle" fill="#8a5a10" font-size="11">&#954;* &#8776; 0.099</text>
+  <!-- regions -->
+  <line x1="234" y1="150" x2="420" y2="150" stroke="#c0392b" stroke-width="4" opacity="0.55"/>
+  <line x1="428" y1="150" x2="616" y2="150" stroke="#2d5a2d" stroke-width="4" opacity="0.55"/>
+  <text x="326" y="138" text-anchor="middle" fill="#c0392b" font-size="11">supercritical: &#10216;length&#10217; &#8594; &#8734;</text>
+  <text x="524" y="138" text-anchor="middle" fill="#2d5a2d" font-size="11">subcritical: short</text>
+</svg>
+<figcaption><b>Fig 13. The sampler&rsquo;s own phase transition.</b> From fresh territory the head has <em>2D&minus;1</em> ways to grow the string (each costing <em>e</em><sup>&minus;2&#960;&sup2;&#954;</sup>) against essentially one free retraction: a branching walk that goes critical at <em>&#954;* = ln 7/(2&#960;&sup2;) &#8776; 0.099</em>. Below it, episode lengths diverge; the StringWorm is a <em>&#954; &#8805; 0.12</em> tool, precisely the stiff regime where frozen regions live.</figcaption>
+</figure>
+
+<div class="resolution">
+<span class="tag">Resolution: respect the domain.</span>
+No knob removes this; it is the physics of the extended ensemble.  The StringWorm is a
+\(\kappa \gtrsim 0.12\) tool (safely subcritical), which is precisely the stiff regime where the
+frozen-region worry lives.  The \(\kappa\approx0\) regime &mdash; where Evan&rsquo;s search
+operates and where atomic proposals are accepted freely &mdash; stays with
+<code>WrappingLoopUpdate</code>.  The docstring carries the formula.
+</div>
+
+<h3>6.4 Subtlety: entropic stewing in flat landscapes</h3>
+
+<div class="subtlety">
+<span class="tag">Symptom.</span>
+Even safely subcritical (\(\kappa = 0.2\)), rare episodes ran for \(10^5\)&ndash;\(3\times10^6\)
+iterations: after earlier episodes deposit debris, the head finds <em>flat</em> directions
+(moves canceling existing flux cost \(\approx 0\)) and diffuses in a labyrinth of equal-action
+states.  Neither the fugacity (the states are uncharged) nor directed proposal schemes (the
+options are genuinely equal-weight) can help; the problem is entropic.
+</div>
+
+<div class="resolution">
+<span class="tag">Resolution: abort-and-discard, which is exactly detailed-balance safe.</span>
+Episodes exceeding a cap (default 5000 iterations) are aborted and the <em>entire</em> episode is
+discarded &mdash; the pre-episode configuration is returned.  Why this introduces no bias: the
+bijection between a completed path and its reverse preserves the total iteration count, because
+stall probabilities depend only on the state being stalled at, and the reversed path visits the
+same multiset of states.  Truncating at the cap therefore removes forward and reverse paths
+<em>in pairs</em>, and what remains still satisfies
+\(P(\text{path})/P(\text{reversed}) = e^{-\Delta S}\); aborted weight lands harmlessly on the
+diagonal of the transition kernel.  (Contrast: aborting and <em>keeping</em> the partial string
+would emit invalid configurations; aborting and keeping a valid intermediate state would break the
+pairing.  Discarding is the unique cheap option that is exactly safe.)
+</div>
+
+<p>
+With all three fixes the worm is healthy: median episode 5&ndash;6 iterations, means of
+20&ndash;80, a bounded 5&ndash;18% of episodes hitting the cap, and every emission valid, at all
+tested couplings \(\kappa \in [0.12, 0.2]\).  An optional <code>reach</code> knob (max
+head&ndash;tail Chebyshev distance, a pure state restriction, hence DB-safe) can further localize
+the update if desired.
+</p>
+
+<h3>6.5 Validation &mdash; including a cautionary tale about baselines</h3>
+
+<div class="subtlety">
+<span class="tag">Symptom.</span>
+The ensemble cross-check (chains with vs. without the StringWorm, \(N=4\), \(\kappa=0.15\))
+initially showed a correlated \(-2.1\sigma\) pull in the action density.  Alarming for a sampler.
+</div>
+
+<div class="resolution">
+<span class="tag">Resolution: the baseline was the biased one.</span>
+Replication with independent seeds showed the <em>without</em>-worm chains scattered
+3&times; wider than their binned errors claimed &mdash; slow mixing &mdash; and sat low, the
+signature of cold-start under-thermalization.  Run to 4000 sweeps, the baseline drifts up and
+plateaus at 1.0989(3), statistically consistent (\(\sim1\sigma\)) with the worm-assisted chains&rsquo;
+1.1021(20), which had plateaued almost immediately.  The "discrepancy" was the worm-assisted chain
+<em>thermalizing faster</em>.  Moral: when a new update seems to shift an observable, first ask
+whether the reference chain has actually converged.  One long production-scale validation run is
+still recommended before leaning on the StringWorm at scale.
+</div>
+
+<h2>7. Diagnostics and division of labor</h2>
+
+<h3>7.1 The activity map</h3>
+
+<p>
+<code>supervillain.analysis.link_activity</code> differences consecutive stored configurations:
+\[
+a_\ell \;=\; \bigl\langle\, |n_\ell(t+1) - n_\ell(t)|\, \bigr\rangle_t ,
+\]
+(<code>site_activity</code> reduces over the direction axis).  Because it never looks inside a
+generator, it reports the combined effect of the whole update stack.  A frozen region &mdash; of
+whatever origin &mdash; appears as a persistent spatial hole of zeros.  The demo
+(<code>example/no-intersection-activity.py</code>, same stack, same \(\kappa=0.15\)):
+</p>
+
+<table>
+<tr><th>start</th><th>dead links</th><th>activity quartiles</th></tr>
+<tr><td>cold</td><td class="num">4.8%</td><td class="num">0.033 / 0.050 / 0.083</td></tr>
+<tr><td>frozen staggered texture</td><td class="num"><b>91.6%</b></td><td class="num">0 / 0 / 0</td></tr>
+</table>
+
+<figure>
+<div class="fig-row">
+  <div>
+    <svg id="actCold" viewBox="0 0 262 160" width="262" height="160" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="caption"><b>cold start</b> &mdash; 4.8% dead</div>
+  </div>
+  <div>
+    <svg id="actFrozen" viewBox="0 0 262 160" width="262" height="160" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="caption"><b>frozen texture</b> &mdash; 91.6% dead</div>
+  </div>
+</div>
+<figcaption><b>Fig 14. The activity map.</b> Mean |&#916;n<sub>&#8467;</sub>| between consecutive stored configurations, one cell per link (warm = active, grey = dead). A healthy chain moves nearly everywhere; a frozen region shows up as a persistent block of grey &mdash; a spatial hole no local update can touch. Schematic; dead fractions match the measured 4.8% vs 91.6%.</figcaption>
+</figure>
+
+<p>
+Run it periodically in production; if the map stays clean at your couplings, localized freezing is
+a non-issue in practice, whatever its in-principle status.
+</p>
+
+<h3>7.2 Who does what</h3>
+
+<table>
+<tr><th>generator</th><th>moves</th><th>role / regime</th></tr>
+<tr><td class="mono">SiteUpdate</td><td>\(\varphi\) only</td><td>always</td></tr>
+<tr><td class="mono">ExactUpdate, CohomologyUpdate</td><td>\(n\) by closed forms (\(F\) fixed)</td>
+<td>exact part and holonomy of \(n\); manifestly constraint-preserving</td></tr>
+<tr><td class="mono">ConstrainedLinkUpdate</td><td>single links, local \(\Delta q\) check</td>
+<td>workhorse in dilute phases; blocked by textures</td></tr>
+<tr><td class="mono">WrappingLoopUpdate</td><td>atomic single-direction rings (axis + diagonal)</td>
+<td>the \(\kappa\approx0\) / topological-sector tool; the unique escape from pristine frozen
+configurations; exponentially suppressed at physical \(\kappa\)</td></tr>
+<tr><td class="mono">IntersectionWorm</td><td>intersection-charge defect pair; complete
+\(\le3\)-link move library</td>
+<td>vortex-sheet reconnection and knot-sector mixing at moderate density</td></tr>
+<tr><td class="mono">StringWorm</td><td>open single-direction strings; emits background-adapted
+closed loops</td>
+<td>coordinated local rearrangements, droplet boundaries; \(\kappa\gtrsim0.12\)</td></tr>
+</table>
+
+<p>
+<b>What the worms do not solve.</b>  A genuine local action minimum (the staggered texture: every
+exit uphill) is crossed by any fixed-ensemble local sampler only at Boltzmann-suppressed rates
+&mdash; correctly so.  If the activity map ever shows persistent holes in production, the
+complementary tool is constraint-softening replica exchange: auxiliary replicas with
+\(e^{-\lambda\sum|q|}\) in place of the hard constraint, tempered in \(\lambda\) (the model&rsquo;s
+own \(i\theta\, q\) Lagrange structure made real).  The worms make that machinery less likely to
+be needed; they do not make it redundant.
+</p>
+
+<h2>8. Where everything lives</h2>
+
+<table>
+<tr><th>artifact</th><th>path</th></tr>
+<tr><td>Intersection worm</td><td class="mono">supervillain/generator/no_intersection/worm.py</td></tr>
+<tr><td>Move-library seeds (auto-generated)</td><td class="mono">supervillain/generator/no_intersection/moves.py</td></tr>
+<tr><td>Exhaustive move enumeration</td><td class="mono">example/no-intersection-move-search.py</td></tr>
+<tr><td>Local \(\Delta q\) machinery</td><td class="mono">supervillain/generator/no_intersection/charge.py</td></tr>
+<tr><td>String worm</td><td class="mono">supervillain/generator/no_intersection/string.py</td></tr>
+<tr><td>Frozen configurations and the unfreeze scan</td>
+<td class="mono">example/no-intersection-frozen.py, example/no-intersection-unfreeze.py</td></tr>
+<tr><td>Activity diagnostic + demo</td>
+<td class="mono">supervillain/analysis/activity.py, example/no-intersection-activity.py</td></tr>
+<tr><td>Spun-trefoil seed configuration</td>
+<td class="mono">example/spun-trefoil.py, spun-trefoil-n.npz</td></tr>
+<tr><td>Tests (all of the above)</td><td class="mono">test/test_no_intersection_generators.py</td></tr>
+</table>
+
+<p class="caption">
+Commits, in order: <span class="mono">a94ea5b</span> (worm library + local \(\Delta q\)),
+<span class="mono">0b38aee</span> (shared charge helpers, fast link update),
+<span class="mono">0656a54</span> (exhaustive move enumeration),
+<span class="mono">6200c5b</span> (spun trefoil),
+<span class="mono">cc172f0</span> (wrapping local check),
+<span class="mono">d9c5a0d</span> (frozen-configuration characterization),
+<span class="mono">f4ac056</span> (StringWorm + activity map), on branch
+<span class="mono">fix/intersection-worm</span>.
+</p>
+
+<script>
+// Fig 8: fill the two activity grids.  Deterministic (fixed hash), so the figure
+// is reproducible; the dead fractions are set to match the measured 4.8% / 91.6%.
+(function () {
+  var NS = 'http://www.w3.org/2000/svg', COLS = 10, ROWS = 6, CW = 22, GAP = 3, O = 6;
+  function hash(i, j) { var x = Math.sin(i * 12.9898 + j * 78.233) * 43758.5453; return x - Math.floor(x); }
+  function warm(t) {                       // t in [0,1] -> amber-to-red heat
+    var r = Math.round(206 + 40 * t), g = Math.round(150 - 60 * t), b = Math.round(70 - 30 * t);
+    return 'rgb(' + r + ',' + Math.max(g, 40) + ',' + Math.max(b, 30) + ')';
+  }
+  function grid(id, isDead) {
+    var svg = document.getElementById(id);
+    if (!svg) return;
+    for (var j = 0; j < ROWS; j++) for (var i = 0; i < COLS; i++) {
+      var r = document.createElementNS(NS, 'rect');
+      r.setAttribute('x', O + i * (CW + GAP));
+      r.setAttribute('y', O + j * (CW + GAP));
+      r.setAttribute('width', CW); r.setAttribute('height', CW); r.setAttribute('rx', 3);
+      r.setAttribute('fill', isDead(i, j) ? '#d3cdbe' : warm(hash(i, j)));
+      svg.appendChild(r);
+    }
+  }
+  // cold: ~3/60 dead (5%), scattered.
+  grid('actCold', function (i, j) { return hash(i, j) < 0.0307; });
+  // frozen: all dead except a thin lit boundary column (~5/60 live -> ~91.7% dead).
+  grid('actFrozen', function (i, j) { return !(i === 0 && j < 5); });
+})();
+</script>
+</body>
+</html>

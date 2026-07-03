@@ -54,8 +54,10 @@ class IntersectionWorm(ReadWriteable, Generator):
         The move library contains **every** elementary clean move: all changes of at
         most 3 links with coefficients $\pm 1$ whose $\Delta q$ on an empty
         background is a clean unit dipole, as enumerated exhaustively by
-        ``example/no-intersection-move-search.py`` (93 orbit classes, 828 shapes per
-        direction) and expanded from the seeds in the auto-generated ``moves.py``
+        ``example/no-intersection-move-search.py`` (828 shapes per direction, in 41
+        symmetry classes once transforms *and* re-anchoring translations are counted;
+        ``moves.py`` stores 93 translation-blind representatives, a harmless
+        redundancy the builder de-duplicates) and expanded from those seeds
         under all 384 signed axis permutations and global negation, re-anchored so
         that the +1 defect sits on the head.  Not every shape offers a clean step on
         every trail; stalled proposals are simply rejected (the head stays put),
