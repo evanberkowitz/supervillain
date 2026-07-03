@@ -55,11 +55,10 @@ class IntersectionWorm(ReadWriteable, Generator):
         most 3 links with coefficients $\pm 1$ whose $\Delta q$ on an empty
         background is a clean unit dipole, as enumerated exhaustively by
         ``example/no-intersection-move-search.py`` (828 shapes per direction, in 41
-        symmetry classes once transforms *and* re-anchoring translations are counted;
-        ``moves.py`` stores 93 translation-blind representatives, a harmless
-        redundancy the builder de-duplicates) and expanded from those seeds
-        under all 384 signed axis permutations and global negation, re-anchored so
-        that the +1 defect sits on the head.  Not every shape offers a clean step on
+        symmetry classes counting transforms *and* re-anchoring translations;
+        ``moves.py`` stores exactly one representative per class) and expanded from
+        those seeds under all 384 signed axis permutations and global negation,
+        re-anchored so that the +1 defect sits on the head.  Not every shape offers a clean step on
         every trail; stalled proposals are simply rejected (the head stays put),
         which is detailed-balance safe.  See :ref:`the No-Intersection model
         <no_intersection>`.

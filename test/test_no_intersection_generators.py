@@ -145,7 +145,7 @@ def test_intersection_intersection_normalized_is_one_at_origin():
 
 def test_intersection_worm_library_covers_all_directions():
     # The library holds clean shapes for every one of the 8 unit dipole separations
-    # with equal bucket sizes by symmetry.  The orbit expansion of the 93 seed
+    # with equal bucket sizes by symmetry.  The orbit expansion of the 41 seed
     # classes in moves.py must reproduce exactly the 828 moves per direction found
     # by the exhaustive enumeration in example/no-intersection-move-search.py.
     S = _action()
