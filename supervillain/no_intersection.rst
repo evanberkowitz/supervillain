@@ -116,8 +116,13 @@ We can imagine inserting a worm with a head and tail built of exponentials of La
 
 However, unlike in $D=2$, where the worm lives on plaquettes and crosses a single link to move to a neighboring plaquette, the worm here must cross a 3-dimensional cube to reach an orthogonally-adjacent neighboring hypercube (if you prefer, think of the hypercube as a site on the dual lattice and the cube as a dual link).
 Therefore, we expect to need to make coordinated moves simultaneously updating 3 links at once to push the topological defect around.
-In fact, you can make coordinated 2-link moves that push the worm defect diagonally.
-The fact that it is even possible to move $q$ around without a proliferation of constraint violations can be seen as a repercussion of the fact that $q=dJ$ is locally conserved.
+In fact, if you don't require the links to share a corner, you can make coordinated 2-link moves that push the worm orthogonally.
+Coordinated 2-link and 4-link moves can also push the worm defect diagonally.
+
+But, the complication is that the above discussion is on an $F=0$ background.
+On a nontrivial background, those coordinated moves are not always legal.
+And, on a nontrivial background, moves that are not legal on an $F=0$ background can advance the worm defect without violating the constraint!
+This can add a lot of complication and furthermore adds concern about the ergodicity of the worm.
 
 To see precisely what such a worm measures, remember that in the :class:`~.NoIntersections` case we are trying to sample according to
 

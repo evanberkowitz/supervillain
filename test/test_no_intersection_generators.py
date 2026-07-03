@@ -51,22 +51,32 @@ def test_intersection_worm_preserves_validity_and_closes():
 
 
 def test_intersection_worm_library_has_orthogonal_and_diagonal_moves():
-    # The move library carries two families: 3-link steps to the 4 orthogonal (face)
-    # neighbours and 2-link "elbow" steps to the 6 diagonal (ê_μ - ê_ν) neighbours.
+    # The move library carries orthogonal steps to the 4 face neighbours (ê_μ) and
+    # diagonal steps to all 12 in-plane diagonals (ê_μ ± ê_ν): 6 opposite-sign
+    # (ê_μ - ê_ν) and 6 same-sign (ê_μ + ê_ν).
     S = _action()
     worm = supervillain.generator.no_intersection.IntersectionWorm(S)
     orthogonal = [d for d in worm._directions if sum(abs(x) for x in d) == 1]
     diagonal = [d for d in worm._directions if sum(abs(x) for x in d) == 2]
+    opposite = [d for d in diagonal if sum(d) == 0]   # ê_μ - ê_ν
+    same = [d for d in diagonal if sum(d) == 2]        # ê_μ + ê_ν
     assert len(orthogonal) == 4
-    assert len(diagonal) == 6
+    assert len(diagonal) == 12
+    assert len(opposite) == 6
+    assert len(same) == 6
     # Every stored direction is canonical (first nonzero component is +1).
     for d in worm._directions:
         assert next(x for x in d if x != 0) > 0
-    # Orthogonal shapes are 3-link; diagonal shapes are the minimal 2-link elbow.
+    # Orthogonal buckets carry both the 3-link and the leaner 2-link shape.
     for d in orthogonal:
-        assert all(len(shape) == 3 for shape in worm._library[d])
-    for d in diagonal:
+        lengths = {len(shape) for shape in worm._library[d]}
+        assert lengths == {2, 3}
+    # The opposite-sign diagonal is the minimal 2-link elbow; the same-sign diagonal,
+    # unreachable by two links, is a 4-link shape.
+    for d in opposite:
         assert all(len(shape) == 2 for shape in worm._library[d])
+    for d in same:
+        assert all(len(shape) == 4 for shape in worm._library[d])
 
 
 def test_intersection_worm_uses_diagonal_moves_and_stays_valid():
@@ -89,6 +99,37 @@ def test_intersection_worm_uses_diagonal_moves_and_stays_valid():
         cfg = worm.step(cfg)
         assert S.valid(cfg)
     assert used['diagonal'] > 0
+
+
+def test_intersection_worm_uses_every_move_family_and_stays_valid():
+    # All four shape families must fire a clean, accepted step at least once, and every
+    # emitted configuration must satisfy q = dn∧dn = 0: the 2- and 3-link orthogonal
+    # shapes (±ê_μ), the 2-link opposite-sign elbow (ê_μ - ê_ν), and the 4-link same-sign
+    # diagonal (ê_μ + ê_ν).
+    S = _action()
+    worm = supervillain.generator.no_intersection.IntersectionWorm(S)
+    used = {'ortho2': 0, 'ortho3': 0, 'opposite': 0, 'same': 0}
+    orig = worm._sheet_segment
+
+    def spy(n, q_now, head, hop, sign):
+        change, target = orig(n, q_now, head, hop, sign)
+        if change is not None:
+            taxicab = sum(abs(x) for x in hop)
+            if taxicab == 1:
+                used['ortho2' if len(change) == 2 else 'ortho3'] += 1
+            elif sum(hop) == 0:
+                used['opposite'] += 1
+            else:
+                used['same'] += 1
+        return change, target
+
+    worm._sheet_segment = spy
+    cfg = _cold(S)
+    for _ in range(80):
+        cfg = worm.step(cfg)
+        assert S.valid(cfg)
+    for family, count in used.items():
+        assert count > 0, f'move family {family!r} never produced a clean accepted step'
 
 
 def test_intersection_worm_inline_observable_keys():

@@ -38,6 +38,33 @@ _DIAG_SEED = (
     (1, (1, 0, 1, 1), +1),
 )
 
+# A *two*-link move that shifts the head *orthogonally*, by a single face step +ê_μ (here
+# +ê_2).  Unlike the 3-link :data:`_SEED` its two links do not share a corner; their charge
+# dipole nonetheless lands one face away.  It reaches exactly the same four face neighbours
+# as :data:`_SEED`, but with one fewer link (smaller $\Delta S$, higher acceptance), and its
+# shapes share the orthogonal buckets with the 3-link shapes: a step just draws uniformly
+# among all of them, so more shapes means a clean orthogonal step is more often available.
+_ORTHO2_SEED_HEAD = (1, 1, 1, 1)
+_ORTHO2_SEED = (
+    (0, (1, 1, 1, 1), +1),
+    (1, (2, 1, 1, 2), +1),
+)
+
+# A *four*-link move that shifts the head by the *same-sign* diagonal ê_μ + ê_ν (here
+# +(ê_0 + ê_1)).  This is the sign-partner of the elbow's ê_μ - ê_ν, and it is *not* reachable
+# by any two-link move: four links is the minimum (see the class docstring).  Its dipole must
+# already point in a *canonical* (positive) direction, because axis permutations cannot flip
+# the two +1's of a same-sign diagonal into -1's the way they can reorder the +1/-1 of the
+# opposite-sign elbow.  Like the elbow it preserves the parity of Σ_k x_k, and together the
+# two diagonal families reach all four ±(ê_μ ± ê_ν) neighbours in every 2-plane.
+_SAMEDIAG_SEED_HEAD = (2, 2, 0, 1)
+_SAMEDIAG_SEED = (
+    (0, (1, 1, 1, 1), +1),
+    (0, (1, 2, 1, 1), +1),
+    (1, (2, 2, 1, 2), +1),
+    (3, (2, 2, 1, 1), -1),
+)
+
 
 class IntersectionWorm(ReadWriteable, Generator):
     r"""
@@ -48,33 +75,46 @@ class IntersectionWorm(ReadWriteable, Generator):
     coordinated change of $n$; when the head returns to the tail the constraint is restored
     everywhere and the configuration is emitted into the Markov chain.
 
-    Two move families extend the sheet, each leaving the charge changed only by a $\pm 1$
-    dipole that advances the head:
+    Different families of moves extend the sheet, each leaving the charge changed only by a
+    $\pm 1$ dipole that advances the head:
 
-    - an **orthogonal** step: a coordinated *three*-link change that shifts
-      the head by $\pm\hat e_{\mu}$ to a face neighbour --- the two hypercubes share a 3-cell;
-    - a **diagonal** step: a *two*-link "elbow" --- two links meeting
-      at a corner in one 2-plane --- that shifts the head by $\hat e_{\mu} - \hat e_{\nu}$ to
-      a diagonal neighbour, where the two hypercubes share only a 2-cell.
+    - 8 three-link orthogonal moves following the intuition of crossing a 3-dimensional cube,
+    - 8 two-link orthogonal moves---the surprising part is that the links do not share a corner,
+    - 12 two-link diagonal moves shift the head by $\hat e_{\mu} - \hat e_{\nu}$ to a diagonal
+      neighbour, where the two hypercubes share only a 2-cell.
+    - 12 four-link diagonal moves shift the head to the $\hat e_{\mu} + \hat e_{\nu}$ 'same-sign'
+      diagonal neighbors.
 
-    Two links is the *minimum* that can move charge at all: a single-link change has
-    $q = d\Delta n \wedge d\Delta n \equiv 0$ and moves nothing.  The library stores the
-    axis-permutation orbits of both seeds.  Counting *oriented* moves (a displacement and
-    its reverse count separately) there are
+    Two links is the *minimum* whose *self*-charge moves anything: a single-link change has
+    $d\Delta n \wedge d\Delta n \equiv 0$, so on the flux-free cold background it shifts
+    nothing.  On a background with flux $F = dn$, though, the *linear* term
+    $\Delta q = F \wedge d\Delta n + d\Delta n \wedge F$ is generically nonzero, and a single
+    link can even cleanly transport the head --- the library's shapes, keyed by their
+    background-independent self-charge, simply do not try to exploit that background-dependent
+    effect (see the discussion of frozen configurations in :ref:`the No-Intersection model
+    <no_intersection>`).  The same-sign diagonal is the one short neighbour that *cannot* be
+    built from two links --- four is its minimum --- which is why it carries a heavier shape
+    than its opposite-sign partner.  The library
+    stores the axis-permutation orbits of all four seeds.  Counting *oriented* moves (a
+    displacement and its reverse count separately) there are
 
     - $2 \times 4 = 8$ **orthogonal** moves, one along each signed axis $\pm\hat e_{\mu}$
       --- the eight face neighbours, one per dual-lattice-link direction; and
-    - $4 \times 3 = 12$ **diagonal** moves $\hat e_{\mu} - \hat e_{\nu}$ with $\mu \neq \nu$,
-      equivalently the $\binom{4}{2} = 6$ coordinate 2-planes each supplying only its
-      *opposite-sign* diagonal $\pm(\hat e_{\mu} - \hat e_{\nu})$.  The same-sign diagonal
-      $\hat e_{\mu} + \hat e_{\nu}$ is *not* reachable by any two-link elbow, so a plane
-      contributes two oriented moves, not four.
+    - $4 \times 6 = 24$ **diagonal** moves: the $\binom{4}{2} = 6$ coordinate 2-planes each
+      now supply *both* signed diagonals $\pm(\hat e_{\mu} - \hat e_{\nu})$ and
+      $\pm(\hat e_{\mu} + \hat e_{\nu})$ --- all four corners of the plane.
 
-    That is $8 + 12 = 20 = 2M$ oriented moves ($M = 10$ canonical displacements --- those
+    That is $8 + 24 = 32 = 2M$ oriented moves ($M = 16$ canonical displacements --- those
     whose first nonzero component is $+1$), and each step draws one uniformly.  The families
-    interleave freely: a diagonal step is cheaper (fewer links, hence smaller $\Delta S$ and
-    higher acceptance) and preserves the parity of $\sum_{k} x_{k}$, while an orthogonal step
-    flips it, so together they mix the head's walk more efficiently than either alone.
+    interleave freely: a diagonal step preserves the parity of $\sum_{k} x_{k}$ while an
+    orthogonal step flips it, so together they mix the head's walk more efficiently than
+    either alone.  On the cold background the orthogonal $\pm\hat e_{\mu}$ steps alone already
+    connect every hypercube, so the diagonals and heavier shapes are not needed for
+    *reachability* there.  On a nontrivial background they earn their keep differently: a
+    coordinated move deposits its net dipole directly, never placing a defect on the
+    intermediate hypercube a stepwise decomposition would have to pass a clean hop through, so
+    it can be clean exactly where that chain of smaller hops is blocked --- the same
+    coordinated-move logic that escapes a frozen configuration.
 
     As the head moves we tally the head$-$tail displacement histogram that yields the
     :class:`~.Intersection_Intersection` correlator $\langle e^{i\theta_h} e^{-i\theta_t}\rangle$ ---
@@ -84,7 +124,7 @@ class IntersectionWorm(ReadWriteable, Generator):
     .. warning::
 
         Restricted to $D = 4$.  This generator updates $n$ only, so it is not ergodic
-        on its own; at least combine it with a $\varphi$-update such as
+        on its own; at least combine it with a $\phi$-update such as
         :class:`~.villain.SiteUpdate`.
 
     .. danger::
@@ -107,9 +147,10 @@ class IntersectionWorm(ReadWriteable, Generator):
         self.worm_lengths = deque()
 
         # Build the move library: for each canonical displacement d (the four positive
-        # unit directions and the six diagonals ê_μ - ê_ν), the clean shapes that shift
-        # the +1 head by +d, expressed RELATIVE to the head.  The opposite displacement
-        # -d is generated on the fly by negating a shape, so we store only canonical d.
+        # unit directions ê_μ and the twelve diagonals ê_μ ± ê_ν with a positive first
+        # component), the clean shapes that shift the +1 head by +d, expressed RELATIVE to
+        # the head.  The opposite displacement -d is generated on the fly by negating a
+        # shape, so we store only canonical d.
         self._library = self._build_library()
         self._directions = sorted(self._library)
 
@@ -169,9 +210,16 @@ class IntersectionWorm(ReadWriteable, Generator):
 
         anchor = (N // 2,) * 4
         library = {}
-        # ``steps`` is the number of unit hops the displacement makes: 1 for the
-        # orthogonal 3-link seed, 2 for the diagonal 2-link elbow.
-        for seed, seed_head, steps in ((_SEED, _SEED_HEAD, 1), (_DIAG_SEED, _DIAG_SEED_HEAD, 2)):
+        # ``steps`` is the taxicab length of the displacement (number of unit hops): 1 for
+        # the orthogonal seeds (±ê_μ), 2 for the diagonal seeds (ê_μ ± ê_ν).  It filters an
+        # orbit down to just the templates whose self-charge dipole is the intended
+        # neighbour; the orthogonal shapes (3-link and 2-link) share the ±ê_μ buckets.
+        for seed, seed_head, steps in (
+            (_SEED, _SEED_HEAD, 1),
+            (_ORTHO2_SEED, _ORTHO2_SEED_HEAD, 1),
+            (_DIAG_SEED, _DIAG_SEED_HEAD, 2),
+            (_SAMEDIAG_SEED, _SAMEDIAG_SEED_HEAD, 2),
+        ):
             for template in orbit(seed, seed_head):
                 sep = separation(template, anchor)
                 if sep is None or sum(abs(x) for x in sep) != steps:
