@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The spun trefoil in the No-Intersection model</title>
+<script>
+MathJax = { tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] } };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+<style>
+  :root {
+    --ink: #1c1c1a;
+    --muted: #565b61;
+    --paper: #fdfdfb;
+    --panel: #f5f4ee;
+    --rule: #cfcabc;
+    --blue: #2d5f9f;
+    --green: #287043;
+    --amber: #9b650b;
+    --red: #b7372f;
+  }
+  body {
+    font-family: Georgia, "Times New Roman", serif;
+    max-width: 56em;
+    margin: 2em auto;
+    padding: 0 1.5em;
+    line-height: 1.58;
+    color: var(--ink);
+    background: var(--paper);
+  }
+  h1 { font-size: 1.95em; border-bottom: 3px double #888; padding-bottom: .3em; }
+  h2 { font-size: 1.42em; margin-top: 2em; border-bottom: 1px solid #bbb; padding-bottom: .2em; }
+  h3 { font-size: 1.12em; margin-top: 1.5em; }
+  a { color: #274f86; }
+  code, pre {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: .92em;
+    background: #efede7;
+    border-radius: 3px;
+  }
+  code { padding: .08em .28em; }
+  pre { padding: .85em 1em; overflow-x: auto; border-left: 3px solid #c9c4b4; }
+  table { border-collapse: collapse; width: 100%; margin: 1.1em 0; }
+  th, td { border: 1px solid #ccc; padding: .45em .65em; text-align: left; vertical-align: top; }
+  th { background: #efede5; }
+  .caption { color: var(--muted); font-size: .92em; }
+  .toc {
+    background: var(--panel);
+    border-radius: 6px;
+    padding: .9em 1.3em;
+    margin: 1.2em 0;
+  }
+  .toc ul { margin: .4em 0; }
+  .keypoint, .warning {
+    border-left: 4px solid var(--blue);
+    background: #e9eef6;
+    padding: .8em 1.1em;
+    margin: 1.15em 0;
+    border-radius: 0 4px 4px 0;
+  }
+  .warning { border-left-color: var(--amber); background: #fbf3e4; }
+  .tag {
+    font-weight: bold;
+    color: #2d4a7d;
+    font-variant: small-caps;
+    letter-spacing: .04em;
+  }
+  .warning .tag { color: #865907; }
+  figure { margin: 1.8em auto; text-align: center; }
+  figure svg {
+    max-width: 100%;
+    height: auto;
+    overflow: visible;
+    text-rendering: geometricPrecision;
+  }
+  figcaption {
+    max-width: 48em;
+    margin: .55em auto 0;
+    color: var(--muted);
+    font-size: .92em;
+  }
+  .figure-math {
+    max-width: 45em;
+    margin: .55em auto 0;
+    color: #253347;
+    font-size: .96em;
+  }
+  .legend {
+    display: flex;
+    justify-content: center;
+    gap: .75em 1.1em;
+    flex-wrap: wrap;
+    color: #444;
+    font-size: .9em;
+    margin-top: .45em;
+  }
+  .swatch {
+    display: inline-block;
+    width: .85em;
+    height: .85em;
+    border-radius: 2px;
+    margin-right: .3em;
+    vertical-align: -.08em;
+  }
+  .mono { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: .9em; }
+  .num { font-variant-numeric: tabular-nums; }
+  .small { font-size: .92em; color: var(--muted); }
+  .gridline { stroke: #d8d5ca; stroke-width: 1; }
+  .arrow { stroke: #777; stroke-width: 1.5; fill: none; }
+  .box { fill: #fffefa; stroke: var(--rule); stroke-width: 1.2; }
+</style>
+</head>
+<body>
+
+<h1>The spun trefoil in the No-Intersection model</h1>
+
+<p class="caption">
+An explanation of the continuum spun trefoil and the concrete lattice object produced by
+<code>example/spun-trefoil.py</code>.  The lattice statements below were checked against
+<code>spun-trefoil-n.npz</code> in this worktree.
+</p>
+
+<div class="toc">
+<b>Contents</b>
+<ul>
+  <li><a href="#continuum">1. Continuum picture: Artin spinning</a></li>
+  <li><a href="#trefoil-arc">2. The trefoil arc used by the code</a></li>
+  <li><a href="#lattice">3. Lattice construction: a swept solid, not a solve</a></li>
+  <li><a href="#verification">4. What is verified numerically</a></li>
+  <li><a href="#files">5. Where everything lives</a></li>
+</ul>
+</div>
+
+<h2 id="continuum">1. Continuum picture: Artin spinning</h2>
+
+<p>
+The spun trefoil is a knotted two-sphere in four dimensions.  Start with a trefoil
+presented as a knotted arc \(\alpha\) in the half-space \(z\ge 0\), with both
+endpoints on the plane \(z=0\).  Spin the half-space around that plane by replacing
+the height \(z\) with polar coordinates in a new two-plane:
+\[
+(x,y,z)\longmapsto (x,y,z\cos\theta,z\sin\theta), \qquad 0\le \theta <2\pi .
+\]
+Interior points of the arc sweep circles.  The two endpoints, where \(z=0\), do not
+sweep circles; they stay fixed on the spin axis.  Topologically this is
+\(\alpha\times S^1\) with the two boundary circles collapsed to two points, hence a
+two-sphere \(S^2\).
+</p>
+
+<figure id="fig-continuum-spin">
+<svg viewBox="0 0 780 250" xmlns="http://www.w3.org/2000/svg" font-family="Georgia, serif" font-size="13">
+  <defs>
+    <marker id="arrow1" markerWidth="9" markerHeight="9" refX="7" refY="3.5" orient="auto">
+      <path d="M0 0 L7 3.5 L0 7 z" fill="#777"/>
+    </marker>
+  </defs>
+
+  <text x="125" y="24" text-anchor="middle" fill="#222" font-weight="bold">arc in a half-space</text>
+  <line x1="35" y1="178" x2="225" y2="178" stroke="#888" stroke-width="1.4"/>
+  <text x="210" y="195" text-anchor="middle" fill="#666">axis plane</text>
+  <path d="M57 178 C 76 118, 117 75, 151 104 C 184 132, 191 151, 207 178" fill="none" stroke="#287043" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="57" cy="178" r="5" fill="#287043"/><circle cx="207" cy="178" r="5" fill="#287043"/>
+  <circle cx="139" cy="96" r="5" fill="#b7372f"/>
+  <line x1="139" y1="96" x2="139" y2="178" stroke="#b7372f" stroke-dasharray="4 4"/>
+  <text x="151" y="140" fill="#b7372f">height z</text>
+  <text x="116" y="210" text-anchor="middle" fill="#666">endpoints have z = 0</text>
+
+  <line x1="250" y1="120" x2="300" y2="120" class="arrow" marker-end="url(#arrow1)"/>
+  <text x="275" y="108" text-anchor="middle" fill="#666">spin</text>
+
+  <text x="390" y="24" text-anchor="middle" fill="#222" font-weight="bold">one point sweeps a circle</text>
+  <line x1="330" y1="125" x2="455" y2="125" stroke="#999" stroke-width="1"/>
+  <line x1="392" y1="62" x2="392" y2="188" stroke="#999" stroke-width="1"/>
+  <ellipse cx="392" cy="125" rx="52" ry="34" fill="#ecf2fb" fill-opacity=".45" stroke="#2d5f9f" stroke-width="3"/>
+  <circle cx="430" cy="102" r="5" fill="#b7372f"/>
+  <text x="450" y="100" fill="#b7372f">same height z</text>
+  <text x="454" y="140" fill="#666">&zeta;</text>
+  <text x="380" y="60" fill="#666">w</text>
+
+  <line x1="485" y1="120" x2="535" y2="120" class="arrow" marker-end="url(#arrow1)"/>
+
+  <text x="650" y="24" text-anchor="middle" fill="#222" font-weight="bold">spun two-sphere</text>
+  <ellipse cx="650" cy="126" rx="80" ry="38" fill="#eaf3ea" fill-opacity=".35" stroke="#287043" stroke-width="2.5"/>
+  <ellipse cx="650" cy="126" rx="57" ry="25" fill="none" stroke="#287043" stroke-width="1.7" opacity=".75"/>
+  <ellipse cx="650" cy="126" rx="32" ry="12" fill="none" stroke="#287043" stroke-width="1.5" opacity=".6"/>
+  <path d="M570 126 C 602 54, 700 54, 730 126 C 704 199, 597 199, 570 126 Z" fill="#f7fbf7" fill-opacity=".28" stroke="#287043" stroke-width="2"/>
+  <circle cx="650" cy="54" r="5" fill="#287043"/>
+  <circle cx="650" cy="199" r="5" fill="#287043"/>
+  <text x="650" y="224" text-anchor="middle" fill="#666">schematic projection</text>
+</svg>
+<div class="figure-math">
+\[
+\alpha\times S^1\ \text{with both end circles collapsed}\;\cong\;S^2 .
+\]
+</div>
+<figcaption><b>Fig 1. Artin spinning.</b> The drawing is a projection: four-dimensional
+embedding data is not visible in one picture.  The important continuum facts are that
+interior points of the trefoil arc sweep circles, endpoints on the axis collapse to
+two poles, and the resulting embedded surface is a two-sphere.</figcaption>
+</figure>
+
+<div class="keypoint">
+<span class="tag">Why it is knotted.</span>
+For a spun arc, the complement has the same knot group as the original arc closure.
+For a trefoil this group is
+\[
+\pi_1 \cong \langle a,b\mid aba=bab\rangle,
+\]
+which is non-abelian.  An unknotted two-sphere in \(S^4\) has complement group
+\(\mathbb Z\).  The non-abelian complement group is the topological reason this
+two-sphere is knotted.
+</div>
+
+<h2 id="trefoil-arc">2. The trefoil arc used by the code</h2>
+
+<p>
+The implementation starts from a \(5\times5\) grid diagram of the trefoil.  The
+markers are \(O_i=(i,i)\) and \(X_i=(i,i+3\!\!\pmod 5)\).  Each column joins its
+two markers vertically; each row joins its two markers horizontally; all vertical
+strands pass over all horizontal strands.  The code cuts the closed diagram open
+on row 4 between columns 2 and 3, a segment without crossings.
+</p>
+
+<figure id="fig-grid-arc">
+<svg viewBox="0 0 780 365" xmlns="http://www.w3.org/2000/svg" font-family="Georgia, serif" font-size="12">
+  <defs>
+    <marker id="arrow2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0 0 L6 3 L0 6 z" fill="#777"/>
+    </marker>
+  </defs>
+  <text x="250" y="25" text-anchor="middle" fill="#222" font-weight="bold">5x5 trefoil grid diagram, cut open</text>
+
+  <g transform="translate(80,52)">
+    <rect x="0" y="0" width="300" height="250" class="box"/>
+    <g class="gridline">
+      <line x1="0" y1="0" x2="300" y2="0"/><line x1="0" y1="50" x2="300" y2="50"/>
+      <line x1="0" y1="100" x2="300" y2="100"/><line x1="0" y1="150" x2="300" y2="150"/>
+      <line x1="0" y1="200" x2="300" y2="200"/><line x1="0" y1="250" x2="300" y2="250"/>
+      <line x1="0" y1="0" x2="0" y2="250"/><line x1="60" y1="0" x2="60" y2="250"/>
+      <line x1="120" y1="0" x2="120" y2="250"/><line x1="180" y1="0" x2="180" y2="250"/>
+      <line x1="240" y1="0" x2="240" y2="250"/><line x1="300" y1="0" x2="300" y2="250"/>
+    </g>
+
+    <!-- under-strands: x-running, z = Z_UNDER -->
+    <g stroke="#287043" stroke-width="7" stroke-linecap="round" fill="none">
+      <line x1="120" y1="200" x2="60" y2="200"/>
+      <line x1="60" y1="50" x2="180" y2="50"/>
+      <line x1="180" y1="150" x2="0" y2="150"/>
+      <line x1="0" y1="0" x2="120" y2="0"/>
+      <line x1="120" y1="100" x2="240" y2="100"/>
+      <line x1="240" y1="200" x2="180" y2="200"/>
+    </g>
+
+    <!-- cut segment -->
+    <line x1="120" y1="200" x2="180" y2="200" stroke="#b7372f" stroke-width="2" stroke-dasharray="5 4"/>
+    <text x="150" y="224" text-anchor="middle" fill="#b7372f">cut</text>
+
+    <!-- white halos then over-strands: y-running, z = Z_OVER -->
+    <g stroke="#fffefa" stroke-width="13" stroke-linecap="round">
+      <line x1="60" y1="200" x2="60" y2="50"/>
+      <line x1="180" y1="50" x2="180" y2="150"/>
+      <line x1="0" y1="150" x2="0" y2="0"/>
+      <line x1="120" y1="0" x2="120" y2="100"/>
+      <line x1="240" y1="100" x2="240" y2="200"/>
+    </g>
+    <g stroke="#2d5f9f" stroke-width="7" stroke-linecap="round">
+      <line x1="60" y1="200" x2="60" y2="50"/>
+      <line x1="180" y1="50" x2="180" y2="150"/>
+      <line x1="0" y1="150" x2="0" y2="0"/>
+      <line x1="120" y1="0" x2="120" y2="100"/>
+      <line x1="240" y1="100" x2="240" y2="200"/>
+    </g>
+
+    <!-- endpoints after cutting -->
+    <circle cx="120" cy="200" r="8" fill="#fffefa" stroke="#b7372f" stroke-width="2"/>
+    <circle cx="180" cy="200" r="8" fill="#fffefa" stroke="#b7372f" stroke-width="2"/>
+
+    <!-- O markers -->
+    <g fill="#fffefa" stroke="#333" stroke-width="1.5">
+      <circle cx="0" cy="0" r="10"/><circle cx="60" cy="50" r="10"/><circle cx="120" cy="100" r="10"/>
+      <circle cx="180" cy="150" r="10"/><circle cx="240" cy="200" r="10"/>
+    </g>
+    <g text-anchor="middle" fill="#333" font-size="11" font-weight="bold">
+      <text x="0" y="4">O</text><text x="60" y="54">O</text><text x="120" y="104">O</text>
+      <text x="180" y="154">O</text><text x="240" y="204">O</text>
+    </g>
+
+    <!-- X markers -->
+    <g text-anchor="middle" fill="#b7372f" font-weight="bold" font-size="17">
+      <text x="0" y="155">X</text><text x="60" y="205">X</text><text x="120" y="5">X</text>
+      <text x="180" y="55">X</text><text x="240" y="105">X</text>
+    </g>
+  </g>
+
+  <g transform="translate(455,73)">
+    <rect x="0" y="0" width="245" height="210" class="box"/>
+    <text x="20" y="28" fill="#222" font-weight="bold">Code choices</text>
+    <rect x="22" y="52" width="18" height="10" fill="#287043"/><text x="50" y="62" fill="#333">horizontal strands: z = 2</text>
+    <rect x="22" y="82" width="18" height="10" fill="#2d5f9f"/><text x="50" y="92" fill="#333">vertical strands: z = 4</text>
+    <text x="22" y="124" fill="#555">vertical-over-horizontal</text>
+    <text x="22" y="146" fill="#555">is encoded by height,</text>
+    <text x="22" y="168" fill="#555">not by a separate crossing table.</text>
+  </g>
+</svg>
+<div class="legend">
+  <span><span class="swatch" style="background:#287043"></span>x-running under-strands</span>
+  <span><span class="swatch" style="background:#2d5f9f"></span>y-running over-strands</span>
+  <span><span class="swatch" style="background:#b7372f"></span>cut endpoints</span>
+</div>
+<figcaption><b>Fig 2. The grid arc.</b> This is the data in <code>RUNS</code>.  The
+open arc has 11 straight runs, which <code>arc_edges()</code> expands to 69 unit
+lattice steps.  The vertical drops from the two cut endpoints to \(z=0\) are not
+stored as volume-contributing runs; in the swept-solid construction they appear as
+boundary caps.</figcaption>
+</figure>
+
+<h2 id="lattice">3. Lattice construction: a swept solid, not a solve</h2>
+
+<p>
+The lattice directions are
+\[
+0=x,\qquad 1=y,\qquad 2=\zeta,\qquad 3=w .
+\]
+The script uses \(N=18\), grid spacing 3 in the \(x,y\) plane, \(Z_{\rm under}=2\),
+\(Z_{\rm over}=4\), and spin-axis offset \((\zeta,w)=(9,9)\).  A round circle of
+radius \(z\) in the continuum spin is replaced by the square, or Chebyshev, circle
+of radius \(z\) in the \((\zeta,w)\) plane.  The square replacement is a PL
+isotopic discretization of the same spin; the spacing and height separation are
+chosen so the lattice wedge product does not create artificial corner contacts.
+</p>
+
+<figure id="fig-square-spin">
+<svg viewBox="0 0 780 300" xmlns="http://www.w3.org/2000/svg" font-family="Georgia, serif" font-size="12">
+  <defs>
+    <marker id="arrow3" markerWidth="9" markerHeight="9" refX="7" refY="3.5" orient="auto">
+      <path d="M0 0 L7 3.5 L0 7 z" fill="#777"/>
+    </marker>
+  </defs>
+  <text x="165" y="25" text-anchor="middle" fill="#222" font-weight="bold">continuum spin circle</text>
+  <line x1="65" y1="150" x2="265" y2="150" stroke="#999"/>
+  <line x1="165" y1="50" x2="165" y2="250" stroke="#999"/>
+  <circle cx="165" cy="150" r="70" fill="#ecf2fb" fill-opacity=".22" stroke="#2d5f9f" stroke-width="3"/>
+  <circle cx="165" cy="150" r="34" fill="none" stroke="#287043" stroke-width="2.5"/>
+  <text x="246" y="144" fill="#666">&zeta;</text>
+  <text x="173" y="64" fill="#666">w</text>
+  <text x="165" y="271" text-anchor="middle" fill="#666">radius set by arc height z</text>
+
+  <line x1="300" y1="150" x2="350" y2="150" class="arrow" marker-end="url(#arrow3)"/>
+
+  <text x="515" y="25" text-anchor="middle" fill="#222" font-weight="bold">lattice square disks</text>
+  <g transform="translate(405,58)">
+    <rect x="0" y="0" width="220" height="220" fill="#fffefa" stroke="#d5d3ca" stroke-width="1.2"/>
+    <g class="gridline">
+      <line x1="0" y1="22" x2="220" y2="22"/><line x1="0" y1="44" x2="220" y2="44"/>
+      <line x1="0" y1="66" x2="220" y2="66"/><line x1="0" y1="88" x2="220" y2="88"/>
+      <line x1="0" y1="110" x2="220" y2="110"/><line x1="0" y1="132" x2="220" y2="132"/>
+      <line x1="0" y1="154" x2="220" y2="154"/><line x1="0" y1="176" x2="220" y2="176"/>
+      <line x1="0" y1="198" x2="220" y2="198"/>
+      <line x1="22" y1="0" x2="22" y2="220"/><line x1="44" y1="0" x2="44" y2="220"/>
+      <line x1="66" y1="0" x2="66" y2="220"/><line x1="88" y1="0" x2="88" y2="220"/>
+      <line x1="110" y1="0" x2="110" y2="220"/><line x1="132" y1="0" x2="132" y2="220"/>
+      <line x1="154" y1="0" x2="154" y2="220"/><line x1="176" y1="0" x2="176" y2="220"/>
+      <line x1="198" y1="0" x2="198" y2="220"/>
+    </g>
+    <rect x="66" y="66" width="88" height="88" fill="#ecf2fb" fill-opacity=".42" stroke="#2d5f9f" stroke-width="3"/>
+    <rect x="88" y="88" width="44" height="44" fill="#eaf3ea" fill-opacity=".68" stroke="#287043" stroke-width="3"/>
+    <circle cx="110" cy="110" r="4" fill="#333"/>
+    <text x="155" y="86" fill="#2d5f9f">z = 4</text>
+    <text x="136" y="127" fill="#287043">z = 2</text>
+  </g>
+  <text x="515" y="292" text-anchor="middle" fill="#666">cells = slice(ZW_OFFSET - z + 1, ZW_OFFSET + z + 1)</text>
+</svg>
+<figcaption><b>Fig 3. Replacing round spin circles by square disks.</b> Each unit step of
+the trefoil arc carries a square disk in the \((\zeta,w)\) plane.  The filled disk,
+not just its boundary, is used because the code constructs a 3-chain whose boundary
+is the vortex worldsheet.</figcaption>
+</figure>
+
+<h3>3.1 The key implementation trick</h3>
+
+<p>
+The code does not first draw the surface \(F\) and then solve \(dn=F\).  It constructs
+a 3-dimensional solid \(C\) on the dual lattice:
+\[
+C = \alpha \times \{\text{square disk in }(\zeta,w)\}.
+\]
+In four dimensions, a dual 3-cell is naturally paired with the complementary primal
+link.  Therefore this dual 3-chain can be stored directly as the integer Villain
+1-form \(n\).  Taking the exterior derivative then takes the boundary:
+\[
+F = dn = \partial C .
+\]
+</p>
+
+<figure id="fig-dual-chain">
+<svg viewBox="0 0 780 330" xmlns="http://www.w3.org/2000/svg" font-family="Georgia, serif" font-size="12">
+  <defs>
+    <marker id="arrow4" markerWidth="9" markerHeight="9" refX="7" refY="3.5" orient="auto">
+      <path d="M0 0 L7 3.5 L0 7 z" fill="#777"/>
+    </marker>
+  </defs>
+
+  <text x="190" y="24" text-anchor="middle" fill="#222" font-weight="bold">one x-step of the arc</text>
+  <rect x="45" y="62" width="290" height="180" class="box"/>
+  <line x1="80" y1="118" x2="210" y2="118" stroke="#287043" stroke-width="6" stroke-linecap="round"/>
+  <rect x="145" y="88" width="82" height="60" fill="#ecf2fb" fill-opacity=".55" stroke="#2d5f9f" stroke-width="2"/>
+  <path d="M145 88 L170 68 L252 68 L227 88 Z" fill="#dfe9f7" stroke="#2d5f9f" stroke-width="1.5"/>
+  <path d="M227 88 L252 68 L252 128 L227 148 Z" fill="#cfddec" stroke="#2d5f9f" stroke-width="1.5"/>
+  <text x="186" y="175" text-anchor="middle" fill="#555">dual 3-cell slab spans x, &zeta;, w</text>
+  <line x1="187" y1="207" x2="187" y2="245" stroke="#777" stroke-width="1.5" marker-end="url(#arrow4)"/>
+  <line x1="154" y1="270" x2="220" y2="270" stroke="#9b650b" stroke-width="5" stroke-linecap="round"/>
+  <text x="187" y="299" text-anchor="middle" fill="#9b650b">complementary primal link is y</text>
+
+  <text x="590" y="24" text-anchor="middle" fill="#222" font-weight="bold">one y-step of the arc</text>
+  <rect x="445" y="62" width="290" height="180" class="box"/>
+  <line x1="586" y1="82" x2="586" y2="192" stroke="#2d5f9f" stroke-width="6" stroke-linecap="round" opacity=".75"/>
+  <rect x="545" y="112" width="82" height="60" fill="#eaf3ea" fill-opacity=".58" stroke="#287043" stroke-width="2"/>
+  <path d="M545 112 L570 92 L652 92 L627 112 Z" fill="#dceee2" stroke="#287043" stroke-width="1.5"/>
+  <path d="M627 112 L652 92 L652 152 L627 172 Z" fill="#cde3d4" stroke="#287043" stroke-width="1.5"/>
+  <text x="586" y="210" text-anchor="middle" fill="#555">dual 3-cell slab spans y, &zeta;, w</text>
+  <line x1="586" y1="230" x2="586" y2="262" stroke="#777" stroke-width="1.5" marker-end="url(#arrow4)"/>
+  <line x1="552" y1="286" x2="620" y2="286" stroke="#9b650b" stroke-width="5" stroke-linecap="round"/>
+  <text x="586" y="314" text-anchor="middle" fill="#9b650b">complementary primal link is x</text>
+</svg>
+<figcaption><b>Fig 4. Dual 3-cells are stored as primal links.</b> For an x-step,
+the slab spans directions \(\{0,2,3\}\), so it contributes to the complementary
+link component \(n_1\).  For a y-step, it spans \(\{1,2,3\}\), so it contributes
+to \(n_0\).  The signs are the permutation signs implemented in <code>build_n</code>.</figcaption>
+</figure>
+
+<p>
+The two assignment lines in <code>build_n</code> are the entire constructor:
+</p>
+
+<pre><code>if tau == 0:  # x-step
+    n[1, ax + 1, ay, cells, cells] += -direction
+else:         # y-step
+    n[0, ax, ay + 1, cells, cells] += +direction</code></pre>
+
+<p>
+The rest of the script is verification.  The stored output has shape
+\((4,18,18,18,18)\) for \(n\) and \((6,18,18,18,18)\) for \(dn\).  Only the
+\(n_x\) and \(n_y\) components are nonzero, because the swept solid is built from
+x- and y-runs of the arc:
+</p>
+
+<table>
+<tr><th>quantity</th><th>value checked in <code>spun-trefoil-n.npz</code></th></tr>
+<tr><td>nonzero links in \(n\)</td><td class="num">2832, with values \(\pm1\)</td></tr>
+<tr><td>nonzero \(n\) components</td><td>\(n_x\): 2304 links; \(n_y\): 528 links; \(n_\zeta=n_w=0\)</td></tr>
+<tr><td>nonzero plaquettes in \(dn\)</td><td class="num">2192, with values \(\pm1\)</td></tr>
+<tr><td>nonzero \(dn\) components</td><td>\(F_{xy}\): 512; \(F_{x\zeta}\): 576; \(F_{xw}\): 576; \(F_{y\zeta}\): 264; \(F_{yw}\): 264; \(F_{\zeta w}\): 0</td></tr>
+</table>
+
+<h2 id="verification">4. What is verified numerically</h2>
+
+<p>
+The numerical checks are deliberately local and code-native.  They use the package
+exterior derivative \(d\) and wedge product \(\wedge\), the same conventions used by
+the No-Intersection action.  The action itself tests validity by computing
+\(q=dn\wedge dn\) and requiring it to vanish on every hypercube.
+</p>
+
+<figure id="fig-verification">
+<svg viewBox="0 0 780 300" xmlns="http://www.w3.org/2000/svg" font-family="Georgia, serif" font-size="12">
+  <defs>
+    <marker id="arrow5" markerWidth="9" markerHeight="9" refX="7" refY="3.5" orient="auto">
+      <path d="M0 0 L7 3.5 L0 7 z" fill="#777"/>
+    </marker>
+  </defs>
+  <text x="390" y="24" text-anchor="middle" fill="#222" font-weight="bold">verification pipeline in example/spun-trefoil.py</text>
+
+  <g transform="translate(35,58)">
+    <rect x="0" y="0" width="120" height="70" rx="5" fill="#eaf3ea" stroke="#287043" stroke-width="1.6"/>
+    <text x="60" y="30" text-anchor="middle" fill="#1f5d35" font-weight="bold">build_n(L)</text>
+    <text x="60" y="51" text-anchor="middle" fill="#555">swept solid</text>
+  </g>
+  <line x1="160" y1="93" x2="215" y2="93" class="arrow" marker-end="url(#arrow5)"/>
+  <g transform="translate(220,58)">
+    <rect x="0" y="0" width="120" height="70" rx="5" fill="#ecf2fb" stroke="#2d5f9f" stroke-width="1.6"/>
+    <text x="60" y="30" text-anchor="middle" fill="#274f86" font-weight="bold">F = d(n)</text>
+    <text x="60" y="51" text-anchor="middle" fill="#555">2192 plaquettes</text>
+  </g>
+  <line x1="345" y1="93" x2="400" y2="93" class="arrow" marker-end="url(#arrow5)"/>
+  <g transform="translate(405,58)">
+    <rect x="0" y="0" width="145" height="70" rx="5" fill="#fbf3e4" stroke="#9b650b" stroke-width="1.6"/>
+    <text x="72" y="30" text-anchor="middle" fill="#865907" font-weight="bold">surface tests</text>
+    <text x="72" y="51" text-anchor="middle" fill="#555">degree, chi, connected</text>
+  </g>
+  <line x1="555" y1="93" x2="610" y2="93" class="arrow" marker-end="url(#arrow5)"/>
+  <g transform="translate(615,58)">
+    <rect x="0" y="0" width="125" height="70" rx="5" fill="#f5f4ee" stroke="#777" stroke-width="1.4"/>
+    <text x="62" y="30" text-anchor="middle" fill="#333" font-weight="bold">q = F &#8743; F</text>
+    <text x="62" y="51" text-anchor="middle" fill="#555">identically zero</text>
+  </g>
+
+  <g transform="translate(60,175)">
+    <rect x="0" y="0" width="165" height="74" rx="5" fill="#fffefa" stroke="#d0cdc4"/>
+    <text x="82" y="24" text-anchor="middle" fill="#333" font-weight="bold">embedded</text>
+    <text x="82" y="47" text-anchor="middle" fill="#555">3-cell face degrees</text>
+    <text x="82" y="64" text-anchor="middle" fill="#287043">{0, 2}</text>
+  </g>
+  <g transform="translate(305,175)">
+    <rect x="0" y="0" width="165" height="74" rx="5" fill="#fffefa" stroke="#d0cdc4"/>
+    <text x="82" y="24" text-anchor="middle" fill="#333" font-weight="bold">one sphere</text>
+    <text x="82" y="47" text-anchor="middle" fill="#555">V=2194, E=4384, F=2192</text>
+    <text x="82" y="64" text-anchor="middle" fill="#287043">chi = 2, components = 1</text>
+  </g>
+  <g transform="translate(550,175)">
+    <rect x="0" y="0" width="165" height="74" rx="5" fill="#fffefa" stroke="#d0cdc4"/>
+    <text x="82" y="24" text-anchor="middle" fill="#333" font-weight="bold">valid sector</text>
+    <text x="82" y="47" text-anchor="middle" fill="#555">104976 hypercubes</text>
+    <text x="82" y="64" text-anchor="middle" fill="#287043">all q = 0</text>
+  </g>
+</svg>
+<figcaption><b>Fig 5. Verification pipeline.</b> The code proves, in lattice terms, that
+the stored worldsheet is an embedded connected two-sphere satisfying the no-intersection
+constraint.  It does not compute the complement group; knottedness is inherited from the
+Artin spin construction applied to the trefoil arc.</figcaption>
+</figure>
+
+<table>
+<tr><th>check</th><th>meaning</th><th>verified result</th></tr>
+<tr><td>\(dn\in\{-1,0,+1\}\)</td><td>unit-oriented plaquettes, no multiplicity</td><td>pass</td></tr>
+<tr><td>each 3-cell has 0 or 2 occupied faces</td><td>closed embedded surface locally, with no branching or self-touching</td><td>degrees \(\{0,2\}\)</td></tr>
+<tr><td>dual cell complex topology</td><td>connected surface with Euler characteristic 2</td><td>\(V=2194,\ E=4384,\ F=2192,\ \chi=2,\) one component</td></tr>
+<tr><td>\(dn\wedge dn=0\)</td><td>No-Intersection model constraint</td><td>zero on all 104976 hypercubes</td></tr>
+<tr><td>stored file consistency</td><td><code>spun-trefoil-n.npz</code> stores the same \(dn\) as recomputing \(d(n)\)</td><td>exact match</td></tr>
+</table>
+
+<figure id="fig-slices">
+<svg viewBox="0 0 780 300" xmlns="http://www.w3.org/2000/svg" font-family="Georgia, serif" font-size="12">
+  <text x="390" y="24" text-anchor="middle" fill="#222" font-weight="bold">stored-array w-slice fingerprint</text>
+  <line x1="82" y1="226" x2="710" y2="226" stroke="#333" stroke-width="1.3"/>
+  <line x1="82" y1="56" x2="82" y2="226" stroke="#333" stroke-width="1.3"/>
+  <text x="58" y="62" text-anchor="end" fill="#555">440</text>
+  <text x="58" y="226" text-anchor="end" fill="#555">0</text>
+  <line x1="76" y1="56" x2="82" y2="56" stroke="#333"/>
+  <g fill="#2d5f9f">
+    <rect x="105" y="128" width="42" height="98"/><rect x="170" y="174" width="42" height="52"/>
+    <rect x="235" y="129" width="42" height="97"/><rect x="300" y="163" width="42" height="63"/>
+    <rect x="365" y="163" width="42" height="63"/><rect x="430" y="163" width="42" height="63"/>
+    <rect x="495" y="118" width="42" height="108"/><rect x="560" y="174" width="42" height="52"/>
+    <rect x="625" y="56" width="42" height="170"/>
+  </g>
+  <g text-anchor="middle" fill="#333" font-size="11">
+    <text x="126" y="245">5</text><text x="191" y="245">6</text><text x="256" y="245">7</text>
+    <text x="321" y="245">8</text><text x="386" y="245">9</text><text x="451" y="245">10</text>
+    <text x="516" y="245">11</text><text x="581" y="245">12</text><text x="646" y="245">13</text>
+  </g>
+  <g text-anchor="middle" fill="#555" font-size="10">
+    <text x="126" y="120">288</text><text x="191" y="166">152</text><text x="256" y="121">284</text>
+    <text x="321" y="155">186</text><text x="386" y="155">186</text><text x="451" y="155">186</text>
+    <text x="516" y="110">318</text><text x="581" y="166">152</text><text x="646" y="48">440</text>
+  </g>
+  <text x="386" y="276" text-anchor="middle" fill="#555">w coordinate</text>
+  <text x="25" y="145" text-anchor="middle" fill="#555" transform="rotate(-90 25 145)">occupied dn plaquettes</text>
+</svg>
+<figcaption><b>Fig 6. A slice fingerprint of the saved array.</b> These are the
+nonzero plaquettes in each stored \(w\)-base-coordinate slice of <code>dn</code>:
+5:288, 6:152, 7:284, 8:186, 9:186, 10:186, 11:318, 12:152, 13:440.  This is a
+useful regeneration fingerprint, not a topological invariant.</figcaption>
+</figure>
+
+<div class="warning">
+<span class="tag">What the computation does and does not prove.</span>
+The numerical checks prove that the lattice object is a valid embedded two-sphere
+configuration for the No-Intersection model.  They do not independently compute
+\(\pi_1\) of the lattice complement.  The knottedness claim comes from the continuum
+Artin-spin theorem plus the fact that the code starts from a trefoil grid diagram and
+uses PL-isotopic square spin circles with enough spacing to avoid lattice artifacts.
+</div>
+
+<h2 id="files">5. Where everything lives</h2>
+
+<table>
+<tr><th>artifact</th><th>role</th></tr>
+<tr><td class="mono">example/spun-trefoil.py</td><td>constructs \(n\), computes \(F=dn\), verifies embedded sphere topology and \(dn\wedge dn=0\), and writes <code>spun-trefoil-n.npz</code></td></tr>
+<tr><td class="mono">RUNS, Z_UNDER, Z_OVER, SPACING, XY_OFFSET, ZW_OFFSET, N</td><td>the grid arc and lattice placement parameters</td></tr>
+<tr><td class="mono">arc_edges()</td><td>expands the 11 grid runs into 69 unit lattice steps</td></tr>
+<tr><td class="mono">build_n(L)</td><td>stores the swept dual 3-chain as the primal integer 1-form \(n\)</td></tr>
+<tr><td class="mono">cube_face_degrees(...)</td><td>checks local embeddedness: each 3-cell has 0 or 2 occupied faces</td></tr>
+<tr><td class="mono">dual_surface_topology(...)</td><td>computes connected components and Euler characteristic of the dual plaquette complex</td></tr>
+<tr><td class="mono">spun-trefoil-n.npz</td><td>saved arrays: <code>n</code>, <code>dn</code>, <code>D</code>, <code>N</code>, direction names, and description</td></tr>
+<tr><td class="mono">supervillain/lattice/compact.py</td><td>defines the package \(d\) and \(\wedge\) used by the verification</td></tr>
+<tr><td class="mono">supervillain/action/no_intersection.py</td><td>defines validity by \(d(n)\wedge d(n)=0\) on every hypercube</td></tr>
+</table>
+
+<p>
+The regeneration command used for the checks in this document was:
+</p>
+
+<pre><code>PYTHONPATH=. MPLCONFIGDIR=/private/tmp/mpl-cache \
+UV_CACHE_DIR=/private/tmp/uv-cache \
+uv run --frozen python example/spun-trefoil.py --output /private/tmp/spun-trefoil-check.npz</code></pre>
+
+</body>
+</html>
