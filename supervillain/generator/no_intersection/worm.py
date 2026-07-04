@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 
 from collections import deque
-from itertools import permutations
+from itertools import permutations, product
 import numpy as np
 
 import supervillain.action
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
 from supervillain.batch import Batch
-from supervillain.lattice import Form, d
+from supervillain.lattice import Form, Lattice, d, wedge
 from supervillain.generator.no_intersection.charge import charge
 
 import logging
@@ -87,7 +87,20 @@ class IntersectionWorm(ReadWriteable, Generator):
       "elbow" in one 2-plane, where the two hypercubes share only a 2-cell;
     - **12 four-link diagonal** moves $\pm(\hat e_{\mu} + \hat e_{\nu})$ --- the same-sign
       partner of the elbow, so the two diagonal families together reach all four corners
-      $\pm(\hat e_{\mu} \pm \hat e_{\nu})$ of every 2-plane.
+      $\pm(\hat e_{\mu} \pm \hat e_{\nu})$ of every 2-plane;
+    - **background-activated one-link** moves in every bucket, with coefficients
+      $c = \pm 1$ only: on a flux background the *linear* response
+      $\Delta q = c\,(F \wedge d\delta_{\ell} + d\delta_{\ell} \wedge F)$ of a single link
+      can itself be the unit dipole, transporting the head where no coordinated template
+      is clean.  Restricting to $c = \pm 1$ loses nothing, provably --- the response is
+      exactly linear in $c$ and a unit dipole demands $c \mid 1$ (the full proof is inline
+      in :meth:`_build_library`).  When the response instead vanishes identically
+      ($\Delta q \equiv 0$, e.g.\ wherever the background is locally flat), the drawn
+      1-link shape becomes an **idle** move: the $n$-change is Metropolis-tested and, if
+      accepted, applied *without moving the head* --- a rearrangement of the sheet at
+      fixed defect positions, the isotopy that head transport alone cannot supply.  (See
+      :meth:`_sheet_segment` for why idle acceptance is symmetric for 1-link shapes and
+      *only* for them.)
 
     To propose a step the worm picks one of these signed neighbour directions uniformly and
     then, uniformly, one of the templates that realises it.  Drawing the direction
@@ -101,12 +114,12 @@ class IntersectionWorm(ReadWriteable, Generator):
     $d\Delta n \wedge d\Delta n \equiv 0$, so on the flux-free cold background it shifts
     nothing.  On a background with flux $F = dn$, though, the *linear* term
     $\Delta q = F \wedge d\Delta n + d\Delta n \wedge F$ is generically nonzero, and a single
-    link can even cleanly transport the head --- the library's shapes, keyed by their
-    background-independent self-charge, simply do not try to exploit that background-dependent
-    effect (see the discussion of frozen configurations in :ref:`the No-Intersection model
-    <no_intersection>`).  The same-sign diagonal, by contrast, is the one short neighbour that
-    *cannot* be built from two links --- four is its minimum --- which is why it carries a
-    heavier shape than its opposite-sign partner.
+    link can cleanly transport the head --- the one-link shapes above exist precisely to
+    exploit that background-dependent effect (see also the discussion of frozen
+    configurations in :ref:`the No-Intersection model <no_intersection>`; on frozen
+    backgrounds even these have no clean first step).  The same-sign diagonal, by contrast,
+    is the one short neighbour that *cannot* be built from two links --- four is its
+    minimum --- which is why it carries a heavier shape than its opposite-sign partner.
 
     The families interleave freely: a diagonal step preserves the parity of $\sum_{k} x_{k}$
     while an orthogonal step flips it, so together they mix the head's walk more efficiently
@@ -117,6 +130,37 @@ class IntersectionWorm(ReadWriteable, Generator):
     intermediate hypercube a stepwise decomposition would have to pass a clean hop through, so
     it can be clean exactly where that chain of smaller hops is blocked --- the same
     coordinated-move logic that escapes a frozen configuration.
+
+    **The worm walks the Freedman--Quinn corridor.**  Poincaré-dually, a valid configuration
+    is an *embedded* vortex sheet (no transverse self-intersections: $q \equiv 0$) and a $G$
+    configuration is an *immersed* sheet carrying one $+/-$ pair of double points --- the
+    head and the tail.  A classical fact of 4-manifold topology (Whitney's disk construction
+    :cite:`Whitney1944`, Casson's finger moves :cite:`Casson`, and general position; stated
+    systematically by Freedman and Quinn :cite:`FreedmanQuinn`, whose chapter 1 is the
+    standard reference and lends the corridor its name here) connects any two homotopic
+    embedded surfaces in a 4-manifold by exactly three elementary processes --- ambient
+    isotopies, finger moves (double-point pair creation), and Whitney moves (pair
+    annihilation) --- and the worm's three aspects implement them one-to-one:
+
+    - **opening and the first step $=$ finger move.**  Dropping head $=$ tail on one
+      hypercube ($\Delta S = 0$, automatically accepted) is a double-point pair at zero
+      separation; the first accepted head move separates the pair --- a patch of sheet
+      piercing another, creating the $+1$ and $-1$ transversally.
+    - **transport and closing $=$ Whitney move.**  Each subsequent head move drags the $+1$
+      double point, extending the dragged sheet of $F = dn$ (the finger); when the head
+      rejoins the tail and the worm closes, the pair annihilates --- the Whitney move, with
+      the dragged sheet playing the role of the Whitney disk's neighbourhood.
+    - **idle moves $=$ ambient isotopy.**  Accepted 1-link draws with $\Delta q \equiv 0$
+      rearrange the sheet while both double points stay put.  Without this leg the corridor
+      would be incomplete: head transport alone can never move the sheet out of its own way
+      at fixed defects.
+
+    The known gaps between the theorem and this algorithm: Freedman--Quinn homotopies may
+    require several pairs in flight simultaneously (Casson's obstruction :cite:`Casson` ---
+    Whitney disks can themselves intersect things, and repairing that creates more pairs)
+    while this worm carries exactly one, and the lattice $q$ is a cup-product density on a
+    possibly non-manifold sheet --- so the smooth theorem is the structural reason for
+    optimism, not a proof of lattice ergodicity.
 
     As the head moves we tally the head$-$tail displacement histogram that yields the
     :class:`~.Intersection_Intersection` correlator $\langle e^{i\theta_h} e^{-i\theta_t}\rangle$ ---
@@ -131,8 +175,13 @@ class IntersectionWorm(ReadWriteable, Generator):
 
     .. danger::
 
-        It's not clear to us whether this worm is an ergodic update to $n$ even with the combination of the :class:`~supervillain.generator.villain.ExactUpdate`.
-        In particular, we've had a hard time understanding whether it creates 2-knots.
+        Whether this worm is an ergodic update to $n$, even combined with the
+        :class:`~supervillain.generator.villain.ExactUpdate`, is not proven.  The
+        Freedman--Quinn corridor above is the structural reason to expect mixing even
+        across 2-knot classes --- knotted and unknotted sheets in the same homotopy class
+        are connected through the immersed configurations the worm samples --- but the
+        Casson multi-pair caveat and the lattice cup-product caveat keep this an
+        empirical question, not a theorem.
     """
 
     def __init__(self, S):
@@ -229,7 +278,106 @@ class IntersectionWorm(ReadWriteable, Generator):
                 if next((x for x in sep if x != 0), 0) <= 0:
                     continue  # keep only canonical directions; -d is made by negation
                 library.setdefault(sep, []).append(template)
+
+        # -------------------------------------------------- background-activated 1-link moves
+        #
+        # Single-link shapes carry coefficients c = ±1 ONLY, and that is provably complete —
+        # no magnitude ladder is missing:
+        #
+        # (1) Linearity.  For Δn = c δ_ℓ, every plaquette of dδ_ℓ contains the link's
+        #     direction, and the cup product pairs only complementary planes — which share
+        #     no direction — so the self term vanishes identically,
+        #
+        #         dΔn ∧ dΔn ≡ 0,
+        #
+        #     and the charge response is EXACTLY linear in c:
+        #
+        #         Δq = F ∧ dΔn + dΔn ∧ F = c · L_ℓ(F),      F = dn the current background.
+        #
+        #     (This is also why a single link can never move the head on the cold
+        #     background: F = 0 forces Δq = 0 for every c.)
+        #
+        # (2) Divisibility ⇒ c = ±1.  A head move requires Δq to be the unit dipole
+        #     {target: +1, head: -1}.  Every entry of c·L_ℓ(F) is divisible by c, and the
+        #     dipole's entries are ±1, so c | 1: only c = ±1 can ever transport this worm's
+        #     unit-charge head.  A |c| ≥ 2 single link could only move defects of charge
+        #     divisible by c — nothing here.  (Contrast ≥ 2-link templates: the bilinear
+        #     cross term c_i c_j (dδ_i ∧ dδ_j + dδ_j ∧ dδ_i) survives, coefficient choices
+        #     become a genuine Diophantine question, and mixed magnitudes can be the only
+        #     clean solution — e.g. L_1 = L_2 = 1, M_12 = -1 forces (c_1-1)(c_2-1) = 1,
+        #     i.e. (2, 2).  That enrichment is a separate, future extension.)
+        #
+        # (3) Reversibility (why plain Metropolis still suffices for these background-
+        #     dependent shapes).  The linearity in (1) also gives L_ℓ(F + c dδ_ℓ) = L_ℓ(F)
+        #     — the cross term is the vanishing self-wedge — so the negated shape applied
+        #     at the arrived configuration has Δq exactly negated: the reverse move is
+        #     clean precisely when the forward one was.  Since the reverse is the same
+        #     shape with the opposite sign, drawn from the same bucket with the same
+        #     (1/2M)·(1/K) probability, the proposal stays symmetric and the closing
+        #     balance in step() — which never sees the per-bucket shape count K — is
+        #     untouched.
+        #
+        # (4) Registration.  L_ℓ(F)_x can be nonzero only for x in a fixed neighbourhood
+        #     S(ℓ) of the link, probed in _link_reach from the code's own wedge (so no
+        #     cup-shift convention is hardcoded here).  A link can serve bucket d only if
+        #     both dipole ends sit in its reach: target = link + u and head = link + v
+        #     with u, v ∈ S(ℓ) and u - v = d.  Anchored at the target (the convention of
+        #     _change_from_shape), the shape's relative site is r = -u.  Which registered
+        #     links are ACTUALLY clean is background-dependent and is decided per proposal
+        #     in _sheet_segment exactly as for every other shape; a registered-but-dirty
+        #     draw is an ordinary stay-put rejection.  We register only into the existing
+        #     canonical buckets (ê_μ and ê_μ ± ê_ν): reach-pair differences also hit
+        #     taxicab-3 neighbours, but new buckets would grow 2M and lengthen every worm
+        #     on the cold background — where 1-link shapes can never fire — so those wait
+        #     until coverage demands them.
+        reach = self._link_reach()
+        for sep in library:
+            for mu, S in reach.items():
+                for u in S:
+                    v = tuple(u[k] - sep[k] for k in range(4))
+                    if v not in S:
+                        continue
+                    r = tuple(-x for x in u)
+                    for c in (+1, -1):
+                        shape = ((mu, r, c),)
+                        if shape not in library[sep]:
+                            library[sep].append(shape)
         return library
+
+    def _link_reach(self):
+        r"""
+        For each link direction $\mu$, the set of hypercube offsets, relative to the
+        link's site, where the background-linear charge response
+        $L_{\ell}(F) = F \wedge d\delta_{\ell} + d\delta_{\ell} \wedge F$ of a
+        single-link change can be nonzero.
+
+        Probed on a fixed small scratch lattice with a *generic* 2-form background ---
+        a distinct power of 4 on every nearby plaquette, in exact integer arithmetic.
+        Entries of $L_{\ell}$ have magnitude at most $2 < 4$, so contributions from
+        distinct plaquettes occupy distinct base-4 digits and can never cancel: the
+        computed support is exact, and the cup product's shift conventions are inherited
+        from :func:`~supervillain.lattice.wedge` itself rather than duplicated here.
+        """
+        L0 = Lattice(4, 8)
+        anchor = (4, 4, 4, 4)
+        probe = L0.zeros(2, dtype=object)
+        weight = 1
+        for idx in range(len(L0.components[2])):
+            for offset in product(range(-2, 3), repeat=4):
+                site = tuple((anchor[k] + offset[k]) % 8 for k in range(4))
+                probe[(idx,) + site] = weight
+                weight *= 4
+        reach = {}
+        for mu in range(4):
+            delta = L0.zeros(1, dtype=int)
+            delta[(mu,) + anchor] = 1
+            e = d(delta)
+            response = np.asarray(wedge(probe, e)) + np.asarray(wedge(e, probe))
+            reach[mu] = frozenset(
+                tuple(int(h[k + 1]) - anchor[k] for k in range(4))
+                for h in np.argwhere(response != 0)
+            )
+        return reach
 
     # ------------------------------------------------------------------ helpers
 
@@ -263,15 +411,34 @@ class IntersectionWorm(ReadWriteable, Generator):
         ``sign``$\,d$ (a unit hop for the orthogonal shapes, a diagonal $\hat e_\mu -
         \hat e_\nu$ hop for the elbow shapes), choosing **one** library shape uniformly
         at random and attempting only it.  Returns ``(change, target)`` if that shape
-        gives a clean dipole shift on the current ``n``, else ``(None, None)``.
+        gives a clean dipole shift on the current ``n``; ``(change, head)`` if the shape
+        is a single link whose $\Delta q$ vanishes identically (an **idle** move: the
+        sheet changes, the head does not); else ``(None, None)``.
 
         Selecting a single, uniformly-chosen shape makes the proposal **symmetric**:
-        the reverse move is the same shape with the opposite sign, drawn with the same
-        probability $\tfrac{1}{2M}\cdot\tfrac{1}{K}$ ($M$ canonical displacements, $K$
-        shapes for this one), and it is guaranteed clean on the proposed state.  Detailed
-        balance then holds with the plain Metropolis acceptance $\min(1, e^{-\Delta S})$.
-        (Trying several shapes and taking the first clean one would make $q$ asymmetric
-        and break this.)
+        the reverse of a *head-moving* step is the same shape with the opposite sign,
+        drawn with the same probability $\tfrac{1}{2M}\cdot\tfrac{1}{K}$ ($M$ canonical
+        displacements, $K$ shapes for this one), and it is guaranteed clean on the
+        proposed state.  The reverse of an *idle* step is instead the coefficient-negated
+        shape from the **same** bucket at the **same** sign --- it anchors at the same
+        absolute links and exactly undoes $\Delta n$ --- and it exists with the same
+        probability because 1-link shapes are registered with both $c = \pm 1$.  Detailed
+        balance then holds case by case with the plain Metropolis acceptance
+        $\min(1, e^{-\Delta S})$.  (Trying several shapes and taking the first clean one
+        would make $q$ asymmetric and break all of this.)
+
+        Idle acceptance is restricted to 1-link shapes: a *multi-link* template can also
+        produce $\Delta q \equiv 0$ (its background-linear response cancelling its
+        self-charge), but its coefficient-negated partner is **not** registered in the
+        bucket --- negations only arise through the sign draw, which anchors elsewhere ---
+        so idle-accepting it would break proposal symmetry.  Those draws remain ordinary
+        rejections.
+
+        An accepted idle move is a rearrangement of the sheet at fixed defect positions
+        --- the *isotopy* leg of the isotopy + finger + Whitney corridor, which head
+        moves alone cannot supply: the open worm can move the sheet out of its own way
+        while the dipole is in flight, at zero marginal cost (the classifying charge
+        recompute is already paid).
         """
         N = self.Lattice.N
         shapes = self._library[d]
@@ -289,6 +456,8 @@ class IntersectionWorm(ReadWriteable, Generator):
         defects = {tuple(int(x) for x in h[1:]): int(dq[tuple(h)]) for h in nz}
         if defects == want:
             return change, target
+        if not defects and len(shape) == 1:
+            return change, head
         return None, None
 
     def _delta_S(self, dphi, n, change):
@@ -373,7 +542,10 @@ class IntersectionWorm(ReadWriteable, Generator):
 
             change, target = self._sheet_segment(n, q_now, head, hop, sign)
             if change is not None:
-                # Metropolis-test the change in the Villain action.
+                # Metropolis-test the change in the Villain action.  For a head-moving
+                # step target is the neighbour; for an accepted idle step (a 1-link shape
+                # with Δq ≡ 0 -- see _sheet_segment) target == head and the sheet changes
+                # under a stationary head.
                 dS = self._delta_S(dphi, n, change)
                 if self.rng.uniform(0, 1) < min(1.0, np.exp(-dS)):
                     for link, c in change.items():
@@ -382,11 +554,13 @@ class IntersectionWorm(ReadWriteable, Generator):
                     head = target
             # The library does not always offer a clean step on every trail, so the drawn
             # shape may be unclean: its Δn would put charge outside the valid G-space (a
-            # dipole in the wrong place, or a quadrupole) instead of shifting the head's
-            # +1/-1 dipole.  That is not a special "malformed, never-happened" event -- it
-            # is a proposal into a zero-probability region, i.e. an ordinary Metropolis
-            # rejection with acceptance min(1, 0) = 0.  So, exactly like a clean-but-
-            # rejected shape, the head stays put and we fall through to the tally below.
+            # dipole in the wrong place, a quadrupole, or a Δq ≡ 0 multi-link draw, whose
+            # idle acceptance would break proposal symmetry) instead of shifting the
+            # head's +1/-1 dipole.  That is not a special "malformed, never-happened"
+            # event -- it is a proposal into a zero-probability region, i.e. an ordinary
+            # Metropolis rejection with acceptance min(1, 0) = 0.  So, exactly like a
+            # clean-but-rejected shape, the head stays put and we fall through to the
+            # tally below.
 
             # Tally the head−tail displacement for the Intersection_Intersection correlator.
             # We tally on EVERY step, including these stay-puts.  A rejection is a genuine

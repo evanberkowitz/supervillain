@@ -67,16 +67,123 @@ def test_intersection_worm_library_has_orthogonal_and_diagonal_moves():
     # Every stored direction is canonical (first nonzero component is +1).
     for d in worm._directions:
         assert next(x for x in d if x != 0) > 0
-    # Orthogonal buckets carry both the 3-link and the leaner 2-link shape.
+    # Orthogonal buckets carry the 3-link shape, the leaner 2-link shape, and the
+    # background-activated 1-link shapes.
     for d in orthogonal:
         lengths = {len(shape) for shape in worm._library[d]}
-        assert lengths == {2, 3}
+        assert lengths == {1, 2, 3}
     # The opposite-sign diagonal is the minimal 2-link elbow; the same-sign diagonal,
-    # unreachable by two links, is a 4-link shape.
+    # unreachable by two links, is a 4-link shape; both also carry 1-link shapes.
     for d in opposite:
-        assert all(len(shape) == 2 for shape in worm._library[d])
+        assert {len(shape) for shape in worm._library[d]} == {1, 2}
     for d in same:
-        assert all(len(shape) == 4 for shape in worm._library[d])
+        assert {len(shape) for shape in worm._library[d]} == {1, 4}
+    # Every 1-link shape carries coefficient ±1 only: Δq = c·L_ℓ(F) is exactly linear
+    # in c (the self-wedge vanishes), so a unit head dipole demands c | 1 --- larger
+    # magnitudes are provably useless for a unit-charge worm (see _build_library).
+    for d in worm._directions:
+        for shape in worm._library[d]:
+            if len(shape) == 1:
+                assert shape[0][2] in (+1, -1)
+
+
+def test_intersection_worm_one_link_moves_fire_on_flux_and_never_on_vacuum():
+    # A 1-link shape has zero self-charge (dΔn∧dΔn ≡ 0), so on the vacuum its Δq
+    # vanishes identically and it can never move the head; on a flux background its
+    # linear response Δq = c·L_ℓ(F) can be exactly the unit head dipole.  Pin one
+    # concrete instance on the valid 3×3 patch background (F only in (0,ν) planes, so
+    # q ≡ 0), and check the cleanliness-reversibility that plain Metropolis relies on:
+    # the same shape, negated, undoes the move from the arrived configuration.
+    from supervillain.generator.no_intersection.charge import charge
+    L = Lattice(4, 6)
+    N = L.N
+    S = supervillain.action.NoIntersections(L, kappa=0.3)
+    worm = supervillain.generator.no_intersection.IntersectionWorm(S)
+
+    head, sep, sign, shape = (1, 0, 0, 0), (0, 0, 0, 1), +1, ((1, (0, 0, 0, 0), +1),)
+    assert shape in worm._library[sep]
+
+    def defects(n, q0, change):
+        trial = n.copy()
+        for link, c in change.items():
+            trial[link] += c
+        dq = charge(trial) - q0
+        return {tuple(int(x) for x in v[1:]): int(dq[tuple(v)])
+                for v in np.argwhere(dq != 0)}, trial
+
+    # Vacuum: the shape's Δq is identically zero --- a stay-put, never a head move.
+    vacuum = L.zeros(1, dtype=int)
+    change = worm._change_from_shape(head, sep, sign, shape)
+    assert defects(vacuum, charge(vacuum), change)[0] == {}
+
+    # Flux background: the same shape cleanly transports the head by +ê_3.
+    n = L.zeros(1, dtype=int)
+    for i, j in ((1, 1), (1, 2), (1, 3), (2, 1), (2, 2), (2, 3), (3, 1), (3, 2), (3, 3)):
+        n[(0, 1, i, j, 1)] += 1
+    q0 = charge(n)
+    assert not np.asarray(q0).any()
+    target = tuple((head[k] + sign * sep[k]) % N for k in range(4))
+    moved, trial = defects(n, q0, change)
+    assert moved == {target: 1, head: -1}
+
+    # Reversibility: from the arrived configuration, the backward draw (same bucket,
+    # opposite sign) proposes exactly the negated links and restores q exactly.
+    back = worm._change_from_shape(target, sep, -sign, shape)
+    assert back == {link: -c for link, c in change.items()}
+    undone, _ = defects(trial, charge(trial), back)
+    assert undone == {head: 1, target: -1}
+
+
+def test_intersection_worm_idle_one_link_classification():
+    # On a locally flat background a 1-link shape has Δq ≡ 0, and _sheet_segment must
+    # classify it as an IDLE move: return the change with target == head (sheet moves,
+    # head does not).  Its reverse is the coefficient-negated shape from the same bucket
+    # at the same sign, which must also be registered and anchor the same links.
+    import types
+    S = _action()
+    worm = supervillain.generator.no_intersection.IntersectionWorm(S)
+    n = S.Lattice.zeros(1, dtype=int)
+    from supervillain.generator.no_intersection.charge import charge
+    q0 = charge(n)
+    head, sep = (0, 0, 0, 0), (0, 0, 0, 1)
+
+    # 1-link shapes are appended after the seed orbits, so the last shape is 1-link.
+    shape = worm._library[sep][-1]
+    assert len(shape) == 1
+    worm.rng = types.SimpleNamespace(integers=lambda lo, hi: hi - 1)
+    change, target = worm._sheet_segment(n, q0, head, sep, +1)
+    assert target == head
+    assert change == worm._change_from_shape(head, sep, +1, shape)
+
+    # The mirror slot: same bucket, same sign, coefficient-negated shape.
+    (mu, rel, c) = shape[0]
+    mirror = ((mu, rel, -c),)
+    assert mirror in worm._library[sep]
+    undo = worm._change_from_shape(head, sep, +1, mirror)
+    assert undo == {link: -x for link, x in change.items()}
+
+
+def test_intersection_worm_idle_moves_fire_and_stay_valid():
+    # At κ = 0 every idle proposal is accepted, so idles must actually fire during worm
+    # evolution from the cold start, and every emitted configuration must stay valid.
+    S = _action(kappa=0.0)
+    worm = supervillain.generator.no_intersection.IntersectionWorm(S)
+    idle = {'proposals': 0}
+    orig = worm._sheet_segment
+
+    def spy(n, q_now, head, hop, sign):
+        change, target = orig(n, q_now, head, hop, sign)
+        if change is not None and target == head:
+            assert len(change) == 1      # idles are 1-link only
+            idle['proposals'] += 1
+        return change, target
+
+    worm._sheet_segment = spy
+    cfg = _cold(S)
+    for _ in range(5):
+        cfg = worm.step(cfg)
+        assert S.valid(cfg)
+    assert idle['proposals'] > 0
 
 
 def test_intersection_worm_uses_diagonal_moves_and_stays_valid():
