@@ -24,6 +24,11 @@ class ConstrainedLinkUpdate(ReadWriteable, Generator):
     $F \ne 0$ the cross term $d\Delta n\wedge F + F\wedge d\Delta n$ can produce charge.
     Therefore, this proposal is **not** automatically legal: every proposal must be *verified* to keep $q = 0$ and rejected otherwise.
 
+    Only $n_{\ell} \to n_{\ell} \pm 1$ is proposed.  Because the single-link charge change
+    is exactly linear in the magnitude of the change, larger single-link changes offer no
+    new constraint-preserving moves and no new connectivity; the proof is spelled out in
+    the constructor's inline comments.
+
     In a phase with a lot of vortices, most of the proposals will be rejected and this generator will be very inefficient.
 
     .. note ::
@@ -50,7 +55,7 @@ class ConstrainedLinkUpdate(ReadWriteable, Generator):
         It seems likely, but is actually currently unclear whether this update is ergodic by itself.
     """
 
-    def __init__(self, S, interval_n=1):
+    def __init__(self, S):
         if not isinstance(S, supervillain.action.NoIntersections):
             raise ValueError('ConstrainedLinkUpdate requires a NoIntersections action.')
         if S.Lattice.D != 4:
@@ -61,8 +66,23 @@ class ConstrainedLinkUpdate(ReadWriteable, Generator):
         self.kappa = S.kappa
         self.rng = np.random.default_rng()
 
-        # Proposed nonzero integer shifts of a single link.
-        self.shifts = tuple(c for c in range(-interval_n, interval_n + 1) if c != 0)
+        # Only c = ±1 is proposed, because larger single-link magnitudes provably add
+        # nothing.  Every plaquette of dδ_ℓ contains ℓ's own direction, so the wedge
+        # dδ_ℓ ∧ dδ_ℓ has no complementary plane pair and vanishes identically; hence
+        # for Δn = c δ_ℓ the charge change
+        #
+        #     Δq = c (F ∧ dδ_ℓ + dδ_ℓ ∧ F) ≡ c L_ℓ(F)
+        #
+        # is exactly linear in c.  Cleanliness (Δq = 0 ⇔ L_ℓ(F) = 0) is therefore
+        # independent of c: no magnitude ever unlocks a blocked link.  Nor does |c| ≥ 2
+        # add connectivity: the cross term in L_ℓ(F + dδ_ℓ) is again the vanishing
+        # self-wedge, so L_ℓ(F + dδ_ℓ) = L_ℓ(F), the midpoint of a clean two-unit jump
+        # is itself valid, and inductively any clean c-jump decomposes into |c| clean
+        # unit steps: the reachability graph has the same connected components for any
+        # magnitude range.  Metropolis additionally suppresses the redundant jumps by
+        # e^{-κ 2π² c²}.  (Multi-link moves are different: mixed magnitudes can achieve
+        # cancellations Σ_i c_i L_i = 0 unavailable at ±1; see ScattershotUpdate.)
+        self.shifts = (+1, -1)
 
         self.accepted = 0
         self.proposed = 0
