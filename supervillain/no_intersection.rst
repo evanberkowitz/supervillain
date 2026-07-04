@@ -208,6 +208,18 @@ These could be essentially proposed everywhere because they automatically preser
 The essential fact was that the constraint is linear.
 But here we have a quadratic constraint and therefore it is not always legal to just stamp a tight worm on an existing configuration---it could break the constraint.
 
+Irreducibility by construction
+==============================
+
+The generators above are motivated case by case, and the frozen configurations show how easily a plausible-looking move set can fail to connect the constraint surface.
+The :class:`~supervillain.generator.no_intersection.ScattershotUpdate` settles the reachability question wholesale: it proposes a *joint, atomic* change of every link at once, drawn from a symmetric distribution whose support is every integer-valued $\Delta n$, so any valid configuration is proposed from any other in a single step with positive probability and the chain is manifestly irreducible on the constraint surface.
+A typical draw touches only a couple of scattered links --- and, unlike a single-link sweep, those few links are accepted or rejected *together*, so it also supplies small coordinated moves of arbitrary geometry --- while the ergodicity guarantee lives in the tail.
+What remains empirical is only the *rate* of mixing, which still belongs to the structured moves.
+
+.. autoclass:: supervillain.generator.no_intersection.ScattershotUpdate
+   :members:
+   :show-inheritance:
+
 The Hammer
 ==========
 

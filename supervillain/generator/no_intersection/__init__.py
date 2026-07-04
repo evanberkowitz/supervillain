@@ -4,6 +4,7 @@ from .worm import IntersectionWorm
 from .link import ConstrainedLinkUpdate
 from .wrapping import WrappingLoopUpdate
 from .planar import PlanarFluxUpdate
+from .scattershot import ScattershotUpdate
 
 import supervillain.generator.villain as _villain
 import supervillain.generator.combining as _combining
@@ -26,9 +27,13 @@ def Hammer(S):
     :class:`~supervillain.generator.villain.ExactUpdate` moves the exact part of $n$,
     while the :class:`~supervillain.generator.villain.CohomologyUpdate` changes the
     torus-wrapping holonomy of $n$ at fixed $dn$ --- a sector the other $n$-updates do
-    not reach.  Finally the :class:`PlanarFluxUpdate` contributes a large,
+    not reach.  The :class:`PlanarFluxUpdate` contributes a large,
     whole-lattice tunneling move (deposit a decomposable flux sheet), complementing the
-    local loop and worm moves.
+    local loop and worm moves.  Finally the :class:`ScattershotUpdate` proposes a joint,
+    atomic change of every link at once from a symmetric full-support distribution,
+    which upgrades the combination's ergodicity on the constraint surface from a
+    plausible hope to a one-line **theorem**: every valid configuration is proposed from
+    every other with positive probability, so the chain is manifestly irreducible.
 
     Parameters
     ----------
@@ -45,5 +50,6 @@ def Hammer(S):
         ConstrainedLinkUpdate(S),
         WrappingLoopUpdate(S),
         PlanarFluxUpdate(S),
+        ScattershotUpdate(S),
         IntersectionWorm(S),
     ))

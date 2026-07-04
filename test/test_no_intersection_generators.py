@@ -188,13 +188,81 @@ def test_planar_flux_update_preserves_validity():
         assert cfg['n'].shape == (S.Lattice.D,) + S.Lattice.dims
 
 
+def test_scattershot_requires_no_intersections_action():
+    L = Lattice(4, 5)
+    V = supervillain.action.Villain(L, kappa=0.3, W=1)
+    with pytest.raises(ValueError):
+        supervillain.generator.no_intersection.ScattershotUpdate(V)
+
+
+def test_scattershot_ratio_default_and_validation():
+    S = _action(kappa=0.3)
+    # The default ratio tracks the acceptance cliff between |Δn| = 1 and 2 …
+    gen = supervillain.generator.no_intersection.ScattershotUpdate(S)
+    assert np.isclose(gen.ratio, np.exp(-6 * np.pi**2 * 0.3))
+    # … is capped at 1/2 for κ = 0 (normalizability) …
+    cold = supervillain.generator.no_intersection.ScattershotUpdate(_action(kappa=0.0))
+    assert cold.ratio == 0.5
+    # … stays strictly positive even at huge κ (the tail is what makes the
+    # irreducibility argument a theorem) …
+    hot = supervillain.generator.no_intersection.ScattershotUpdate(_action(kappa=100.0))
+    assert hot.ratio > 0
+    # … and explicit ratios must sit in (0, 1).
+    for bad in (0, 1, -0.1, 2):
+        with pytest.raises(ValueError):
+            supervillain.generator.no_intersection.ScattershotUpdate(S, ratio=bad)
+
+
+def test_scattershot_preserves_validity():
+    S = _action()
+    gen = supervillain.generator.no_intersection.ScattershotUpdate(S)
+    cfg = _cold(S)
+    for _ in range(20):
+        cfg = gen.step(cfg)
+        assert S.valid(cfg)
+        assert cfg['n'].shape == (S.Lattice.D,) + S.Lattice.dims
+
+
+def test_scattershot_moves_at_kappa_zero():
+    # At κ = 0 every clean proposal is accepted; near the vacuum single-link changes
+    # are clean, so with λ = 2 expected touched links the configuration must change
+    # within a modest number of steps.
+    S = _action(kappa=0.0)
+    gen = supervillain.generator.no_intersection.ScattershotUpdate(S)
+    cfg = _cold(S)
+    for _ in range(50):
+        cfg = gen.step(cfg)
+        assert S.valid(cfg)
+    assert gen.accepted > 0
+    assert gen.clean >= gen.accepted
+
+
+def test_scattershot_proposals_are_joint():
+    # The whole point: several links are changed in ONE accepted move.  At κ = 0 from
+    # cold, scattered ±1 links are clean, so an accepted multi-link jump appears
+    # quickly.  A sequential sweep can never do this --- it accepts links one at a time.
+    S = _action(kappa=0.0)
+    gen = supervillain.generator.no_intersection.ScattershotUpdate(S, links=3)
+    cfg = _cold(S)
+    jumped = 0
+    for _ in range(100):
+        before = np.asarray(cfg['n']).copy()
+        cfg = gen.step(cfg)
+        changed = int((np.asarray(cfg['n']) != before).sum())
+        if changed >= 2:
+            jumped += 1
+        assert S.valid(cfg)
+    assert jumped > 0, 'no accepted joint (multi-link) move in 100 steps at κ = 0'
+
+
 def test_hammer_includes_constraint_preserving_villain_updates():
     # The Hammer reuses the Villain ExactUpdate and CohomologyUpdate, which change n
     # by a closed form and so leave dn (hence q = dn∧dn) untouched.
     S = _action()
     H = str(supervillain.generator.no_intersection.Hammer(S))
     for name in ('SiteUpdate', 'ExactUpdate', 'CohomologyUpdate', 'ConstrainedLinkUpdate',
-                 'WrappingLoopUpdate', 'PlanarFluxUpdate', 'IntersectionWorm'):
+                 'WrappingLoopUpdate', 'PlanarFluxUpdate', 'ScattershotUpdate',
+                 'IntersectionWorm'):
         assert name in H
 
 
