@@ -1,0 +1,626 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fable Intersection Worm Replacement Case</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #18212f;
+      --muted: #5b6470;
+      --line: #d8dee7;
+      --paper: #f7f8fa;
+      --panel: #ffffff;
+      --accent: #176b6b;
+      --accent-2: #8a4b18;
+      --good: #176b39;
+      --warn: #9a5a00;
+      --risk: #a33a34;
+      --code: #263244;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.55;
+      color: var(--ink);
+      background: var(--paper);
+    }
+
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 28px 22px 56px;
+    }
+
+    header {
+      border-bottom: 2px solid var(--ink);
+      padding-bottom: 18px;
+      margin-bottom: 22px;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(2rem, 4vw, 3.25rem);
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 34px 0 12px;
+      font-size: 1.35rem;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 20px 0 8px;
+      font-size: 1.05rem;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0 0 12px;
+    }
+
+    a {
+      color: var(--accent);
+    }
+
+    code {
+      color: var(--code);
+      background: #eef1f5;
+      border: 1px solid #d9e0e8;
+      border-radius: 4px;
+      padding: 0.08rem 0.28rem;
+      white-space: nowrap;
+    }
+
+    .dek {
+      max-width: 820px;
+      color: var(--muted);
+      font-size: 1.08rem;
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .metric,
+    .callout,
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .metric {
+      padding: 12px 13px;
+      min-height: 88px;
+    }
+
+    .metric .label {
+      display: block;
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+    }
+
+    .metric .value {
+      display: block;
+      font-weight: 700;
+      font-size: 1.1rem;
+      overflow-wrap: anywhere;
+    }
+
+    .metric .detail {
+      display: block;
+      color: var(--muted);
+      font-size: 0.88rem;
+      margin-top: 3px;
+    }
+
+    .verdict {
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.9fr);
+      gap: 18px;
+      align-items: stretch;
+      margin: 24px 0 8px;
+    }
+
+    .callout {
+      padding: 18px;
+    }
+
+    .callout strong {
+      color: var(--accent);
+    }
+
+    .score {
+      display: grid;
+      gap: 10px;
+    }
+
+    .score-row {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 10px;
+      align-items: center;
+      font-size: 0.94rem;
+    }
+
+    .bar {
+      height: 12px;
+      border-radius: 999px;
+      background: #e9edf2;
+      overflow: hidden;
+    }
+
+    .bar span {
+      display: block;
+      height: 100%;
+      background: var(--accent);
+    }
+
+    .bar.warn span {
+      background: var(--accent-2);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .panel {
+      padding: 16px;
+    }
+
+    .panel h3 {
+      margin-top: 0;
+    }
+
+    ul {
+      margin: 8px 0 0;
+      padding-left: 1.15rem;
+    }
+
+    li {
+      margin: 6px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    th,
+    td {
+      text-align: left;
+      vertical-align: top;
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    th {
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      background: #eef2f4;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 0.12rem 0.48rem;
+      font-size: 0.78rem;
+      font-weight: 700;
+      border: 1px solid currentColor;
+      white-space: nowrap;
+    }
+
+    .tag.good {
+      color: var(--good);
+    }
+
+    .tag.warn {
+      color: var(--warn);
+    }
+
+    .tag.risk {
+      color: var(--risk);
+    }
+
+    .evidence {
+      counter-reset: evidence;
+      display: grid;
+      gap: 12px;
+    }
+
+    .evidence article {
+      counter-increment: evidence;
+      position: relative;
+      padding: 16px 16px 16px 54px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .evidence article::before {
+      content: counter(evidence);
+      position: absolute;
+      left: 15px;
+      top: 15px;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: white;
+      background: var(--accent);
+      font-weight: 700;
+      font-size: 0.88rem;
+    }
+
+    .note {
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .test-log {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .test-log .panel {
+      border-left: 4px solid var(--good);
+    }
+
+    .risk-list .panel {
+      border-left: 4px solid var(--warn);
+    }
+
+    footer {
+      margin-top: 38px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 860px) {
+      .meta,
+      .grid,
+      .test-log,
+      .verdict {
+        grid-template-columns: 1fr;
+      }
+
+      .score-row {
+        grid-template-columns: 1fr;
+      }
+
+      table {
+        display: block;
+        overflow-x: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Case for Replacing the No-Intersection Branch with the Fable Worm Branch</h1>
+      <p class="dek">
+        Assessment of <code>feature/fable-intersection-worm</code> as a wholesale replacement
+        for <code>origin/feature/no-intersection-model</code>, based on the live worktree state
+        on 2026-07-03.
+      </p>
+      <section class="meta" aria-label="Branch metadata">
+        <div class="metric">
+          <span class="label">Candidate branch</span>
+          <span class="value">feature/fable-intersection-worm</span>
+          <span class="detail">HEAD <code>139416c</code></span>
+        </div>
+        <div class="metric">
+          <span class="label">Comparison branch</span>
+          <span class="value">origin/feature/no-intersection-model</span>
+          <span class="detail">HEAD <code>d92e4fe</code></span>
+        </div>
+        <div class="metric">
+          <span class="label">Divergence</span>
+          <span class="value">ahead 9, behind 13</span>
+          <span class="detail">Not a merge recommendation</span>
+        </div>
+        <div class="metric">
+          <span class="label">Focused tests</span>
+          <span class="value">30 passed</span>
+          <span class="detail">No-intersection targeted suite</span>
+        </div>
+      </section>
+    </header>
+
+    <section class="verdict">
+      <div class="callout">
+        <h2>Verdict</h2>
+        <p>
+          <strong>I agree that the fable branch is the stronger replacement candidate</strong>,
+          if the goal is a principled production direction for the no-intersection worm
+          mechanics rather than a merge of two different physics proposals.
+        </p>
+        <p>
+          The reason is not that every open physics question is solved. The reason is that
+          the fable branch makes narrower, more checkable claims and backs them with a
+          stronger algebraic implementation: exhaustive elementary move generation, exact
+          local charge-difference checks, explicit frozen-sector tests, and diagnostics for
+          where the sampler actually moves. The comparison branch contains useful ideas,
+          especially <code>PlanarFluxUpdate</code>, but those are different global tunneling
+          physics and should stay experimental unless their role is demonstrated separately.
+        </p>
+      </div>
+      <div class="callout">
+        <h2>Decision Score</h2>
+        <div class="score" aria-label="Qualitative scorecard">
+          <div class="score-row"><span>Algebraic control</span><div class="bar"><span style="width: 92%"></span></div></div>
+          <div class="score-row"><span>Implementation rigor</span><div class="bar"><span style="width: 88%"></span></div></div>
+          <div class="score-row"><span>Physics separation</span><div class="bar"><span style="width: 84%"></span></div></div>
+          <div class="score-row"><span>Production readiness</span><div class="bar warn"><span style="width: 70%"></span></div></div>
+        </div>
+        <p class="note">
+          Production readiness is lower because broader Monte Carlo performance evidence and
+          a full repository test run are still pending.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Why This Should Be a Replacement, Not a Merge</h2>
+      <div class="grid">
+        <article class="panel">
+          <h3>Different physical move classes</h3>
+          <p>
+            The comparison branch's <code>PlanarFluxUpdate</code> is a whole-lattice
+            decomposable flux-sheet tunneling proposal. The fable branch's core contribution
+            is a worm and string-worm program for moving through the constraint surface by
+            local or semi-local coordinated changes. Those are not small variants of one
+            algorithm; they probe and bias motion in different ways.
+          </p>
+        </article>
+        <article class="panel">
+          <h3>A merge would obscure interpretation</h3>
+          <p>
+            Mixing a global sheet update into the default hammer would make it harder to tell
+            whether observed mobility comes from the worm catalog, wrapping loops, string
+            dynamics, or rare sheet tunneling. If the fable branch is to be evaluated, its
+            logic should be judged as a coherent stack.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>Scientific Case</h2>
+      <div class="evidence">
+        <article>
+          <h3>Systematic elementary move catalog</h3>
+          <p>
+            The branch replaces a hand-grown catalog with generated seeds from
+            <code>example/no-intersection-move-search.py</code>. In the live tree,
+            <code>moves.py</code> contains 41 orbit representatives: 39 three-link seeds and
+            2 two-link seeds. Expanding under signed axis permutations and re-anchoring
+            produces 8 direction buckets with 828 shapes each, for 6624 elementary shapes.
+          </p>
+          <p class="note">
+            This is the right kind of completeness claim: finite, reproducible, and tied to
+            a stated search class.
+          </p>
+        </article>
+        <article>
+          <h3>Exact local charge algebra</h3>
+          <p>
+            The fable code factors the constraint check through
+            <code>Delta q = Delta F wedge F + F wedge Delta F + Delta F wedge Delta F</code>
+            and implements <code>local_dq</code>. The worm, constrained link update, and
+            wrapping loop update use local charge differences instead of repeated global
+            charge recomputation where possible.
+          </p>
+        </article>
+        <article>
+          <h3>Frozen-sector claims are tested directly</h3>
+          <p>
+            The branch contains explicit frozen configurations and tests showing that bounded
+            elementary moves are blocked while torus-wrapping rings can remain legal. That is
+            a stronger physics narrative than simply adding larger proposals: it identifies
+            what is blocked, why it is blocked, and what kind of support gets around it.
+          </p>
+        </article>
+        <article>
+          <h3>StringWorm is a principled response to background dependence</h3>
+          <p>
+            The branch does not pretend the fixed elementary catalog exhausts all legal
+            background-dependent motion. <code>StringWorm</code> addresses the fact that on
+            nonzero <code>F</code> backgrounds, legal moves can be path-dependent and can
+            require support that grows with the lattice. That is a more honest algorithmic
+            split than continually expanding a fixed catalog.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>Branch-by-Branch Comparison</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Question</th>
+            <th>Fable branch</th>
+            <th>Comparison branch</th>
+            <th>Assessment</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>How are elementary worm moves obtained?</td>
+            <td>Generated by an exhaustive search script, stored as orbit representatives, expanded mechanically.</td>
+            <td>Hand-developed seeds for orthogonal and diagonal moves.</td>
+            <td><span class="tag good">Fable stronger</span> because the catalog is reproducible and auditable.</td>
+          </tr>
+          <tr>
+            <td>How is constraint preservation checked?</td>
+            <td>Local sparse <code>Delta q</code> checks via <code>local_dq</code>.</td>
+            <td>Some proposals use global <code>charge</code> recomputation.</td>
+            <td><span class="tag good">Fable stronger</span> for scaling and clarity.</td>
+          </tr>
+          <tr>
+            <td>How are frozen configurations handled?</td>
+            <td>Constructs frozen configurations, proves bounded move blockage in tests, and uses wrapping/string moves as the relevant escape class.</td>
+            <td>Foregrounds frozen configurations and adds a global planar sheet tunneling proposal.</td>
+            <td><span class="tag warn">Different physics</span>; fable gives the cleaner default story, planar sheets may be optional later.</td>
+          </tr>
+          <tr>
+            <td>Does the branch help measure actual sampler motion?</td>
+            <td>Adds <code>link_activity</code> and <code>site_activity</code> diagnostics.</td>
+            <td>No comparable diagnostic addition in the compared commits.</td>
+            <td><span class="tag good">Fable stronger</span> for empirical evaluation.</td>
+          </tr>
+          <tr>
+            <td>What is the main caveat?</td>
+            <td>The elementary library is complete only for its bounded empty-background unit-dipole search class; all legal background-dependent moves are not finitely bounded.</td>
+            <td>The hand-expanded catalog and planar update solve different problems, so default interpretation is less clean.</td>
+            <td><span class="tag warn">Manageable</span> if the replacement pitch states scope precisely.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>What Not to Claim</h2>
+      <div class="grid risk-list">
+        <article class="panel">
+          <h3>Do not claim full ergodicity is proven</h3>
+          <p>
+            The branch gives a stronger move algebra and better evidence on known
+            obstructions, but it does not prove global ergodicity of the complete
+            no-intersection model.
+          </p>
+        </article>
+        <article class="panel">
+          <h3>Do not claim a universal three-link bound</h3>
+          <p>
+            The three-link bound applies to the current elementary empty-background
+            unit-dipole catalog. In arbitrary backgrounds, legal head motion can include
+            neutral loops or wrapping structures whose support grows with <code>N</code>.
+          </p>
+        </article>
+        <article class="panel">
+          <h3>Do not dismiss PlanarFluxUpdate as wrong</h3>
+          <p>
+            It is better described as orthogonal physics: a large global tunneling move that
+            may be valuable as an explicit experimental kernel, not part of the fable
+            replacement's default argument.
+          </p>
+        </article>
+        <article class="panel">
+          <h3>Do not overstate production validation</h3>
+          <p>
+            Targeted tests pass, but performance and autocorrelation comparisons across
+            target couplings still need to be run before making a final production claim.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>Suggested Replacement Pitch</h2>
+      <div class="callout">
+        <p>
+          Replace <code>origin/feature/no-intersection-model</code> with
+          <code>feature/fable-intersection-worm</code> as the main no-intersection branch.
+          The replacement is justified because it turns the worm update from an accumulating
+          hand catalog into a generated, locally checked, test-backed move library; separates
+          elementary worm motion from genuinely background-dependent string dynamics; and
+          provides diagnostics for verifying whether the combined sampler moves everywhere it
+          needs to move. Global planar sheet tunneling should remain a separate experimental
+          kernel until its acceptance, autocorrelation impact, and physical role are measured.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Validation Snapshot</h2>
+      <div class="test-log">
+        <article class="panel">
+          <h3>Focused generator tests</h3>
+          <p><code>UV_CACHE_DIR=/private/tmp/uv-cache uv run --frozen pytest test/test_no_intersection_generators.py -q</code></p>
+          <p><strong>Result:</strong> 25 passed in 14.31 seconds.</p>
+        </article>
+        <article class="panel">
+          <h3>Companion no-intersection tests</h3>
+          <p><code>UV_CACHE_DIR=/private/tmp/uv-cache uv run --frozen pytest test/test_no_intersection.py -q</code></p>
+          <p><strong>Result:</strong> 5 passed in 0.66 seconds.</p>
+        </article>
+      </div>
+      <p class="note">
+        A full repository test run was not performed for this report. The live branch also has
+        an untracked <code>uv.lock</code> file in the Claude worktree.
+      </p>
+    </section>
+
+    <section>
+      <h2>Next Evidence to Gather</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Evidence</th>
+            <th>Why it matters</th>
+            <th>Recommendation</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Autocorrelation and activity maps for representative <code>kappa</code> values</td>
+            <td>Shows whether the stronger move algebra produces better physical sampling, not just cleaner code.</td>
+            <td>Run the same seeds with and without <code>StringWorm</code>; report link/site activity and key observables.</td>
+          </tr>
+          <tr>
+            <td>Full test suite under the locked Python environment</td>
+            <td>Confirms the branch is safe as a wholesale replacement.</td>
+            <td>Run before opening the replacement PR or branch handoff.</td>
+          </tr>
+          <tr>
+            <td>Optional planar-sheet experiment kept out of default hammer</td>
+            <td>Tests whether the comparison branch's global tunneling idea adds measurable value.</td>
+            <td>Evaluate as an opt-in kernel, not as part of the replacement merge.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <footer>
+      Generated from the live Claude worktree at
+      <code>/Users/acherman/Library/CloudStorage/Dropbox/supervillain_reloaded/.claude/worktrees/great-shtern-300ec2</code>.
+      The report intentionally argues for replacement rather than merge.
+    </footer>
+  </main>
+</body>
+</html>
