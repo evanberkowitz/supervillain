@@ -427,6 +427,16 @@ class IntersectionWorm(ReadWriteable, Generator):
         $\min(1, e^{-\Delta S})$.  (Trying several shapes and taking the first clean one
         would make $q$ asymmetric and break all of this.)
 
+        Note that "idle" is an *outcome*, not a menu item: $M$ counts neighbour
+        displacements only, with no don't-move category, and a given shape is a mover or
+        an idle deterministically per background, never both at once.  The close option's
+        only effect on the balance is the asymmetric prefactor $2M/(2M+1)$ between pivot
+        (head $=$ tail) and non-pivot proposals --- and an idle step never changes whether
+        head $=$ tail, so its forward and reverse proposals always share the same
+        prefactor (both compete with the close option, or neither does) and the factor
+        cancels identically.  Head-moving steps are the only transitions that cross the
+        pivot boundary, and for those the standard counting applies unchanged.
+
         Idle acceptance is restricted to 1-link shapes: a *multi-link* template can also
         produce $\Delta q \equiv 0$ (its background-linear response cancelling its
         self-charge), but its coefficient-negated partner is **not** registered in the
