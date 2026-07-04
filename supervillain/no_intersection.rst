@@ -185,6 +185,21 @@ where the expectation values are over configurations drawn from $G$ (not $Z$!).
 If we draw from the larger space of $G$ configurations and histogram the head$-$tail displacement, normalizing that histogram by its value at zero displacement recovers $\Theta_{x,y}$.
 We accumulate the histogram as the worm evolves and save it inline with $\phi$ and $n$ as ``Intersection_Intersection`` (alongside the ``Worm_Length``), remembering to normalize any :class:`~.DerivedQuantity` built from it by its value at the origin---exactly as for :class:`~.Vortex_Vortex`.
 
+The enlarged $G$ ensemble also has a precise topological meaning, which is the structural reason to hope a worm mixes where local updates struggle.
+Poincaré duality turns the flux $F = dn$ into a closed 2-dimensional *vortex sheet* on the dual lattice, and $q_x = (dn \wedge dn)_x$ into the signed density of the sheet's transverse self-intersection points: in 4D two 2-dimensional sheets generically meet at isolated points, and each crossing carries a sign from comparing orientations --- the same $\epsilon^{\mu\nu\rho\sigma}$ contraction that appears in $F \wedge F$.
+A valid $Z$ configuration is an *embedded* sheet, with no self-intersections anywhere; a $G$ configuration, with its $+1$ at the head and $-1$ at the tail, is an *immersed* sheet carrying exactly one pair of opposite-sign double points.
+
+That is exactly the enlargement topologists use to connect embedded surfaces in four dimensions.
+A classical fact --- assembled from Whitney's disk construction :cite:`Whitney1944`, Casson's finger moves :cite:`Casson`, and general position, and stated systematically in the standard reference of Freedman and Quinn :cite:`FreedmanQuinn` (chapter 1) --- is that any two embedded surfaces in a 4-manifold which are homotopic to one another are connected by a sequence of just three elementary processes: ambient *isotopies* (deformations that never create an intersection), *finger moves* (pushing a patch of sheet through another, creating a $+/-$ pair of double points --- always possible), and *Whitney moves* (the inverse: annihilating a $+/-$ pair by sliding the sheet across an embedded disk).
+A generic path between embedded surfaces passes only through immersed surfaces with isolated $\pm$ double-point pairs --- that is, through $G$.
+This matters because in 4D embedded surfaces can *knot*: two sheets in the same homotopy class need not be connected through embeddings alone.
+They are, however, connected through immersions, and the worm walks precisely that corridor --- its head/tail dipole is the lattice double-point pair, and the corridor's three ingredients correspond one-to-one to the worm's three kinds of move (the dictionary is spelled out in the class documentation below).
+
+Two honest caveats temper the optimism.
+Freedman--Quinn's homotopies may require *several* double-point pairs in flight at once --- this is Casson's obstruction :cite:`Casson`: Whitney disks can themselves intersect things, and repairing that creates more pairs --- while the worm carries exactly one.
+And on the lattice the sheet is the Poincaré dual of an integer 2-form, possibly with multiplicity and junction lines, while $q$ is a cup-product density: a cousin of the geometric intersection count, not the thing itself.
+The theorem is the reason to *expect* the one-pair corridor to be wide, not a lattice-level proof that it is.
+
 .. autoclass:: supervillain.generator.no_intersection.IntersectionWorm
    :members:
    :show-inheritance:
