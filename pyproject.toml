@@ -47,6 +47,10 @@ dependencies = [
 ]
 
 [tool.uv]
+# Without a [build-system] table uv treats the project as virtual and does not install
+# it, breaking `uv run python <script>` from outside the repo root; declare it a package
+# so the supervillain module is importable everywhere.
+package = true
 # sphinx-toolbox 4.2.0 declares sphinx-autodoc-typehints<3.6.0, but builds cleanly with
 # the newer versions this project already uses; override the stale cap.
 override-dependencies = [
