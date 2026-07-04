@@ -35,6 +35,7 @@ dependencies = [
     "sphinx-prompt>=1.10.2",
     "sphinx-rtd-theme>=3.1.0",
     "sphinx-tabs>=3.5.0",
+    "sphinx-toolbox>=4.2",
     "sphinxcontrib-bibtex>=2.7.0",
     "sphinxcontrib-devhelp>=2.0.0",
     "sphinxcontrib-htmlhelp>=2.1.0",
@@ -43,6 +44,13 @@ dependencies = [
     "standard-imghdr>=3.10.14",
     "tabulate>=0.10.0",
     "tqdm>=4.67.3",
+]
+
+[tool.uv]
+# sphinx-toolbox 4.2.0 declares sphinx-autodoc-typehints<3.6.0, but builds cleanly with
+# the newer versions this project already uses; override the stale cap.
+override-dependencies = [
+    "sphinx-autodoc-typehints>=3.10.5",
 ]
 
 [options]
