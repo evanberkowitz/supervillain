@@ -99,3 +99,73 @@ def test_self_charge_matches_global_recompute_at_random_anchor():
                 cell = tuple((anchor[k] + off[k]) % N for k in range(4))
                 expect[cell] = expect.get(cell, 0) + v
             assert got == {cell: v for cell, v in expect.items() if v}
+
+
+def _flux_background(S, seed=23, steps=6):
+    # A valid configuration with a nonzero sheet, built from constraint-preserving
+    # updates so S.valid holds by construction.
+    gen = supervillain.generator.no_intersection.PlanarFluxUpdate(S)
+    gen.rng = np.random.default_rng(seed)
+    cfg = _cold(S)
+    for _ in range(steps):
+        cfg = gen.step(cfg)
+    assert S.valid(cfg)
+    return cfg
+
+
+@pytest.mark.parametrize('N', (4, 5))
+@pytest.mark.parametrize('seed', (3, 5))
+def test_local_dq_matches_global_recompute(N, seed):
+    # The identity Δq = F∧dΔn + dΔn∧F + dΔn∧dΔn holds for ARBITRARY integer n --
+    # valid or not, mid-worm or not -- so a random background is the strongest test.
+    S = _action(N=N)
+    L = S.Lattice
+    worm = _worm(S)
+    rng = np.random.default_rng(seed)
+    n = L.zeros(1, dtype=int)
+    n += rng.integers(-1, 2, size=n.shape)
+    q0 = charge(n)
+    F = np.asarray(d(n)).astype(np.int64)
+    for _ in range(50):
+        head = tuple(int(x) for x in rng.integers(0, N, size=4))
+        dd = worm._directions[rng.integers(0, len(worm._directions))]
+        sign = 1 if rng.integers(0, 2) == 0 else -1
+        shapes = worm._library[dd]
+        shape = shapes[rng.integers(0, len(shapes))]
+        change = worm._change_from_shape(head, dd, sign, shape)
+        anchor = tuple((head[k] + dd[k]) % N for k in range(4)) if sign > 0 else head
+        local = worm._local_dq(F, change, anchor, shape)
+        trial = n.copy()
+        for link, c in change.items():
+            trial[link] += c
+        dq = charge(trial) - q0
+        glob = {tuple(int(x) for x in h[1:]): int(dq[tuple(h)])
+                for h in np.argwhere(dq != 0)}
+        assert local == glob
+
+
+@pytest.mark.parametrize('seed', (1, 2, 3))
+def test_step_matches_reference_bit_for_bit(seed):
+    # Same seed, same start => the accelerated step and the global-recompute oracle
+    # must draw identical RNG streams and emit identical configurations and inline
+    # observables.  Any classification disagreement would desynchronize the streams
+    # and fail loudly here.
+    S = _action(kappa=0.3, N=5)
+    cfg = _flux_background(S)
+    fast = _worm(S, seed=seed)
+    ref = _worm(S, seed=seed)
+    out_f = fast.step(cfg)
+    out_r = ref.step_reference(cfg)
+    assert np.array_equal(np.asarray(out_f['n']), np.asarray(out_r['n']))
+    assert np.array_equal(out_f['Intersection_Intersection'],
+                          out_r['Intersection_Intersection'])
+    assert out_f['Worm_Length'] == out_r['Worm_Length']
+
+
+def test_accelerated_step_preserves_validity_and_closes():
+    S = _action()
+    worm = _worm(S, seed=9)
+    cfg = _cold(S)
+    for _ in range(10):
+        cfg = worm.step(cfg)
+        assert S.valid(cfg)

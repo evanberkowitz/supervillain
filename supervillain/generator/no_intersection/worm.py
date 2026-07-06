@@ -10,6 +10,7 @@ from supervillain.h5 import ReadWriteable
 from supervillain.batch import Batch
 from supervillain.lattice import Form, Lattice, d, wedge
 from supervillain.generator.no_intersection.charge import charge
+from supervillain.generator.no_intersection import local_charge
 
 import logging
 logger = logging.getLogger(__name__)
@@ -546,6 +547,59 @@ class IntersectionWorm(ReadWriteable, Generator):
         self.tallies[family]['unclean'] += 1
         return None, None
 
+    def _local_dq(self, F, change, anchor, shape):
+        r"""
+        The change $\Delta q$ in the charge density from applying ``change``, computed
+        locally: the background-linear per-link responses read off the current field
+        strength ``F`` $= dn$, plus the precomputed self-charge of ``shape`` placed at
+        ``anchor``.  Returns ``{hypercube: value}`` with zeros pruned --- the same
+        dictionary a global ``charge(n + \Delta n) - charge(n)`` recompute yields, at
+        $O(1)$ cost.
+        """
+        N = self.Lattice.N
+        dq = {}
+        for link, c in change.items():
+            local = local_charge.charge_change_from_link(F, link[0], link[1:], c, N)
+            for cell, v in local.items():
+                dq[cell] = dq.get(cell, 0) + v
+        for off, v in self._self_charge[shape]:
+            cell = tuple((anchor[k] + off[k]) % N for k in range(4))
+            dq[cell] = dq.get(cell, 0) + v
+        return {cell: v for cell, v in dq.items() if v}
+
+    def _sheet_segment_local(self, F, head, d, sign):
+        r"""
+        The accelerated :meth:`_sheet_segment`: identical draw, classification, and
+        return contract, but $\Delta q$ comes from :meth:`_local_dq` on the maintained
+        field strength ``F`` $= dn$ instead of a global recompute on a trial copy of
+        $n$.  The proposal-symmetry and detailed-balance discussion lives on
+        :meth:`_sheet_segment` and applies verbatim.
+        """
+        N = self.Lattice.N
+        shapes = self._library[d]
+        k = int(self.rng.integers(0, len(shapes)))
+        shape = shapes[k]
+        family = self._family[d][k]
+        self._last_family = family
+        self.tallies[family]['drawn'] += 1
+
+        target = tuple((head[j] + sign * d[j]) % N for j in range(4))
+        want = {} if target == head else {target: 1, head: -1}
+
+        change = self._change_from_shape(head, d, sign, shape)
+        # The anchor mirrors _change_from_shape: forward templates place their head at
+        # head + d, backward (negated) templates anchor at head itself.
+        anchor = tuple((head[j] + d[j]) % N for j in range(4)) if sign > 0 else head
+        defects = self._local_dq(F, change, anchor, shape)
+        if defects == want:
+            self.tallies[family]['clean'] += 1
+            return change, target
+        if not defects and len(shape) == 1:
+            self.tallies[family]['idle'] += 1
+            return change, head
+        self.tallies[family]['unclean'] += 1
+        return None, None
+
     def _delta_S(self, dphi, n, change):
         r"""
         Change in the Villain action $\frac{\kappa}{2}\sum_\ell (d\phi - 2\pi n)_\ell^2$
@@ -578,6 +632,107 @@ class IntersectionWorm(ReadWriteable, Generator):
         Lay down a worm on a valid configuration, evolve the head until it returns to
         the tail, and emit the resulting valid configuration together with the inline
         head$-$tail displacement histogram.
+
+        Cleanliness of each proposed template is decided **locally**: the charge
+        change is the background-linear per-link stencil response read off the
+        maintained field strength $F = dn$ plus the template's precomputed
+        self-charge (:meth:`_local_dq`), so no proposal ever recomputes $q$ globally.
+        :meth:`step_reference` is the global-recompute oracle this is validated
+        against, bit-for-bit on a shared seed.
+        """
+        L = self.Lattice
+        N = L.N
+        D = L.D
+        # Every canonical displacement d contributes two head moves (+d and -d); together
+        # with the "close" option this gives 2M+1 equally likely choices when head==tail, so
+        # the worm closes with probability 1/(2M+1).  That count is the number of oriented
+        # NEIGHBOUR moves, 2M --- NOT the number of templates: the per-bucket shape count
+        # cancels out of the g<->z (open/close) balance.  A specific move (direction d, a
+        # sign, and a shape S drawn in _sheet_segment) is proposed at the pivot (head==tail)
+        # with probability
+        #     [2M/(2M+1)]·[1/(2M)]·[1/K]  =  1/[(2M+1)·K]        (K = shapes in d's bucket),
+        # while its reverse, offered from the neighbour it lands on --- a non-pivot state with
+        # no close option --- is proposed with
+        #     [1/(2M)]·[1/K]              =  1/[2M·K].
+        # The 1/K cancels in the forward/reverse ratio, leaving 2M/(2M+1); the closing balance
+        # only ever sees the neighbour count.  So enriching a bucket with extra shapes (e.g.
+        # the 2-link orthogonal sharing the ±ê_μ bucket) leaves the worm's closing rate --- and
+        # detailed balance --- untouched.  (We don't re-derive that 1/(2M+1) is the value that
+        # makes the plain head−tail histogram unbiased at the origin; it is the standard
+        # Prokof'ev–Svistunov prescription, shared with the worldline and villain ClassicWorms.)
+        n_moves = 2 * len(self._directions)
+
+        n = np.asarray(configuration['n']).astype(np.int64)
+        dphi = np.asarray(d(configuration['phi']))
+        # F = dn is maintained incrementally across the whole worm (patched on every
+        # accepted change), so each proposal costs a handful of stencil reads instead
+        # of a global recompute; q itself is never needed, only its local change.
+        F = np.asarray(d(configuration['n'])).astype(np.int64, copy=False)
+
+        displacements = np.zeros(L.dims)
+
+        # Lay down head and tail on the same random hypercube; ΔS = 0, so this g-sector
+        # entry is automatically accepted.
+        tail = tuple(int(x) for x in self.rng.integers(0, N, size=D))
+        head = tail
+
+        while True:
+            # When the head and tail coincide, offer the (2M+1)-th move: close the worm
+            # and emit the (valid) configuration.  All 2M+1 options are equally likely.
+            if head == tail and self.rng.uniform(0, 1) < 1.0 / (n_moves + 1):
+                wl = displacements.sum()
+                self.worm_lengths.append(wl)
+                new_n = Form(n, degree=1, lattice=L)
+                return configuration | {'n': new_n,
+                                        'Intersection_Intersection': displacements,
+                                        'Worm_Length': wl}
+
+            # Otherwise propose a uniformly random one of the 2M head moves: a canonical
+            # displacement (orthogonal or diagonal) and a sign for its orientation.
+            hop = self._directions[self.rng.integers(0, len(self._directions))]
+            sign = 1 if self.rng.integers(0, 2) == 0 else -1
+
+            change, target = self._sheet_segment_local(F, head, hop, sign)
+            if change is not None:
+                # Metropolis-test the change in the Villain action.  For a head-moving
+                # step target is the neighbour; for an accepted idle step (a 1-link shape
+                # with Δq ≡ 0 -- see _sheet_segment) target == head and the sheet changes
+                # under a stationary head.
+                dS = self._delta_S(dphi, n, change)
+                if self.rng.uniform(0, 1) < min(1.0, np.exp(-dS)):
+                    for link, c in change.items():
+                        n[link] += c
+                        local_charge.apply_link_to_F(F, link[0], link[1:], c, N)
+                    self.tallies[self._last_family]['accepted_idle' if target == head else 'accepted'] += 1
+                    head = target
+            # The library does not always offer a clean step on every trail, so the drawn
+            # shape may be unclean: its Δn would put charge outside the valid G-space (a
+            # dipole in the wrong place, a quadrupole, or a Δq ≡ 0 multi-link draw, whose
+            # idle acceptance would break proposal symmetry) instead of shifting the
+            # head's +1/-1 dipole.  That is not a special "malformed, never-happened"
+            # event -- it is a proposal into a zero-probability region, i.e. an ordinary
+            # Metropolis rejection with acceptance min(1, 0) = 0.  So, exactly like a
+            # clean-but-rejected shape, the head stays put and we fall through to the
+            # tally below.
+
+            # Tally the head−tail displacement for the Intersection_Intersection correlator.
+            # We tally on EVERY step, including these stay-puts.  A rejection is a genuine
+            # self-loop of the chain, and self-loops leave detailed balance between distinct
+            # states untouched (only clean, symmetric draws move between distinct states), so
+            # the histogram still samples the stationary marginal ∝ G(r).  The estimator is a
+            # time-average whose numerator and denominator share one clock; dropping stay-puts
+            # would reweight G(r) by the configuration- and position-dependent fraction of
+            # clean proposals and bias the correlator.
+            disp = tuple((head[k] - tail[k]) % N for k in range(D))
+            displacements[disp] += 1
+
+    def step_reference(self, configuration):
+        r"""
+        Reference worm: the plain, obviously-correct implementation.  Identical to
+        :meth:`step` except each proposal's cleanliness is verified by a **global**
+        ``charge`` recompute on a trial copy of $n$ (inside :meth:`_sheet_segment`).
+        Kept as the correctness oracle :meth:`step` is tested against, bit-for-bit on
+        a shared seed, and as the readable statement of the algorithm.
         """
         L = self.Lattice
         N = L.N
