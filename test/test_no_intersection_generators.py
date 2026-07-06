@@ -41,6 +41,14 @@ def test_intersection_worm_requires_D4():
         supervillain.generator.no_intersection.IntersectionWorm(V)
 
 
+def test_intersection_worm_requires_N_at_least_3():
+    # At N = 2 a single link's 2^4-hypercube charge response fills the whole lattice, so the
+    # moves lose locality and the diagonal families collapse; the worm requires N >= 3.
+    S = supervillain.action.NoIntersections(Lattice(4, 2), kappa=0.3)
+    with pytest.raises(ValueError):
+        supervillain.generator.no_intersection.IntersectionWorm(S)
+
+
 def test_intersection_worm_preserves_validity_and_closes():
     S = _action()
     worm = supervillain.generator.no_intersection.IntersectionWorm(S)

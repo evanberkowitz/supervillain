@@ -196,6 +196,12 @@ class IntersectionWorm(ReadWriteable, Generator):
             raise ValueError('IntersectionWorm requires a NoIntersections action.')
         if S.Lattice.D != 4:
             raise ValueError('IntersectionWorm is only implemented for D = 4.')
+        if S.Lattice.N < 3:
+            raise ValueError(
+                f'IntersectionWorm requires N >= 3, got N = {S.Lattice.N}.  A single link\'s '
+                'charge response spans a 2^4 block of hypercubes, so at N = 2 it wraps around '
+                'the whole lattice: the moves lose locality and the two diagonal move families '
+                'collapse (mod 2, e_mu - e_nu and e_mu + e_nu coincide, so elbow2 vanishes).')
 
         self.Action = S
         self.Lattice = S.Lattice
