@@ -234,7 +234,9 @@ class ConstrainedLinkUpdate(ReadWriteable, Generator):
 
     def report(self):
         if self.proposed == 0:
-            return 'ConstrainedLinkUpdate: no proposals.'
-        return (f'ConstrainedLinkUpdate: {self.accepted} / {self.proposed} '
-                f'single-link changes accepted '
-                f'({self.accepted / self.proposed:.6f}).')
+            return 'There were 0 proposed single-link updates.'
+        return (
+            f'There were {self.accepted} single-link changes accepted of {self.proposed} proposed updates.'
+            +'\n'+
+            f'    {self.accepted / self.proposed:.6f} acceptance rate'
+        )

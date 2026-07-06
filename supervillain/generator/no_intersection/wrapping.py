@@ -166,8 +166,11 @@ class WrappingLoopUpdate(ReadWriteable, Generator):
 
     def report(self):
         if self.proposed == 0:
-            return 'WrappingLoopUpdate: no proposals.'
-        return (f'WrappingLoopUpdate: {self.accepted} / {self.proposed} wrapping loops '
-                f'accepted ({self.accepted / self.proposed:.6f}); '
-                f'{self.clean} / {self.proposed} were constraint-preserving '
-                f'({self.clean / self.proposed:.6f}).')
+            return 'There were 0 proposed wrapping loops.'
+        return (
+            f'There were {self.accepted} wrapping loops accepted of {self.proposed} proposed updates.'
+            +'\n'+
+            f'    {self.accepted / self.proposed:.6f} acceptance rate'
+            +'\n'+
+            f'    {self.clean / self.proposed:.6f} constraint-preserving fraction'
+        )

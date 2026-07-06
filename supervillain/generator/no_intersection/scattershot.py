@@ -161,8 +161,13 @@ class ScattershotUpdate(ReadWriteable, Generator):
 
     def report(self):
         if self.proposed == 0:
-            return 'ScattershotUpdate: no proposals.'
-        return (f'ScattershotUpdate: {self.accepted} / {self.proposed} joint proposals '
-                f'accepted ({self.accepted / self.proposed:.6f}); '
-                f'{self.clean} / {self.proposed} were constraint-preserving; '
-                f'{self.null} / {self.proposed} touched no links.')
+            return 'There were 0 proposed scattershot updates.'
+        return (
+            f'There were {self.accepted} joint proposals accepted of {self.proposed} proposed updates.'
+            +'\n'+
+            f'    {self.accepted / self.proposed:.6f} acceptance rate'
+            +'\n'+
+            f'    {self.clean / self.proposed:.6f} constraint-preserving fraction'
+            +'\n'+
+            f'    {self.null / self.proposed:.6f} touched-no-links fraction'
+        )

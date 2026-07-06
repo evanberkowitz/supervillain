@@ -139,8 +139,13 @@ class PlanarFluxUpdate(ReadWriteable, Generator):
 
     def report(self):
         if self.proposed == 0:
-            return 'PlanarFluxUpdate: no proposals.'
-        return (f'PlanarFluxUpdate: {self.accepted} / {self.proposed} sheets accepted '
-                f'({self.accepted / self.proposed:.6f}); '
-                f'{self.clean} / {self.proposed} were constraint-preserving; '
-                f'{self.degenerate} / {self.proposed} were degenerate (A = 0).')
+            return 'There were 0 proposed planar flux sheets.'
+        return (
+            f'There were {self.accepted} planar flux sheets accepted of {self.proposed} proposed updates.'
+            +'\n'+
+            f'    {self.accepted / self.proposed:.6f} acceptance rate'
+            +'\n'+
+            f'    {self.clean / self.proposed:.6f} constraint-preserving fraction'
+            +'\n'+
+            f'    {self.degenerate / self.proposed:.6f} degenerate fraction (A = 0)'
+        )
