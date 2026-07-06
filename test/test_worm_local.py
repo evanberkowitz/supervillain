@@ -169,3 +169,45 @@ def test_accelerated_step_preserves_validity_and_closes():
     for _ in range(10):
         cfg = worm.step(cfg)
         assert S.valid(cfg)
+
+
+def test_class_weights_validation():
+    S = _action()
+    W = supervillain.generator.no_intersection.IntersectionWorm
+    with pytest.raises(ValueError):
+        W(S, class_weights={'bogus': 1.0})
+    with pytest.raises(ValueError):
+        W(S, class_weights={'ortho2': -1.0})
+    # Same-sign diagonal buckets hold only same4 and 1link shapes; zeroing both
+    # leaves those buckets with nothing to draw.
+    with pytest.raises(ValueError):
+        W(S, class_weights={'same4': 0.0, '1link': 0.0})
+
+
+def test_weighted_draws_respect_zero_weight():
+    S = _action()
+    worm = supervillain.generator.no_intersection.IntersectionWorm(
+        S, class_weights={'same4': 0.0})
+    worm.rng = np.random.default_rng(5)
+    cfg = _cold(S)
+    for _ in range(10):
+        cfg = worm.step(cfg)
+        assert S.valid(cfg)
+    assert worm.tallies['same4']['drawn'] == 0
+    assert worm.tallies['ortho2']['drawn'] > 0
+
+
+@pytest.mark.parametrize('seed', (4, 8))
+def test_weighted_step_matches_reference_bit_for_bit(seed):
+    # The weighted draw goes through the shared _draw_shape, so fast and reference
+    # consume identical RNG streams at ANY weights.
+    S = _action(N=5)
+    cfg = _flux_background(S)
+    weights = {'ortho2': 3.0, 'ortho3': 1.0, 'elbow2': 1.0, 'same4': 0.5, '1link': 0.25}
+    fast = supervillain.generator.no_intersection.IntersectionWorm(S, class_weights=weights)
+    ref = supervillain.generator.no_intersection.IntersectionWorm(S, class_weights=weights)
+    fast.rng = np.random.default_rng(seed)
+    ref.rng = np.random.default_rng(seed)
+    out_f = fast.step(cfg)
+    out_r = ref.step_reference(cfg)
+    assert np.array_equal(np.asarray(out_f['n']), np.asarray(out_r['n']))

@@ -168,6 +168,12 @@ class IntersectionWorm(ReadWriteable, Generator):
     the two-point function of the operator $e^{i\theta}$ that inserts a unit of
     vortex-sheet self-intersection $q = dn\wedge dn$.
 
+    The shape draw within a bucket may optionally be reweighted by move family with the
+    ``class_weights`` argument, ``{family: weight}`` over
+    ``('ortho3', 'ortho2', 'elbow2', 'same4', '1link')`` (unspecified families default
+    to $1$).  The weights are state-independent, so proposal symmetry and the closing
+    balance are untouched; ``None`` (the default) reproduces the uniform draw exactly.
+
     .. warning::
 
         Restricted to $D = 4$.  This generator updates $n$ only, so it is not ergodic
@@ -185,7 +191,7 @@ class IntersectionWorm(ReadWriteable, Generator):
         empirical question, not a theorem.
     """
 
-    def __init__(self, S):
+    def __init__(self, S, class_weights=None):
         if not isinstance(S, supervillain.action.NoIntersections):
             raise ValueError('IntersectionWorm requires a NoIntersections action.')
         if S.Lattice.D != 4:
@@ -219,6 +225,33 @@ class IntersectionWorm(ReadWriteable, Generator):
         }
         self._last_family = None
         self._self_charge = self._self_charges()
+
+        # Optional state-independent reweighting of the shape draw by move family.
+        # Within bucket d, shape k is drawn with probability w(family_k)/Σ_j w(family_j):
+        # families carry a fixed weight (unspecified families default to 1), shapes
+        # within a family stay uniform.  Because the weights are state-independent and
+        # the reverse of every accepted proposal is the same shape (head moves) or its
+        # same-family coefficient negation (idles), forward and reverse shape draws have
+        # equal probability: the proposal stays symmetric and the closing balance ---
+        # which never sees the shape draw --- is untouched.
+        if class_weights is not None:
+            unknown = set(class_weights) - set(self.tallies)
+            if unknown:
+                raise ValueError(f'Unknown move families: {sorted(unknown)}')
+            if any(w < 0 for w in class_weights.values()):
+                raise ValueError('class_weights must be nonnegative.')
+        self.class_weights = class_weights
+        self._cdf = None
+        if class_weights is not None:
+            self._cdf = {}
+            for dd in self._directions:
+                w = np.array([class_weights.get(f, 1.0) for f in self._family[dd]],
+                             dtype=float)
+                total = w.sum()
+                if total <= 0:
+                    raise ValueError(
+                        f'class_weights leave bucket {dd} with no drawable shape.')
+                self._cdf[dd] = np.cumsum(w / total)
 
     def __str__(self):
         return 'IntersectionWorm'
@@ -475,21 +508,37 @@ class IntersectionWorm(ReadWriteable, Generator):
             change[link] = change.get(link, 0) + factor * c
         return change
 
+    def _draw_shape(self, d):
+        r"""
+        Draw ``(k, shape)`` from bucket ``d``: uniform when ``class_weights`` is None,
+        else by the fixed per-family weights.  One RNG draw either way, shared by
+        :meth:`_sheet_segment` and :meth:`_sheet_segment_local` so the two paths stay
+        bit-for-bit comparable at any weights.
+        """
+        shapes = self._library[d]
+        if self._cdf is None:
+            k = int(self.rng.integers(0, len(shapes)))
+        else:
+            k = int(np.searchsorted(self._cdf[d], self.rng.uniform(0, 1), side='right'))
+            k = min(k, len(shapes) - 1)   # guard the u == 1.0 float edge
+        return k, shapes[k]
+
     def _sheet_segment(self, n, q_now, head, d, sign):
         r"""
         Propose a sheet-extending $\Delta n$ that moves the head by the displacement
         ``sign``$\,d$ (a unit hop for the orthogonal shapes, a diagonal $\hat e_\mu -
-        \hat e_\nu$ hop for the elbow shapes), choosing **one** library shape uniformly
-        at random and attempting only it.  Returns ``(change, target)`` if that shape
+        \hat e_\nu$ hop for the elbow shapes), choosing **one** library shape --- uniformly,
+        or by the fixed per-family ``class_weights`` --- and attempting only it.  Returns
+        ``(change, target)`` if that shape
         gives a clean dipole shift on the current ``n``; ``(change, head)`` if the shape
         is a single link whose $\Delta q$ vanishes identically (an **idle** move: the
         sheet changes, the head does not); else ``(None, None)``.
 
         Selecting a single, uniformly-chosen shape makes the proposal **symmetric**:
         the reverse of a *head-moving* step is the same shape with the opposite sign,
-        drawn with the same probability $\tfrac{1}{2M}\cdot\tfrac{1}{K}$ ($M$ canonical
-        displacements, $K$ shapes for this one), and it is guaranteed clean on the
-        proposed state.  The reverse of an *idle* step is instead the coefficient-negated
+        drawn with the same probability $\tfrac{1}{2M}\, p_{d}(S)$ ($M$ canonical
+        displacements; $p_{d}$ the fixed, state-independent shape distribution of bucket
+        $d$), and it is guaranteed clean on the proposed state.  The reverse of an *idle* step is instead the coefficient-negated
         shape from the **same** bucket at the **same** sign --- it anchors at the same
         absolute links and exactly undoes $\Delta n$ --- and it exists with the same
         probability because 1-link shapes are registered with both $c = \pm 1$.  Detailed
@@ -521,9 +570,7 @@ class IntersectionWorm(ReadWriteable, Generator):
         recompute is already paid).
         """
         N = self.Lattice.N
-        shapes = self._library[d]
-        k = int(self.rng.integers(0, len(shapes)))
-        shape = shapes[k]
+        k, shape = self._draw_shape(d)
         family = self._family[d][k]
         self._last_family = family
         self.tallies[family]['drawn'] += 1
@@ -576,9 +623,7 @@ class IntersectionWorm(ReadWriteable, Generator):
         :meth:`_sheet_segment` and applies verbatim.
         """
         N = self.Lattice.N
-        shapes = self._library[d]
-        k = int(self.rng.integers(0, len(shapes)))
-        shape = shapes[k]
+        k, shape = self._draw_shape(d)
         family = self._family[d][k]
         self._last_family = family
         self.tallies[family]['drawn'] += 1
