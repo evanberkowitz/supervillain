@@ -61,3 +61,41 @@ def test_tallies_are_consistent_after_steps():
         total_drawn += t['drawn']
     assert total_drawn > 0
     assert 'drawn' in worm.report()
+
+
+def test_one_link_self_charge_is_empty():
+    # A single link's self-wedge d(delta)∧d(delta) vanishes identically, so its
+    # self-charge pattern must be empty.
+    S = _action()
+    worm = _worm(S)
+    for dd in worm._directions:
+        for shape in worm._library[dd]:
+            if len(shape) == 1:
+                assert worm._self_charge[shape] == ()
+
+
+def test_self_charge_matches_global_recompute_at_random_anchor():
+    # The pattern is derived at one anchor; verify it translates: placing the template
+    # at a random anchor and recomputing charge globally must reproduce the stored
+    # pattern shifted to that anchor.  Derivation is on a lattice of the SAME extent,
+    # so small-N wrap-around cross terms are captured exactly.
+    N = 5
+    S = _action(N=N)
+    L = S.Lattice
+    worm = _worm(S)
+    rng = np.random.default_rng(11)
+    for dd in worm._directions:
+        for shape in worm._library[dd]:
+            anchor = tuple(int(x) for x in rng.integers(0, N, size=4))
+            dn = L.zeros(1, dtype=int)
+            for mu, rs, c in shape:
+                site = tuple((anchor[k] + rs[k]) % N for k in range(4))
+                dn[(mu,) + site] += c
+            q = np.asarray(charge(dn))
+            got = {tuple(int(x) for x in h[1:]): int(q[tuple(h)])
+                   for h in np.argwhere(q != 0)}
+            expect = {}
+            for off, v in worm._self_charge[shape]:
+                cell = tuple((anchor[k] + off[k]) % N for k in range(4))
+                expect[cell] = expect.get(cell, 0) + v
+            assert got == {cell: v for cell, v in expect.items() if v}

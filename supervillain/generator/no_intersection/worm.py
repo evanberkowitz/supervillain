@@ -217,6 +217,7 @@ class IntersectionWorm(ReadWriteable, Generator):
             for family in ('ortho3', 'ortho2', 'elbow2', 'same4', '1link')
         }
         self._last_family = None
+        self._self_charge = self._self_charges()
 
     def __str__(self):
         return 'IntersectionWorm'
@@ -406,6 +407,46 @@ class IntersectionWorm(ReadWriteable, Generator):
         if sum(abs(x) for x in d) == 1:
             return 'ortho2' if len(shape) == 2 else 'ortho3'
         return 'elbow2' if sum(d) == 0 else 'same4'
+
+    def _self_charges(self):
+        r"""
+        For every shape in the library, the background-independent **self-charge**
+        $d\Delta n \wedge d\Delta n$ of the placed template, as a tuple of
+        ``(offset, value)`` pairs with the offset measured from the template's anchor
+        (the placement origin of :meth:`_change_from_shape`).
+
+        Together with the per-link background-linear stencils this reconstructs the
+        full charge change of any template:
+        $\Delta q = F\wedge d\Delta n + d\Delta n\wedge F + d\Delta n\wedge d\Delta n$.
+
+        Derived on a scratch lattice of the *same extent* as the target lattice, so any
+        wrap-around cross terms between the template and its periodic images at small
+        $N$ are captured exactly.  Quadratic in $\Delta n$, hence identical for the
+        negated (backward) placement --- one pattern serves both signs.
+        """
+        N = self.Lattice.N
+        L0 = Lattice(4, N)
+        anchor = (N // 2,) * 4
+        patterns = {}
+        for shapes in self._library.values():
+            for shape in shapes:
+                if shape in patterns:
+                    continue
+                if len(shape) == 1:
+                    # The single-link self-wedge vanishes identically.
+                    patterns[shape] = ()
+                    continue
+                dn = L0.zeros(1, dtype=int)
+                for mu, rs, c in shape:
+                    site = tuple((anchor[k] + rs[k]) % N for k in range(4))
+                    dn[(mu,) + site] += c
+                q = np.asarray(charge(dn))
+                patterns[shape] = tuple(
+                    (tuple((int(h[1 + k]) - anchor[k]) % N for k in range(4)),
+                     int(q[tuple(h)]))
+                    for h in np.argwhere(q != 0)
+                )
+        return patterns
 
     # ------------------------------------------------------------------ helpers
 
