@@ -205,6 +205,19 @@ class IntersectionWorm(ReadWriteable, Generator):
         self._library = self._build_library()
         self._directions = sorted(self._library)
 
+        # family[d][k] names the move family of shape k in bucket d, so per-draw
+        # bookkeeping is a lookup, not a re-classification.
+        self._family = {
+            dd: tuple(self._classify(dd, shape) for shape in self._library[dd])
+            for dd in self._directions
+        }
+        self.tallies = {
+            family: {outcome: 0 for outcome in
+                     ('drawn', 'unclean', 'clean', 'idle', 'accepted', 'accepted_idle')}
+            for family in ('ortho3', 'ortho2', 'elbow2', 'same4', '1link')
+        }
+        self._last_family = None
+
     def __str__(self):
         return 'IntersectionWorm'
 
@@ -379,6 +392,21 @@ class IntersectionWorm(ReadWriteable, Generator):
             )
         return reach
 
+    @staticmethod
+    def _classify(d, shape):
+        r"""
+        The move family of ``shape`` in bucket ``d``: ``'1link'`` for the
+        background-activated single links, ``'ortho2'``/``'ortho3'`` for the
+        $\pm\hat e_{\mu}$ shapes, ``'elbow2'`` for the opposite-sign diagonal
+        $\hat e_{\mu} - \hat e_{\nu}$, and ``'same4'`` for the same-sign diagonal
+        $\hat e_{\mu} + \hat e_{\nu}$.
+        """
+        if len(shape) == 1:
+            return '1link'
+        if sum(abs(x) for x in d) == 1:
+            return 'ortho2' if len(shape) == 2 else 'ortho3'
+        return 'elbow2' if sum(d) == 0 else 'same4'
+
     # ------------------------------------------------------------------ helpers
 
     def _change_from_shape(self, head, d, sign, shape):
@@ -452,7 +480,11 @@ class IntersectionWorm(ReadWriteable, Generator):
         """
         N = self.Lattice.N
         shapes = self._library[d]
-        shape = shapes[self.rng.integers(0, len(shapes))]
+        k = int(self.rng.integers(0, len(shapes)))
+        shape = shapes[k]
+        family = self._family[d][k]
+        self._last_family = family
+        self.tallies[family]['drawn'] += 1
 
         target = tuple((head[k] + sign * d[k]) % N for k in range(4))
         want = {} if target == head else {target: 1, head: -1}
@@ -465,9 +497,12 @@ class IntersectionWorm(ReadWriteable, Generator):
         nz = np.argwhere(dq != 0)
         defects = {tuple(int(x) for x in h[1:]): int(dq[tuple(h)]) for h in nz}
         if defects == want:
+            self.tallies[family]['clean'] += 1
             return change, target
         if not defects and len(shape) == 1:
+            self.tallies[family]['idle'] += 1
             return change, head
+        self.tallies[family]['unclean'] += 1
         return None, None
 
     def _delta_S(self, dphi, n, change):
@@ -561,6 +596,7 @@ class IntersectionWorm(ReadWriteable, Generator):
                     for link, c in change.items():
                         n[link] += c
                     q_now = charge(n)
+                    self.tallies[self._last_family]['accepted_idle' if target == head else 'accepted'] += 1
                     head = target
             # The library does not always offer a clean step on every trail, so the drawn
             # shape may be unclean: its Δn would put charge outside the valid G-space (a
@@ -589,6 +625,13 @@ class IntersectionWorm(ReadWriteable, Generator):
     def report(self):
         l = np.array(self.worm_lengths)
         if len(l) == 0:
-            return 'There were 0 worms.'
-        return (f'There were {len(l)} worms.\nWorms lengths:\n'
-                f'    mean {l.mean()}\n    std  {l.std()}\n    max  {max(l)}')
+            lines = ['There were 0 worms.']
+        else:
+            lines = [f'There were {len(l)} worms.\nWorms lengths:\n'
+                     f'    mean {l.mean()}\n    std  {l.std()}\n    max  {max(l)}']
+        lines.append(f'{"family":>8} {"drawn":>10} {"unclean":>10} {"clean":>10} '
+                     f'{"idle":>10} {"accepted":>10} {"acc.idle":>10}')
+        for family, t in self.tallies.items():
+            lines.append(f'{family:>8} {t["drawn"]:>10} {t["unclean"]:>10} {t["clean"]:>10} '
+                         f'{t["idle"]:>10} {t["accepted"]:>10} {t["accepted_idle"]:>10}')
+        return '\n'.join(lines)
