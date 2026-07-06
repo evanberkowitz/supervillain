@@ -17,6 +17,32 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 
 registry=dict()
 
+
+def measurement_for(descriptor, action):
+    r'''
+    The measurement callable of ``descriptor`` (an :class:`~.Observable` or
+    :class:`~.DerivedQuantity`) appropriate for ``action``.
+
+    We dispatch on the action's type by *name*, but walk its method-resolution order so that
+    a specialized action inherits its base's implementation: a
+    :class:`~supervillain.action.NoIntersections` action, being a
+    :class:`~supervillain.action.Villain`, uses the ``Villain`` measurement of any observable
+    that does not provide its own ``NoIntersections`` one.  A ``default`` method (convenient
+    for quantities that just combine others) is the final fallback.
+
+    Raises :class:`AttributeError` if no implementation and no ``default`` exists.
+    '''
+    for action_cls in type(action).__mro__:
+        measure = getattr(descriptor, action_cls.__name__, None)
+        if measure is not None:
+            return measure
+    measure = getattr(descriptor, 'default', None)
+    if measure is not None:
+        return measure
+    raise AttributeError(
+        f'{type(descriptor).__name__} has no measurement for {type(action).__name__} '
+        '(nor any of its base actions) and no default.')
+
 class Observable:
 
     def __init_subclass__(cls, intermediate=False):
@@ -56,17 +82,12 @@ class Observable:
         # Just call the measurement and cache the result.
         class_name = obj.Action.__class__.__name__
         try:
-            # Observables can have action-dependent implementations
-            # and a fall-back default which is convenient for observables which
-            # depend simply on others.  For example, a density might not
-            # need the field variables but the global charge (or vice-versa).
-            try:
-                measure = getattr(self, class_name)
-            except AttributeError as e:
-                if hasattr(self, 'default'):
-                    measure = getattr(self, 'default')
-                else:
-                    raise e from None
+            # Observables can have action-dependent implementations (dispatched on the
+            # action's type, walking its MRO so a subclass inherits its base's), and a
+            # fall-back default which is convenient for observables which depend simply on
+            # others.  For example, a density might not need the field variables but the
+            # global charge (or vice-versa).
+            measure = measurement_for(self, obj.Action)
 
             # All observables must take the action as the first argument.
             measure = partial(measure, obj.Action)

@@ -6,6 +6,7 @@ import inspect
 
 import supervillain.analysis
 from supervillain.performance import Timer
+from supervillain.observable.observable import measurement_for
 
 import logging
 logger = logging.getLogger(__name__)
@@ -44,18 +45,13 @@ class DerivedQuantity:
         # Just call the measurement and cache the result.
         class_name = obj.Ensemble.Action.__class__.__name__
         try:
-            # DQs can have action-dependent implementations
-            # and a fall-back default which is convenient when dqs depend
-            # depend simply on observables or other dqs.  For example, a global
-            # charge might just sum up a density, regardless of formulation.
-            try:
-                measure = getattr(self, class_name)
-            except AttributeError as e:
-                if hasattr(self, 'default'):
-                    measure = getattr(self, 'default')
-                else:
-                    raise e from None
-            
+            # DQs can have action-dependent implementations (dispatched on the action's
+            # type, walking its MRO so a subclass inherits its base's) and a fall-back
+            # default which is convenient when dqs depend simply on observables or other
+            # dqs.  For example, a global charge might just sum up a density, regardless
+            # of formulation.
+            measure = measurement_for(self, obj.Ensemble.Action)
+
             # All dqs must take the action as the first argument.
             measure = partial(measure, obj.Ensemble.Action)
 

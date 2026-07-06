@@ -353,6 +353,29 @@ def test_ensemble_generate_stays_valid():
         assert S.valid(c)
 
 
+def test_nointersections_inherits_villain_observables():
+    # NoIntersections is a Villain, so the observable dispatch walks the action MRO and its
+    # Villain implementations apply --- the field-based observables computed from (phi, n)
+    # are all available.  (Vortex_Vortex is excluded: its Villain measurement is D=2 only.)
+    S = _action()
+    H = supervillain.generator.no_intersection.Hammer(S)
+    e = supervillain.Ensemble(S).generate(20, H, start='cold')
+    for o in ('ActionDensity', 'InternalEnergyDensity', 'InternalEnergyDensitySquared',
+              'WindingSquared', 'Winding_Winding', 'Spin_Spin'):
+        assert np.asarray(getattr(e, o)).shape[0] == len(e)
+    b = supervillain.analysis.Bootstrap(e, 20)
+    assert np.asarray(b.Spin_Spin_Normalized).shape[0] == 20  # derived quantities too
+
+
+def test_nointersections_topological_charge_vanishes():
+    # The constraint q = dn∧dn = 0 makes the topological-charge density identically zero,
+    # so its (inherited Villain) same-site observable is exactly 0 on every configuration.
+    S = _action()
+    H = supervillain.generator.no_intersection.Hammer(S)
+    e = supervillain.Ensemble(S).generate(20, H, start='cold')
+    assert not np.asarray(e.TopologicalChargeDensitySquared).any()
+
+
 def test_intersection_intersection_is_inline_only():
     # The correlator has no closed-form estimator, so it carries no measurement
     # method for any action; it is only ever available when the IntersectionWorm
