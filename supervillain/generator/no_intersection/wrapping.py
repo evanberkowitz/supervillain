@@ -70,6 +70,7 @@ class WrappingLoopUpdate(ReadWriteable, Generator):
         self.proposed = 0       # all proposals
         self.clean = 0          # proposals that preserved q (Δq = 0)
         self.accepted = 0       # clean proposals that passed Metropolis
+        self.acceptance = 0.    # summed Metropolis acceptance probability over clean proposals
 
     def __str__(self):
         return 'WrappingLoopUpdate'
@@ -156,7 +157,9 @@ class WrappingLoopUpdate(ReadWriteable, Generator):
         self.clean += 1
 
         dS = self._delta_S(dphi, n, change)
-        if self.rng.uniform(0, 1) < min(1.0, np.exp(-dS)):
+        prob = min(1.0, np.exp(-dS))
+        self.acceptance += prob
+        if self.rng.uniform(0, 1) < prob:
             for link, c in change.items():
                 n[link] += c
             self.accepted += 1
@@ -170,7 +173,9 @@ class WrappingLoopUpdate(ReadWriteable, Generator):
         return (
             f'There were {self.accepted} wrapping loops accepted of {self.proposed} proposed updates.'
             +'\n'+
+            f'    {self.clean / self.proposed:.6f} constraint-preserving fraction'
+            +'\n'+
             f'    {self.accepted / self.proposed:.6f} acceptance rate'
             +'\n'+
-            f'    {self.clean / self.proposed:.6f} constraint-preserving fraction'
+            f'    {self.acceptance / self.proposed:.6f} expected Metropolis acceptance'
         )

@@ -78,6 +78,8 @@ class ConstrainedLinkUpdate(ReadWriteable, Generator):
         self.shifts = (+1, -1)
 
         self.accepted = 0
+        self.clean = 0          # proposals that preserved q (constraint-preserving)
+        self.acceptance = 0.    # summed Metropolis acceptance probability over clean links
         self.proposed = 0
         self.sweeps = 0
 
@@ -124,17 +126,23 @@ class ConstrainedLinkUpdate(ReadWriteable, Generator):
             A = dphi[mu][base] - twopi * n[mu][base]
             dS = (self.kappa / 2) * ((A - twopi * c) ** 2 - A ** 2)
             coin = self.rng.uniform(0, 1, size=block)
-            metro = coin < np.exp(np.minimum(-dS, 0.0))
+            prob = np.exp(np.minimum(-dS, 0.0))   # Metropolis acceptance probability min(1, e^-dS)
+            metro = coin < prob
             self.proposed += c.size
 
             # The integer clean check and apply for the whole colour, in one compiled kernel
             # (no per-term Python/numpy dispatch, which was the sweep's entire cost).  It
             # visits the colour's links one at a time; because they are non-interacting this
-            # equals updating them simultaneously.  c/metro are raveled in the colour's
-            # C-order, matching coords.
-            accepted += local_charge._color_kernel(
+            # equals updating them simultaneously.  c/metro/prob are raveled in the colour's
+            # C-order, matching coords.  It returns the accepted count and the summed
+            # acceptance probability over clean links (the expected-acceptance diagnostic).
+            naccept, nclean, accprob = local_charge._color_kernel(
                 F2, n[mu].reshape(-1), np.ascontiguousarray(metro.reshape(-1)),
+                np.ascontiguousarray(prob.reshape(-1)),
                 np.ascontiguousarray(c.reshape(-1)), coords, *stencil, N)
+            accepted += naccept
+            self.clean += nclean
+            self.acceptance += accprob
 
         self.accepted += accepted
         return cfg | {'n': Form(n, degree=1, lattice=L)}
@@ -238,5 +246,9 @@ class ConstrainedLinkUpdate(ReadWriteable, Generator):
         return (
             f'There were {self.accepted} single-link changes accepted of {self.proposed} proposed updates.'
             +'\n'+
+            f'    {self.clean / self.proposed:.6f} constraint-preserving fraction'
+            +'\n'+
             f'    {self.accepted / self.proposed:.6f} acceptance rate'
+            +'\n'+
+            f'    {self.acceptance / self.proposed:.6f} expected Metropolis acceptance'
         )

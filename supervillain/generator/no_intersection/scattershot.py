@@ -109,6 +109,7 @@ class ScattershotUpdate(ReadWriteable, Generator):
         self.null = 0           # draws that touched no link at all
         self.clean = 0          # proposals that preserved q = 0
         self.accepted = 0       # clean proposals that passed Metropolis
+        self.acceptance = 0.    # summed Metropolis acceptance probability over clean proposals
 
     def __str__(self):
         return 'ScattershotUpdate'
@@ -154,7 +155,9 @@ class ScattershotUpdate(ReadWriteable, Generator):
         # contribute exactly zero).
         A = np.asarray(dphi) - 2 * np.pi * np.asarray(n)
         dS = (self.kappa / 2) * ((A - 2 * np.pi * c) ** 2 - A ** 2).sum()
-        if self.rng.uniform(0, 1) < min(1.0, np.exp(-dS)):
+        prob = min(1.0, np.exp(-dS))
+        self.acceptance += prob
+        if self.rng.uniform(0, 1) < prob:
             self.accepted += 1
             return configuration | {'n': trial}
         return configuration | {'n': n}
@@ -165,9 +168,11 @@ class ScattershotUpdate(ReadWriteable, Generator):
         return (
             f'There were {self.accepted} joint proposals accepted of {self.proposed} proposed updates.'
             +'\n'+
+            f'    {self.clean / self.proposed:.6f} constraint-preserving fraction'
+            +'\n'+
             f'    {self.accepted / self.proposed:.6f} acceptance rate'
             +'\n'+
-            f'    {self.clean / self.proposed:.6f} constraint-preserving fraction'
+            f'    {self.acceptance / self.proposed:.6f} expected Metropolis acceptance'
             +'\n'+
             f'    {self.null / self.proposed:.6f} touched-no-links fraction'
         )

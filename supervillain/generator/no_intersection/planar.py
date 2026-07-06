@@ -65,6 +65,7 @@ class PlanarFluxUpdate(ReadWriteable, Generator):
         self.proposed = 0
         self.clean = 0          # proposals that preserved q
         self.accepted = 0       # clean proposals that passed Metropolis
+        self.acceptance = 0.    # summed Metropolis acceptance probability over clean proposals
         self.degenerate = 0     # u ∧ v = 0 (u ∥ v or a zero vector)
 
     def __str__(self):
@@ -132,7 +133,9 @@ class PlanarFluxUpdate(ReadWriteable, Generator):
         # ΔS in the Villain action over every touched link (vectorised).
         A = np.asarray(dphi) - 2 * np.pi * np.asarray(n)
         dS = (self.kappa / 2) * ((A - 2 * np.pi * c) ** 2 - A ** 2).sum()
-        if self.rng.uniform(0, 1) < min(1.0, np.exp(-dS)):
+        prob = min(1.0, np.exp(-dS))
+        self.acceptance += prob
+        if self.rng.uniform(0, 1) < prob:
             self.accepted += 1
             return configuration | {'n': trial}
         return configuration | {'n': n}
@@ -143,9 +146,11 @@ class PlanarFluxUpdate(ReadWriteable, Generator):
         return (
             f'There were {self.accepted} planar flux sheets accepted of {self.proposed} proposed updates.'
             +'\n'+
+            f'    {self.clean / self.proposed:.6f} constraint-preserving fraction'
+            +'\n'+
             f'    {self.accepted / self.proposed:.6f} acceptance rate'
             +'\n'+
-            f'    {self.clean / self.proposed:.6f} constraint-preserving fraction'
+            f'    {self.acceptance / self.proposed:.6f} expected Metropolis acceptance'
             +'\n'+
             f'    {self.degenerate / self.proposed:.6f} degenerate fraction (A = 0)'
         )

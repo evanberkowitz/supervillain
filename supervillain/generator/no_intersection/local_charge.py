@@ -255,22 +255,27 @@ from numba import njit  # noqa: E402  (kept next to the kernel it enables)
 
 
 @njit(cache=True)
-def _color_kernel(F2, n_mu, metro, c, coords,
+def _color_kernel(F2, n_mu, metro, prob, c, coords,
                   read_off, plane, coeff, group_ptr, df_off, df_plane, df_val, N):
     r"""
-    Update one colour in place and return the number of accepted flips.
+    Update one colour in place and return ``(naccept, nclean, accprob)``: the number of
+    accepted flips, the number of constraint-preserving (clean) links, and the summed
+    Metropolis acceptance probability ``prob`` over those clean links --- the ingredient of
+    the *expected* acceptance diagnostic, which should track the true accepted fraction.
 
     ``F2`` is $F = dn$ reshaped to ``(n_planes, N**4)``; ``n_mu`` is $n$ on this colour's
     direction reshaped to ``(N**4,)``; ``coords`` are the colour's link sites ``(B, 4)`` in
-    the same C-order as ``metro`` / ``c``.  A link is flipped iff its charge response is
-    clean on every output group AND its precomputed metropolis coin passed.  Offsets are
-    made non-negative before the modulo so the wrap is correct regardless of the sign
-    convention of integer ``%`` in nopython mode.
+    the same C-order as ``metro`` / ``prob`` / ``c``.  A link is flipped iff its charge
+    response is clean on every output group AND its precomputed metropolis coin passed.
+    Offsets are made non-negative before the modulo so the wrap is correct regardless of the
+    sign convention of integer ``%`` in nopython mode.
     """
     B = coords.shape[0]
     ngroups = group_ptr.shape[0] - 1
     Td = df_plane.shape[0]
     naccept = 0
+    nclean = 0
+    accprob = 0.0
     for j in range(B):
         x0 = coords[j, 0]; x1 = coords[j, 1]; x2 = coords[j, 2]; x3 = coords[j, 3]
         ok = True
@@ -285,17 +290,20 @@ def _color_kernel(F2, n_mu, metro, c, coords,
             if R != 0:
                 ok = False
                 break
-        if ok and metro[j]:
-            cc = c[j]
-            n_mu[((x0 * N + x1) * N + x2) * N + x3] += cc
-            for t in range(Td):
-                w0 = (x0 + df_off[t, 0] + N) % N
-                w1 = (x1 + df_off[t, 1] + N) % N
-                w2 = (x2 + df_off[t, 2] + N) % N
-                w3 = (x3 + df_off[t, 3] + N) % N
-                F2[df_plane[t], ((w0 * N + w1) * N + w2) * N + w3] += df_val[t] * cc
-            naccept += 1
-    return naccept
+        if ok:
+            nclean += 1
+            accprob += prob[j]           # only clean links are Metropolis-tested
+            if metro[j]:
+                cc = c[j]
+                n_mu[((x0 * N + x1) * N + x2) * N + x3] += cc
+                for t in range(Td):
+                    w0 = (x0 + df_off[t, 0] + N) % N
+                    w1 = (x1 + df_off[t, 1] + N) % N
+                    w2 = (x2 + df_off[t, 2] + N) % N
+                    w3 = (x3 + df_off[t, 3] + N) % N
+                    F2[df_plane[t], ((w0 * N + w1) * N + w2) * N + w3] += df_val[t] * cc
+                naccept += 1
+    return naccept, nclean, accprob
 
 
 _NUMBA_STENCILS = {}   # mu -> (read_off, plane, coeff, group_ptr, df_off, df_plane, df_val)
