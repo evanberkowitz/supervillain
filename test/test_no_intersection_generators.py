@@ -51,6 +51,89 @@ def test_intersection_worm_preserves_validity_and_closes():
     assert np.isscalar(out['Worm_Length']) or np.asarray(out['Worm_Length']).shape == ()
 
 
+def test_intersection_worm_library_has_orthogonal_and_diagonal_moves():
+    # The move library carries orthogonal steps to the 4 face neighbours (ê_μ) and
+    # diagonal steps to all 12 in-plane diagonals (ê_μ ± ê_ν): 6 opposite-sign
+    # (ê_μ - ê_ν) and 6 same-sign (ê_μ + ê_ν).
+    S = _action()
+    worm = supervillain.generator.no_intersection.IntersectionWorm(S)
+    orthogonal = [d for d in worm._displacements if sum(abs(x) for x in d) == 1]
+    diagonal = [d for d in worm._displacements if sum(abs(x) for x in d) == 2]
+    opposite = [d for d in diagonal if sum(d) == 0]      # ±(ê_μ - ê_ν)
+    same = [d for d in diagonal if abs(sum(d)) == 2]     # ±(ê_μ + ê_ν)
+    assert len(orthogonal) == 8
+    assert len(diagonal) == 24
+    assert len(opposite) == 12
+    assert len(same) == 12
+    # Face buckets are the exhaustive unit census: 828 shapes (12 2-link, 816 3-link).
+    for d in orthogonal:
+        assert len(worm._library[d]) == 828
+        assert {len(shape) for shape in worm._library[d]} == {2, 3}
+    # Elbow buckets are the exhaustive opposite-sign census plus its orbit closure
+    # (540) plus 16 four-link orbit images of the same-sign seed: 556 shapes.
+    for d in opposite:
+        assert len(worm._library[d]) == 556
+        assert {len(shape) for shape in worm._library[d]} == {2, 3, 4}
+    # The same-sign diagonal is unreachable with <=3 links (the census finds
+    # nothing); its buckets carry the hand-found 4-link family only.
+    for d in same:
+        assert len(worm._library[d]) == 8
+        assert all(len(shape) == 4 for shape in worm._library[d])
+
+
+def test_intersection_worm_uses_diagonal_moves_and_stays_valid():
+    # A diagonal 2-link step must be accepted at least once, and every emitted
+    # configuration must still satisfy q = dn∧dn = 0.
+    S = _action()
+    worm = supervillain.generator.no_intersection.IntersectionWorm(S)
+    used = {'diagonal': 0}
+    orig = worm._sheet_segment
+
+    def spy(F, head, hop):
+        change, target = orig(F, head, hop)
+        if change is not None and sum(abs(x) for x in hop) == 2:
+            used['diagonal'] += 1
+        return change, target
+
+    worm._sheet_segment = spy
+    cfg = _cold(S)
+    for _ in range(40):
+        cfg = worm.step(cfg)
+        assert S.valid(cfg)
+    assert used['diagonal'] > 0
+
+
+def test_intersection_worm_uses_every_move_family_and_stays_valid():
+    # All four shape families must fire a clean, accepted step at least once, and every
+    # emitted configuration must satisfy q = dn∧dn = 0: the 2- and 3-link orthogonal
+    # shapes (±ê_μ), the 2-link opposite-sign elbow (ê_μ - ê_ν), and the 4-link same-sign
+    # diagonal (ê_μ + ê_ν).
+    S = _action()
+    worm = supervillain.generator.no_intersection.IntersectionWorm(S)
+    used = {'ortho2': 0, 'ortho3': 0, 'opposite': 0, 'same': 0}
+    orig = worm._sheet_segment
+
+    def spy(F, head, hop):
+        change, target = orig(F, head, hop)
+        if change is not None:
+            taxicab = sum(abs(x) for x in hop)
+            if taxicab == 1:
+                used['ortho2' if len(change) == 2 else 'ortho3'] += 1
+            elif sum(hop) == 0:
+                used['opposite'] += 1
+            else:
+                used['same'] += 1
+        return change, target
+
+    worm._sheet_segment = spy
+    cfg = _cold(S)
+    for _ in range(80):
+        cfg = worm.step(cfg)
+        assert S.valid(cfg)
+    for family, count in used.items():
+        assert count > 0, f'move family {family!r} never produced a clean accepted step'
+
+
 def test_intersection_worm_inline_observable_keys():
     S = _action()
     worm = supervillain.generator.no_intersection.IntersectionWorm(S)
@@ -90,13 +173,30 @@ def test_wrapping_loop_update_preserves_validity():
         assert S.valid(cfg)
 
 
+def test_planar_flux_update_requires_no_intersections_action():
+    L = Lattice(4, 5)
+    V = supervillain.action.Villain(L, kappa=0.3, W=1)
+    with pytest.raises(ValueError):
+        supervillain.generator.no_intersection.PlanarFluxUpdate(V)
+
+
+def test_planar_flux_update_preserves_validity():
+    S = _action()
+    gen = supervillain.generator.no_intersection.PlanarFluxUpdate(S)
+    cfg = _cold(S)
+    for _ in range(5):
+        cfg = gen.step(cfg)
+        assert S.valid(cfg)
+        assert cfg['n'].shape == (S.Lattice.D,) + S.Lattice.dims
+
+
 def test_hammer_includes_constraint_preserving_villain_updates():
     # The Hammer reuses the Villain ExactUpdate and CohomologyUpdate, which change n
     # by a closed form and so leave dn (hence q = dn∧dn) untouched.
     S = _action()
     H = str(supervillain.generator.no_intersection.Hammer(S))
-    for name in ('SiteUpdate', 'ExactUpdate', 'CohomologyUpdate',
-                 'ConstrainedLinkUpdate', 'WrappingLoopUpdate', 'IntersectionWorm'):
+    for name in ('SiteUpdate', 'ExactUpdate', 'CohomologyUpdate', 'ConstrainedLinkUpdate',
+                 'WrappingLoopUpdate', 'PlanarFluxUpdate', 'IntersectionWorm'):
         assert name in H
 
 
@@ -200,16 +300,21 @@ def test_intersection_intersection_normalized_is_one_at_origin():
 
 
 def test_intersection_worm_library_covers_all_directions():
-    # The library holds clean shapes for every one of the 8 unit dipole separations
-    # with equal bucket sizes by symmetry.  The orbit expansion of the 41 seed
-    # classes in moves.py must reproduce exactly the 828 moves per direction found
-    # by the exhaustive enumeration in example/no-intersection-move-search.py.
+    # The library holds clean shapes for all 32 signed displacements of the head's
+    # face + 2-plane-diagonal neighbour graph, with sizes fixed by the censuses in
+    # example/no-intersection-move-search.py: 828 per face (41 classes), 556 per
+    # opposite-sign diagonal (43 classes plus same-sign orbit images), and 8 per
+    # same-sign diagonal (the hand-found 4-link family; not certified complete).
     S = _action()
     worm = supervillain.generator.no_intersection.IntersectionWorm(S)
     buckets = {sep: len(shapes) for sep, shapes in worm._library.items()}
-    units = {tuple(int(k == mu) * s for k in range(4)) for mu in range(4) for s in (+1, -1)}
-    assert set(buckets) == units
-    assert set(buckets.values()) == {828}
+    assert len(buckets) == 32
+    sizes = {}
+    for sep, n in buckets.items():
+        taxi = sum(abs(x) for x in sep)
+        kind = 'face' if taxi == 1 else ('elbow' if sum(sep) == 0 else 'same')
+        sizes.setdefault(kind, set()).add(n)
+    assert sizes == {'face': {828}, 'elbow': {556}, 'same': {8}}
 
 
 def test_intersection_worm_local_dq_matches_global():
@@ -314,7 +419,7 @@ def test_constrained_link_update_local_check_matches_global():
 def _frozen_example():
     import importlib.util
     import pathlib
-    path = pathlib.Path(__file__).parent.parent / 'example' / 'no-intersection-frozen.py'
+    path = pathlib.Path(__file__).parent.parent / 'example' / 'no-intersection' / 'frozen.py'
     spec = importlib.util.spec_from_file_location('frozen_example', path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -359,8 +464,8 @@ def test_frozen_configs_block_bounded_moves_but_not_rings():
 
         clean = sum(worm._sheet_segment(F,
                                         tuple(int(x) for x in worm.rng.integers(0, N, size=4)),
-                                        int(worm.rng.integers(0, 4)),
-                                        int(worm.rng.choice([1, -1])))[0] is not None
+                                        worm._displacements[int(worm.rng.integers(0, len(worm._displacements)))])[0]
+                    is not None
                     for _ in range(500))
         assert clean == 0, f'{name}: {clean} clean worm proposals'
 

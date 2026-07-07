@@ -2,7 +2,7 @@
 r"""
 Which moves unfreeze the frozen configurations of the No-Intersection model?
 
-``example/no-intersection-frozen.py`` builds valid configurations (q = dn ∧ dn = 0)
+``example/no-intersection/frozen.py`` builds valid configurations (q = dn ∧ dn = 0)
 with zero legal single-link ±1 moves.  This script scans progressively larger move
 classes on both constructions and reports which are legal:
 
@@ -47,7 +47,7 @@ from supervillain.generator.no_intersection import IntersectionWorm, WrappingLoo
 from supervillain.generator.no_intersection.charge import dF_entries, local_dq, wedge_pairs
 
 _here = pathlib.Path(__file__).parent
-_spec = importlib.util.spec_from_file_location('frozen', _here / 'no-intersection-frozen.py')
+_spec = importlib.util.spec_from_file_location('frozen', _here / 'no-intersection' / 'frozen.py')
 frozen = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(frozen)
 
@@ -97,10 +97,10 @@ def scan(L, n, worm, label):
     worm.rng = rng
     clean = sum(worm._sheet_segment(F,
                                     tuple(int(x) for x in rng.integers(0, N, size=4)),
-                                    int(rng.integers(0, 4)),
-                                    int(rng.choice([1, -1])))[0] is not None
+                                    worm._displacements[int(rng.integers(0, len(worm._displacements)))])[0]
+                is not None
                 for _ in range(3000))
-    print(f'  worm proposals (exhaustive ≤3-link library): {clean}/3000 clean')
+    print(f'  worm proposals (full unified library):     {clean}/3000 clean')
 
     hits = {}
     for mu, nu in product(range(4), repeat=2):

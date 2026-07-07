@@ -15,13 +15,14 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-# The clean elementary moves: one representative per orbit class of every change of
-# at most 3 links with coefficients ±1 whose Δq on an empty background is a clean unit
-# dipole, found by the exhaustive search in example/no-intersection-move-search.py and
-# stored head-relative (the +1 defect at the origin) in the auto-generated moves.py.
-# The full move library is the orbit of these seeds under the hyperoctahedral group
-# (all 384 signed axis permutations) and global negation, re-anchored so the +1 defect
-# defines the head.
+# The clean elementary moves, stored head-relative (the +1 defect at the origin) in the
+# auto-generated moves.py: one representative per symmetry class of every change of at
+# most 3 links with coefficients ±1 whose Δq on an empty background is a clean dipole
+# with a *unit* or an *opposite-sign diagonal* displacement (both censuses exhaustive,
+# example/no-intersection-move-search.py), plus the hand-found 4-link same-sign-diagonal
+# move (whose 2-plane displacement cannot be reached with ≤3 links).  The full library
+# is the orbit of these seeds under the hyperoctahedral group (all 384 signed axis
+# permutations) and global negation, re-anchored so the +1 defect defines the head.
 from supervillain.generator.no_intersection.moves import SEEDS as _SEEDS
 
 # The library is a pure geometric object (head-relative templates, independent of the
@@ -34,9 +35,16 @@ class IntersectionWorm(ReadWriteable, Generator):
     Prokof'ev–Svistunov worm for the $q = dn\wedge dn = 0$ constraint in 4D.
 
     The head and tail live on hypercubes (4-cells; there is one per site in 4D).
-    Moving the head by one hypercube extends the dragged sheet of $F = dn$ by a clean,
-    coordinated three-link change; when the head returns to the tail the constraint is
-    restored everywhere and the configuration is emitted into the Markov chain.
+    Moving the head to a neighbouring hypercube extends the dragged sheet of $F = dn$ by
+    a clean, coordinated few-link change; when the head returns to the tail the
+    constraint is restored everywhere and the configuration is emitted into the Markov
+    chain.  The head walks a 32-neighbour graph: the 8 face steps $\pm\hat e_\mu$ plus
+    the 24 signed 2-plane diagonals $\pm(\hat e_\mu \pm \hat e_\nu)$.  A diagonal step
+    preserves the parity of $\sum_k x_k$ while a face step flips it, so the two families
+    mix the head's walk better than either alone; and a coordinated move deposits its net
+    dipole directly, never placing a defect on the intermediate hypercube that a chain of
+    smaller hops would have to pass through, so it can be clean exactly where the chain is
+    blocked.
 
     As the head moves we tally the head$-$tail displacement histogram that yields the
     ``Intersection_Intersection`` correlator $\langle e^{i\theta_h} e^{-i\theta_t}\rangle$ ---
@@ -51,16 +59,24 @@ class IntersectionWorm(ReadWriteable, Generator):
 
     .. note::
 
-        The move library contains **every** elementary clean move: all changes of at
-        most 3 links with coefficients $\pm 1$ whose $\Delta q$ on an empty
-        background is a clean unit dipole, as enumerated exhaustively by
-        ``example/no-intersection-move-search.py`` (828 shapes per direction, in 41
-        symmetry classes counting transforms *and* re-anchoring translations;
-        ``moves.py`` stores exactly one representative per class) and expanded from
-        those seeds under all 384 signed axis permutations and global negation,
-        re-anchored so that the +1 defect sits on the head.  Not every shape offers a clean step on
-        every trail; stalled proposals are simply rejected (the head stays put),
-        which is detailed-balance safe.  See :ref:`the No-Intersection model
+        The library holds every elementary clean move of the exhaustively-searched
+        classes: all changes of at most 3 links with coefficients $\pm 1$ whose
+        $\Delta q$ on an empty background is a clean dipole with a **unit**
+        displacement (828 shapes per direction, 41 symmetry classes) or an
+        **opposite-sign diagonal** displacement (the 2-link "elbow" and its 3-link
+        relatives; 556 shapes per diagonal: the 2-link elbow, 536 3-link relatives, and 16 4-link orbit images of the same-sign seed), as enumerated by
+        ``example/no-intersection-move-search.py`` and expanded from the seeds in the
+        auto-generated ``moves.py`` under all 384 signed axis permutations and global
+        negation, re-anchored so the +1 defect sits on the head.  The **same-sign
+        diagonal** buckets carry the hand-found 4-link move (8 shapes per
+        diagonal); that displacement is unreachable with $\le 3$ links (the census
+        finds nothing), so four links is its minimum and its completeness is *not*
+        certified.  A single link never qualifies: $d\Delta n\wedge d\Delta n\equiv 0$,
+        so its self-charge is nothing on an empty background --- on a nonzero background
+        the linear cross term can transport charge, but such background-dependent moves
+        cannot live in a fixed catalog.  Not every shape offers a clean step on every
+        trail; stalled proposals are simply rejected (the head stays put), which is
+        detailed-balance safe.  See :ref:`the No-Intersection model
         <no_intersection>`.
 
     .. note::
@@ -93,6 +109,10 @@ class IntersectionWorm(ReadWriteable, Generator):
         # 3-link shapes whose dipole separation (+1 site minus −1 site) is that unit
         # vector, expressed RELATIVE to the +1 defect (the head).
         self._library = self._build_library()
+
+        # Every signed displacement the head can make: the 8 unit face steps plus the
+        # 24 signed 2-plane diagonals, read off the library's bucket keys.
+        self._displacements = sorted(self._library)
 
         # Complementary plaquette pairs (A, B) and the sign σ(A⌢B) entering the
         # 4-form wedge (a∧b)_{(0,1,2,3)}[x] = Σ σ(A⌢B) a_A[x] b_B[x+ê_A].
@@ -185,8 +205,6 @@ class IntersectionWorm(ReadWriteable, Generator):
                             continue
                         plus, minus = pm
                         sep = tuple(int(p - m) for p, m in zip(plus, minus))
-                        if sum(abs(x) for x in sep) != 1:
-                            continue
                         # Re-anchor: measure the links from the +1 defect.
                         shift = tuple(p - a for p, a in zip(plus, anchor))
                         rebased = tuple(sorted(
@@ -195,7 +213,15 @@ class IntersectionWorm(ReadWriteable, Generator):
                         ))
                         library.setdefault(sep, set()).add(rebased)
 
-        _LIBRARY_CACHE = {sep: tuple(sorted(shapes)) for sep, shapes in library.items()}
+        # Keep only the moves that hop to a face or 2-plane-diagonal neighbour:
+        # |sep_k| <= 1 with taxicab length 1 or 2.  The filtered transforms also land
+        # clean at a few exotic separations (axis-doubled hops, 3-plane diagonals);
+        # those orbit fragments are deliberately excluded to keep the head's walk on
+        # the documented 32-neighbour graph.
+        _LIBRARY_CACHE = {
+            sep: tuple(sorted(shapes)) for sep, shapes in library.items()
+            if max(abs(x) for x in sep) == 1 and sum(abs(x) for x in sep) <= 2
+        }
         return _LIBRARY_CACHE
 
     # ------------------------------------------------------------------ helpers
@@ -228,27 +254,27 @@ class IntersectionWorm(ReadWriteable, Generator):
         """
         return local_dq(self.Lattice, F, change, pairs=self._wedge_pairs)
 
-    def _sheet_segment(self, F, head, mu, sign):
+    def _sheet_segment(self, F, head, step):
         r"""
-        Propose a sheet-extending $\Delta n$ that moves the head by ``sign``$\,\hat
-        e_\mu$, choosing **one** move uniformly at random from the proposals for that
-        step and attempting only it.  The proposals are the shapes in the
-        ``sign``$\,\hat e_\mu$ bucket anchored at the target (their +1 defect lands
-        on the target) together with the *negated* shapes of the $-$``sign``$\,\hat
-        e_\mu$ bucket anchored at the head (each the exact inverse of a forward step
-        that could have arrived here).  Returns ``(change, target)`` if the chosen
-        move gives a clean dipole shift on the current configuration, else
-        ``(None, None)``.
+        Propose a sheet-extending $\Delta n$ that moves the head by the signed
+        displacement ``step`` (a face step or a 2-plane diagonal), choosing **one**
+        move uniformly at random from the proposals for that step and attempting only
+        it.  The proposals are the shapes in the ``step`` bucket anchored at the
+        target (their +1 defect lands on the target) together with the *negated*
+        shapes of the ``-step`` bucket anchored at the head (each the exact inverse
+        of a forward step that could have arrived here).  Returns ``(change,
+        target)`` if the chosen move gives a clean dipole shift on the current
+        configuration, else ``(None, None)``.
 
         Selecting a single, uniformly-chosen move makes the proposal **symmetric**:
         the exact inverse of every option is one of the reverse step's options, drawn
-        with the same probability $\tfrac{1}{2D}\cdot\tfrac{1}{K}$, and its
+        with the same probability $\tfrac{1}{2M}\cdot\tfrac{1}{K}$ ($2M$ signed
+        displacements, $K$ shapes for this one), and its
         cleanliness on the proposed state is automatic.  Detailed balance then holds
         with the plain Metropolis acceptance $\min(1, e^{-\Delta S})$.  (Trying
         several shapes and taking the first clean one would break this.)
         """
         N = self.Lattice.N
-        step = tuple(sign if k == mu else 0 for k in range(4))
         back = tuple(-x for x in step)
         direct = self._library.get(step, ())
         negated = self._library.get(back, ())
@@ -305,7 +331,7 @@ class IntersectionWorm(ReadWriteable, Generator):
         L = self.Lattice
         N = L.N
         D = L.D
-        n_dirs = 2 * D
+        n_moves = len(self._displacements)
 
         n = configuration['n'].copy()
         dphi = d(configuration['phi'])
@@ -319,19 +345,22 @@ class IntersectionWorm(ReadWriteable, Generator):
         head = tail
 
         while True:
-            # When the head and tail coincide, offer the (2D+1)-th move: close the worm
-            # and emit the (valid) configuration.  All 2D+1 options are equally likely.
-            if head == tail and self.rng.uniform(0, 1) < 1.0 / (n_dirs + 1):
+            # When the head and tail coincide, offer the (2M+1)-th move: close the worm
+            # and emit the (valid) configuration.  All 2M+1 options -- the 2M signed
+            # neighbour displacements plus closing -- are equally likely; the count is
+            # the number of NEIGHBOURS, not of templates, so enriching a bucket with
+            # extra shapes does not change the closing rate (the per-bucket shape count
+            # cancels from the open/close balance).
+            if head == tail and self.rng.uniform(0, 1) < 1.0 / (n_moves + 1):
                 wl = displacements.sum()
                 self.worm_lengths.append(wl)
                 new_n = Form(n, degree=1, lattice=L)
                 return configuration | {'n': new_n, 'Intersection_Intersection': displacements, 'Worm_Length': wl}
 
-            # Otherwise propose a uniformly random one of the 2D head moves.
-            mu = int(self.rng.integers(0, D))
-            sign = 1 if self.rng.integers(0, 2) == 0 else -1
+            # Otherwise propose a uniformly random one of the 2M signed displacements.
+            step = self._displacements[int(self.rng.integers(0, n_moves))]
 
-            change, target = self._sheet_segment(F, head, mu, sign)
+            change, target = self._sheet_segment(F, head, step)
             if change is not None:
                 # Metropolis-test the change in the Villain action.
                 dS = self._delta_S(dphi, n, change)

@@ -11,7 +11,7 @@ a persistent spatial hole of zeros.
 This script runs the same update stack on two starts at the same coupling:
 
   * a cold start, which thermalizes and moves everywhere;
-  * the frozen staggered texture of ``example/no-intersection-frozen.py``,
+  * the frozen staggered texture of ``example/no-intersection/frozen.py``,
     a local action minimum whose every legal exit move is uphill.
 
 and prints the fraction of dead links and the activity quartiles for each.
@@ -35,7 +35,7 @@ from supervillain.generator.no_intersection import (
 from supervillain.generator.combining import Sequentially
 
 _here = pathlib.Path(__file__).parent
-_spec = importlib.util.spec_from_file_location('frozen', _here / 'no-intersection-frozen.py')
+_spec = importlib.util.spec_from_file_location('frozen', _here / 'no-intersection' / 'frozen.py')
 frozen = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(frozen)
 

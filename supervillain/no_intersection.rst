@@ -10,7 +10,7 @@ Jacobson observed that the standard Villain model supports an interesting modifi
 .. math ::
    :label: no-intersection
 
-   S = (d\varphi - 2\pi n)^2 + i \theta_p (dn \wedge dn)_p
+   S = (d\phi - 2\pi n)^2 + i \theta_p (dn \wedge dn)_p
 
 with $\theta$ a real-valued 4-form that when path-integrated enforces $dn \wedge dn = 0$.
 The physical interpretation is that vortices may not intersect in this model.
@@ -30,6 +30,7 @@ The Action
 ==========
 
 .. autoclass:: supervillain.action.NoIntersections
+   :show-inheritance:
    :members:
 
 The Topological Charge and the Constraint
@@ -71,12 +72,57 @@ But we can try to do something simple: make :class:`~supervillain.generator.vill
 .. autoclass:: supervillain.generator.no_intersection.ConstrainedLinkUpdate
    :members:
 
-Just as in the modified Villain model and the worldline formulation we can think of another kind of generator that makes large, coordinate moves: worms!
+Frozen configurations
+======================
+
+The :class:`~supervillain.generator.no_intersection.ConstrainedLinkUpdate` *looks* like it should be ergodic --- it is a Metropolis sweep offering every single-link $\pm 1$ move that preserves $q = 0$ --- but it is not.
+Because the constraint is *quadratic* in $n$, there exist valid configurations, which we call **frozen**, on which *every* single-link $\pm 1$ move lights up a defect: each link $\ell$ is *blocked* by the background flux $F = dn$ in the planes complementary to $\ell$'s direction, and a frozen configuration is one in which every link is blocked at once.
+A frozen configuration is therefore an isolated point of the single-link move graph: since every single-link move off it violates the constraint, the reverse (single-link) move onto it from any neighbor is equally forbidden.
+So :class:`~supervillain.generator.no_intersection.ConstrainedLinkUpdate` can neither escape a frozen configuration nor reach one, and a single-link-only algorithm is **not ergodic**.
+
+These beasts are not hypothetical.
+The example script :source:`example/no-intersection/frozen.py` constructs explicit frozen configurations in closed form --- a single-pair family $F_{01} = a(-1)^{x_{0}}$, $F_{23} = b(-1)^{x_{0}+x_{2}+x_{3}}$, and a genuinely six-plane "delicate cancellation" family $F_{\mu\nu} = A_{\mu\nu}(-1)^{x_{\mu}+x_{\nu}}$ with $\mathrm{Pf}(A) = 0$ --- and verifies by exhaustive search that not one of the $2 D N^{D}$ single-link $\pm 1$ moves preserves $q = 0$.
+
+Escaping (or reaching) a frozen configuration requires a *coordinated* move that changes several links at once.
+The key structural fact is that if $\Delta n$ is confined to a single link direction $\mu$ then $d\Delta n \wedge d\Delta n = 0$ identically, so on *any* background the charge change
+
+.. math::
+
+   \Delta q(\Delta n) = F \wedge d\Delta n + d\Delta n \wedge F
+
+is *linear* in $\Delta n$; a coordinated single-direction move that lands in the kernel of this map preserves $q = 0$ exactly, even where every single-link move fails.
+The :class:`~supervillain.generator.no_intersection.WrappingLoopUpdate` is one such move: a closed, torus-wrapping loop of single-direction links, proposed and accepted or rejected atomically.
+
+.. autoclass:: supervillain.generator.no_intersection.WrappingLoopUpdate
+   :members:
+   :show-inheritance:
+
+The companion script :source:`example/no-intersection/unfreeze.py` demonstrates that this works: starting *on* a frozen configuration, interleaving :class:`~supervillain.generator.villain.SiteUpdate`, :class:`~supervillain.generator.no_intersection.WrappingLoopUpdate`, and :class:`~supervillain.generator.no_intersection.ConstrainedLinkUpdate` leaves the frozen sector --- the wrapping loops open up single-link moves, the single-link sweep fires, and the valid-move count cascades.
+
+A complementary coordinated move deposits a whole *sheet* of flux at once.
+Recall that $\mathrm{Pf}(A) = 0$ is exactly the condition that $A$ be *decomposable* --- $A = u \wedge v$ for two 4-vectors, a single vortex plane that does not self-intersect --- and that over the integers *any* $u, v$ give such an $A$.
+The :class:`~supervillain.generator.no_intersection.PlanarFluxUpdate` proposes the staggered sheet $F_{\mu\nu}(x) = A_{\mu\nu}(-1)^{(x-t)_\mu + (x-t)_\nu}$ with $u, v \in \{-1,0,1\}^4$ and a random anchor $t$, verifies it keeps $q = 0$, and Metropolis-tests it.
+Because it changes $F$ over the whole lattice it makes large jumps --- a tunneling move well matched to the sheet-like frozen sector (a frozen configuration is itself such a sheet) --- though that same size makes its acceptance low at nonzero $\kappa$.
+
+.. autoclass:: supervillain.generator.no_intersection.PlanarFluxUpdate
+   :members:
+   :show-inheritance:
+
+Worms and the intersection correlator
+=====================================
+
+A worm is another route to large, coordinated moves --- and the one that additionally yields a physical observable --- just as in the modified Villain model and the worldline formulation.
 We can imagine inserting a worm with a head and tail built of exponentials of Lagrange-multiplier fields (in this case the 4-form $\theta$) on the same hypercube and allowing the head to move from hypercube to hypercube by changing $n$.
 
-However, unlike in $D=2$, where the worm lives on plaquettes and crosses a single link to move to a neighboring plaquette, the worm here must cross a 3-dimensional cube to reach a neighboring hypercube (if you prefer, think of the hypercube as a site on the dual lattice and the cube as a dual link).
+However, unlike in $D=2$, where the worm lives on plaquettes and crosses a single link to move to a neighboring plaquette, the worm here must cross a 3-dimensional cube to reach an orthogonally-adjacent neighboring hypercube (if you prefer, think of the hypercube as a site on the dual lattice and the cube as a dual link).
 Therefore, we expect to need to make coordinated moves simultaneously updating 3 links at once to push the topological defect around.
-The fact that it is even possible to move $q$ around without a proliferation of constraint violations can be seen as a repercussion of the fact that $q=dJ$ is locally conserved.
+In fact, if you don't require the links to share a corner, you can make coordinated 2-link moves that push the worm orthogonally.
+Coordinated 2-link and 4-link moves can also push the worm defect diagonally.
+
+But, the complication is that the above discussion is on an $F=0$ background.
+On a nontrivial background, those coordinated moves are not always legal.
+And, on a nontrivial background, moves that are not legal on an $F=0$ background can advance the worm defect without violating the constraint!
+This can add a lot of complication and furthermore adds concern about the ergodicity of the worm.
 
 To see precisely what such a worm measures, remember that in the :class:`~.NoIntersections` case we are trying to sample according to
 
@@ -100,7 +146,7 @@ The two-point function of the charge-insertion operator $e^{i\theta}$
 
    \Theta_{x,y} = \left\langle e^{i(\theta_x - \theta_y)} \right\rangle
 
-is conjugate to the no-intersection constraint and poses the same tricky problem to evaluate: if we sample configurations of $Z$ we integrate $\theta$ out first and can no longer see the field needed for the obvious way to compute the observable.
+is conjugate to the no-intersection constraint and poses a tricky problem to evaluate: if we sample configurations of $Z$ we integrate $\theta$ out first and can no longer see the field needed for the obvious way to compute the observable.
 Instead we absorb the insertion into the action *before* path-integrating out $\theta$.
 Because $\theta_x$ multiplies $q_x = (dn \wedge dn)_x$, integrating $\theta_x$ against the extra $e^{i\theta_x}$ shifts the constraint at the insertions
 
@@ -144,9 +190,9 @@ We accumulate the histogram as the worm evolves and save it inline with $\phi$ a
    :show-inheritance:
 
 The worm accumulates its head$-$tail displacement histogram inline as the
-``Intersection_Intersection`` observable, and :class:`~.Intersection_Intersection_Normalized`
+:class:`~.Intersection_Intersection` observable, and :class:`~.Intersection_Intersection_Normalized`
 divides it by its value at the origin (which can only be done after the
-bootstrap).  Both are attached to the :class:`~.NoIntersections` model only.
+bootstrap).
 
 .. autoclass:: supervillain.observable.Intersection_Intersection
    :members:
@@ -156,9 +202,16 @@ bootstrap).  Both are attached to the :class:`~.NoIntersections` model only.
    :members:
    :show-inheritance:
 
-.. autoclass:: supervillain.generator.no_intersection.WrappingLoopUpdate
-   :members:
-   :show-inheritance:
+In the Villain model constraint is linear and therefore we could construct an :class:`~.ExactUpdate` which was in the kernel of the constraint that was essentially a closed 4-plaquette :class:`~supervillain.generator.villain.ClassicWorm`.
+Similarly in the Worldline model the :class:`~supervillain.generator.worldline.PlaquetteUpdate` could be understood as the smallest nontrivial worm.
+These could be essentially proposed everywhere because they automatically preserve the constraint.
+The essential fact was that the constraint is linear.
+But here we have a quadratic constraint and therefore it is not always legal to just stamp a tight worm on an existing configuration---it could break the constraint.
+
+The Hammer
+==========
+
+We provide the :func:`~supervillain.generator.no_intersection.Hammer` function to :class:`~.Sequentially` combine the various constraint-preserving updates into a single generator.
 
 .. autofunction:: supervillain.generator.no_intersection.Hammer
 
