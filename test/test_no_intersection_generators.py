@@ -164,79 +164,42 @@ def test_intersection_worm_idle_one_link_classification():
 
 
 def test_intersection_worm_idle_moves_fire_and_stay_valid():
-    # At κ = 0 every idle proposal is accepted, so idles must actually fire during worm
-    # evolution from the cold start, and every emitted configuration must stay valid.
+    # At κ = 0 every idle proposal is accepted, so idles must actually fire during
+    # worm evolution from the cold start, and every emitted configuration must stay
+    # valid.  Idles arise from 1-link shapes only, by construction.
     S = _action(kappa=0.0)
     worm = supervillain.generator.no_intersection.IntersectionWorm(S)
-    idle = {'proposals': 0}
-    orig = worm._sheet_segment
-
-    def spy(n, q_now, head, hop, sign):
-        change, target = orig(n, q_now, head, hop, sign)
-        if change is not None and target == head:
-            assert len(change) == 1      # idles are 1-link only
-            idle['proposals'] += 1
-        return change, target
-
-    worm._sheet_segment = spy
     cfg = _cold(S)
     for _ in range(5):
         cfg = worm.step(cfg)
         assert S.valid(cfg)
-    assert idle['proposals'] > 0
+    assert worm.tallies['1link']['accepted_idle'] > 0
 
 
 def test_intersection_worm_uses_diagonal_moves_and_stays_valid():
-    # A diagonal 2-link step must be accepted at least once, and every emitted
+    # A diagonal step must be offered cleanly at least once, and every emitted
     # configuration must still satisfy q = dn∧dn = 0.
     S = _action()
     worm = supervillain.generator.no_intersection.IntersectionWorm(S)
-    used = {'diagonal': 0}
-    orig = worm._sheet_segment
-
-    def spy(n, q_now, head, hop, sign):
-        change, target = orig(n, q_now, head, hop, sign)
-        if change is not None and sum(abs(x) for x in hop) == 2:
-            used['diagonal'] += 1
-        return change, target
-
-    worm._sheet_segment = spy
     cfg = _cold(S)
     for _ in range(40):
         cfg = worm.step(cfg)
         assert S.valid(cfg)
-    assert used['diagonal'] > 0
+    assert sum(worm.tallies[f]['clean'] for f in ('elbow2', 'same4')) > 0
 
 
 def test_intersection_worm_uses_every_move_family_and_stays_valid():
-    # All four shape families must fire a clean, accepted step at least once, and every
-    # emitted configuration must satisfy q = dn∧dn = 0: the 2- and 3-link orthogonal
-    # shapes (±ê_μ), the 2-link opposite-sign elbow (ê_μ - ê_ν), and the 4-link same-sign
-    # diagonal (ê_μ + ê_ν).
+    # All four multi-link shape families must offer a clean step at least once, and
+    # every emitted configuration must satisfy q = dn∧dn = 0.
     S = _action()
     worm = supervillain.generator.no_intersection.IntersectionWorm(S)
-    used = {'ortho2': 0, 'ortho3': 0, 'opposite': 0, 'same': 0}
-    orig = worm._sheet_segment
-
-    def spy(n, q_now, head, hop, sign):
-        change, target = orig(n, q_now, head, hop, sign)
-        if change is not None:
-            taxicab = sum(abs(x) for x in hop)
-            if taxicab == 1:
-                used['ortho2' if len(change) == 2 else 'ortho3'] += 1
-            elif sum(hop) == 0:
-                used['opposite'] += 1
-            else:
-                used['same'] += 1
-        return change, target
-
-    worm._sheet_segment = spy
     cfg = _cold(S)
     for _ in range(80):
         cfg = worm.step(cfg)
         assert S.valid(cfg)
-    for family, count in used.items():
-        assert count > 0, f'move family {family!r} never produced a clean accepted step'
+    for family in ('ortho2', 'ortho3', 'elbow2', 'same4'):
+        assert worm.tallies[family]['clean'] > 0, \
+            f'move family {family!r} never produced a clean step'
 
 
 def test_intersection_worm_inline_observable_keys():
@@ -388,6 +351,29 @@ def test_ensemble_generate_stays_valid():
     e = supervillain.Ensemble(S).generate(10, H, start='cold')
     for c in e.configuration:
         assert S.valid(c)
+
+
+def test_nointersections_inherits_villain_observables():
+    # NoIntersections is a Villain, so the observable dispatch walks the action MRO and its
+    # Villain implementations apply --- the field-based observables computed from (phi, n)
+    # are all available.  (Vortex_Vortex is excluded: its Villain measurement is D=2 only.)
+    S = _action()
+    H = supervillain.generator.no_intersection.Hammer(S)
+    e = supervillain.Ensemble(S).generate(20, H, start='cold')
+    for o in ('ActionDensity', 'InternalEnergyDensity', 'InternalEnergyDensitySquared',
+              'WindingSquared', 'Winding_Winding', 'Spin_Spin'):
+        assert np.asarray(getattr(e, o)).shape[0] == len(e)
+    b = supervillain.analysis.Bootstrap(e, 20)
+    assert np.asarray(b.Spin_Spin_Normalized).shape[0] == 20  # derived quantities too
+
+
+def test_nointersections_topological_charge_vanishes():
+    # The constraint q = dn∧dn = 0 makes the topological-charge density identically zero,
+    # so its (inherited Villain) same-site observable is exactly 0 on every configuration.
+    S = _action()
+    H = supervillain.generator.no_intersection.Hammer(S)
+    e = supervillain.Ensemble(S).generate(20, H, start='cold')
+    assert not np.asarray(e.TopologicalChargeDensitySquared).any()
 
 
 def test_intersection_intersection_is_inline_only():

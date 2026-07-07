@@ -109,6 +109,9 @@ class ScattershotUpdate(ReadWriteable, Generator):
         self.null = 0           # draws that touched no link at all
         self.clean = 0          # proposals that preserved q = 0
         self.accepted = 0       # clean proposals that passed Metropolis
+        self.acceptance = 0.    # summed Metropolis acceptance probability over clean proposals
+        self.activated = 0            # total links activated across all proposals
+        self.activated_accepted = 0   # total links activated in accepted proposals
 
     def __str__(self):
         return 'ScattershotUpdate'
@@ -133,6 +136,7 @@ class ScattershotUpdate(ReadWriteable, Generator):
         p = min(1.0, self.links / (L.D * L.N ** L.D))
         mask = self.rng.random(shape) < p
         count = int(mask.sum())
+        self.activated += count
         if count == 0:
             self.null += 1
             return configuration | {'n': n}
@@ -154,15 +158,26 @@ class ScattershotUpdate(ReadWriteable, Generator):
         # contribute exactly zero).
         A = np.asarray(dphi) - 2 * np.pi * np.asarray(n)
         dS = (self.kappa / 2) * ((A - 2 * np.pi * c) ** 2 - A ** 2).sum()
-        if self.rng.uniform(0, 1) < min(1.0, np.exp(-dS)):
+        prob = min(1.0, np.exp(-dS))
+        self.acceptance += prob
+        if self.rng.uniform(0, 1) < prob:
             self.accepted += 1
+            self.activated_accepted += count
             return configuration | {'n': trial}
         return configuration | {'n': n}
 
     def report(self):
         if self.proposed == 0:
-            return 'ScattershotUpdate: no proposals.'
-        return (f'ScattershotUpdate: {self.accepted} / {self.proposed} joint proposals '
-                f'accepted ({self.accepted / self.proposed:.6f}); '
-                f'{self.clean} / {self.proposed} were constraint-preserving; '
-                f'{self.null} / {self.proposed} touched no links.')
+            return 'There were 0 proposed scattershot updates.'
+        lines = [
+            f'There were {self.accepted} joint proposals accepted of {self.proposed} proposed updates.',
+            f'    {self.clean / self.proposed:.6f} constraint-preserving fraction',
+            f'    {self.accepted / self.proposed:.6f} acceptance rate',
+            f'    {self.acceptance / self.proposed:.6f} expected Metropolis acceptance',
+            f'    {self.null / self.proposed:.6f} touched-no-links fraction',
+            f'    {self.activated / self.proposed:.6f} mean links activated per proposal',
+        ]
+        if self.accepted:
+            lines.append(
+                f'    {self.activated_accepted / self.accepted:.6f} mean links activated per accepted proposal')
+        return '\n'.join(lines)

@@ -31,7 +31,9 @@ class NoIntersections(Villain):
     Parameters
     ----------
     lattice: supervillain.lattice.Lattice
-        A four-dimensional lattice on which $\phi$ and $n$ live.
+        A four-dimensional lattice with $N \geq 3$ on which $\phi$ and $n$ live.  $N = 2$ is
+        rejected: a single link's charge response is a $2^4$ hypercube block, which at $N = 2$
+        fills the whole lattice, so the local update moves lose their locality.
     kappa: float
         The $\kappa$ in the overall coefficient.
     '''
@@ -41,6 +43,12 @@ class NoIntersections(Villain):
             raise TypeError(f'NoIntersections requires a supervillain.lattice.Lattice, got {type(lattice).__name__}')
         if lattice.D != 4:
             raise ValueError(f'The No-Intersection model is only defined in D = 4, got D = {lattice.D}.')
+        if lattice.N < 3:
+            raise ValueError(
+                f'The No-Intersection model needs N >= 3, got N = {lattice.N}.  A single link\'s '
+                'charge response spans a 2^4 block of hypercubes, so at N = 2 it wraps around the '
+                'whole lattice: the local moves lose locality and the two diagonal move families '
+                'collapse (mod 2, e_mu - e_nu and e_mu + e_nu coincide).')
         super().__init__(lattice, kappa, W=1)
 
     def __str__(self):

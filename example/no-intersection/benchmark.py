@@ -71,8 +71,7 @@ def _reseed(generators, seed=12345):
 
 
 def _cold(L):
-    return {'phi': L.zeros(0), 'n': L.zeros(1)}
-
+    return {'phi': L.zeros(0), 'n': L.zeros(1, dtype=int)}
 
 def _thermalize(S, steps, seed):
     r"""
@@ -106,7 +105,7 @@ def _time_step(step_fn, cfg, steps, warmup):
 
 def _charge_microbench(L, repeats=20):
     r"""Cost of a single global ``charge`` recompute --- the per-proposal unit cost."""
-    n = L.zeros(1)
+    n = L.zeros(1, dtype=int)
     charge(n)  # warm
     t0 = time.perf_counter()
     for _ in range(repeats):

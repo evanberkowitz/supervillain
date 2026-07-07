@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from .worm import IntersectionWorm
+from .adaptive_worm import AdaptiveIntersectionWorm, TwoLinkAdaptiveWorm
 from .link import ConstrainedLinkUpdate
 from .wrapping import WrappingLoopUpdate
 from .planar import PlanarFluxUpdate
@@ -16,7 +17,7 @@ def Hammer(S):
     No-Intersection generators.  It may change from version to version as new
     generators become available or get improved.
 
-    The :class:`IntersectionWorm`, :class:`ConstrainedLinkUpdate`, and
+    The :class:`AdaptiveIntersectionWorm`, :class:`ConstrainedLinkUpdate`, and
     :class:`WrappingLoopUpdate` all update $n$ only; a
     :class:`~supervillain.generator.villain.SiteUpdate` is included to update
     $\phi$.  We also reuse the Villain
@@ -51,5 +52,5 @@ def Hammer(S):
         WrappingLoopUpdate(S),
         PlanarFluxUpdate(S),
         ScattershotUpdate(S),
-        IntersectionWorm(S),
+        AdaptiveIntersectionWorm(S),
     ))

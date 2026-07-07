@@ -17,6 +17,13 @@ def test_no_intersections_requires_D4():
         supervillain.action.NoIntersections(L, kappa=0.5)
 
 
+def test_no_intersections_requires_N_at_least_3():
+    # At N = 2 a single link's 2^4-hypercube charge response fills the whole lattice, so the
+    # local-move machinery loses locality and the diagonal families collapse; require N >= 3.
+    with pytest.raises(ValueError):
+        supervillain.action.NoIntersections(Lattice(4, 2), kappa=0.5)
+
+
 def test_no_intersections_constructs_in_D4():
     L = Lattice(4, 5)
     S = supervillain.action.NoIntersections(L, kappa=0.5)
