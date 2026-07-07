@@ -3,7 +3,6 @@
 import time
 
 import numpy as np
-import pytest
 import supervillain
 import supervillain.generator.no_intersection as gen
 from supervillain.lattice import Lattice, Form, d
@@ -184,3 +183,172 @@ def test_self_charge_is_c1c2_times_unit_cross_term():
             assert got == {off: c1 * c2 * v for off, v in m.items() if c1 * c2 * v}
             checked += 1
     assert checked > 0
+
+
+# ---------------------------------------------------------------------------
+# Exactness gate.  The detailed-balance loops use the FAST local clean sets
+# (clean_set_local / clean_idle_local) rather than the O(family) global oracle:
+# clean_set_local == clean_set_reference is independently established by
+# test_two_link_clean_set_local_matches_reference (and the idle twin).  What
+# actually gates correctness here is (i) a per-background global-oracle
+# cross-check run on a clean set that CONTAINS a two-link move -- so the two-link
+# enumeration itself is validated against a full charge() recompute on every
+# background -- and (ii) the involution check, run EXPLICITLY on a two-link
+# member (not only on a random draw, which the base library dominates).  The
+# numeric balance equation is, as in the base worm's tests, an algebraic identity
+# for any positive |C|, |C'|; it catches formula-transcription bugs (a flipped
+# ratio or dS sign), while the oracle cross-check and involution catch
+# enumeration-content bugs.
+# ---------------------------------------------------------------------------
+
+
+def _flux_configs(S, seeds=(23, 41, 59)):
+    return [_valid_flux_config(S, seed=s, steps=6) for s in seeds]
+
+
+def _two_link(change):
+    return len([c for c in change.values() if c != 0]) == 2
+
+
+def test_two_link_head_move_detailed_balance():
+    # Elementary detailed balance + involution for the ENRICHED head-move clean set.
+    # Every background is oracle-cross-checked on a clean set containing a two-link move,
+    # and every such move is run through the involution + balance explicitly.
+    S = _action(N=5)
+    L = S.Lattice
+    N = L.N
+    w = gen.TwoLinkAdaptiveWorm(S)
+    two_M = 2 * len(w._ortho)
+    rng = np.random.default_rng(1)
+    tested = 0
+    two_link_tested = 0
+    oracle_on_two_link = 0
+    maxerr = 0.0
+    for cfg in _flux_configs(S):
+        n_arr = np.asarray(cfg['n']).astype(np.int64)
+        dphi = np.asarray(d(cfg['phi']))
+        q0 = charge(cfg['n'])
+        F = np.asarray(d(cfg['n'])).astype(np.int64)
+        cfg_crosschecked = False
+        for _ in range(8):
+            head = tuple(int(x) for x in rng.integers(0, N, size=4))
+            dd = w._ortho[int(rng.integers(0, len(w._ortho)))]
+            sign = +1 if rng.integers(0, 2) == 0 else -1
+            C = w.clean_set_local(F, head, dd, sign)
+            if not C:
+                continue
+            twolinks = [(ch, t) for ch, t in C if _two_link(ch)]
+            # Per-background global-oracle cross-check, on a clean set that contains a
+            # two-link move so the recompute validates the two-link enumeration itself.
+            if not cfg_crosschecked and twolinks:
+                assert C == w.clean_set_reference(n_arr, q0, head, dd, sign)
+                oracle_on_two_link += 1
+                cfg_crosschecked = True
+            # Test the random draw AND, when present, a two-link member explicitly.
+            moves = [C[int(rng.integers(0, len(C)))]]
+            if twolinks:
+                moves.append(twolinks[0])
+            for change, target in moves:
+                trial = n_arr.copy()
+                for lnk, c in change.items():
+                    trial[lnk] += c
+                Fp = np.asarray(d(Form(trial, degree=1, lattice=L))).astype(np.int64)
+                Cp = w.clean_set_local(Fp, target, dd, -sign)
+                inv = frozenset((lnk, -c) for lnk, c in change.items() if c != 0)
+                assert any(frozenset((l, c) for l, c in ch.items() if c != 0) == inv
+                           for ch, _ in Cp)            # involution: m^{-1} in C'
+                dS = w._delta_S(dphi, n_arr, change)
+                q_fwd = (1.0 / two_M) / len(C)
+                q_rev = (1.0 / two_M) / len(Cp)
+                A_fwd = min(1.0, (len(C) / len(Cp)) * np.exp(-dS))
+                A_rev = min(1.0, (len(Cp) / len(C)) * np.exp(+dS))
+                maxerr = max(maxerr, abs(q_fwd * A_fwd - np.exp(-dS) * q_rev * A_rev))
+                tested += 1
+                two_link_tested += _two_link(change)
+    assert tested > 0
+    assert two_link_tested > 0, 'no two-link move run through involution + balance'
+    assert oracle_on_two_link == len(_flux_configs(S)), \
+        'a background lacked a global-oracle cross-check on a two-link-bearing clean set'
+    assert maxerr < 1e-12
+
+
+def test_two_link_idle_detailed_balance():
+    # Elementary detailed balance + inverse-presence for the ENRICHED idle set.  Every
+    # background is oracle-cross-checked on an idle set containing a two-link idle, and
+    # every such idle is run through the involution + balance explicitly.
+    S = _action(N=5)
+    L = S.Lattice
+    N = L.N
+    w = gen.TwoLinkAdaptiveWorm(S)
+    rng = np.random.default_rng(3)
+    tested = 0
+    two_link_tested = 0
+    oracle_on_two_link = 0
+    maxerr = 0.0
+    for cfg in _flux_configs(S):
+        n_arr = np.asarray(cfg['n']).astype(np.int64)
+        dphi = np.asarray(d(cfg['phi']))
+        q0 = charge(cfg['n'])
+        F = np.asarray(d(cfg['n'])).astype(np.int64)
+        cfg_crosschecked = False
+        for _ in range(8):
+            head = tuple(int(x) for x in rng.integers(0, N, size=4))
+            I = w.clean_idle_local(F, head)
+            if not I:
+                continue
+            twolinks = [ch for ch in I if _two_link(ch)]
+            if not cfg_crosschecked and twolinks:
+                assert I == w.clean_idle_reference(n_arr, q0, head)
+                oracle_on_two_link += 1
+                cfg_crosschecked = True
+            moves = [I[int(rng.integers(0, len(I)))]]
+            if twolinks:
+                moves.append(twolinks[0])
+            for change in moves:
+                trial = n_arr.copy()
+                for lnk, c in change.items():
+                    trial[lnk] += c
+                Fp = np.asarray(d(Form(trial, degree=1, lattice=L))).astype(np.int64)
+                Ip = w.clean_idle_local(Fp, head)
+                inv = {lnk: -c for lnk, c in change.items()}
+                assert any(ch == inv for ch in Ip)      # reverse idle present
+                dS = w._delta_S(dphi, n_arr, change)
+                A_fwd = min(1.0, (len(I) / len(Ip)) * np.exp(-dS))
+                A_rev = min(1.0, (len(Ip) / len(I)) * np.exp(+dS))
+                maxerr = max(maxerr, abs((A_fwd / len(I)) - np.exp(-dS) * (A_rev / len(Ip))))
+                tested += 1
+                two_link_tested += _two_link(change)
+    assert tested > 0
+    assert two_link_tested > 0, 'no two-link idle run through involution + balance'
+    assert oracle_on_two_link == len(_flux_configs(S)), \
+        'a background lacked a global-oracle cross-check on a two-link-bearing idle set'
+    assert maxerr < 1e-12
+
+
+def test_two_link_step_matches_reference_bit_for_bit():
+    # Fast step (local stencils + incrementally maintained F) must reproduce the
+    # global-recompute step_reference EXACTLY on a shared seed.  Small N and few worms:
+    # step_reference enumerates the ~15k-shape family with a global charge per shape.
+    S = _action(N=4)
+    cfg = _valid_flux_config(S, seed=23, steps=5)
+    a = gen.TwoLinkAdaptiveWorm(S)
+    b = gen.TwoLinkAdaptiveWorm(S)
+    for _ in range(2):
+        a.rng = np.random.default_rng(2024)
+        b.rng = np.random.default_rng(2024)
+        ra = a.step(cfg)
+        rb = b.step_reference(cfg)
+        assert np.array_equal(np.asarray(ra['n']), np.asarray(rb['n']))
+        assert np.array_equal(ra['Intersection_Intersection'],
+                              rb['Intersection_Intersection'])
+        assert ra['Worm_Length'] == rb['Worm_Length']
+        cfg = rb
+
+
+def test_two_link_runs_in_ensemble_and_stays_valid():
+    S = _action(N=4)
+    w = gen.TwoLinkAdaptiveWorm(S)
+    e = supervillain.Ensemble(S).generate(6, w, start='cold')
+    q2 = np.asarray(e.TopologicalChargeDensitySquared)
+    assert np.abs(q2).max() == 0                          # every emitted config valid
+    assert np.asarray(e.Intersection_Intersection).shape == (len(e),) + S.Lattice.dims
