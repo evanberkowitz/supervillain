@@ -301,6 +301,17 @@ class AdaptiveIntersectionWorm(IntersectionWorm):
         reverted on rejection), never a global recompute.  Validated bit-for-bit against
         :meth:`step_reference` on a shared seed.
         """
+        return self._run_worm_local(configuration, self.clean_set_local, self.clean_idle_local)
+
+    def _run_worm_local(self, configuration, clean_movers, clean_idles):
+        r"""
+        The local-stencil worm walk, parameterized by the mover and idle clean-set
+        functions ``clean_movers(F, head, dd, sign)`` and ``clean_idles(F, head)`` so a
+        subclass can drive the same walk with either a compiled or a reference enumeration
+        (:class:`~.TwoLinkAdaptiveWorm` uses this for its numba ``step`` and pure-Python
+        ``step_reference``).  The field strength $F = dn$ is maintained incrementally
+        across the walk; the acceptance and balance are exactly :meth:`step`'s.
+        """
         L = self.Lattice
         N = L.N
         D = L.D
@@ -341,12 +352,12 @@ class AdaptiveIntersectionWorm(IntersectionWorm):
             pick = int(self.rng.integers(0, menu))
             if pick == n_moves:
                 # Idle isotopy; enumerate Ip on the tentatively-applied F, accept |I|/|Ip|.
-                I = self.clean_idle_local(F, head)
+                I = clean_idles(F, head)
                 if I:
                     change = I[int(self.rng.integers(0, len(I)))]
                     dS = self._delta_S(dphi, n, change)          # pre-move n
                     touch(change, +1)
-                    Ip = self.clean_idle_local(F, head)
+                    Ip = clean_idles(F, head)
                     if self.rng.uniform(0, 1) < self._accept(len(I), len(Ip), dS):
                         pass                                      # keep; head unchanged
                     else:
@@ -356,12 +367,12 @@ class AdaptiveIntersectionWorm(IntersectionWorm):
                 # applied F, so it holds this move's reverse (fact (1)) -- accept |C|/|Cp|.
                 dd = self._ortho[pick // 2]
                 sign = +1 if pick % 2 == 0 else -1
-                C = self.clean_set_local(F, head, dd, sign)
+                C = clean_movers(F, head, dd, sign)
                 if C:
                     change, target = C[int(self.rng.integers(0, len(C)))]
                     dS = self._delta_S(dphi, n, change)          # pre-move n
                     touch(change, +1)
-                    Cp = self.clean_set_local(F, target, dd, -sign)
+                    Cp = clean_movers(F, target, dd, -sign)
                     if self.rng.uniform(0, 1) < self._accept(len(C), len(Cp), dS):
                         head = target
                     else:

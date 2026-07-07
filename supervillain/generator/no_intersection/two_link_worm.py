@@ -7,6 +7,12 @@ import numpy as np
 from supervillain.lattice import Form, Lattice
 from supervillain.generator.no_intersection.charge import charge
 from supervillain.generator.no_intersection.adaptive_worm import AdaptiveIntersectionWorm
+from supervillain.generator.no_intersection import two_link_kernel
+
+
+def _ravel(site, N):
+    r"""C-order flat index of a 4D hypercube site (matches ``F.reshape(n_planes, -1)``)."""
+    return ((int(site[0]) * N + int(site[1])) * N + int(site[2])) * N + int(site[3])
 
 
 class TwoLinkAdaptiveWorm(AdaptiveIntersectionWorm):
@@ -31,9 +37,14 @@ class TwoLinkAdaptiveWorm(AdaptiveIntersectionWorm):
     box includes $|c| = 2$ to carry the mixed-magnitude Diophantine solutions (pairs whose
     only clean move needs $|c| = 2$, e.g. $(c_{1}-1)(c_{2}-1) = 1$).
 
-    Only enumeration changes: the $\Delta q$ computation (:meth:`_local_dq`, per-link
-    stencils $+$ the precomputed self-charge $c_{1} c_{2} M_{12}$), the acceptance ratio,
-    the menu, and ``step``/``step_reference`` are all inherited unchanged.
+    Only enumeration changes: the acceptance ratio $\min(1, (|C|/|C'|)\,e^{-\Delta S})$ and
+    the menu are inherited unchanged.  The clean-set enumeration is *compiled*:
+    :meth:`clean_set_local` and :meth:`clean_idle_local` evaluate the whole family's
+    $\Delta q$ against $F$ in one ``njit`` kernel
+    (:mod:`~supervillain.generator.no_intersection.two_link_kernel`), so :meth:`step` is
+    numba-accelerated (~$10^{2}\times$ the per-proposal enumeration).  :meth:`step_reference`
+    drives the identical walk with the pure-Python enumeration and is the readable reference
+    the compiled path is validated bit-for-bit against.
 
     .. warning::
 
@@ -52,6 +63,12 @@ class TwoLinkAdaptiveWorm(AdaptiveIntersectionWorm):
         self._scratch = Lattice(4, self.Lattice.N)
         self._two_movers = self._build_two_link_movers()
         self._two_idles = self._build_two_link_idles()
+        # Flatten the families to integer arrays for the compiled clean-set kernel.
+        self._dq_stencil = two_link_kernel.dq_stencil_arrays()
+        self._mover_flat = {dd: two_link_kernel.flatten_family(self._mover_shapes(dd),
+                                                               self._self_charge)
+                            for dd in self._ortho}
+        self._idle_flat = two_link_kernel.flatten_family(self._two_idles, self._self_charge)
 
     def __str__(self):
         return 'TwoLinkAdaptiveWorm'
@@ -156,6 +173,47 @@ class TwoLinkAdaptiveWorm(AdaptiveIntersectionWorm):
         r"""The library family plus the two-link movers for ``dd`` (one combined slot)."""
         return self._library[dd] + self._two_movers[dd]
 
+    # ------------------------------------------------------------------ compiled clean sets
+
+    def clean_set_local(self, F, head, dd, sign):
+        r"""
+        Compiled twin of the pure-Python :meth:`_clean_set_local_py`: the whole family's
+        $\Delta q$ is evaluated against $F$ by :func:`.two_link_kernel.clean_mask`, and only
+        the clean shapes are turned into change dicts in Python (deduped, in family order).
+        Reproduces :meth:`_clean_set_local_py` bit-for-bit and is what :meth:`step` uses.
+        """
+        N = self.Lattice.N
+        target = tuple((head[k] + sign * dd[k]) % N for k in range(4))
+        anchor = tuple((head[k] + dd[k]) % N for k in range(4)) if sign > 0 else head
+        factor = 1 if sign > 0 else -1
+        Farr = np.asarray(F)
+        F2 = np.ascontiguousarray(Farr.reshape(Farr.shape[0], -1))
+        clean = two_link_kernel.clean_mask(
+            F2, N, factor, np.array(anchor, dtype=np.int64),
+            _ravel(head, N), _ravel(target, N), 1,
+            *self._mover_flat[dd], *self._dq_stencil)
+        shapes = self._mover_shapes(dd)
+        seen, out = set(), []
+        for si in range(len(shapes)):
+            if not clean[si]:
+                continue
+            change = self._change_from_shape(head, dd, sign, shapes[si])
+            key = frozenset((lnk, c) for lnk, c in change.items() if c != 0)
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append((change, target))
+        return out
+
+    def _clean_set_local_py(self, F, head, dd, sign):
+        r"""
+        Pure-Python local clean set (the base
+        :meth:`~.AdaptiveIntersectionWorm.clean_set_local` over the enriched family): the
+        readable reference the compiled :meth:`clean_set_local` is validated against, and
+        the enumeration :meth:`step_reference` drives.
+        """
+        return AdaptiveIntersectionWorm.clean_set_local(self, F, head, dd, sign)
+
     # ------------------------------------------------------------------ two-link idles
 
     def _build_two_link_idles(self):
@@ -196,12 +254,44 @@ class TwoLinkAdaptiveWorm(AdaptiveIntersectionWorm):
 
     def clean_idle_local(self, F, head):
         r"""
-        Base single-link idles, then the clean two-link idles scored locally on ``F``.
-        Deduped by the change's frozenset; single- and two-link changes never collide
-        (distinct link counts), so the base order is preserved and the two-link tail shares
-        its order with :meth:`clean_idle_reference` (both iterate ``self._two_idles``).
+        Compiled twin of :meth:`_clean_idle_local_py`: base single-link idles (cheap), then
+        the two-link idle family scored by :func:`.two_link_kernel.clean_mask` (mode 0,
+        $\Delta q \equiv 0$).  Deduped and ordered exactly as the pure-Python version; used
+        by :meth:`step`.
         """
-        out = super().clean_idle_local(F, head)
+        N = self.Lattice.N
+        out = AdaptiveIntersectionWorm.clean_idle_local(self, F, head)
+        seen = {frozenset((lnk, c) for lnk, c in ch.items() if c != 0) for ch in out}
+        Farr = np.asarray(F)
+        F2 = np.ascontiguousarray(Farr.reshape(Farr.shape[0], -1))
+        clean = two_link_kernel.clean_mask(
+            F2, N, 1, np.array(head, dtype=np.int64), 0, 0, 0,
+            *self._idle_flat, *self._dq_stencil)
+        for si in range(len(self._two_idles)):
+            if not clean[si]:
+                continue
+            shape = self._two_idles[si]
+            change = {}
+            for mu, rs, c in shape:
+                link = (mu,) + tuple((head[k] + rs[k]) % N for k in range(4))
+                change[link] = change.get(link, 0) + c
+            key = frozenset((lnk, c) for lnk, c in change.items() if c != 0)
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(change)
+        return out
+
+    def _clean_idle_local_py(self, F, head):
+        r"""
+        Pure-Python local idle clean set: base single-link idles, then the clean two-link
+        idles scored by :meth:`_local_dq`.  Deduped by the change's frozenset; single- and
+        two-link changes never collide (distinct link counts), so the base order is
+        preserved and the two-link tail shares its order with the compiled
+        :meth:`clean_idle_local` and with :meth:`clean_idle_reference` (all iterate
+        ``self._two_idles``).  The reference :meth:`step_reference` drives.
+        """
+        out = AdaptiveIntersectionWorm.clean_idle_local(self, F, head)
         seen = {frozenset((lnk, c) for lnk, c in ch.items() if c != 0) for ch in out}
         for change, shape in self._two_idle_changes(head):
             key = frozenset((lnk, c) for lnk, c in change.items() if c != 0)
@@ -229,3 +319,16 @@ class TwoLinkAdaptiveWorm(AdaptiveIntersectionWorm):
                 seen.add(key)
                 out.append(change)
         return out
+
+    # ------------------------------------------------------------------ step reference
+
+    def step_reference(self, configuration):
+        r"""
+        The pure-Python local worm walk that the compiled :meth:`step` (which drives the
+        identical walk with the ``njit`` :meth:`clean_set_local` / :meth:`clean_idle_local`)
+        is validated bit-for-bit against.  Shadows the base global-recompute oracle; that
+        oracle stays reachable through :meth:`clean_set_reference` /
+        :meth:`clean_idle_reference` for the clean-set equivalence tests.
+        """
+        return self._run_worm_local(configuration, self._clean_set_local_py,
+                                    self._clean_idle_local_py)

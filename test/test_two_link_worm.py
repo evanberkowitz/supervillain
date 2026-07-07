@@ -326,9 +326,9 @@ def test_two_link_idle_detailed_balance():
 
 
 def test_two_link_step_matches_reference_bit_for_bit():
-    # Fast step (local stencils + incrementally maintained F) must reproduce the
-    # global-recompute step_reference EXACTLY on a shared seed.  Small N and few worms:
-    # step_reference enumerates the ~15k-shape family with a global charge per shape.
+    # The compiled step (numba clean_mask + incrementally maintained F) must reproduce the
+    # pure-Python local step_reference EXACTLY on a shared seed.  Small N and few worms:
+    # step_reference enumerates the ~15k-shape family in interpreted Python per proposal.
     S = _action(N=4)
     cfg = _valid_flux_config(S, seed=23, steps=5)
     a = gen.TwoLinkAdaptiveWorm(S)
@@ -352,3 +352,38 @@ def test_two_link_runs_in_ensemble_and_stays_valid():
     q2 = np.asarray(e.TopologicalChargeDensitySquared)
     assert np.abs(q2).max() == 0                          # every emitted config valid
     assert np.asarray(e.Intersection_Intersection).shape == (len(e),) + S.Lattice.dims
+
+
+# ---------------------------------------------------------------------------
+# Compiled clean-set kernel: bit-for-bit against the pure-Python enumeration.
+# ---------------------------------------------------------------------------
+
+
+def test_numba_clean_set_matches_python():
+    # The njit clean_set_local must equal the pure-Python _clean_set_local_py
+    # member-and-order (change dicts and targets) on real flux backgrounds.
+    S = _action(N=5)
+    w = gen.TwoLinkAdaptiveWorm(S)
+    N = S.Lattice.N
+    rng = np.random.default_rng(7)
+    for cfg in _flux_configs(S):
+        F = np.asarray(d(cfg['n'])).astype(np.int64)
+        for _ in range(20):
+            head = tuple(int(x) for x in rng.integers(0, N, size=4))
+            dd = w._ortho[int(rng.integers(0, len(w._ortho)))]
+            sign = +1 if rng.integers(0, 2) == 0 else -1
+            assert w.clean_set_local(F, head, dd, sign) == \
+                w._clean_set_local_py(F, head, dd, sign)
+
+
+def test_numba_clean_idle_matches_python():
+    # The njit clean_idle_local must equal the pure-Python _clean_idle_local_py.
+    S = _action(N=5)
+    w = gen.TwoLinkAdaptiveWorm(S)
+    N = S.Lattice.N
+    rng = np.random.default_rng(8)
+    for cfg in _flux_configs(S):
+        F = np.asarray(d(cfg['n'])).astype(np.int64)
+        for _ in range(20):
+            head = tuple(int(x) for x in rng.integers(0, N, size=4))
+            assert w.clean_idle_local(F, head) == w._clean_idle_local_py(F, head)
