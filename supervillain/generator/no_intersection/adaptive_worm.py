@@ -145,6 +145,42 @@ class AdaptiveIntersectionWorm(IntersectionWorm):
         n_moves = 2 * len(self._ortho)       # signed orthogonal movers
         menu = n_moves + 1                     # + one idle slot
 
+        # --- Why this Metropolis--Hastings worm is exact (the load-bearing facts) ---
+        # For a drawn direction we ENUMERATE the clean moves on the current background,
+        # draw one uniformly, and correct the state-dependence of that enumeration with
+        # the Hastings ratio |C|/|C'| in _accept.  Three facts make it an exact sampler;
+        # an edit that quietly breaks any one biases the chain with no test failure:
+        #
+        # (1) The reverse move is ALWAYS in the reverse clean set.  Writing F' = F + dΔn,
+        #     the reversal identity
+        #         Δq(-Δn on F') = F'∧d(-Δn) + d(-Δn)∧F' + d(-Δn)∧d(-Δn) = -Δq(Δn on F)
+        #     (the self-wedge dΔn∧dΔn is even under Δn -> -Δn, the two cross terms are odd)
+        #     turns a clean forward dipole {head:-1, target:+1} into exactly the reverse
+        #     dipole {target:-1, head:+1}.  So |C'| >= 1 always (never a zero division) and
+        #     q(s'->s) = 1/(menu·|C'|) is exactly what |C|/|C'| corrects.  The idle case is
+        #     the same with the self term absent: L_ℓ(F + c·dδ_ℓ) = L_ℓ(F), so the negated
+        #     link is idle on the arrived state iff it was idle on the departed one.
+        # (2) The uniform draw is over DISTINCT Δn (clean_set_* dedup by frozenset), so the
+        #     per-transition proposal probability is exactly 1/|C|, with each element of C
+        #     landing on a distinct s'.  A weighted draw, or removing the dedup, would need
+        #     multiplicity/weight factors in _accept that are NOT |C|/|C'|.  Cross-slot: a
+        #     transition is proposable through exactly one menu slot -- the displacement
+        #     pins (dd, sign) for movers, and no change is a clean mover and a clean idle at
+        #     once -- so 1/(menu·|C|) is the TOTAL forward probability of the transition.
+        # (3) The pivot factor menu/(menu+1) is left uncorrected (inherited from the parent
+        #     worm).  It is self-consistent: it is equivalent to pivot states (head==tail)
+        #     carrying extra weight (menu+1)/menu, and detailed balance then holds
+        #     transition-by-transition.  Idles never cross the pivot boundary, so the factor
+        #     cancels for them identically; movers are the only pivot-crossing transitions,
+        #     and the standard open/close counting applies to them.  The r=0 histogram bin
+        #     stays unbiased because the close branch returns BEFORE the tally below, so
+        #     pivots are tallied with probability menu/(menu+1) -- exactly cancelling their
+        #     (menu+1)/menu weight excess.
+        #
+        # Termination: an enumeration worm could otherwise deadlock if every clean set were
+        # empty mid-flight (close is unavailable off the pivot).  Fact (1) forbids it -- the
+        # reverse of the last accepted move is always available -- so a positive-probability
+        # path back to the pivot always exists and step_reference() halts almost surely.
         n = np.asarray(configuration['n']).astype(np.int64)
         dphi = np.asarray(_d(configuration['phi']))
         q_now = charge(configuration['n'])
@@ -163,7 +199,10 @@ class AdaptiveIntersectionWorm(IntersectionWorm):
 
             pick = int(self.rng.integers(0, menu))
             if pick == n_moves:
-                # idle: head-fixed isotopy, enumerate + |C|/|C'|
+                # Idle isotopy (head fixed, Δq ≡ 0): enumerate the clean idles on the
+                # departed state (I) and, after tentatively applying, on the arrived state
+                # (Ip); accept with |I|/|Ip|.  Both signs are enumerated so the family is
+                # closed under inversion -- by fact (1) the reverse idle is in Ip, |Ip| >= 1.
                 I = self.clean_idle_reference(n, q_now, head)
                 if I:
                     change = I[int(self.rng.integers(0, len(I)))]
@@ -178,6 +217,12 @@ class AdaptiveIntersectionWorm(IntersectionWorm):
                         q_now = q1
                         # head unchanged (idle)
             else:
+                # Orthogonal head transport.  C = clean movers for (dd, sign) on the
+                # departed state; the reverse set Cp is enumerated for the OPPOSITE
+                # displacement (target, -sign) on the arrived state and, by fact (1),
+                # contains the exact reverse of every accepted move, so |Cp| >= 1.  dS is
+                # taken on the pre-move n and _delta_S is antisymmetric under reversal, so
+                # w(s)/w(s') = e^{-dS} closes the balance with the |C|/|Cp| Hastings factor.
                 dd = self._ortho[pick // 2]
                 sign = +1 if pick % 2 == 0 else -1
                 C = self.clean_set_reference(n, q_now, head, dd, sign)
@@ -194,6 +239,8 @@ class AdaptiveIntersectionWorm(IntersectionWorm):
                         q_now = q1
                         head = target
 
+            # Tally AFTER the close test (which already returned for closed worms).  This
+            # ordering is what makes the pivot weighting of fact (3) cancel in the r=0 bin.
             disp = tuple((head[k] - tail[k]) % N for k in range(D))
             displacements[disp] += 1
 
@@ -250,6 +297,15 @@ class AdaptiveIntersectionWorm(IntersectionWorm):
         n_moves = 2 * len(self._ortho)
         menu = n_moves + 1
 
+        # Exact for the same three facts documented in step_reference; the only difference
+        # is that Δq comes from local stencils on the maintained F = dn rather than a global
+        # recompute.  F is patched on every TENTATIVE change and reverted on rejection
+        # (touch(change, -1)), and integer touch/revert is exact, so a rejected proposal
+        # leaves n and F bit-identical to their pre-proposal values.  That is what lets the
+        # reverse enumeration (Cp / Ip) see the true arrived background and lets this step
+        # match step_reference move-for-move on a shared seed: fact (1)'s |Cp|,|Ip| >= 1
+        # guarantee and fact (2)'s dedup are properties of the enumeration, not of how Δq is
+        # computed, so switching to stencils cannot change which moves are clean.
         n = np.asarray(configuration['n']).astype(np.int64)
         dphi = np.asarray(_d(configuration['phi']))
         F = np.asarray(_d(configuration['n'])).astype(np.int64, copy=False)
@@ -274,6 +330,7 @@ class AdaptiveIntersectionWorm(IntersectionWorm):
 
             pick = int(self.rng.integers(0, menu))
             if pick == n_moves:
+                # Idle isotopy; enumerate Ip on the tentatively-applied F, accept |I|/|Ip|.
                 I = self.clean_idle_local(F, head)
                 if I:
                     change = I[int(self.rng.integers(0, len(I)))]
@@ -285,6 +342,8 @@ class AdaptiveIntersectionWorm(IntersectionWorm):
                     else:
                         touch(change, -1)                         # revert n and F
             else:
+                # Head transport; Cp is enumerated for (target, -sign) on the tentatively-
+                # applied F, so it holds this move's reverse (fact (1)) -- accept |C|/|Cp|.
                 dd = self._ortho[pick // 2]
                 sign = +1 if pick % 2 == 0 else -1
                 C = self.clean_set_local(F, head, dd, sign)
@@ -298,5 +357,7 @@ class AdaptiveIntersectionWorm(IntersectionWorm):
                     else:
                         touch(change, -1)
 
+            # Tally after the close test, exactly as in step_reference: the ordering makes
+            # the fact (3) pivot weighting cancel in the r=0 bin.
             disp = tuple((head[k] - tail[k]) % N for k in range(D))
             displacements[disp] += 1
