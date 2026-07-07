@@ -88,8 +88,7 @@ class Winding_Winding(Observable):
     @staticmethod
     def Worldline(S, Links):
         r'''
-        .. collapse :: The Worldline observable is trickier.
-            :class: note:
+        .. admonition:: The Worldline observable is trickier.
 
             Expanding the :class:`~.Worldline` action (and grouping the irrelevant contants)
 
@@ -200,4 +199,3 @@ class Winding_Winding(Observable):
             Winding_Winding._stencil[key] = contact
 
         return (kappa * contact - L.correlation(dm, dm).mean(axis=0)) / (2*np.pi*kappa)**2
-

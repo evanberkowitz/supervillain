@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import pathlib
 import numpy as np
 import pytest
 import supervillain
@@ -97,6 +98,61 @@ def test_hammer_includes_constraint_preserving_villain_updates():
     for name in ('SiteUpdate', 'ExactUpdate', 'CohomologyUpdate',
                  'ConstrainedLinkUpdate', 'WrappingLoopUpdate', 'IntersectionWorm'):
         assert name in H
+
+
+def test_hammer_docstring_does_not_overclaim_ergodicity():
+    # Ergodicity is a live scientific question for this update stack.  The public
+    # helper should advertise itself as the default constraint-preserving stack,
+    # not as a proved ergodic sampler.
+    doc = supervillain.generator.no_intersection.Hammer.__doc__
+    assert 'Syntactic sugar for an ergodic' not in doc
+    assert 'An ergodic generator' not in doc
+    assert 'default' in doc
+    assert 'constraint-preserving' in doc
+
+
+def test_string_worm_is_explicitly_opt_in():
+    # StringWorm is promising but still experimental; keep the default Hammer
+    # conservative until its operating regime and performance are better settled.
+    S = _action()
+    H = str(supervillain.generator.no_intersection.Hammer(S))
+    assert 'StringWorm' not in H
+
+
+def test_no_intersection_standalone_reports_are_linked_from_docs():
+    # The illustrated HTML reports are not Sphinx source, so conf.py must copy
+    # them into the build and the No-Intersection page must link to them.
+    root = pathlib.Path(__file__).parents[1]
+    conf = (root / 'conf.py').read_text()
+    rst = (root / 'supervillain' / 'no_intersection.rst').read_text()
+    for page in (
+            'worm-algorithms.html',
+            'spun-trefoil.html',
+            'fable-worm-replacement-report.html'):
+        assert (root / page).exists()
+        assert repr(page) in conf
+        assert f'../{page}' in rst
+
+
+def test_docs_do_not_require_incompatible_sphinx_toolbox():
+    # The uv dependency set no longer resolves with sphinx-toolbox.  The docs
+    # should use ordinary Sphinx constructs plus the local :source: fallback.
+    root = pathlib.Path(__file__).parents[1]
+    conf = (root / 'conf.py').read_text()
+    requirements = (root / 'requirements.txt').read_text()
+    pyproject = (root / 'pyproject.toml').read_text()
+    assert 'sphinx_toolbox' not in conf
+    assert 'sphinx_toolbox' not in requirements
+    assert 'sphinx-toolbox' not in pyproject
+    assert "roles.register_local_role('source'" in conf
+
+
+def test_wrapping_loop_docs_disclose_global_f_recomputation():
+    # The local dq stencil is O(N) for a loop once F is available, but the current
+    # reference implementation still recomputes F=d(n) globally per proposal.
+    doc = ' '.join(supervillain.generator.no_intersection.WrappingLoopUpdate.__doc__.split())
+    assert 'recomputes $F=d(n)$ globally once per proposal' in doc
+    assert 'full proposal cost is not yet $O(N)$' in doc
 
 
 def test_hammer_steps_stay_valid():

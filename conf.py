@@ -4,8 +4,10 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 import os
-import subprocess
 import sys
+
+from docutils import nodes
+from docutils.parsers.rst import roles
 
 sys.path.insert(0, os.path.abspath('.'))
 
@@ -26,43 +28,11 @@ extensions = [
         'sphinx.ext.mathjax',
         'sphinx.ext.autodoc',
         'sphinx.ext.viewcode',
-        'sphinx_toolbox.collapse',
-        'sphinx_toolbox.github',
-        'sphinx_toolbox.source',
-        'sphinx_toolbox.sidebar_links',
         'sphinx_favicon',
         'sphinxcontrib.bibtex',
         'sphinx_git',
         'matplotlib.sphinxext.plot_directive',
 ]
-
-# https://sphinx-toolbox.readthedocs.io/en/stable/extensions/github.html
-github_username='evanberkowitz'
-github_repository='supervillain'
-source_link_target = 'GitHub'
-
-
-def _git_branch():
-    rtd = os.environ.get('READTHEDOCS_VERSION')
-    if rtd:
-        return rtd
-    try:
-        return subprocess.check_output(
-            ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
-            text=True,
-            stderr=subprocess.DEVNULL,
-        ).strip()
-    except (subprocess.SubprocessError, FileNotFoundError):
-        return 'main'
-
-
-def setup(app):
-    # sphinx_toolbox.github hard-codes "master"; use the branch being built.
-    app.connect('config-inited', _set_github_source_url, priority=851)
-
-
-def _set_github_source_url(app, config):
-    config.github_source_url = config.github_url / 'blob' / _git_branch()
 
 templates_path = ['_templates']
 
@@ -85,6 +55,15 @@ html_theme = 'sphinx_rtd_theme'
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
+# Standalone illustrated reports.  These are hand-authored HTML artifacts rather
+# than Sphinx source files, so copy them beside the built documentation and link
+# to them from the No-Intersection model page.
+html_extra_path = [
+    'worm-algorithms.html',
+    'spun-trefoil.html',
+    'fable-worm-replacement-report.html',
+]
+
 # These paths are either relative to html_static_path
 # or fully qualified paths (eg. https://...)
 html_css_files = [
@@ -106,6 +85,16 @@ favicons = [
 bibtex_bibfiles = ['master.bib']
 bibtex_default_style = 'unsrt'
 bibtex_reference_style = 'label'
+
+
+def source_role(name, rawtext, text, lineno, inliner, options=None, content=None):
+    """Render legacy ``:source:`` references without sphinx-toolbox."""
+    options = dict(options or {})
+    options.setdefault('classes', []).append('literal')
+    return [nodes.literal(rawtext, text, **options)], []
+
+
+roles.register_local_role('source', source_role)
 
 autodoc_default_options = {
     'member-order': 'bysource',

@@ -63,8 +63,7 @@ We can cast the dimensionless constants up into the action
 
 which will make functional differentiation more straightforward.
 
-.. collapse :: We can repeat the whole calculation with W=∞.
-   :class: note
+.. admonition:: We can repeat the whole calculation with W=∞.
 
    Replacing the Lagrange multiplier in the Villain formulation with a real-valued multiplier as in the :ref:`vortex-free model <vortex-free model>`
 
@@ -120,4 +119,3 @@ and integrating $\tilde{v}$ over the real numbers.
    :members:
 
 .. _Iverson bracket: https://en.wikipedia.org/wiki/Iverson_bracket
-

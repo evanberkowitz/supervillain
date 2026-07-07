@@ -414,8 +414,7 @@ class Lattice(ReadWriteable):
             = (f * g)(\boldsymbol{r})
             = \sum_{\boldsymbol{x}} f(\boldsymbol{x})\,g(\boldsymbol{r}-\boldsymbol{x})
 
-        .. collapse:: The convolution is Fourier accelerated.
-            :class: note
+        .. admonition:: The convolution is Fourier accelerated.
 
             With the ortho-normalized DFT convention
             :math:`f(\boldsymbol{x}) = N^{-D/2} \sum_{\boldsymbol{k}} F_{\boldsymbol{k}}\, e^{2\pi i\,\boldsymbol{k}\cdot\boldsymbol{x}/N}`,
@@ -474,8 +473,7 @@ class Lattice(ReadWriteable):
 
         where :math:`f^*` is the complex conjugate of :math:`f`.
 
-        .. collapse:: The cross-correlation is Fourier accelerated.
-            :class: note
+        .. admonition:: The cross-correlation is Fourier accelerated.
 
             With the ortho-normalized DFT convention
             :math:`f(\boldsymbol{x}) = N^{-D/2} \sum_{\boldsymbol{k}} F_{\boldsymbol{k}}\, e^{2\pi i\,\boldsymbol{k}\cdot\boldsymbol{x}/N}`,

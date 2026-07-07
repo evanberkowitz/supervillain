@@ -11,9 +11,9 @@ import supervillain.generator.combining as _combining
 
 def Hammer(S):
     r'''
-    Syntactic sugar for an ergodic :class:`~.Sequentially` combination of the
-    No-Intersection generators.  It may change from version to version as new
-    generators become available or get improved.
+    Syntactic sugar for the default :class:`~.Sequentially` stack of
+    constraint-preserving No-Intersection generators.  It may change from version
+    to version as new generators become available or get improved.
 
     The :class:`IntersectionWorm`, :class:`ConstrainedLinkUpdate`, and
     :class:`WrappingLoopUpdate` all update $n$ only; a
@@ -34,7 +34,7 @@ def Hammer(S):
 
     Returns
     -------
-    An ergodic generator for updating No-Intersection configurations.
+    The default generator stack for updating No-Intersection configurations.
     '''
     return _combining.Sequentially((
         _villain.SiteUpdate(S),

@@ -96,8 +96,10 @@ class WrappingLoopUpdate(ReadWriteable, Generator):
         The constraint is verified with the local linearized
         $\Delta q = \Delta F\wedge F + F\wedge\Delta F + \Delta F\wedge\Delta F$
         (see :func:`supervillain.generator.no_intersection.charge.local_dq`), which is
-        supported only near the loop, so the check costs $O(N)$ rather than
-        $O(\text{volume})$; only the touched links contribute to $\Delta S$.
+        supported only near the loop.  Once the current $F=dn$ is known, that
+        constraint check costs $O(N)$ and only the touched links contribute to
+        $\Delta S$.  The current reference implementation still recomputes $F=d(n)$
+        globally once per proposal, so the full proposal cost is not yet $O(N)$.
 
     .. note::
 
@@ -210,6 +212,8 @@ class WrappingLoopUpdate(ReadWriteable, Generator):
         L = self.Lattice
         n = configuration['n'].copy()
         dphi = d(configuration['phi'])
+        # Reference implementation: this global recomputation dominates the
+        # proposal cost.  The local dq check below is O(N) once F is available.
         F = np.asarray(d(n)).astype(int)
 
         self.proposed += 1

@@ -150,8 +150,7 @@ where $\hat{\varepsilon}_A = \sum_{k \in A} \varepsilon_k$ and $\hat{\varepsilon
 The sign $\sigma(B \frown A)$ sorts $(B, A)$ back into $O$; it equals $(-1)^{nm}\,\sigma(A \frown B)$.
 In contrast to the compact formula (which evaluates $b$ at $x + \hat{e}_A$), the output site $\xi$ lies between $a$ at $\xi - \hat{\varepsilon}_A$ and $b$ at $\xi + \hat{\varepsilon}_B$.
 
-.. collapse:: Why σ(B⌢A) and not σ(A⌢B)? That's what appears in the dense format...
-   :class: note
+.. admonition:: Why σ(B⌢A) and not σ(A⌢B)? That's what appears in the dense format...
 
    The compact wedge evaluates $a$ at the output site and shifts $b$ to the far side of the $a$-cell:
 

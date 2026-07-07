@@ -71,9 +71,9 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`search`
 
-.. sidebar-links::
-   :github:
+.. sidebar:: Project Links
 
-    Open Issues <https://github.com/evanberkowitz/supervillain/issues>
-    Pull Requests <https://github.com/evanberkowitz/supervillain/pulls>
-    ReadTheDocs   <https://supervillain.readthedocs.io/en/latest/>
+   * `GitHub <https://github.com/evanberkowitz/supervillain>`_
+   * `Open Issues <https://github.com/evanberkowitz/supervillain/issues>`_
+   * `Pull Requests <https://github.com/evanberkowitz/supervillain/pulls>`_
+   * `ReadTheDocs <https://supervillain.readthedocs.io/en/latest/>`_

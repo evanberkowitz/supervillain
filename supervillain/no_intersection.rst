@@ -162,3 +162,14 @@ bootstrap).  Both are attached to the :class:`~.NoIntersections` model only.
 
 .. autofunction:: supervillain.generator.no_intersection.Hammer
 
+Supplemental Illustrated Reports
+================================
+
+The implementation-oriented Sphinx reference above is intentionally compact.
+The branch also carries three standalone HTML reports with larger diagrams and
+more narrative context.  They are copied into the built documentation as static
+HTML artifacts:
+
+* `Worm algorithms for the No-Intersection model <../worm-algorithms.html>`_
+* `The spun trefoil in the No-Intersection model <../spun-trefoil.html>`_
+* `Fable Intersection Worm replacement case <../fable-worm-replacement-report.html>`_
