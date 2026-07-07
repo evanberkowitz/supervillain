@@ -56,6 +56,16 @@ class AdaptiveIntersectionWorm(IntersectionWorm):
 
     # ------------------------------------------------------------------ clean sets (oracle)
 
+    def _mover_shapes(self, dd):
+        r"""
+        The candidate mover shapes for canonical direction ``dd`` — the fixed,
+        state-independent family that :meth:`clean_set_local` and
+        :meth:`clean_set_reference` filter against the current background.  The base
+        family is the parent worm's locality-bounded library; subclasses may enrich it
+        (e.g. with live-enumerated two-link coordinated moves) by overriding this method.
+        """
+        return self._library[dd]
+
     def clean_set_reference(self, n_arr, q0, head, dd, sign):
         r"""
         Every distinct library shape in bucket ``dd`` whose global $\Delta q$ is the exact
@@ -69,7 +79,7 @@ class AdaptiveIntersectionWorm(IntersectionWorm):
         want = {head: -1, target: 1}
         seen = set()
         out = []
-        for shape in self._library[dd]:
+        for shape in self._mover_shapes(dd):
             change = self._change_from_shape(head, dd, sign, shape)
             key = frozenset((lnk, c) for lnk, c in change.items() if c != 0)
             if key in seen:
@@ -258,7 +268,7 @@ class AdaptiveIntersectionWorm(IntersectionWorm):
         anchor = tuple((head[k] + dd[k]) % N for k in range(4)) if sign > 0 else head
         seen = set()
         out = []
-        for shape in self._library[dd]:
+        for shape in self._mover_shapes(dd):
             change = self._change_from_shape(head, dd, sign, shape)
             key = frozenset((lnk, c) for lnk, c in change.items() if c != 0)
             if key in seen:
