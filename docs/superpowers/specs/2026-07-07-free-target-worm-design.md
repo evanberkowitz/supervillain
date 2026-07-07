@@ -136,6 +136,14 @@ normalization-independent.
   tail, pre-populate origin, loop {enumerate, flat-draw, tentative apply, enumerate
   reverse at the realized new head, accept with $W/W'\,e^{-\Delta S}$, tally
   displacement}, return the instant head == tail.
+- **Enumeration reuse** (in `step` only): the classified set is a deterministic function
+  of $(F, \mathrm{head})$, so on acceptance this iteration's $C'$ *is* next iteration's
+  $C$, and on rejection (bit-exact revert) this iteration's $C$ still is — one
+  enumeration per iteration after the opening one, ~2× on the dominant cost. Only
+  possible because the reverse set is no longer direction-restricted. The closing move's
+  $C'$ is discarded; nothing survives across worms. `step_reference` recomputes fresh
+  every iteration and caching consumes no RNG, so the bit-for-bit shared-seed test is
+  the cache validator.
 - Reuse: `_link_reach`, `_shape_self_charge`/`COEFF_BOX` family builders,
   `_delta_S`, `local_charge` stencils, `charge`, inline observables
   (`Intersection_Intersection`, `Worm_Length`).
