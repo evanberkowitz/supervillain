@@ -47,6 +47,9 @@ class TwoLinkAdaptiveWorm(AdaptiveIntersectionWorm):
 
     def __init__(self, S, class_weights=None):
         super().__init__(S, class_weights=class_weights)
+        # One scratch lattice, reused for every self-charge derivation (same extent N as
+        # the target, so small-N periodic-image cross terms are exact).
+        self._scratch = Lattice(4, self.Lattice.N)
         self._two_movers = self._build_two_link_movers()
         self._two_idles = self._build_two_link_idles()
 
@@ -59,12 +62,12 @@ class TwoLinkAdaptiveWorm(AdaptiveIntersectionWorm):
         r"""
         The background-independent self-charge $d\Delta n \wedge d\Delta n$ of ``shape``,
         as ``((offset, value), ...)`` with offsets measured (mod $N$) from the placement
-        anchor.  Computed on a scratch lattice of the *same* extent $N$ as the target, so
-        any small-$N$ periodic-image cross terms are exact.  For a two-link shape this is
-        exactly $c_{1} c_{2} M_{12}$; the self-wedges vanish.
+        anchor.  Uses the shared scratch lattice ``self._scratch`` (same extent $N$ as the
+        target, so any small-$N$ periodic-image cross terms are exact).  For a two-link
+        shape this is exactly $c_{1} c_{2} M_{12}$; the self-wedges vanish.
         """
         N = self.Lattice.N
-        L0 = Lattice(4, N)
+        L0 = self._scratch
         anchor = (N // 2,) * 4
         dn = L0.zeros(1, dtype=int)   # Lattice.zeros returns a Form; charge(dn) needs no re-wrap
         for mu, rs, c in shape:
@@ -74,6 +77,13 @@ class TwoLinkAdaptiveWorm(AdaptiveIntersectionWorm):
             (tuple((int(h[1 + k]) - anchor[k]) % N for k in range(4)), int(q[tuple(h)]))
             for h in np.argwhere(q != 0)
         )
+
+    @staticmethod
+    def _scaled_self_charge(unit_M, factor):
+        r"""The self-charge $c_{1} c_{2} M_{12}$: the unit cross-charge ``unit_M`` (the
+        $(1,1)$ pattern) with every value multiplied by ``factor`` $= c_{1} c_{2}$, zeros
+        pruned."""
+        return tuple((off, factor * v) for off, v in unit_M if factor * v)
 
     def _reach_touching_slots(self, cells):
         r"""
@@ -98,9 +108,14 @@ class TwoLinkAdaptiveWorm(AdaptiveIntersectionWorm):
         shapes: distinct link pairs (both reach-touching the dipole endpoints) with every
         coefficient pair in :data:`COEFF_BOX`, kept when the union of the two links' reach
         and the shape's self-charge support covers *both* defect cells (a necessary,
-        $F$-independent condition — a shape whose support already misses an endpoint can
-        never be that dipole for any background).  Self-charges are registered into
-        ``self._self_charge`` so :meth:`_local_dq` can score them.
+        $F$-independent condition).  Self-charges are registered into ``self._self_charge``
+        so :meth:`_local_dq` can score them.
+
+        The cross term $M_{12}$ is computed **once per link-pair** (as the self-charge of the
+        unit $(1,1)$ shape) and scaled by $c_{1} c_{2}$ for each coefficient pair — the
+        self-charge is exactly $c_{1} c_{2} M_{12}$, so this reproduces a per-shape recompute
+        value-for-value.  The coverage prune is coefficient-independent (scaling by a nonzero
+        $c_{1} c_{2}$ never changes which cells are nonzero), so it is decided once per pair.
 
         Shapes are stored relative to the anchor ``target`` (where the ``+1`` defect lands),
         with the ``-1`` defect at offset ``-dd`` — the same convention as the library, so
@@ -123,13 +138,14 @@ class TwoLinkAdaptiveWorm(AdaptiveIntersectionWorm):
                     for mu, r in ((mu1, r1), (mu2, r2)):
                         for off in reach[mu]:
                             support.add(tuple((r[k] + off[k]) % N for k in range(4)))
+                    # Cross term M12, computed ONCE for the pair; coverage is coeff-independent.
+                    unit_M = self._shape_self_charge(((mu1, r1, 1), (mu2, r2, 1)))
+                    cover = support | {off for off, _v in unit_M}
+                    if target_off not in cover or head_off not in cover:
+                        continue
                     for c1, c2 in product(self.COEFF_BOX, repeat=2):
                         shape = ((mu1, r1, c1), (mu2, r2, c2))
-                        sc = self._shape_self_charge(shape)
-                        cover = support | {off for off, _v in sc}
-                        if target_off not in cover or head_off not in cover:
-                            continue
-                        self._self_charge[shape] = sc
+                        self._self_charge[shape] = self._scaled_self_charge(unit_M, c1 * c2)
                         shapes.append(shape)
             movers[dd] = shapes
         return movers
@@ -147,7 +163,8 @@ class TwoLinkAdaptiveWorm(AdaptiveIntersectionWorm):
         The fixed family of two-link idle shapes: distinct link pairs both reach-touching
         the head, coefficients in :data:`COEFF_BOX`, stored relative to the head.  The box
         is sign-symmetric, so the coefficient-negated partner of every shape is also in the
-        family — the reverse isotopy is always enumerated (``|I'| >= 1``).  Self-charges are
+        family — the reverse isotopy is always enumerated (``|I'| >= 1``).  The cross term
+        $M_{12}$ is computed once per pair and scaled by $c_{1} c_{2}$; self-charges are
         registered for :meth:`_local_dq`.  Cleanliness ($\Delta q \equiv 0$) is decided per
         background at enumeration time, not here.
         """
@@ -158,9 +175,10 @@ class TwoLinkAdaptiveWorm(AdaptiveIntersectionWorm):
             mu1, r1 = slots[i]
             for j in range(i + 1, len(slots)):
                 mu2, r2 = slots[j]
+                unit_M = self._shape_self_charge(((mu1, r1, 1), (mu2, r2, 1)))
                 for c1, c2 in product(self.COEFF_BOX, repeat=2):
                     shape = ((mu1, r1, c1), (mu2, r2, c2))
-                    self._self_charge[shape] = self._shape_self_charge(shape)
+                    self._self_charge[shape] = self._scaled_self_charge(unit_M, c1 * c2)
                     shapes.append(shape)
         return shapes
 

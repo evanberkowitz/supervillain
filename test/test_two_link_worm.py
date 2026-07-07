@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import time
+
 import numpy as np
 import pytest
 import supervillain
@@ -154,3 +156,31 @@ def test_two_link_idles_are_charge_neutral_and_inverse_present():
         assert np.abs(dq).max() == 0                                 # Δq ≡ 0
         inv = {lnk: -c for lnk, c in change.items()}
         assert any(ch == inv for ch in idles)                        # inverse enumerated
+
+
+def test_construction_is_fast():
+    # The M-pattern build (one charge() per link-pair, scaled by c1*c2) must be far
+    # cheaper than a charge() per (pair, c1, c2).  A generous ceiling that still fails
+    # loudly if the per-coefficient recompute ever returns.
+    S = _action(N=5)
+    t0 = time.perf_counter()
+    supervillain.generator.no_intersection.TwoLinkAdaptiveWorm(S)
+    assert time.perf_counter() - t0 < 8.0
+
+
+def test_self_charge_is_c1c2_times_unit_cross_term():
+    # Self-charge scales exactly linearly in c1*c2: the (c1,c2) shape's registered
+    # self-charge equals c1*c2 times the unit (1,1) shape's, value-for-value.
+    S = _action(N=5)
+    w = supervillain.generator.no_intersection.TwoLinkAdaptiveWorm(S)
+    checked = 0
+    for dd, shapes in w._two_movers.items():
+        for shape in shapes[:: max(1, len(shapes) // 40)]:
+            (mu1, r1, c1), (mu2, r2, c2) = shape
+            unit = ((mu1, r1, 1), (mu2, r2, 1))
+            m = dict(w._self_charge[unit]) if unit in w._self_charge else \
+                dict(w._shape_self_charge(unit))
+            got = dict(w._self_charge[shape])
+            assert got == {off: c1 * c2 * v for off, v in m.items() if c1 * c2 * v}
+            checked += 1
+    assert checked > 0
