@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 
 from .worm import IntersectionWorm
-from .adaptive_worm import AdaptiveIntersectionWorm
-from .two_link_worm import TwoLinkAdaptiveWorm
+from .adaptive_worm import AdaptiveIntersectionWorm, TwoLinkAdaptiveWorm
 from .link import ConstrainedLinkUpdate
 from .wrapping import WrappingLoopUpdate
 from .planar import PlanarFluxUpdate

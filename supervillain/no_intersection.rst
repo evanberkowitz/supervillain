@@ -185,6 +185,15 @@ where the expectation values are over configurations drawn from $G$ (not $Z$!).
 If we draw from the larger space of $G$ configurations and histogram the head$-$tail displacement, normalizing that histogram by its value at zero displacement recovers $\Theta_{x,y}$.
 We accumulate the histogram as the worm evolves and save it inline with $\phi$ and $n$ as ``Intersection_Intersection`` (alongside the ``Worm_Length``), remembering to normalize any :class:`~.DerivedQuantity` built from it by its value at the origin---exactly as for :class:`~.Vortex_Vortex`.
 
+.. autoclass:: supervillain.observable.Intersection_Intersection
+   :members:
+   :show-inheritance:
+
+.. autoclass:: supervillain.observable.Intersection_Intersection_Normalized
+   :members:
+   :show-inheritance:
+
+
 The enlarged $G$ ensemble also has a precise topological meaning, which is the structural reason to hope a worm mixes where local updates struggle.
 Poincaré duality turns the flux $F = dn$ into a closed 2-dimensional *vortex sheet* on the dual lattice, and $q_x = (dn \wedge dn)_x$ into the signed density of the sheet's transverse self-intersection points: in 4D two 2-dimensional sheets generically meet at isolated points, and each crossing carries a sign from comparing orientations --- the same $\epsilon^{\mu\nu\rho\sigma}$ contraction that appears in $F \wedge F$.
 A valid $Z$ configuration is an *embedded* sheet, with no self-intersections anywhere; a $G$ configuration, with its $+1$ at the head and $-1$ at the tail, is an *immersed* sheet carrying exactly one pair of opposite-sign double points.
@@ -195,33 +204,85 @@ A generic path between embedded surfaces passes only through immersed surfaces w
 This matters because in 4D embedded surfaces can *knot*: two sheets in the same homotopy class need not be connected through embeddings alone.
 They are, however, connected through immersions, and the worm walks precisely that corridor --- its head/tail dipole is the lattice double-point pair, and the corridor's three ingredients correspond one-to-one to the worm's three kinds of move (the dictionary is spelled out in the class documentation below).
 
+**Worms walk the Freedman--Quinn corridor.**  Poincaré-dually, a valid configuration
+is an *embedded* vortex sheet (no transverse self-intersections: $q \equiv 0$) and a $G$
+configuration is an *immersed* sheet carrying one $+/-$ pair of double points --- the
+head and the tail.  A classical fact of 4-manifold topology (Whitney's disk construction
+:cite:`Whitney1944`, Casson's finger moves :cite:`Casson`, and general position; stated
+systematically by Freedman and Quinn :cite:`FreedmanQuinn`, whose chapter 1 is the
+standard reference and lends the corridor its name here) connects any two homotopic
+embedded surfaces in a 4-manifold by exactly three elementary processes --- ambient
+isotopies, finger moves (double-point pair creation), and Whitney moves (pair
+annihilation) --- and the worm's three aspects implement them one-to-one:
+
+ - **opening and the first step $=$ finger move.**  Dropping head $=$ tail on one
+   hypercube ($\Delta S = 0$, automatically accepted) is a double-point pair at zero
+   separation; the first accepted head move separates the pair --- a patch of sheet
+   piercing another, creating the $+1$ and $-1$ transversally.
+ - **transport and closing $=$ Whitney move.**  Each subsequent head move drags the $+1$
+   double point, extending the dragged sheet of $F = dn$ (the finger); when the head
+   rejoins the tail and the worm closes, the pair annihilates --- the Whitney move, with
+   the dragged sheet playing the role of the Whitney disk's neighbourhood.
+ - **idle moves $=$ ambient isotopy.**  Accepted 1-link draws with $\Delta q \equiv 0$
+   rearrange the sheet while both double points stay put.  Without this leg the corridor
+   would be incomplete: head transport alone can never move the sheet out of its own way
+   at fixed defects.
+
+
 Two honest caveats temper the optimism.
 Freedman--Quinn's homotopies may require *several* double-point pairs in flight at once --- this is Casson's obstruction :cite:`Casson`: Whitney disks can themselves intersect things, and repairing that creates more pairs --- while the worm carries exactly one.
-And on the lattice the sheet is the Poincaré dual of an integer 2-form, possibly with multiplicity and junction lines, while $q$ is a cup-product density: a cousin of the geometric intersection count, not the thing itself.
-The theorem is the reason to *expect* the one-pair corridor to be wide, not a lattice-level proof that it is.
+Whether one pair at a time always suffices turns out to be an open problem in 4-manifold topology, but thankfully the answer does not matter for the correctness of this library, only for its mixing rate.
+We give :ref:`a separate step-by-step argument<no_intersection_ergodicity>`; the short version is that knotted sheets untie through *embedded, valid* intermediates by genus fluctuations our legal moves perform, so the worm's corridor is a shortcut rather than a necessity.
 
 .. autoclass:: supervillain.generator.no_intersection.IntersectionWorm
    :members:
    :show-inheritance:
 
 The worm accumulates its head$-$tail displacement histogram inline as the
-:class:`~.Intersection_Intersection` observable, and :class:`~.Intersection_Intersection_Normalized`
-divides it by its value at the origin (which can only be done after the
-bootstrap).
-
-.. autoclass:: supervillain.observable.Intersection_Intersection
-   :members:
-   :show-inheritance:
-
-.. autoclass:: supervillain.observable.Intersection_Intersection_Normalized
-   :members:
-   :show-inheritance:
+:class:`~.Intersection_Intersection` observable.
 
 In the Villain model constraint is linear and therefore we could construct an :class:`~.ExactUpdate` which was in the kernel of the constraint that was essentially a closed 4-plaquette :class:`~supervillain.generator.villain.ClassicWorm`.
 Similarly in the Worldline model the :class:`~supervillain.generator.worldline.PlaquetteUpdate` could be understood as the smallest nontrivial worm.
 These could be essentially proposed everywhere because they automatically preserve the constraint.
 The essential fact was that the constraint is linear.
 But here we have a quadratic constraint and therefore it is not always legal to just stamp a tight worm on an existing configuration---it could break the constraint.
+
+In fact, the above worm performed absolutely dismally.
+On cold (large-$\kappa$) backgrounds, $F=0$ it had the room to move the defect around.
+But the multi-link moves were so costly that essentally all were rejected.
+On warm (small-$\kappa$) backgrounds, the plaquette flux is nonzero and the :class:`~supervillain.generator.no_intersection.IntersectionWorm`'s dipole stencils wound up breaking the constraint!
+So it is a very inefficient update scheme no matter $\kappa$.
+
+
+The adaptive worm
+=================
+
+The two failures of the :class:`~supervillain.generator.no_intersection.IntersectionWorm`---costly rejections on the cold background and constraint-violating stencils on the warm one---share a cause: it commits to a single dipole stencil *before* looking at the flux it has to move through.
+The :class:`~supervillain.generator.no_intersection.AdaptiveIntersectionWorm` keeps the head/tail construction, the Freedman--Quinn corridor, and the orthogonal 1-, 2-, and 3-link stencils above, but at each step it *enumerates* the clean set $C$ of every move that would advance the head in the drawn direction on the *current* background $F = dn$, draws one uniformly, and corrects for the state-dependence of that count with the exact Metropolis--Hastings ratio
+
+.. math ::
+
+   A = \min\left(1,\; \frac{\left|C\right|}{\left|C'\right|}\, e^{-\Delta S}\right),
+
+where $\left|C'\right|$ is the size of the clean set for the reverse move at the destination.
+Because $F$ is a function of the current configuration and not of the chain's history, this is ordinary state-dependent Metropolis--Hastings.
+The head now proposes only among moves that are legal on the sheet it is actually standing on, so on a fluxful background it advances instead of stalling.
+The exactness turns on three facts, spelled out in the class documentation: the reverse of every clean move is itself clean (so $\left|C'\right| \geq 1$ and the ratio is well defined), the deduplicated uniform draw makes the proposal symmetric up to $\left|C\right|/\left|C'\right|$, and the open/close accounting that emits the worm is left exactly as in the Prokof'ev--Svistunov prescription.
+The head-fixed *idle* moves that supply the corridor's isotopy leg are enumerated the same way.
+
+.. autoclass:: supervillain.generator.no_intersection.AdaptiveIntersectionWorm
+   :members: step, report
+   :show-inheritance:
+
+Even the adaptive worm draws from a *fixed* library of stencils, and on a sufficiently structured background none of those templates happen to be clean---the head can still stall for want of a move of the right shape.
+The :class:`~supervillain.generator.no_intersection.TwoLinkAdaptiveWorm` removes that limitation for the two-link sector by *live-enumerating* it: for the drawn direction it tests every pair of nearby links, with coefficients up to $\left|c\right| = 2$ (which carries the mixed-magnitude solutions the quadratic constraint occasionally forces), and keeps every pair whose combined charge change is exactly the head dipole---together with the analogous two-link *idle* isotopies.
+It is a strict superset of the adaptive worm: its clean sets still contain all the library moves, so it advances the head wherever the fixed templates can *and* wherever a bespoke two-link move is the only clean option.
+Because this is still the same fixed-family-filtered-by-$F$ construction, closed under inversion, the Metropolis--Hastings exactness carries over unchanged; only the candidate set grows---to thousands of shapes per direction, so the clean-set evaluation is compiled (see the class documentation for both the exactness argument and the acceleration).
+It is provided as an opt-in generator and is not part of the default :func:`~supervillain.generator.no_intersection.Hammer`.
+
+.. autoclass:: supervillain.generator.no_intersection.TwoLinkAdaptiveWorm
+   :members: step_reference, step, report
+   :show-inheritance:
 
 Irreducibility by construction
 ==============================

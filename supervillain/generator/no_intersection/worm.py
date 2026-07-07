@@ -94,8 +94,8 @@ class IntersectionWorm(ReadWriteable, Generator):
       $\Delta q = c\,(F \wedge d\delta_{\ell} + d\delta_{\ell} \wedge F)$ of a single link
       can itself be the unit dipole, transporting the head where no coordinated template
       is clean.  Restricting to $c = \pm 1$ loses nothing, provably --- the response is
-      exactly linear in $c$ and a unit dipole demands $c \mid 1$ (the full proof is inline
-      in :meth:`_build_library`).  When the response instead vanishes identically
+      exactly linear in $c$ and a unit dipole demands $c \mid 1$.
+      When the response instead vanishes identically
       ($\Delta q \equiv 0$, e.g.\ wherever the background is locally flat), the drawn
       1-link shape becomes an **idle** move: the $n$-change is Metropolis-tested and, if
       accepted, applied *without moving the head* --- a rearrangement of the sheet at
@@ -111,17 +111,6 @@ class IntersectionWorm(ReadWriteable, Generator):
     the worm closes, whereas a flat template draw would let every added shape lengthen the
     worm.
 
-    Two links is the *minimum* whose *self*-charge moves anything: a single-link change has
-    $d\Delta n \wedge d\Delta n \equiv 0$, so on the flux-free cold background it shifts
-    nothing.  On a background with flux $F = dn$, though, the *linear* term
-    $\Delta q = F \wedge d\Delta n + d\Delta n \wedge F$ is generically nonzero, and a single
-    link can cleanly transport the head --- the one-link shapes above exist precisely to
-    exploit that background-dependent effect (see also the discussion of frozen
-    configurations in :ref:`the No-Intersection model <no_intersection>`; on frozen
-    backgrounds even these have no clean first step).  The same-sign diagonal, by contrast,
-    is the one short neighbour that *cannot* be built from two links --- four is its
-    minimum --- which is why it carries a heavier shape than its opposite-sign partner.
-
     The families interleave freely: a diagonal step preserves the parity of $\sum_{k} x_{k}$
     while an orthogonal step flips it, so together they mix the head's walk more efficiently
     than either alone.  On the cold background the orthogonal $\pm\hat e_{\mu}$ steps alone
@@ -132,29 +121,6 @@ class IntersectionWorm(ReadWriteable, Generator):
     it can be clean exactly where that chain of smaller hops is blocked --- the same
     coordinated-move logic that escapes a frozen configuration.
 
-    **The worm walks the Freedman--Quinn corridor.**  Poincaré-dually, a valid configuration
-    is an *embedded* vortex sheet (no transverse self-intersections: $q \equiv 0$) and a $G$
-    configuration is an *immersed* sheet carrying one $+/-$ pair of double points --- the
-    head and the tail.  A classical fact of 4-manifold topology (Whitney's disk construction
-    :cite:`Whitney1944`, Casson's finger moves :cite:`Casson`, and general position; stated
-    systematically by Freedman and Quinn :cite:`FreedmanQuinn`, whose chapter 1 is the
-    standard reference and lends the corridor its name here) connects any two homotopic
-    embedded surfaces in a 4-manifold by exactly three elementary processes --- ambient
-    isotopies, finger moves (double-point pair creation), and Whitney moves (pair
-    annihilation) --- and the worm's three aspects implement them one-to-one:
-
-    - **opening and the first step $=$ finger move.**  Dropping head $=$ tail on one
-      hypercube ($\Delta S = 0$, automatically accepted) is a double-point pair at zero
-      separation; the first accepted head move separates the pair --- a patch of sheet
-      piercing another, creating the $+1$ and $-1$ transversally.
-    - **transport and closing $=$ Whitney move.**  Each subsequent head move drags the $+1$
-      double point, extending the dragged sheet of $F = dn$ (the finger); when the head
-      rejoins the tail and the worm closes, the pair annihilates --- the Whitney move, with
-      the dragged sheet playing the role of the Whitney disk's neighbourhood.
-    - **idle moves $=$ ambient isotopy.**  Accepted 1-link draws with $\Delta q \equiv 0$
-      rearrange the sheet while both double points stay put.  Without this leg the corridor
-      would be incomplete: head transport alone can never move the sheet out of its own way
-      at fixed defects.
 
     The known gaps between the theorem and this algorithm: Freedman--Quinn homotopies may
     require several pairs in flight simultaneously (Casson's obstruction :cite:`Casson` ---
