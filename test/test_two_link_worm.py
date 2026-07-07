@@ -106,3 +106,51 @@ def test_two_link_mover_fires_on_flux_background():
             if len([c for c in change.values() if c != 0]) == 2:
                 two_link_seen += 1
     assert two_link_seen > 0
+
+
+def test_two_link_idle_family_well_formed():
+    S = _action()
+    w = gen.TwoLinkAdaptiveWorm(S)
+    assert len(w._two_idles) > 0
+    for shape in w._two_idles:
+        assert len(shape) == 2
+        assert len({(mu,) + tuple(rs) for mu, rs, c in shape}) == 2   # distinct links
+        for mu, rs, c in shape:
+            assert c in gen.TwoLinkAdaptiveWorm.COEFF_BOX
+        assert shape in w._self_charge
+
+
+def test_two_link_idle_clean_set_local_matches_reference():
+    S = _action()
+    L = S.Lattice
+    N = L.N
+    w = gen.TwoLinkAdaptiveWorm(S)
+    cfg = _valid_flux_config(S)
+    n_arr = np.asarray(cfg['n']).astype(np.int64)
+    q0 = charge(cfg['n'])
+    F = np.asarray(d(cfg['n'])).astype(np.int64)
+    rng = np.random.default_rng(6)
+    for _ in range(30):
+        head = tuple(int(x) for x in rng.integers(0, N, size=4))
+        assert w.clean_idle_local(F, head) == w.clean_idle_reference(n_arr, q0, head)
+
+
+def test_two_link_idles_are_charge_neutral_and_inverse_present():
+    L = Lattice(4, 5)
+    S = supervillain.action.NoIntersections(L, kappa=0.0)
+    w = gen.TwoLinkAdaptiveWorm(S)
+    cold = S.configurations(1)[0]
+    n_arr = np.asarray(cold['n']).astype(np.int64)
+    q0 = charge(cold['n'])
+    head = (2, 2, 2, 2)
+    idles = w.clean_idle_reference(n_arr, q0, head)
+    two_link = [ch for ch in idles if len([c for c in ch.values() if c != 0]) == 2]
+    assert len(two_link) > 0                                         # 2-link idles present
+    for change in idles:
+        trial = n_arr.copy()
+        for lnk, c in change.items():
+            trial[lnk] += c
+        dq = charge(Form(trial, degree=1, lattice=L)) - q0
+        assert np.abs(dq).max() == 0                                 # Δq ≡ 0
+        inv = {lnk: -c for lnk, c in change.items()}
+        assert any(ch == inv for ch in idles)                        # inverse enumerated

@@ -48,6 +48,7 @@ class TwoLinkAdaptiveWorm(AdaptiveIntersectionWorm):
     def __init__(self, S, class_weights=None):
         super().__init__(S, class_weights=class_weights)
         self._two_movers = self._build_two_link_movers()
+        self._two_idles = self._build_two_link_idles()
 
     def __str__(self):
         return 'TwoLinkAdaptiveWorm'
@@ -138,3 +139,75 @@ class TwoLinkAdaptiveWorm(AdaptiveIntersectionWorm):
     def _mover_shapes(self, dd):
         r"""The library family plus the two-link movers for ``dd`` (one combined slot)."""
         return self._library[dd] + self._two_movers[dd]
+
+    # ------------------------------------------------------------------ two-link idles
+
+    def _build_two_link_idles(self):
+        r"""
+        The fixed family of two-link idle shapes: distinct link pairs both reach-touching
+        the head, coefficients in :data:`COEFF_BOX`, stored relative to the head.  The box
+        is sign-symmetric, so the coefficient-negated partner of every shape is also in the
+        family — the reverse isotopy is always enumerated (``|I'| >= 1``).  Self-charges are
+        registered for :meth:`_local_dq`.  Cleanliness ($\Delta q \equiv 0$) is decided per
+        background at enumeration time, not here.
+        """
+        head = (0, 0, 0, 0)
+        slots = self._reach_touching_slots((head,))
+        shapes = []
+        for i in range(len(slots)):
+            mu1, r1 = slots[i]
+            for j in range(i + 1, len(slots)):
+                mu2, r2 = slots[j]
+                for c1, c2 in product(self.COEFF_BOX, repeat=2):
+                    shape = ((mu1, r1, c1), (mu2, r2, c2))
+                    self._self_charge[shape] = self._shape_self_charge(shape)
+                    shapes.append(shape)
+        return shapes
+
+    def _two_idle_changes(self, head):
+        r"""The two-link idle shapes placed at ``head``, as ``(change, shape)`` pairs."""
+        N = self.Lattice.N
+        out = []
+        for shape in self._two_idles:
+            change = {}
+            for mu, rs, c in shape:
+                link = (mu,) + tuple((head[k] + rs[k]) % N for k in range(4))
+                change[link] = change.get(link, 0) + c
+            out.append((change, shape))
+        return out
+
+    def clean_idle_local(self, F, head):
+        r"""
+        Base single-link idles, then the clean two-link idles scored locally on ``F``.
+        Deduped by the change's frozenset; single- and two-link changes never collide
+        (distinct link counts), so the base order is preserved and the two-link tail shares
+        its order with :meth:`clean_idle_reference` (both iterate ``self._two_idles``).
+        """
+        out = super().clean_idle_local(F, head)
+        seen = {frozenset((lnk, c) for lnk, c in ch.items() if c != 0) for ch in out}
+        for change, shape in self._two_idle_changes(head):
+            key = frozenset((lnk, c) for lnk, c in change.items() if c != 0)
+            if key in seen:
+                continue
+            if self._local_dq(F, change, head, shape) == {}:
+                seen.add(key)
+                out.append(change)
+        return out
+
+    def clean_idle_reference(self, n_arr, q0, head):
+        r"""Global-recompute twin of :meth:`clean_idle_local` (same order)."""
+        L = self.Lattice
+        out = super().clean_idle_reference(n_arr, q0, head)
+        seen = {frozenset((lnk, c) for lnk, c in ch.items() if c != 0) for ch in out}
+        for change, _shape in self._two_idle_changes(head):
+            key = frozenset((lnk, c) for lnk, c in change.items() if c != 0)
+            if key in seen:
+                continue
+            trial = n_arr.copy()
+            for lnk, c in change.items():
+                trial[lnk] += c
+            dq = charge(Form(trial, degree=1, lattice=L)) - q0
+            if np.abs(dq).max() == 0:
+                seen.add(key)
+                out.append(change)
+        return out
