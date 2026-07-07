@@ -73,7 +73,6 @@ def _reseed(generators, seed=12345):
 def _cold(L):
     return {'phi': L.zeros(0), 'n': L.zeros(1, dtype=int)}
 
-
 def _thermalize(S, steps, seed):
     r"""
     Run the full Hammer for ``steps`` steps from cold to build up a realistic
