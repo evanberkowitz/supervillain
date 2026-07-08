@@ -35,6 +35,9 @@ class AdaptiveIntersectionWorm(IntersectionWorm):
         # v1 menu: canonical orthogonal displacements only (diagonals deferred).
         self._ortho = [dd for dd in self._directions
                        if sum(abs(x) for x in dd) == 1]
+        # One scratch lattice, reused for every self-charge derivation (same extent N as
+        # the target, so small-N periodic-image cross terms are exact).
+        self._scratch = Lattice(4, self.Lattice.N)
 
     def __str__(self):
         return 'AdaptiveIntersectionWorm'
@@ -48,6 +51,45 @@ class AdaptiveIntersectionWorm(IntersectionWorm):
             return 'There were 0 adaptive worms.'
         return (f'There were {len(l)} adaptive worms.\nWorm lengths:\n'
                 f'    mean {l.mean()}\n    std  {l.std()}\n    max  {int(max(l))}')
+
+    # ------------------------------------------------------------------ family construction
+
+    def _shape_self_charge(self, shape):
+        r"""
+        The background-independent self-charge $d\Delta n \wedge d\Delta n$ of ``shape``
+        (for a two-link shape, exactly $c_{1} c_{2} M_{12}$), as ``((offset, value), ...)``
+        with offsets measured (mod $N$) from the anchor.
+        """
+        N = self.Lattice.N
+        L0 = self._scratch
+        anchor = (N // 2,) * 4
+        dn = L0.zeros(1, dtype=int)   # Lattice.zeros returns a Form; charge(dn) needs no re-wrap
+        for mu, rs, c in shape:
+            dn[(mu,) + tuple((anchor[k] + rs[k]) % N for k in range(4))] += c
+        q = np.asarray(charge(dn))
+        return tuple(
+            (tuple((int(h[1 + k]) - anchor[k]) % N for k in range(4)), int(q[tuple(h)]))
+            for h in np.argwhere(q != 0)
+        )
+
+    @staticmethod
+    def _scaled_self_charge(unit_M, factor):
+        r"""Scale a unit cross-charge pattern by ``factor`` $= c_{1} c_{2}$, pruning zeros."""
+        return tuple((off, factor * v) for off, v in unit_M if factor * v)
+
+    def _reach_touching_slots(self, cells):
+        r"""Link slots ``(mu, r)`` whose single-link charge reach touches any cell in ``cells``."""
+        # A mu-link at r responds on r + reach[mu], so it touches x iff r == x - off for
+        # some off in the reach.  Offsets are reduced mod N so the box is right at small N.
+        N = self.Lattice.N
+        reach = self._link_reach()
+        slots = set()
+        for mu, offsets in reach.items():
+            for x in cells:
+                for off in offsets:
+                    r = tuple((x[k] - off[k]) % N for k in range(4))
+                    slots.add((mu, r))
+        return sorted(slots)
 
     # ------------------------------------------------------------------ clean sets (oracle)
 
@@ -391,9 +433,6 @@ class TwoLinkAdaptiveWorm(AdaptiveIntersectionWorm):
 
     def __init__(self, S, class_weights=None):
         super().__init__(S, class_weights=class_weights)
-        # One scratch lattice, reused for every self-charge derivation (same extent N as
-        # the target, so small-N periodic-image cross terms are exact).
-        self._scratch = Lattice(4, self.Lattice.N)
         self._two_movers = self._build_two_link_movers()
         self._two_idles = self._build_two_link_idles()
         # Flatten the families to integer arrays for the compiled clean-set kernel.
@@ -407,43 +446,6 @@ class TwoLinkAdaptiveWorm(AdaptiveIntersectionWorm):
         return 'TwoLinkAdaptiveWorm'
 
     # ------------------------------------------------------------------ family construction
-
-    def _shape_self_charge(self, shape):
-        r"""
-        The background-independent self-charge $d\Delta n \wedge d\Delta n$ of ``shape``
-        (for a two-link shape, exactly $c_{1} c_{2} M_{12}$), as ``((offset, value), ...)``
-        with offsets measured (mod $N$) from the anchor.
-        """
-        N = self.Lattice.N
-        L0 = self._scratch
-        anchor = (N // 2,) * 4
-        dn = L0.zeros(1, dtype=int)   # Lattice.zeros returns a Form; charge(dn) needs no re-wrap
-        for mu, rs, c in shape:
-            dn[(mu,) + tuple((anchor[k] + rs[k]) % N for k in range(4))] += c
-        q = np.asarray(charge(dn))
-        return tuple(
-            (tuple((int(h[1 + k]) - anchor[k]) % N for k in range(4)), int(q[tuple(h)]))
-            for h in np.argwhere(q != 0)
-        )
-
-    @staticmethod
-    def _scaled_self_charge(unit_M, factor):
-        r"""Scale a unit cross-charge pattern by ``factor`` $= c_{1} c_{2}$, pruning zeros."""
-        return tuple((off, factor * v) for off, v in unit_M if factor * v)
-
-    def _reach_touching_slots(self, cells):
-        r"""Link slots ``(mu, r)`` whose single-link charge reach touches any cell in ``cells``."""
-        # A mu-link at r responds on r + reach[mu], so it touches x iff r == x - off for
-        # some off in the reach.  Offsets are reduced mod N so the box is right at small N.
-        N = self.Lattice.N
-        reach = self._link_reach()
-        slots = set()
-        for mu, offsets in reach.items():
-            for x in cells:
-                for off in offsets:
-                    r = tuple((x[k] - off[k]) % N for k in range(4))
-                    slots.add((mu, r))
-        return sorted(slots)
 
     def _build_two_link_movers(self):
         r"""
