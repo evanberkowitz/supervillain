@@ -188,12 +188,15 @@ class FreeTargetWorm(AdaptiveIntersectionWorm):
             out.append((change, shape))
         return out
 
-    def classified_set_reference(self, n_arr, q0, head, shapes=None):
+    def classified_set_reference(self, n_arr, q0, head, shapes=None, classes='all'):
         r"""
         The clean union $C$ at ``head`` on background ``n_arr`` (charge ``q0``), by a
         global ``charge`` recompute --- the readable oracle the local enumerations are
         validated against.  Returns ``[(change, target), ...]`` with ``target == head``
         for idles and duplicate $\Delta n$ collapsed, so the length is $\left|C\right|$.
+        ``classes`` restricts the returned classes (``'movers'`` / ``'idles'`` /
+        ``'all'``); the filter is applied per placement, since mover-vs-idle is a
+        property of $(F, \Delta n)$, not of the shape.
 
         A global recompute per shape is slow, so full-family calls are hand-run only;
         tests validate on subsets via ``shapes``.
@@ -212,10 +215,14 @@ class FreeTargetWorm(AdaptiveIntersectionWorm):
             defects = {tuple(int(x) for x in z[1:]): int(dq[tuple(z)])
                        for z in np.argwhere(dq != 0)}
             if defects == {}:
+                if classes == 'movers':
+                    continue
                 seen.add(key)
                 out.append((change, head))
             elif (len(defects) == 2 and defects.get(head) == -1
                   and sorted(defects.values()) == [-1, 1]):
+                if classes == 'idles':
+                    continue
                 target = next(cell for cell, v in defects.items() if v == 1)
                 seen.add(key)
                 out.append((change, target))
@@ -223,12 +230,15 @@ class FreeTargetWorm(AdaptiveIntersectionWorm):
 
     # ------------------------------------------------------------------ enumeration (local)
 
-    def classified_set_local_py(self, F, head, shapes=None):
+    def classified_set_local_py(self, F, head, shapes=None, classes='all'):
         r"""
         Pure-Python twin of :meth:`classified_set_reference`: same result, same order,
         but $\Delta q$ comes from :meth:`_local_dq` on the maintained ``F`` $= dn$
         instead of a global recompute.  :meth:`step_reference` drives this (full
-        family); tests compare subsets against the oracle via ``shapes``.
+        family); tests compare subsets against the oracle via ``shapes``.  ``classes``
+        restricts the returned classes (``'movers'`` / ``'idles'`` / ``'all'``); the
+        filter is applied per placement, since mover-vs-idle is a property of
+        $(F, \Delta n)$, not of the shape.
         """
         seen = set()
         out = []
@@ -238,21 +248,29 @@ class FreeTargetWorm(AdaptiveIntersectionWorm):
                 continue
             defects = self._local_dq(F, change, head, shape)
             if defects == {}:
+                if classes == 'movers':
+                    continue
                 seen.add(key)
                 out.append((change, head))
             elif (len(defects) == 2 and defects.get(head) == -1
                   and sorted(defects.values()) == [-1, 1]):
+                if classes == 'idles':
+                    continue
                 target = next(cell for cell, v in defects.items() if v == 1)
                 seen.add(key)
                 out.append((change, target))
         return out
 
-    def classified_set_local(self, F, head):
+    def classified_set_local(self, F, head, classes='all'):
         r"""
         Compiled twin of :meth:`classified_set_local_py`: the whole family's $\Delta q$
         is classified against ``F`` by :func:`.two_link_kernel.classify_mask`; the clean
         shapes become ``(change, target)`` pairs in Python (deduped, family order).
-        Bit-for-bit with the pure-Python version; used by :meth:`step`.
+        Bit-for-bit with the pure-Python version; used by :meth:`step`.  ``classes``
+        restricts the returned classes (``'movers'`` / ``'idles'`` / ``'all'``); the
+        filter is applied per placement (on the kernel status, before the change dict
+        is built), since mover-vs-idle is a property of $(F, \Delta n)$, not of the
+        shape.
         """
         N = self.Lattice.N
         Farr = np.asarray(F)
@@ -264,6 +282,10 @@ class FreeTargetWorm(AdaptiveIntersectionWorm):
         out = []
         for si in range(len(self._candidate_family)):
             if status[si] == -2:
+                continue
+            if classes == 'movers' and status[si] == -1:
+                continue
+            if classes == 'idles' and status[si] != -1:
                 continue
             shape = self._candidate_family[si]
             change = {}

@@ -384,3 +384,29 @@ def test_acceptance_boundary_matches_hastings_ratio():
     assert np.array_equal(np.asarray(rejected['n']), n_arr)
     assert rejected['Intersection_Intersection'].sum() == 1
     assert rejected['Worm_Length'] == 1
+
+
+def test_classes_filter_matches_manual_split():
+    S, configs = _valid_configs()
+    w = gen.FreeTargetWorm(S)
+    N = S.Lattice.N
+    rng = np.random.default_rng(11)
+    for cfg in configs[:2]:
+        F = np.asarray(d(cfg['n'])).astype(np.int64)
+        head = tuple(int(x) for x in rng.integers(0, N, size=4))
+        both = w.classified_set_local(F, head)
+        movers = w.classified_set_local(F, head, classes='movers')
+        idles = w.classified_set_local(F, head, classes='idles')
+        assert movers == [(ch, t) for ch, t in both if t != head]
+        assert idles == [(ch, t) for ch, t in both if t == head]
+        assert len(movers) > 0 and len(idles) > 0          # hot backgrounds have both
+        # the pure-Python twin filters identically (bit-for-bit contract per class)
+        assert movers == w.classified_set_local_py(F, head, classes='movers')
+        assert idles == w.classified_set_local_py(F, head, classes='idles')
+        # the oracle agrees on a subsample
+        n_arr = np.asarray(cfg['n']).astype(np.int64)
+        q0 = charge(cfg['n'])
+        sub = [w._candidate_family[i] for i in
+               rng.choice(len(w._candidate_family), size=1500, replace=False)]
+        assert (w.classified_set_reference(n_arr, q0, head, shapes=sub, classes='movers')
+                == w.classified_set_local_py(F, head, shapes=sub, classes='movers'))
