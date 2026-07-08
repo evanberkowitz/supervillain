@@ -234,3 +234,101 @@ class FreeTargetWorm(AdaptiveIntersectionWorm):
                 seen.add(key)
                 out.append((change, target))
         return out
+
+    # ------------------------------------------------------------------ step
+
+    def step_reference(self, configuration):
+        r"""
+        Readable worm walk driving the pure-Python enumeration, recomputed fresh every
+        iteration --- the oracle :meth:`step` is validated bit-for-bit against (which is
+        also what validates :meth:`step`'s enumeration reuse).
+        """
+        return self._run_free_worm(configuration, self.classified_set_local_py,
+                                   reuse=False)
+
+    def _run_free_worm(self, configuration, classify, reuse):
+        r"""
+        The auto-close worm walk, parameterized by the enumeration
+        ``classify(F, head) -> [(change, target), ...]`` and by whether the reverse
+        enumeration is carried into the next iteration (``reuse``).
+        """
+        # --- Why this Metropolis--Hastings worm is exact (the load-bearing facts) ---
+        # (1) Reversal identity.  Writing F' = F + dΔn,
+        #         Δq(-Δn on F') = -Δq(Δn on F)
+        #     (self-wedge even, cross terms odd under Δn -> -Δn): the reverse of a clean
+        #     idle is a clean idle, the reverse of a clean mover is the reversed dipole.
+        # (2) Closure.  The family is support-anchored (a shape is enumerable at h iff h
+        #     lies in its charge-reach support) and negation-closed, so a mover to y --
+        #     whose Δq ≠ 0 at y forces y into the support -- has its negation enumerable
+        #     at y.  (1)+(2): the reverse of every accepted move is IN the reverse clean
+        #     union, so |C'| >= 1 (no zero division) and 1/|C'| is the true reverse
+        #     proposal probability.  Breaking closure (e.g. "optimizing" the family) biases
+        #     the chain with every constraint-validity test still green.
+        # (3) Uniform draw over DISTINCT Δn (dedup by frozenset): forward probability
+        #     exactly 1/|C|.  Δq is a function of (F, Δn), so Δn determines the target --
+        #     each element of C lands on a distinct (s', head'), and every transition is
+        #     proposable in exactly one way.  There is no direction menu and no idle slot,
+        #     hence no cross-slot argument and no menu factor in the balance.
+        # (4) Auto-close.  Every state (n, head, tail) carries plain weight w(n): no
+        #     proposal probability is diverted to a close branch, so pivot states carry NO
+        #     excess weight.  Closing and reopening at a uniformly-drawn tail is a
+        #     tail-relabel on the pivot class {(n, x, x) : x}, a free symmetry move (w(n)
+        #     does not care where a coincident head/tail sits); quotienting by it, the 1/V
+        #     open factor cancels the pivot class's V-fold multiplicity and the balance
+        #     collapses to w(n)·(1/|C|)·A = w(n')·(1/|C'|)·A'.  The pivot's single dwell
+        #     slot is tallied by PRE-POPULATING the origin bin with 1 at open; arrival at
+        #     the pivot closes WITHOUT tallying (the next worm's pre-population is that
+        #     slot).  A rejected -- or idle-accepted -- opening proposal leaves head ==
+        #     tail and therefore closes: a legitimate zero-length worm, emitted, never
+        #     retried (retrying would under-count pivot dwell).
+        #
+        # Termination: mid-flight |C| >= 1 always -- after an acceptance C' contains the
+        # reverse (facts (1)+(2)); after a rejection C is unchanged -- so a positive-
+        # probability path back to the tail always exists and the walk halts almost
+        # surely.  An empty C can only occur at open (before any move): close immediately.
+        L = self.Lattice
+        N = L.N
+        D = L.D
+        n = np.asarray(configuration['n']).astype(np.int64)
+        dphi = np.asarray(_d(configuration['phi']))
+        F = np.asarray(_d(configuration['n'])).astype(np.int64, copy=False)
+        displacements = np.zeros(L.dims)
+
+        tail = tuple(int(x) for x in self.rng.integers(0, N, size=D))
+        head = tail
+        displacements[L.origin] += 1     # the pivot dwell slot (fact (4))
+
+        def emit():
+            wl = displacements.sum()
+            self.worm_lengths.append(wl)
+            return configuration | {'n': Form(n, degree=1, lattice=L),
+                                    'Intersection_Intersection': displacements,
+                                    'Worm_Length': wl}
+
+        def touch(change, s):
+            # add s*change to both n and the maintained F (s = +1 apply, -1 revert);
+            # integer arithmetic, so a revert is bit-exact -- which is what keeps the
+            # kept-on-rejection enumeration valid.
+            for link, c in change.items():
+                n[link] += s * c
+                local_charge.apply_link_to_F(F, link[0], link[1:], s * c, N)
+
+        C = classify(F, head)
+        while True:
+            if not C:
+                return emit()                                # only possible at open
+            change, target = C[int(self.rng.integers(0, len(C)))]
+            dS = self._delta_S(dphi, n, change)              # pre-move n
+            touch(change, +1)
+            Cp = classify(F, target)
+            if self.rng.uniform(0, 1) < min(1.0, (len(C) / len(Cp)) * np.exp(-dS)):
+                head = target
+                C_next = Cp
+            else:
+                touch(change, -1)
+                C_next = C
+            if head == tail:
+                return emit()                                # auto-close (fact (4))
+            disp = tuple((head[k] - tail[k]) % N for k in range(D))
+            displacements[disp] += 1
+            C = C_next if reuse else classify(F, head)

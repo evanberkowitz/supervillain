@@ -182,6 +182,53 @@ def test_full_local_enumeration_is_clean_and_reaches_beyond_orthogonal():
     assert any(sum(min(x, N - x) for x in t) > 1 for t in targets)
 
 
+def test_step_reference_emits_valid_configs_with_populated_origin():
+    S, configs = _valid_configs()
+    w = gen.FreeTargetWorm(S)
+    w.rng = np.random.default_rng(7)
+    L = S.Lattice
+    cfg = configs[0]
+    for _ in range(10):
+        cfg = w.step_reference(cfg)
+        assert np.abs(charge(cfg['n'])).max() == 0          # constraint preserved
+        theta = cfg['Intersection_Intersection']
+        assert theta[L.origin] >= 1                          # pre-populated pivot dwell
+        assert cfg['Worm_Length'] == theta.sum()
+        assert cfg['Worm_Length'] >= 1
+
+
+def test_elementary_detailed_balance_no_menu_factor():
+    # A full-family classified_set_reference (no `shapes`) is a global charge()
+    # recompute per shape over ~3e5 shapes -- infeasible here (~hours).  Task 5 proved
+    # classified_set_local_py == classified_set_reference pointwise, so C/Cp are drawn
+    # from the local (F-driven) enumeration instead; every assertion is unchanged.
+    S, configs = _valid_configs()
+    w = gen.FreeTargetWorm(S)
+    L, N = S.Lattice, S.Lattice.N
+    rng = np.random.default_rng(4)
+    tested = 0
+    for cfg in configs:
+        n_arr = np.asarray(cfg['n']).astype(np.int64)
+        dphi = np.asarray(d(cfg['phi']))
+        F = np.asarray(d(cfg['n'])).astype(np.int64)
+        for _ in range(3):
+            head = tuple(int(x) for x in rng.integers(0, N, size=4))
+            C = w.classified_set_local_py(F, head)
+            if not C:
+                continue
+            change, target = C[int(rng.integers(0, len(C)))]
+            trial = _apply(n_arr, change)
+            Fp = np.asarray(d(Form(trial, degree=1, lattice=L))).astype(np.int64)
+            Cp = w.classified_set_local_py(Fp, target)
+            dS = w._delta_S(dphi, n_arr, change)
+            A_fwd = min(1.0, (len(C) / len(Cp)) * np.exp(-dS))
+            A_rev = min(1.0, (len(Cp) / len(C)) * np.exp(+dS))
+            # w(s) q(s->s') A(s->s') = w(s') q(s'->s) A(s'->s), with q = 1/|C|: NO menu factor.
+            assert abs(A_fwd / len(C) - np.exp(-dS) * A_rev / len(Cp)) < 1e-12
+            tested += 1
+    assert tested > 0
+
+
 def test_closure_involution_over_all_realized_targets():
     # For each clean mover, the negated change must be enumerated from its target
     # (facts (1)+(2)); checked with the full local enumeration on both ends.  Movers
