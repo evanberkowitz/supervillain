@@ -2,6 +2,7 @@
 
 from .worm import IntersectionWorm
 from .adaptive_worm import AdaptiveIntersectionWorm, TwoLinkAdaptiveWorm
+from .free_target_worm import FreeTargetWorm
 from .link import ConstrainedLinkUpdate
 from .wrapping import WrappingLoopUpdate
 from .planar import PlanarFluxUpdate
