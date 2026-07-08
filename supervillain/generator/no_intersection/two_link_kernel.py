@@ -199,6 +199,10 @@ def classify_mask(F2, N, anchor, head_rav,
     """
     nshapes = link_ptr.shape[0] - 1
     status = np.empty(nshapes, dtype=np.int64)
+    # Scratch for one shape's dq.  This kernel serves the free-target family, whose
+    # library-derived (c) templates and COEFF_BOX pairs top out well under this cap; a
+    # shape touching more than cap distinct cells would silently drop terms, so keep cap
+    # above the family's true maximum if larger templates are ever added.
     cap = 256
     cells = np.empty(cap, dtype=np.int64)
     vals = np.empty(cap, dtype=np.int64)

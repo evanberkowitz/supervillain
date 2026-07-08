@@ -4,7 +4,7 @@ from itertools import product
 
 import numpy as np
 
-from supervillain.lattice import Form, Lattice, d as _d
+from supervillain.lattice import Form, d as _d
 from supervillain.generator.no_intersection.charge import charge
 from supervillain.generator.no_intersection import local_charge, two_link_kernel
 from supervillain.generator.no_intersection.adaptive_worm import AdaptiveIntersectionWorm, _ravel
@@ -22,10 +22,13 @@ class FreeTargetWorm(AdaptiveIntersectionWorm):
     $\{\mathrm{head}{:}\,{-1},\ y{:}\,{+1}\}$ is a mover to $y$ --- orthogonal, diagonal,
     or farther --- and anything else is discarded.  One uniform draw over the clean union
     $C$, accepted with $\min\!\big(1, (\left|C\right|/\left|C'\right|)\,e^{-\Delta S}\big)$.
+    The draw is uniform over $C$ unconditionally --- there is no per-template class
+    weighting here (see ``class_weights`` below).
 
     The worm auto-closes the instant the head returns to the tail; the emitted histogram
     is pre-populated with $1$ at the origin (the pivot dwell), and a worm whose opening
-    proposal rejects is a legitimate zero-length worm.
+    proposal rejects is a legitimate zero-length worm (one that still emits
+    $\texttt{Worm\_Length} = 1$, the pre-populated pivot dwell alone).
 
     .. warning::
 
@@ -48,13 +51,18 @@ class FreeTargetWorm(AdaptiveIntersectionWorm):
     PAIR_PROXIMITY = 1
 
     def __init__(self, S, class_weights=None):
-        super().__init__(S, class_weights=class_weights)
+        if class_weights is not None:
+            raise ValueError(
+                'FreeTargetWorm draws uniformly from the classified clean union; '
+                'the parent per-template class_weights do not apply.  (A future '
+                'idle-vs-mover draw weighting is a different, deferred knob.)')
+        super().__init__(S)
         self._reach = self._link_reach()     # derive once; _link_reach probes a scratch lattice
-        self._family = self._build_family()
+        self._candidate_family = self._build_family()
         # Flatten the family once for the compiled classifier.
         self._dq_stencil = two_link_kernel.dq_stencil_arrays()
-        self._family_flat = two_link_kernel.flatten_family(self._family,
-                                                           self._self_charge)
+        self._candidate_flat = two_link_kernel.flatten_family(self._candidate_family,
+                                                               self._self_charge)
 
     def __str__(self):
         return 'FreeTargetWorm'
@@ -172,7 +180,7 @@ class FreeTargetWorm(AdaptiveIntersectionWorm):
         pairs, in the given order."""
         N = self.Lattice.N
         out = []
-        for shape in (self._family if shapes is None else shapes):
+        for shape in (self._candidate_family if shapes is None else shapes):
             change = {}
             for mu, rs, c in shape:
                 link = (mu,) + tuple((head[k] + rs[k]) % N for k in range(4))
@@ -251,13 +259,13 @@ class FreeTargetWorm(AdaptiveIntersectionWorm):
         F2 = np.ascontiguousarray(Farr.reshape(Farr.shape[0], -1))
         status = two_link_kernel.classify_mask(
             F2, N, np.array(head, dtype=np.int64), _ravel(head, N),
-            *self._family_flat, *self._dq_stencil)
+            *self._candidate_flat, *self._dq_stencil)
         seen = set()
         out = []
-        for si in range(len(self._family)):
+        for si in range(len(self._candidate_family)):
             if status[si] == -2:
                 continue
-            shape = self._family[si]
+            shape = self._candidate_family[si]
             change = {}
             for mu, rs, c in shape:
                 link = (mu,) + tuple((head[k] + rs[k]) % N for k in range(4))
@@ -330,8 +338,9 @@ class FreeTargetWorm(AdaptiveIntersectionWorm):
         #     slot is tallied by PRE-POPULATING the origin bin with 1 at open; arrival at
         #     the pivot closes WITHOUT tallying (the next worm's pre-population is that
         #     slot).  A rejected -- or idle-accepted -- opening proposal leaves head ==
-        #     tail and therefore closes: a legitimate zero-length worm, emitted, never
-        #     retried (retrying would under-count pivot dwell).
+        #     tail and therefore closes: a legitimate zero-length worm (Worm_Length = 1,
+        #     the pre-populated pivot dwell alone), emitted, never retried (retrying would
+        #     under-count pivot dwell).
         #
         # Termination: mid-flight |C| >= 1 always -- after an acceptance C' contains the
         # reverse (facts (1)+(2)); after a rejection C is unchanged -- so a positive-

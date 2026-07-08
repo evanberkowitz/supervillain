@@ -40,10 +40,10 @@ def _defects(L, trial, q0):
 
 def test_family_is_deduped_and_negation_closed():
     w = _worm()
-    keys = [_key(s) for s in w._family]
+    keys = [_key(s) for s in w._candidate_family]
     assert len(keys) == len(set(keys))                     # no duplicate placements
     keyset = set(keys)
-    for shape in w._family:
+    for shape in w._candidate_family:
         neg = _key(tuple((mu, r, -c) for mu, r, c in shape))
         assert neg in keyset                               # negation-closed
         assert shape in w._self_charge                     # self-charge registered
@@ -54,13 +54,13 @@ def test_family_touches_the_head():
     # head (the origin, in relative coordinates) through at least one link.
     w = _worm()
     origin = (0, 0, 0, 0)
-    for shape in w._family:
+    for shape in w._candidate_family:
         assert any(origin in w._slot_support(mu, r) for mu, r, _c in shape)
 
 
 def test_family_contains_singles_pairs_and_library():
     w = _worm()
-    sizes = {len(shape) for shape in w._family}
+    sizes = {len(shape) for shape in w._candidate_family}
     assert 1 in sizes and 2 in sizes                       # singles and pairs
     assert max(sizes) >= 3                                 # library 3-/4-link templates
 
@@ -82,8 +82,8 @@ def test_classified_set_reference_classifies_exactly():
         q0 = charge(cfg['n'])
         for _ in range(2):
             head = tuple(int(x) for x in rng.integers(0, N, size=4))
-            sub = [w._family[i] for i in
-                   rng.choice(len(w._family), size=1500, replace=False)]
+            sub = [w._candidate_family[i] for i in
+                   rng.choice(len(w._candidate_family), size=1500, replace=False)]
             C = w.classified_set_reference(n_arr, q0, head, shapes=sub)
             keys = [frozenset((l, c) for l, c in ch.items() if c != 0) for ch, _ in C]
             assert len(keys) == len(set(keys))              # deduped
@@ -108,6 +108,7 @@ def test_merged_set_contains_two_link_worm_moves():
     two = gen.TwoLinkAdaptiveWorm(S)
     N = S.Lattice.N
     rng = np.random.default_rng(2)
+    checked = [0]                                            # vacuity guard
     for cfg in configs[:2]:
         n_arr = np.asarray(cfg['n']).astype(np.int64)
         q0 = charge(cfg['n'])
@@ -125,6 +126,7 @@ def test_merged_set_contains_two_link_worm_moves():
                 gch, gt = got[0]
                 assert frozenset((l, c) for l, c in gch.items() if c != 0) == k
                 assert gt == want_target
+                checked[0] += 1
 
             for dd in two._ortho:
                 for sign in (+1, -1):
@@ -133,6 +135,7 @@ def test_merged_set_contains_two_link_worm_moves():
                         present_as(ch, target)              # mover present, same target
             for ch in two.clean_idle_reference(n_arr, q0, head):
                 present_as(ch, head)                        # idle present
+    assert checked[0] > 0                                    # present_as actually ran
 
 
 def test_local_py_matches_reference_on_subsamples():
@@ -149,8 +152,8 @@ def test_local_py_matches_reference_on_subsamples():
         q0 = charge(cfg['n'])
         for _ in range(2):
             head = tuple(int(x) for x in rng.integers(0, N, size=4))
-            sub = [w._family[i] for i in
-                   rng.choice(len(w._family), size=2000, replace=False)]
+            sub = [w._candidate_family[i] for i in
+                   rng.choice(len(w._candidate_family), size=2000, replace=False)]
             assert (w.classified_set_local_py(F, head, shapes=sub)
                     == w.classified_set_reference(n_arr, q0, head, shapes=sub))
 
@@ -197,6 +200,11 @@ def test_step_reference_emits_valid_configs_with_populated_origin():
         assert cfg['Worm_Length'] >= 1
 
 
+# This checks the |C'| >= 1 guarantee (no zero division) and formula
+# self-consistency (the two arithmetic expressions for the closing balance agree);
+# it does NOT exercise the actual accept/reject branch in _run_free_worm -- that
+# acceptance-logic coverage lives in test_acceptance_boundary_matches_hastings_ratio
+# below, which drives the walk with a scripted rng.
 def test_elementary_detailed_balance_no_menu_factor():
     # A full-family classified_set_reference (no `shapes`) is a global charge()
     # recompute per shape over ~3e5 shapes -- infeasible here (~hours).  Task 5 proved
@@ -310,3 +318,69 @@ def test_runs_in_ensemble_and_normalizes():
     normalized = mean / mean[L.origin]
     assert normalized[L.origin] == 1
     assert 'free-target worms' in w.report()
+
+
+class _ScriptedRNG:
+    r"""Feeds _run_free_worm a predetermined draw sequence."""
+    def __init__(self, integers_values, uniform_values):
+        self._ints = list(integers_values)
+        self._unis = list(uniform_values)
+
+    def integers(self, low, high=None, size=None):
+        v = self._ints.pop(0)
+        if size is not None:
+            return np.asarray(v)
+        return v
+
+    def uniform(self, low, high):
+        return self._unis.pop(0)
+
+
+def test_acceptance_boundary_matches_hastings_ratio():
+    # Drives the walk's accept line directly: with the uniform draw just BELOW the
+    # independently computed min(1, (|C|/|C'|) e^{-dS}) the mover must be applied,
+    # just ABOVE it must be rejected.  A sign flip in dS or an inverted count ratio
+    # moves the boundary and fails this test -- the discriminator the shared
+    # _run_free_worm bit-for-bit test cannot provide.
+    L = Lattice(4, 5)
+    S = supervillain.action.NoIntersections(L, kappa=0.3)
+    w = gen.FreeTargetWorm(S)
+    cold = S.configurations(1)[0]
+    n_arr = np.asarray(cold['n']).astype(np.int64)
+    dphi = np.asarray(d(cold['phi']))
+    F = np.asarray(d(cold['n'])).astype(np.int64)
+    tail = (2, 2, 2, 2)
+    C = w.classified_set_local_py(F, tail)
+    k, (change, target) = next((i, ct) for i, ct in enumerate(C) if ct[1] != tail)
+    trial = n_arr.copy()
+    for lnk, c in change.items():
+        trial[lnk] += c
+    Fp = np.asarray(d(Form(trial, degree=1, lattice=L))).astype(np.int64)
+    Cp = w.classified_set_local_py(Fp, target)
+    dS = w._delta_S(dphi, n_arr, change)
+    A = min(1.0, (len(C) / len(Cp)) * np.exp(-dS))
+    assert 0 < A < 1                                   # boundary is nontrivial
+    inv = frozenset((l, -c) for l, c in change.items() if c != 0)
+    j = next(i for i, (ch, tgt) in enumerate(Cp)
+             if frozenset((l, c) for l, c in ch.items() if c != 0) == inv
+             and tgt == tail)
+    A_rev = min(1.0, (len(Cp) / len(C)) * np.exp(+dS))
+
+    def run(first_uniform):
+        w.rng = _ScriptedRNG(
+            integers_values=[list(tail), k, j],
+            uniform_values=[first_uniform, min(1.0, A_rev) - 1e-12],
+        )
+        return w.step_reference(cold)
+
+    accepted = run(A - 1e-9)                            # just below: mover applies,
+    theta = accepted['Intersection_Intersection']       # reverse brings it home
+    disp = tuple((target[m] - tail[m]) % L.N for m in range(4))
+    assert theta[disp] == 1 and theta[L.origin] == 1 and theta.sum() == 2
+    assert np.array_equal(np.asarray(accepted['n']), n_arr)   # net change zero
+
+    w.rng = _ScriptedRNG(integers_values=[list(tail), k], uniform_values=[A + 1e-9])
+    rejected = w.step_reference(cold)                   # just above: zero-length worm
+    assert np.array_equal(np.asarray(rejected['n']), n_arr)
+    assert rejected['Intersection_Intersection'].sum() == 1
+    assert rejected['Worm_Length'] == 1
