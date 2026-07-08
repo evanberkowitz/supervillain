@@ -443,3 +443,79 @@ def test_modes_bit_for_bit():
                                   rb['Intersection_Intersection'])
             assert ra['Worm_Length'] == rb['Worm_Length']
             cfg = rb
+
+
+def test_movers_only_elementary_detailed_balance():
+    # Per-slot balance: q = 1/|M| forward, 1/|M'| reverse, no slot factor (it cancels).
+    S, configs = _valid_configs()
+    w = gen.FreeTargetWorm(S, idle_probability=0.0)
+    L, N = S.Lattice, S.Lattice.N
+    rng = np.random.default_rng(6)
+    tested = 0
+    for cfg in configs[:3]:
+        n_arr = np.asarray(cfg['n']).astype(np.int64)
+        dphi = np.asarray(d(cfg['phi']))
+        F = np.asarray(d(cfg['n'])).astype(np.int64)
+        head = tuple(int(x) for x in rng.integers(0, N, size=4))
+        M = w.classified_set_local_py(F, head, classes='movers')
+        if not M:
+            continue
+        for _ in range(4):
+            change, target = M[int(rng.integers(0, len(M)))]
+            trial = _apply(n_arr, change)
+            Fp = np.asarray(d(Form(trial, degree=1, lattice=L))).astype(np.int64)
+            Mp = w.classified_set_local_py(Fp, target, classes='movers')
+            inv = frozenset((l, -c) for l, c in change.items() if c != 0)
+            assert any(frozenset((l, c) for l, c in ch.items() if c != 0) == inv
+                       and tgt == head for ch, tgt in Mp)   # reverse mover enumerated
+            dS = w._delta_S(dphi, n_arr, change)
+            A_fwd = min(1.0, (len(M) / len(Mp)) * np.exp(-dS))
+            A_rev = min(1.0, (len(Mp) / len(M)) * np.exp(+dS))
+            assert abs(A_fwd / len(M) - np.exp(-dS) * A_rev / len(Mp)) < 1e-12
+            tested += 1
+    assert tested > 0
+
+
+def test_movers_only_acceptance_boundary():
+    # Scripted-rng straddle of min(1, (|M|/|M'|) e^{-dS}) in movers-only mode --
+    # the discriminator for the mode's accept line (the shared-walk bit-for-bit
+    # test cannot catch a sign or ratio error).
+    L = Lattice(4, 5)
+    S = supervillain.action.NoIntersections(L, kappa=0.3)
+    w = gen.FreeTargetWorm(S, idle_probability=0.0)
+    cold = S.configurations(1)[0]
+    n_arr = np.asarray(cold['n']).astype(np.int64)
+    dphi = np.asarray(d(cold['phi']))
+    F = np.asarray(d(cold['n'])).astype(np.int64)
+    tail = (2, 2, 2, 2)
+    M = w.classified_set_local_py(F, tail, classes='movers')
+    k, (change, target) = next(
+        (i, ct) for i, ct in enumerate(M)
+        if 0 < min(1.0, (len(M) / len(w.classified_set_local_py(
+            np.asarray(d(Form(_apply(n_arr, ct[0]), degree=1, lattice=L))).astype(np.int64),
+            ct[1], classes='movers')))
+            * np.exp(-w._delta_S(dphi, n_arr, ct[0]))) < 1)
+    trial = _apply(n_arr, change)
+    Fp = np.asarray(d(Form(trial, degree=1, lattice=L))).astype(np.int64)
+    Mp = w.classified_set_local_py(Fp, target, classes='movers')
+    dS = w._delta_S(dphi, n_arr, change)
+    A = min(1.0, (len(M) / len(Mp)) * np.exp(-dS))
+    inv = frozenset((l, -c) for l, c in change.items() if c != 0)
+    j = next(i for i, (ch, tgt) in enumerate(Mp)
+             if frozenset((l, c) for l, c in ch.items() if c != 0) == inv
+             and tgt == tail)
+    A_rev = min(1.0, (len(Mp) / len(M)) * np.exp(+dS))
+
+    w.rng = _ScriptedRNG(integers_values=[list(tail), k, j],
+                         uniform_values=[A - 1e-9, min(1.0, A_rev) - 1e-12])
+    accepted = w.step_reference(cold)
+    theta = accepted['Intersection_Intersection']
+    disp = tuple((target[m] - tail[m]) % L.N for m in range(4))
+    assert theta[disp] == 1 and theta[L.origin] == 1 and theta.sum() == 2
+    assert np.array_equal(np.asarray(accepted['n']), n_arr)
+
+    w.rng = _ScriptedRNG(integers_values=[list(tail), k], uniform_values=[A + 1e-9])
+    rejected = w.step_reference(cold)
+    assert np.array_equal(np.asarray(rejected['n']), n_arr)
+    assert rejected['Intersection_Intersection'].sum() == 1
+    assert rejected['Worm_Length'] == 1
