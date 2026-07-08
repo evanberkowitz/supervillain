@@ -39,11 +39,13 @@ class FreeTargetWorm(AdaptiveIntersectionWorm):
     COEFF_BOX = (-2, -1, 1, 2)
 
     # Two slots may pair iff their linear-reach supports come within this taxicab
-    # distance.  2 provably contains every pair the TwoLinkAdaptiveWorm can use: its
-    # mover pairs each touch one of two ADJACENT cells (distance 1) and its idle pairs
-    # both touch the head (distance 0).  This bound is placement-intrinsic -- it never
-    # references head or target -- so it cannot break closure.
-    PAIR_PROXIMITY = 2
+    # distance.  1 provably contains every pair the TwoLinkAdaptiveWorm can use: its
+    # mover pairs each touch one of two ADJACENT cells (so their supports come within
+    # distance 1) and its idle pairs both touch the head (distance 0).  This bound is
+    # placement-intrinsic -- it never references head or target -- so it cannot break
+    # closure.  Raising it admits farther-flung pairs (possible distant transport) at
+    # roughly (ball volume) growth in family size and per-iteration enumeration cost.
+    PAIR_PROXIMITY = 1
 
     def __init__(self, S, class_weights=None):
         super().__init__(S, class_weights=class_weights)
