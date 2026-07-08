@@ -410,3 +410,55 @@ def test_classes_filter_matches_manual_split():
                rng.choice(len(w._candidate_family), size=1500, replace=False)]
         assert (w.classified_set_reference(n_arr, q0, head, shapes=sub, classes='movers')
                 == w.classified_set_local_py(F, head, shapes=sub, classes='movers'))
+
+
+def test_idle_probability_validation():
+    L = Lattice(4, 5)
+    S = supervillain.action.NoIntersections(L, kappa=0.3)
+    for bad in (1.0, 1.5, -0.1):
+        try:
+            gen.FreeTargetWorm(S, idle_probability=bad)
+            assert False, f'idle_probability={bad} should raise'
+        except ValueError:
+            pass
+    for ok in (None, 0.0, 0.5):
+        gen.FreeTargetWorm(S, idle_probability=ok)
+
+
+def test_modes_bit_for_bit():
+    # step (compiled + reuse where applicable) vs step_reference (pure Python, fresh)
+    # in the movers-only and two-slot modes; the flat default is already covered.
+    S, configs = _valid_configs()
+    cfg = configs[0]
+    for p in (0.0, 0.3):
+        a = gen.FreeTargetWorm(S, idle_probability=p)
+        b = gen.FreeTargetWorm(S, idle_probability=p)
+        for seed in (5150, 5151):
+            a.rng = np.random.default_rng(seed)
+            b.rng = np.random.default_rng(seed)
+            ra = a.step(cfg)
+            rb = b.step_reference(cfg)
+            assert np.array_equal(np.asarray(ra['n']), np.asarray(rb['n']))
+            assert np.array_equal(ra['Intersection_Intersection'],
+                                  rb['Intersection_Intersection'])
+            assert ra['Worm_Length'] == rb['Worm_Length']
+            cfg = rb
+
+
+def test_movers_only_transports():
+    # The point of the knob: at parameters where the flat draw froze completely
+    # (every worm Worm_Length == 1), movers-only must actually transport.  MUST run on
+    # a THERMALIZED background: from cold, a worm-only chain (no phi updates) pays
+    # dS ~ (kappa/2)(2 pi)^2 per touched link with nothing downhill available, so
+    # every mover rejects and the worm freezes for reasons that have nothing to do
+    # with the draw.  On hot Hammer-generated configs movers can be cheap or downhill.
+    S, configs = _valid_configs()
+    w = gen.FreeTargetWorm(S, idle_probability=0.0)
+    w.rng = np.random.default_rng(37)
+    cfg = configs[-1]
+    for _ in range(10):
+        cfg = w.step(cfg)
+        assert np.abs(charge(cfg['n'])).max() == 0
+    lengths = np.array(w.worm_lengths)
+    assert lengths.mean() > 1.5                            # flat draw gave exactly 1.0
+    assert max(lengths) > 2

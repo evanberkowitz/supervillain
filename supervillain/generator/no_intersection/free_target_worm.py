@@ -22,8 +22,13 @@ class FreeTargetWorm(AdaptiveIntersectionWorm):
     $\{\mathrm{head}{:}\,{-1},\ y{:}\,{+1}\}$ is a mover to $y$ --- orthogonal, diagonal,
     or farther --- and anything else is discarded.  One uniform draw over the clean union
     $C$, accepted with $\min\!\big(1, (\left|C\right|/\left|C'\right|)\,e^{-\Delta S}\big)$.
-    The draw is uniform over $C$ unconditionally --- there is no per-template class
-    weighting here (see ``class_weights`` below).
+    There is no per-template class weighting here (see ``class_weights`` below); the
+    ``idle_probability`` knob instead selects which classes the draw is uniform over:
+    ``None`` draws flat over the whole union $C$; $0.0$ restricts the draw to movers
+    only, so every iteration attempts a transport (no mid-flight sheet isotopy from
+    idles); $0 < p < 1$ draws an idle slot with probability $p$ and a mover slot
+    otherwise, then uniformly within the drawn slot, with a per-slot Hastings ratio
+    $\left|M\right|/\left|M'\right|$ or $\left|I\right|/\left|I'\right|$.
 
     The worm auto-closes the instant the head returns to the tail; the emitted histogram
     is pre-populated with $1$ at the origin (the pivot dwell), and a worm whose opening
@@ -50,12 +55,18 @@ class FreeTargetWorm(AdaptiveIntersectionWorm):
     # roughly (ball volume) growth in family size and per-iteration enumeration cost.
     PAIR_PROXIMITY = 1
 
-    def __init__(self, S, class_weights=None):
+    def __init__(self, S, class_weights=None, idle_probability=None):
         if class_weights is not None:
             raise ValueError(
                 'FreeTargetWorm draws uniformly from the classified clean union; '
                 'the parent per-template class_weights do not apply.  (A future '
                 'idle-vs-mover draw weighting is a different, deferred knob.)')
+        if idle_probability is not None and not (0.0 <= idle_probability < 1.0):
+            raise ValueError(
+                'idle_probability must be None (flat draw over the clean union), '
+                '0.0 (movers only), or in [0, 1) (two-slot draw); '
+                f'got {idle_probability}.')
+        self.idle_probability = idle_probability
         super().__init__(S)
         self._reach = self._link_reach()     # derive once; _link_reach probes a scratch lattice
         self._candidate_family = self._build_family()
@@ -368,6 +379,22 @@ class FreeTargetWorm(AdaptiveIntersectionWorm):
         # reverse (facts (1)+(2)); after a rejection C is unchanged -- so a positive-
         # probability path back to the tail always exists and the walk halts almost
         # surely.  An empty C can only occur at open (before any move): close immediately.
+        #
+        # (5) Slot modes (idle_probability).  None: the flat draw above, verbatim.  0.0:
+        #     the proposal set is the MOVERS only; classification maps movers to movers
+        #     under reversal (fact (1)), so the mover set is closed under reversal, the
+        #     reverse of an accepted mover is in M' (|M'| >= 1), and the balance is the
+        #     flat-draw balance with C -> M.  Idles are simply never proposed -- detailed
+        #     balance never needed them; mid-flight sheet isotopy is lost (accepted
+        #     mixing tradeoff; the Hammer's other updates rearrange the sheet between
+        #     worms).  0 < p < 1: draw the slot first (idle w.p. p), then uniform within
+        #     the slot's clean set; forward and reverse of any move share the slot type
+        #     and the state-independent slot probability, which therefore cancels,
+        #     leaving the per-slot count ratio |M|/|M'| or |I|/|I'|.  An empty drawn
+        #     slot is an ordinary stay-put self-loop (tally and continue) -- except at
+        #     the pivot, where, like any non-transporting opening, it closes the worm.
+        #     The two-slot mode enumerates fresh every iteration (no reuse: the next
+        #     slot draw may differ), and consumes one extra uniform per iteration.
         L = self.Lattice
         N = L.N
         D = L.D
@@ -395,14 +422,44 @@ class FreeTargetWorm(AdaptiveIntersectionWorm):
                 n[link] += s * c
                 local_charge.apply_link_to_F(F, link[0], link[1:], s * c, N)
 
-        C = classify(F, head)
+        p_idle = self.idle_probability
+
+        def clean_set(at):
+            # The proposal set for one iteration at head ``at``.  Flat and movers-only
+            # modes have a fixed class per worm; the two-slot mode draws it per call.
+            if p_idle is None:
+                return classify(F, at, classes='all')
+            if p_idle == 0.0:
+                return classify(F, at, classes='movers')
+            slot = 'idles' if self.rng.uniform(0, 1) < p_idle else 'movers'
+            return classify(F, at, classes=slot)
+
+        two_slot = p_idle is not None and p_idle > 0.0
+        C = clean_set(head)
         while True:
             if not C:
-                return emit()                                # only possible at open
+                # Flat/movers-only: only possible at open -- close.  Two-slot: an empty
+                # drawn slot mid-flight is a stay-put self-loop; at the pivot (only
+                # reachable at open) it closes like any non-transporting opening.
+                if head == tail:
+                    return emit()
+                disp = tuple((head[k] - tail[k]) % N for k in range(D))
+                displacements[disp] += 1
+                C = clean_set(head)
+                continue
             change, target = C[int(self.rng.integers(0, len(C)))]
             dS = self._delta_S(dphi, n, change)              # pre-move n
             touch(change, +1)
-            Cp = classify(F, target)
+            # The reverse proposal set: same class as the forward move (fact (5)) --
+            # movers reverse to movers, idles to idles -- so in two-slot mode the
+            # reverse enumeration is the forward move's class, NOT a fresh slot draw.
+            if p_idle is None:
+                Cp = classify(F, target, classes='all')
+            elif p_idle == 0.0:
+                Cp = classify(F, target, classes='movers')
+            else:
+                Cp = classify(F, target,
+                              classes=('idles' if target == head else 'movers'))
             if self.rng.uniform(0, 1) < min(1.0, (len(C) / len(Cp)) * np.exp(-dS)):
                 head = target
                 C_next = Cp
@@ -413,4 +470,4 @@ class FreeTargetWorm(AdaptiveIntersectionWorm):
                 return emit()                                # auto-close (fact (4))
             disp = tuple((head[k] - tail[k]) % N for k in range(D))
             displacements[disp] += 1
-            C = C_next if reuse else classify(F, head)
+            C = C_next if (reuse and not two_slot) else clean_set(head)
