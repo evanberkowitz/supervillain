@@ -23,6 +23,8 @@ parser.add_argument('--kappa', type=float, default=0.3)
 parser.add_argument('--steps', type=int, default=400)
 parser.add_argument('--burn', type=int, default=100)
 parser.add_argument('--seed', type=int, default=137)
+parser.add_argument('--idle-probability', type=float, default=None,
+                    help='FreeTargetWorm idle_probability (None = flat draw).')
 args = parser.parse_args()
 
 
@@ -40,7 +42,8 @@ def correlator(worm_cls, seed):
 
 
 for name, cls in (('TwoLinkAdaptiveWorm', gen.TwoLinkAdaptiveWorm),
-                  ('FreeTargetWorm', gen.FreeTargetWorm)):
+                  ('FreeTargetWorm',
+                   lambda S: gen.FreeTargetWorm(S, idle_probability=args.idle_probability))):
     g, dg, w = correlator(cls, args.seed)
     print(f'--- {name}')
     print(w.report())
