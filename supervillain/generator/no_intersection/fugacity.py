@@ -24,8 +24,8 @@ class FugacityWorm(ReadWriteable):
 
     .. math ::
         \pi(\phi, n) = e^{-S_{V}(\phi, n)}\, \zeta^{D(n)},
-        \qquad D(n) = \sum_{x} \left|Q_{x}(n)\right|,
-        \quad Q = dn \wedge dn,
+        \qquad D(n) = \sum_{x} \left|q_{x}(n)\right|,
+        \quad q = dn \wedge dn,
 
     with single-link Metropolis: a link and $c = \pm 1$ are drawn uniformly (a
     symmetric proposal) and accepted with $\min\!\left(1, e^{-\Delta S}\,
@@ -40,12 +40,12 @@ class FugacityWorm(ReadWriteable):
 
     The correlator is read off by bookkeeping rather than steering.  Since inserting
     $e^{+i\theta_{x}} e^{-i\theta_{y}}$ shifts the constraint to
-    $Q = \delta_{x} - \delta_{y}$,
+    $q = \delta_{x} - \delta_{y}$,
 
     .. math ::
         \left\langle e^{+i\theta_{x}} e^{-i\theta_{y}} \right\rangle
-        = \frac{E\!\left[\mathbf{1}_{Q = \delta_{x} - \delta_{y}}\right]}
-               {\zeta^{2}\, E\!\left[\mathbf{1}_{Q \equiv 0}\right]}
+        = \frac{E\!\left[\mathbf{1}_{q = \delta_{x} - \delta_{y}}\right]}
+               {\zeta^{2}\, E\!\left[\mathbf{1}_{q \equiv 0}\right]}
         \qquad\Longrightarrow\qquad
         G(r) = \frac{H_{\text{pair}}(r)}{V\, \zeta^{2}\, H_{Z}},
 
@@ -73,7 +73,8 @@ class FugacityWorm(ReadWriteable):
 
     Statistical errors on $G$ come from a block jackknife over :meth:`close_block`
     boundaries; note $\left\langle e^{i\theta} \right\rangle$ itself vanishes
-    identically on the torus (total charge is conserved), so the large-$r$ plateau of
+    identically on the torus (the total charge $Q = \sum_{x} q_{x}$ vanishes for every
+    $n$, since $q = d(n \wedge dn)$ is exact), so the large-$r$ plateau of
     $G$ is the only order-parameter diagnostic for the $\theta$ shift symmetry.
 
     Parameters
@@ -90,7 +91,7 @@ class FugacityWorm(ReadWriteable):
 
         Restricted to $D = 4$.  This is **not** an
         :class:`~supervillain.generator.Generator` for
-        :class:`~supervillain.Ensemble`: it deliberately visits invalid ($Q \neq 0$)
+        :class:`~supervillain.Ensemble`: it deliberately visits invalid ($q \neq 0$)
         configurations, so its samples must not feed observables that assume the
         constraint.  Valid-sector physics is available by conditioning on the vacuum
         sector; the intended use is :meth:`run` + :meth:`correlator`.
@@ -206,13 +207,14 @@ class FugacityWorm(ReadWriteable):
         # O(1): the field strength F = dn (the per-link charge stencils read it), the
         # charge Q = dn∧dn only through its NONZERO cells (the sparse `defects` dict --
         # on a well-tuned chain almost all of Q is zero), and the scalar defect count
-        # D = Σ|Q| that the fugacity prices.
+        # D = Σ|q| that the fugacity prices.  (The TOTAL charge Q = Σ q is identically
+        # zero for every n -- q is exact -- so every sector the chain visits is neutral.)
         F = np.asarray(d(Form(n, degree=1, lattice=L))).astype(np.int64)
-        Q = np.asarray(charge(Form(n, degree=1, lattice=L))).astype(np.int64)
+        q_arr = np.asarray(charge(Form(n, degree=1, lattice=L))).astype(np.int64)
         # defects: nonzero hypercubes, keyed by the 4-tuple cell (component axis stripped).
-        defects = {tuple(int(x) for x in z[1:]): int(Q[tuple(z)])
-                   for z in np.argwhere(Q != 0)}
-        D = int(np.abs(Q).sum())
+        defects = {tuple(int(x) for x in z[1:]): int(q_arr[tuple(z)])
+                   for z in np.argwhere(q_arr != 0)}
+        D = int(np.abs(q_arr).sum())
         site_update = SiteUpdate(self.S)
         site_update.rng = rng
         dphi = np.asarray(d(Form(phi, degree=0, lattice=L)))
@@ -239,7 +241,7 @@ class FugacityWorm(ReadWriteable):
                 c = int(cs[i])
                 # The link's charge response on the CURRENT background, from the same
                 # local stencils the clean worms use -- but here a messy Δq is not a
-                # rejection, it is a price: ΔD counts how many units of |Q| the move
+                # rejection, it is a price: ΔD counts how many units of |q| the move
                 # creates (+) or annihilates (-), summed over the touched hypercubes.
                 dq = local_charge.charge_change_from_link(F, mu, site, c, N)
                 dD = 0
@@ -274,11 +276,11 @@ class FugacityWorm(ReadWriteable):
                 # and must be counted, or the dwell-time ratio is biased.
                 if tally:
                     if D == 0:
-                        # Vacuum sector: a valid Q ≡ 0 configuration -- one tick of Z.
+                        # Vacuum sector: a valid q ≡ 0 configuration -- one tick of Z.
                         self._H_Z += 1
                     elif D == 2 and len(defects) == 2:
                         # Exactly the worm's G-sector: a single ±1 pair.  (D == 2 alone
-                        # is not enough -- one cell with |Q| = 2 also has D = 2.)
+                        # is not enough -- one cell with |q| = 2 also has D = 2.)
                         (c1, v1), (c2, v2) = defects.items()
                         if v1 == -v2 and abs(v1) == 1:
                             plus, minus = (c1, c2) if v1 == 1 else (c2, c1)

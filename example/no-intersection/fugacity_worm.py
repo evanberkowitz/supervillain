@@ -49,7 +49,7 @@ S = supervillain.action.NoIntersections(L, kappa=args.kappa)
 # hand the hot valid configuration to the fugacity sampler.  Growing the dense low-κ
 # sheet from cold is exactly what the constrained generators are good at; asking the
 # fugacity moves to do it would waste sweeps paying ζ tolls for rearrangements the
-# Hammer performs for free at Q ≡ 0.
+# Hammer performs for free at q ≡ 0.
 e = supervillain.Ensemble(S).generate(args.hammer, gen.Hammer(S), start='cold')
 cfg = e.configuration[args.hammer - 1]
 phi0, n0 = np.asarray(cfg['phi']), np.asarray(cfg['n'])
