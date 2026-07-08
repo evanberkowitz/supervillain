@@ -519,3 +519,39 @@ def test_movers_only_acceptance_boundary():
     assert np.array_equal(np.asarray(rejected['n']), n_arr)
     assert rejected['Intersection_Intersection'].sum() == 1
     assert rejected['Worm_Length'] == 1
+
+
+def test_two_slot_idle_elementary_detailed_balance():
+    # The two-slot mode's idle branch: q = p_idle/|I| forward, p_idle/|I'| reverse at the
+    # SAME head -- the slot probability cancels, leaving |I|/|I'|.  The reverse of an
+    # accepted idle must be enumerated among the idles at the same head on the applied
+    # background (reversal identity + negation closure), which is also what the walk's
+    # reverse-class keying (target == head -> 'idles') relies on.
+    S, configs = _valid_configs()
+    w = gen.FreeTargetWorm(S, idle_probability=0.5)
+    L, N = S.Lattice, S.Lattice.N
+    rng = np.random.default_rng(8)
+    tested = 0
+    for cfg in configs[:3]:
+        n_arr = np.asarray(cfg['n']).astype(np.int64)
+        dphi = np.asarray(d(cfg['phi']))
+        F = np.asarray(d(cfg['n'])).astype(np.int64)
+        head = tuple(int(x) for x in rng.integers(0, N, size=4))
+        I = w.classified_set_local_py(F, head, classes='idles')
+        if not I:
+            continue
+        for _ in range(4):
+            change, target = I[int(rng.integers(0, len(I)))]
+            assert target == head                           # idles never move the head
+            trial = _apply(n_arr, change)
+            Fp = np.asarray(d(Form(trial, degree=1, lattice=L))).astype(np.int64)
+            Ip = w.classified_set_local_py(Fp, head, classes='idles')
+            inv = frozenset((l, -c) for l, c in change.items() if c != 0)
+            assert any(frozenset((l, c) for l, c in ch.items() if c != 0) == inv
+                       for ch, _ in Ip)                     # reverse idle enumerated
+            dS = w._delta_S(dphi, n_arr, change)
+            A_fwd = min(1.0, (len(I) / len(Ip)) * np.exp(-dS))
+            A_rev = min(1.0, (len(Ip) / len(I)) * np.exp(+dS))
+            assert abs(A_fwd / len(I) - np.exp(-dS) * A_rev / len(Ip)) < 1e-12
+            tested += 1
+    assert tested > 0

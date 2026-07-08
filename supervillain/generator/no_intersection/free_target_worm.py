@@ -64,7 +64,7 @@ class FreeTargetWorm(AdaptiveIntersectionWorm):
         if idle_probability is not None and not (0.0 <= idle_probability < 1.0):
             raise ValueError(
                 'idle_probability must be None (flat draw over the clean union), '
-                '0.0 (movers only), or in [0, 1) (two-slot draw); '
+                '0.0 (movers only), or strictly between 0 and 1 (two-slot draw); '
                 f'got {idle_probability}.')
         self.idle_probability = idle_probability
         super().__init__(S)
@@ -212,6 +212,8 @@ class FreeTargetWorm(AdaptiveIntersectionWorm):
         A global recompute per shape is slow, so full-family calls are hand-run only;
         tests validate on subsets via ``shapes``.
         """
+        if classes not in ('all', 'movers', 'idles'):
+            raise ValueError(f"classes must be 'all', 'movers', or 'idles'; got {classes!r}")
         L = self.Lattice
         seen = set()
         out = []
@@ -251,6 +253,8 @@ class FreeTargetWorm(AdaptiveIntersectionWorm):
         filter is applied per placement, since mover-vs-idle is a property of
         $(F, \Delta n)$, not of the shape.
         """
+        if classes not in ('all', 'movers', 'idles'):
+            raise ValueError(f"classes must be 'all', 'movers', or 'idles'; got {classes!r}")
         seen = set()
         out = []
         for change, shape in self._placed(head, shapes):
@@ -283,6 +287,8 @@ class FreeTargetWorm(AdaptiveIntersectionWorm):
         is built), since mover-vs-idle is a property of $(F, \Delta n)$, not of the
         shape.
         """
+        if classes not in ('all', 'movers', 'idles'):
+            raise ValueError(f"classes must be 'all', 'movers', or 'idles'; got {classes!r}")
         N = self.Lattice.N
         Farr = np.asarray(F)
         F2 = np.ascontiguousarray(Farr.reshape(Farr.shape[0], -1))

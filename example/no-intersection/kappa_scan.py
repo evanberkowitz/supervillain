@@ -87,6 +87,9 @@ for kappa in args.kappas:
     assert np.abs(q2).max() == 0, f'constraint violated at kappa={kappa}'
 
     auto = e.autocorrelation_time(observables=SCALARS)
+    if 10 * auto >= args.configurations:
+        raise SystemExit(f'kappa={kappa}: thermalization cut 10*tau = {10*auto} eats the whole '
+                         f'run ({args.configurations} configurations); increase --configurations.')
     thermalized = e.cut(10 * auto)
     auto = thermalized.autocorrelation_time(observables=SCALARS)
     decorrelated = thermalized.every(auto)
@@ -109,11 +112,12 @@ for kappa in args.kappas:
 
     os.makedirs(f'{args.outdir}/N{args.N}', exist_ok=True)
     path = f'{args.outdir}/N{args.N}/kappa{kappa}-{args.worm}.h5'
-    # The h5 writer pickles the Action's Lattice; cached properties accumulated during
-    # the analysis (correlator machinery etc.) scale with volume and blow HDF5's ~64KB
-    # attribute limit at N >= 8 (same library limitation as the workarounds above).
-    # Strip everything a fresh Lattice would not carry; cached properties recompute on
-    # demand, so this is always safe.
+    # The binding failure is the configuration Batch's ``_item_kwargs`` HDF5 attribute,
+    # which pickles the Lattice; cached properties accumulated during the analysis
+    # (correlator machinery etc.) scale with volume and blow HDF5's ~64KB per-attribute
+    # header limit at N >= 8 (datasets have no such limit -- same library limitation as
+    # the workarounds above). Strip everything a fresh Lattice would not carry; cached
+    # properties recompute on demand, so this is always safe.
     baseline = set(supervillain.lattice.Lattice(4, args.N).__dict__)
     for stale in [k for k in L.__dict__ if k not in baseline]:
         del L.__dict__[stale]
