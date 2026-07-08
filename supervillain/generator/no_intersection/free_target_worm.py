@@ -160,3 +160,51 @@ class FreeTargetWorm(AdaptiveIntersectionWorm):
                                         sgn * c) for mu, rs, c in shape),
                                  shifted_sc)
         return family
+
+    # ------------------------------------------------------------------ enumeration (oracle)
+
+    def _placed(self, head, shapes=None):
+        r"""The family (or the subset ``shapes``) placed at ``head``: ``(change, shape)``
+        pairs, in the given order."""
+        N = self.Lattice.N
+        out = []
+        for shape in (self._family if shapes is None else shapes):
+            change = {}
+            for mu, rs, c in shape:
+                link = (mu,) + tuple((head[k] + rs[k]) % N for k in range(4))
+                change[link] = change.get(link, 0) + c
+            out.append((change, shape))
+        return out
+
+    def classified_set_reference(self, n_arr, q0, head, shapes=None):
+        r"""
+        The clean union $C$ at ``head`` on background ``n_arr`` (charge ``q0``), by a
+        global ``charge`` recompute --- the readable oracle the local enumerations are
+        validated against.  Returns ``[(change, target), ...]`` with ``target == head``
+        for idles and duplicate $\Delta n$ collapsed, so the length is $\left|C\right|$.
+
+        A global recompute per shape is slow, so full-family calls are hand-run only;
+        tests validate on subsets via ``shapes``.
+        """
+        L = self.Lattice
+        seen = set()
+        out = []
+        for change, _shape in self._placed(head, shapes):
+            key = frozenset((lnk, c) for lnk, c in change.items() if c != 0)
+            if not key or key in seen:
+                continue
+            trial = n_arr.copy()
+            for lnk, c in change.items():
+                trial[lnk] += c
+            dq = charge(Form(trial, degree=1, lattice=L)) - q0
+            defects = {tuple(int(x) for x in z[1:]): int(dq[tuple(z)])
+                       for z in np.argwhere(dq != 0)}
+            if defects == {}:
+                seen.add(key)
+                out.append((change, head))
+            elif (len(defects) == 2 and defects.get(head) == -1
+                  and sorted(defects.values()) == [-1, 1]):
+                target = next(cell for cell, v in defects.items() if v == 1)
+                seen.add(key)
+                out.append((change, target))
+        return out
