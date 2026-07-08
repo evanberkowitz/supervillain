@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Worm algorithms for the No-Intersection model</title>
+<title>Unified worm algorithms for the No-Intersection model</title>
 <script>
 MathJax = { tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] } };
 </script>
@@ -99,12 +99,14 @@ MathJax = { tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] }
 </head>
 <body>
 
-<h1>Worm algorithms for the No-Intersection model</h1>
+<h1>Unified worm algorithms for the No-Intersection model</h1>
 <p class="caption">
-The <code>IntersectionWorm</code> and the <code>StringWorm</code>: what they do, the subtleties
-the naive versions ran into, and how each was resolved.
-Branch <code>feature/fable-intersection-worm</code>; all quantitative claims below were checked against that branch
-and are reproducible from the scripts and tests cited in &sect;8.
+This document describes the current unified branch, <code>feature/no-intersection-unified</code>,
+as a single native algorithmic story rather than as two pre-merge histories reconciled at the end.
+The unified <code>IntersectionWorm</code> combines Aleksey's exhaustive censuses, local
+\(\Delta q\) machinery, <code>StringWorm</code>, activity diagnostic, and frozen-configuration
+theory with Evan's diagonal move families, direction-first neighbour-graph insight,
+<code>PlanarFluxUpdate</code>, and \(u\wedge v\) frozen constructions.
 </p>
 
 <div class="toc">
@@ -117,7 +119,7 @@ and are reproducible from the scripts and tests cited in &sect;8.
   <li>5. Interlude: frozen configurations</li>
   <li>6. The StringWorm</li>
   <li>7. Diagnostics and division of labor</li>
-  <li>8. Postscript: convergent evolution and the unified worm</li>
+  <li>8. Open items</li>
   <li>9. Where everything lives</li>
 </ul>
 </div>
@@ -248,7 +250,7 @@ q[x]=\sum_{A\sqcup B}\sigma(A\!\frown\!B)\,F_A[x]\,F_B[x+\hat e_A],
 \{A,B\}\in\{01|23,\;02|13,\;03|12\}.
 \]
 </div>
-<figcaption><b>Fig 2. The intersection density pairs complementary plaquettes at a diagonal offset.</b> Each complementary plane-pair contributes; the second factor is read at the shifted corner \(x+\hat e_A\). That shift is exactly why single-axis reflections are not symmetries of \(q\) &mdash; the trap in &sect;4.2.</figcaption>
+<figcaption><b>Fig 2. The intersection density pairs complementary plaquettes at a diagonal offset.</b> Each complementary plane-pair contributes; the second factor is read at the shifted corner \(x+\hat e_A\). That shift is exactly why single-axis reflections are not symmetries of \(q\) &mdash; the symmetry caveat used in &sect;4.2.</figcaption>
 </figure>
 
 <p>
@@ -320,8 +322,9 @@ update ("episode") is:
 menu with the same probability; each is filtered by a locality/cleanliness condition (a factor in
 the \(G\)-sector weight) and then Metropolis-tested with \(\min(1, e^{-\Delta S})\).</li>
 <li><b>Close</b>: whenever the state is <em>closable</em> (head on tail, constraint restored),
-closure is offered as the \((2D{+}1)\)-th equally likely option; if taken, the configuration is
-emitted into the Markov chain.</li>
+closure is offered as the \((2M{+}1)\)-th equally likely option, where \(2M\) is the number of
+head-move displacements in that worm's menu; if taken, the configuration is emitted into the
+Markov chain.</li>
 </ol>
 
 <div class="keypoint">
@@ -371,10 +374,10 @@ probability is a product of per-step factors; the reversed path is built from th
 things need checking.  (i) <em>Per step</em>, proposal probabilities pair up exactly (each move vs.
 its inverse), cleanliness of a move implies cleanliness of its inverse, and the Metropolis ratio
 supplies \(e^{-\Delta S}\).  (ii) <em>The diagonal bookkeeping</em>: closable states use step
-probability \(\tfrac1{2D+1}\) instead of \(\tfrac1{2D}\).  The forward product involves the
+probability \(\tfrac1{2M+1}\) instead of \(\tfrac1{2M}\).  The forward product involves the
 closability of \(s_0,\dots,s_{k-1}\) and the reverse that of \(s_1,\dots,s_k\); since \(s_0\) and
 \(s_k\) are <em>both</em> closable, the two factor sets coincide and cancel.  Insertion
-(\(\propto 1/V\)) and closure (\(\tfrac1{2D+1}\)) appear once on each side.  Net:
+(\(\propto 1/V\)) and closure (\(\tfrac1{2M+1}\)) appear once on each side.  Net:
 \(P(\text{path})/P(\text{reversed}) = e^{-\Delta S_{\text{total}}}\), so the emitted \(Z\)-sector
 configurations sample \(e^{-S}\) restricted to the constraint surface.
 </div>
@@ -390,14 +393,14 @@ Everything else &mdash; and everything that went wrong in the naive versions &md
 <tr><td>defect carried</td><td>unit of intersection charge \(q=\pm1\)</td>
 <td>endpoint of an open single-direction string</td></tr>
 <tr><td>defect lives on</td><td>hypercubes</td><td>sites (string ends; violations on nearby hypercubes)</td></tr>
-<tr><td>links changed per accepted step</td><td><b>2 or 3</b>, simultaneously (12 / 816 of the 828 shapes per direction)</td>
+<tr><td>links changed per accepted step</td><td><b>2, 3, or 4</b>, simultaneously, from the displacement bucket drawn</td>
 <td><b>exactly 1</b> (the crossed \(\mu\)-link)</td></tr>
 <tr><td>which end moves</td><td colspan="2">only the head; the tail is fixed at the insertion cell until annihilation</td></tr>
 <tr><td>mid-episode constraint</td><td>exactly one \(\pm1\) dipole (all else rejected)</td>
 <td>violations confined to endpoint balls, taxed by fugacity \(e^{-\lambda\sum|q|}\)</td></tr>
 <tr><td>cleanup rule</td><td>each clean step cancels the old head defect and creates the new one</td>
 <td>local \(\Delta q\) is added to a defect ledger; zero entries are deleted</td></tr>
-<tr><td>closes when</td><td colspan="2">head on tail with \(q \equiv 0\) &mdash; the \((2D{+}1)\)-th equally likely option</td></tr>
+<tr><td>closes when</td><td colspan="2">head on tail with \(q \equiv 0\) &mdash; the \((2M{+}1)\)-th equally likely option</td></tr>
 <tr><td>emitted net change</td><td>sheet reconnections via finger/Whitney-type moves</td><td>closed contractible loops and wrapped rings of \(n_\mu\)</td></tr>
 </table>
 
@@ -407,17 +410,24 @@ Everything else &mdash; and everything that went wrong in the naive versions &md
 
 <p>
 The defect is a unit of intersection charge: head and tail live on hypercubes and carry
-\(q = +1\) and \(-1\).  Moving the head one hypercube requires a coordinated few-link change of
-\(n\) whose \(\Delta q\) is a clean dipole,
-\(\{ \text{target}:+1,\ \text{head}:-1 \}\), verified on the live background by the local
-\(\Delta q\).  A proposal draws one of the \(2D\) directions uniformly and <em>one</em> shape
-uniformly from a fixed library bucket for that direction; the menu for a step in direction \(d\)
-consists of the bucket-\(d\) shapes anchored at the target plus the <em>negated</em>
-bucket-\((-d)\) shapes anchored at the head &mdash; the latter are precisely the exact inverses of
-forward steps that could have arrived at the current state, which is what makes the
-proposal-pairing in &sect;3 work.  Unclean draws are simply rejected (the head stalls), which is
-detailed-balance safe.  When the head returns to the tail the two defects cancel and the
-configuration is exactly valid.
+\(q = +1\) and \(-1\).  The head walks the 32-neighbour graph: 8 face steps
+\(\pm\hat e_\mu\) plus 24 signed two-plane diagonals
+\(\pm(\hat e_\mu\pm\hat e_\nu)\).  Face steps flip the parity of
+\(\sum_k x_k\); diagonal steps preserve it.  More importantly, a coordinated diagonal step deposits
+its net dipole directly and never asks anything of an intermediate hypercube, so it can be clean
+where a chain of smaller hops would be vetoed &mdash; Evan's direction-first argument in its
+algorithmic form.
+</p>
+
+<p>
+Each proposal draws one of those \(2M=32\) signed displacements uniformly and then draws one shape
+uniformly from that displacement's fixed bucket.  The exact inverse is supplied by the opposite
+bucket with all link changes negated, which is what makes the proposal-pairing in &sect;3 work.
+The live-background test is strict: the local sparse \(\Delta q\) must be exactly the dipole
+\(\{ \text{target}:+1,\ \text{head}:-1 \}\).  Unclean draws are simply rejected (the head
+stalls), and clean draws receive the ordinary per-move Metropolis test using only the changed links'
+Villain \(\Delta S\).  When the head is back on the tail, closure is the 33rd equally likely option;
+if it is chosen, the two defects cancel and the emitted configuration is exactly valid.
 </p>
 
 <p>
@@ -435,9 +445,10 @@ shape.  On the closing step, the new head is the tail, so the \(+1\) cancels the
 <b>Anatomy of a move.</b>  Only the head moves: the tail is a fixed spectator, holding its
 \(-1\) until the head comes back to annihilate it.  (This mirrors the classic 2d worm; one
 could equally well evolve the tail, but nothing is gained.)  An accepted step changes
-<b>two or three links simultaneously</b> &mdash; of the 828 shapes per direction, 816 are
-3-link and 12 are 2-link &mdash; and the Metropolis test uses the Villain \(\Delta S\) of just
-those links.  For instance the 2-link shape
+<b>two, three, or four links simultaneously</b>: face buckets contain 12 two-link and 816
+three-link shapes, elbow buckets contain 4 two-link, 536 three-link, and 16 four-link shapes, and
+same-sign diagonal buckets contain the 4-link hand-found family.  The Metropolis test uses the
+Villain \(\Delta S\) of just those links.  For instance the face-bucket 2-link shape
 \((n_0[t]\,{-}1,\; n_1[t+\hat e_0+\hat e_2]\,{+}1)\), anchored at the target hypercube
 \(t\), moves the \(+1\) defect one unit in \(+\hat e_3\); the generic 3-link shapes add one
 more link, e.g. \(n_0[t-\hat e_3]\,{-}1\).  A drawn shape counts as a <em>move</em> only if
@@ -538,7 +549,9 @@ The drawings are 2d projections of exact 4d link changes from the generated libr
 below list the actual changed links.  A proposal is accepted into the worm&rsquo;s
 auxiliary sector only when the local sparse check gives
 \(\Delta q=\{\text{target}:+1,\text{ head}:-1\}\) on the current background.  Only the head moves; the tail
-waits at its insertion hypercube.</figcaption>
+waits at its insertion hypercube.  The same library now also carries the diagonal families
+(the 2-link elbow and the 4-link same-sign move), so the head can hop along two-plane diagonals as
+well as across faces.</figcaption>
 </figure>
 
 <p>
@@ -615,7 +628,7 @@ can be essential to pass through a controlled immersed intermediate state.
 
   <text x="380" y="220" text-anchor="middle" fill="#333">Create a signed pair, move one member, then cancel the pair before returning to the physical sector.</text>
 </svg>
-<figcaption><b>Fig 5a. A 2d circle analogy.</b> For curves in the plane, a finger move pushes one
+<figcaption><b>Fig 5. A 2d circle analogy.</b> For curves in the plane, a finger move pushes one
 circle through the other and creates two intersection points of opposite sign.  A Whitney move is
 the reverse local cancellation: the opposite-sign pair bounds a bigon, and sliding across it splits
 the curves into two disjoint circles again.  The IntersectionWorm applies the same
@@ -644,7 +657,7 @@ create-transport-cancel idea to two-dimensional vortex sheets in four dimensions
   <path d="M338 96 C 372 82, 380 82, 400 96" fill="none" stroke="#4a6a9d" stroke-width="1.6" marker-end="url(#ar4)"/>
   <text x="380" y="60" text-anchor="middle" fill="#2d4a7d" font-size="11">head advances</text>
 </svg>
-<figcaption><b>Fig 5. The IntersectionWorm drags the worldsheet.</b> The head (+1) and tail (&minus;1) are units of intersection charge on hypercubes. Each accepted step is a clean, coordinated few-link change of <em>n</em> that extends the sheet by one cell; when the head returns to the tail the pair annihilates and the sheet is intersection-free again. The temporary creation and transport of the pair is finger-move-like; the final annihilation is Whitney-move-like.</figcaption>
+<figcaption><b>Fig 6. The IntersectionWorm drags the worldsheet.</b> The head (+1) and tail (&minus;1) are units of intersection charge on hypercubes. Each accepted step is a clean, coordinated few-link change of <em>n</em> that extends the sheet by one cell; when the head returns to the tail the pair annihilates and the sheet is intersection-free again. The temporary creation and transport of the pair is finger-move-like; the final annihilation is Whitney-move-like.</figcaption>
 </figure>
 
 <figure id="fig-6">
@@ -685,7 +698,7 @@ create-transport-cancel idea to two-dimensional vortex sheets in four dimensions
   <text x="257" y="131" text-anchor="middle" fill="#c0392b" font-size="10">&#8722;1</text>
   <circle cx="292" cy="127" r="10" fill="#4a6a9d"/>
   <text x="292" y="131" text-anchor="middle" fill="#fff" font-size="10">+1</text>
-  <text x="275" y="205" text-anchor="middle" fill="#555">2&#8211;3 links change</text>
+  <text x="275" y="205" text-anchor="middle" fill="#555">2&#8211;4 links change</text>
   <text x="460" y="22" text-anchor="middle" fill="#333" font-weight="bold">wander</text>
   <line x1="390" y1="40" x2="530" y2="40" stroke="#ccc"/>
   <line x1="390" y1="40" x2="390" y2="180" stroke="#ccc"/>
@@ -738,23 +751,28 @@ create-transport-cancel idea to two-dimensional vortex sheets in four dimensions
   <line x1="610" y1="116" x2="610" y2="139" stroke="#2d5a2d" stroke-width="4"/>
   <text x="645" y="205" text-anchor="middle" fill="#2d5a2d" font-weight="bold" font-size="12">valid closure &#8212; emit</text>
 </svg>
-<figcaption><b>Fig 6. One IntersectionWorm episode</b> (schematic 2d slice; cells are hypercubes).
-Insert the pair for free; each accepted head move changes 2&#8211;3 links (green), dragging the
+<figcaption><b>Fig 7. One IntersectionWorm episode</b> (schematic 2d slice; cells are hypercubes).
+Insert the pair for free; each accepted head move changes 2&#8211;4 links (green), dragging the
 worldsheet (shaded) behind the +1 defect while the &#8722;1 tail waits; when the head rejoins the
 tail the defects annihilate, the constraint is exactly restored, and the deformed configuration is
 emitted.  Rejected or unclean proposals just leave the head in place.</figcaption>
 </figure>
 
-<h3>4.2 Subtlety: the move library was starved &mdash; and lattice symmetry is smaller than you think</h3>
+<h3>4.2 Subtlety: both lines were library-starved in complementary ways</h3>
 
 <div class="subtlety">
 <span class="tag">Symptom.</span>
-The original library held the orbit of one hand-found 3-link shape under the 24 axis
-permutations, and even discarded half of that orbit: <b>3 shapes per direction</b>.  The head was
-far from "moving freely."
+A fixed worm library can look plausible while silently excluding exactly the moves that matter.
+Aleksey's line had an exhaustive face-step story but initially filtered away all diagonal
+displacements; Evan's line had diagonal moves by hand but still used the global charge check and did
+not yet have the census machinery.
 </div>
 
-<p>Three separate issues were tangled together:</p>
+<p>
+On Aleksey's side, the original library held the orbit of one hand-found 3-link shape under the
+24 axis permutations, and even discarded half of that orbit: <b>3 shapes per direction</b>.  Three
+separate issues were tangled together:
+</p>
 
 <ul>
 <li><b>Re-anchoring.</b>  Odd permutations flip which end of the dipole carries the \(+1\).  The
@@ -769,54 +787,63 @@ reflections do not commute with the wedge&rsquo;s \(x+\hat e_A\) shift (&sect;1)
 candidates must be <em>filtered</em> by re-validating on an empty background, never assumed clean.</li>
 </ul>
 
+<p>
+That repair led to the brute-force censuses, the reduced seed representatives in
+<code>moves.py</code>, and the \(O(1)\) local \(\Delta q\) machinery.  Independently, Evan's line
+found the richer neighbour graph directly from physics: the 2-link orthogonal family, the 2-link
+elbow, and the 4-link same-sign diagonal.  The diagonal displacements were exactly what the
+unit-separation filter on Aleksey's side had excluded.  Each line covered the other's blind spot:
+one supplied the enumeration and local checking; the other supplied the displacement graph and the
+minimal same-sign seed.
+</p>
+
 <div class="resolution">
-<span class="tag">Resolution: enumerate, don&rsquo;t guess.</span>
-<code>example/no-intersection-move-search.py</code> exhaustively enumerates <em>every</em> change
-of at most 3 links with coefficients \(\pm1\) whose \(\Delta q\) on an empty background is a
-clean unit dipole.  Result: <b>828 distinct moves per direction</b>, falling into 41 symmetry classes
-(&sect;4.3) &mdash; the original seed&rsquo;s full equivalence class covers just 12 of the 828 (1.4%).  The class
-representatives are stored in the auto-generated <code>moves.py</code>; the library builder
-expands them under the signed permutations and negation with the empty-background filter, and
-reproduces exactly 828 per bucket in all 8 directions &mdash; a nontrivial consistency check
-between the orbit machinery and the brute-force search, pinned by a test.
+<span class="tag">Resolution: enumerate what can be certified, keep what cannot yet be certified explicit.</span>
+The unified branch uses the census machinery for the face and elbow buckets, keeps Evan's
+same-sign 4-link family as a deliberately uncertified family, and expands everything into the
+32 signed displacement buckets described in &sect;4.3.  The important discipline is unchanged:
+transforms are re-anchored and then filtered by an actual empty-background \(\Delta q\) check,
+because lattice reflections are not all symmetries of the shifted wedge.
 </div>
 
 <div class="keypoint">
 <span class="tag">A physics surprise.</span>
 The minimal clean move has <b>two</b> links, not three.  The old documentation reasoned that
 moving the head across a 3-cube requires a coordinated 3-link change; the search found two 2-link
-classes (their dipole arises purely from the \(\Delta F\wedge\Delta F\) cross term).  Being one
-link cheaper, their bare acceptance is a factor \(e^{2\pi^2\kappa/\dots}\sim 7\times\) better at
-\(\kappa=0.1\).
+face classes, and Evan's elbow gives the same lesson on a diagonal displacement.  Their dipoles
+arise purely from the \(\Delta F\wedge\Delta F\) cross term.  Being one link cheaper, their bare
+acceptance is a factor \(e^{2\pi^2\kappa}\sim 7\times\) better at \(\kappa=0.1\).
 </div>
 
 <div class="keypoint">
 <span class="tag">What library size does and does not buy.</span>
-Measured near a moderate-density worldsheet, the clean-proposal ("stall") rate barely moved:
-\(\approx 0.36\) with 3 shapes/direction vs. \(\approx 0.34\) with 828.  Stalling is controlled by
-the local geometry, not the catalog size.  What completeness buys is <em>coverage</em> &mdash;
-69&times; more distinct sheet-dragging maneuvers per step, including the cheap 2-link ones &mdash;
-i.e. ergodicity headroom, not a lower rejection rate.  (&sect;4.3 quantifies exactly this
-with coverage measurements.)
+Measured with the old unit-only library near a moderate-density worldsheet, the clean-proposal
+("stall") rate barely moved: \(\approx 0.36\) with 3 shapes/direction vs. \(\approx 0.34\) with
+the full face library.  Stalling is controlled by the live local geometry, not the catalog size.
+What completeness buys is <em>coverage</em> &mdash; more distinct sheet-dragging maneuvers per step,
+including the cheap 2-link ones &mdash; i.e. ergodicity headroom, not a lower rejection rate.
+The measurements in &sect;4.3 predate the diagonal families and should be read as unit-only coverage
+data.
 </div>
 
-<h3>4.3 The elementary moves: minimality, completeness, and the 41 classes</h3>
+<h3>4.3 The unified move library: minimality, census, and coverage</h3>
 
 <p>
-<b>Why two and three links?</b>  Work up from the smallest support.  A <em>single</em> link can
+<b>The minimality ladder.</b>  Work up from the smallest support.  A <em>single</em> link can
 never be an elementary move: its \(\Delta F\) lives on the six plaquettes containing that link,
 every one of which contains the link&rsquo;s direction \(\mu\) &mdash; so no two of them are
 complementary, \(\Delta F\wedge\Delta F\equiv 0\), and one link creates <em>no</em> charge on
-an empty background (Fig&nbsp;7; the exhaustive search confirms: zero 1-link moves).  Charge
+an empty background (Fig&nbsp;8; the exhaustive search confirms: zero 1-link moves).  Charge
 creation therefore needs \(\Delta F\) in two complementary planes, hence at least <b>two links of
-distinct directions</b>, and placed just so: exactly 12 shapes per direction achieve the clean
-dipole this way, and they are the action-cheapest moves in the library.  The <b>generic</b>
-elementary move has <b>three links</b> (816 shapes per direction, spread over ten
-direction-patterns).  The cap at three is a design judgment, not a theorem: each additional fresh
-link multiplies the bare acceptance by \(e^{-2\pi^2\kappa}\) (a factor \(\sim 7\) at
-\(\kappa=0.1\)), and long coordinated maneuvers are better built by <em>chaining</em> elementary
-moves through the \(G\)-sector &mdash; which is what a worm is for &mdash; than by enumerating
-ever-larger atomic proposals.
+distinct directions</b>, and placed just so.  The face buckets contain 12 such 2-link shapes; the
+elbow buckets contain 4.  Three links are the generic case for the certified face and elbow
+censuses.  The same-sign diagonal is the exception that proves the rule: the \(\le3\)-link census
+for that displacement is provably empty, so Evan's 4-link same-sign family is minimal.  Its
+minimality is certified; its completeness among all 4-link same-sign moves is not.  Longer atomic
+proposals remain possible, but each additional fresh link multiplies the bare acceptance by
+\(e^{-2\pi^2\kappa}\) (a factor \(\sim 7\) at \(\kappa=0.1\)), and long coordinated maneuvers are
+better built by chaining elementary moves through the \(G\)-sector &mdash; which is what a worm is
+for &mdash; than by enumerating ever-larger atoms.
 </p>
 
 <figure id="fig-7">
@@ -857,33 +884,49 @@ ever-larger atomic proposals.
 \qquad F=0\Rightarrow \Delta q=0.
 \]
 </div>
-<figcaption><b>Fig 7. Why one link can never be an elementary move.</b> All six plaquettes of a
+<figcaption><b>Fig 8. Why one link can never be an elementary move.</b> All six plaquettes of a
 link contain its direction &#956;, so &#916;F never occupies two complementary planes and the
 quadratic term vanishes identically: a single link cannot create intersection charge on an empty
 background.  The minimal charge-creating move has two links of distinct directions.</figcaption>
 </figure>
 
 <p>
-<b>Completeness.</b>  The library is complete by direct enumeration within a precisely stated
-class: <em>every</em> \(\Delta n\) supported on at most 3 links, with coefficients \(\pm1\),
-whose \(\Delta q\) on the empty background is a clean unit dipole
-(<code>example/no-intersection-move-search.py</code>).  The enumeration takes all 1-, 2- and
-3-subsets of the links that can influence the charge of the two defect hypercubes.  The certified
-class is that on-target census <em>plus its transform-orbit closure</em>: as discovered during the
-unification of &sect;8, the filtered transforms can carry an all-on-target move to a clean move
-with one <em>off</em>-target link whose cross terms cancel in context, so the closure &mdash;
-which is exactly what the library builder constructs &mdash; is the honest boundary of the class.
-(For the face displacement the closure adds nothing: 828 stays 828.)  One dipole direction is enumerated; the other seven buckets follow from
-axis permutations and full parity, which are exact symmetries of \(q\).  As an independent
-cross-check, the library builder regenerates <em>exactly</em> 828 shapes per direction in all 8
-buckets from the stored representatives &mdash; two very different computations agreeing on the
-count, pinned by a CI test.  Three honest caveats: coefficients \(\pm2\) and beyond are not
-enumerated (they cost \(4\times\) the action per link); supports of 4+ links are not enumerated;
-and &ldquo;clean&rdquo; is judged on the <em>empty</em> background.  Moves that are clean only
-against a particular background exist &mdash; even a single link can be, when the cross terms
-conspire &mdash; but they cannot live in a fixed, state-independent catalog without
-Metropolis&ndash;Hastings corrections; the worm reaches such background-adapted maneuvers by
-composition instead.
+<b>The unified buckets.</b>  The branch stores buckets for all 32 signed displacements.  The table is
+the current native library, not a postscript merge ledger:
+</p>
+
+<table>
+<tr><th>displacement</th><th>buckets</th><th>shapes each</th><th>status</th></tr>
+<tr><td>face \(\pm\hat e_\mu\)</td><td class="num">8</td><td class="num">828 (12 2-link + 816 3-link)</td>
+<td>exhaustive \(\le3\)-link census, 41 classes</td></tr>
+<tr><td>elbow \(\pm(\hat e_\mu - \hat e_\nu)\)</td><td class="num">12</td>
+<td class="num">556 (4 2-link + 536 3-link + 16 4-link)</td>
+<td>exhaustive census found 412 on-target; orbit closure grew it to 540; plus 16 4-link orbit
+images of the same-sign seed, 43 classes</td></tr>
+<tr><td>same-sign \(\pm(\hat e_\mu + \hat e_\nu)\)</td><td class="num">12</td>
+<td class="num">8 (all 4-link)</td>
+<td>hand-found family; the \(\le3\)-link census for this displacement is provably empty, so four
+links is minimal; completeness is <em>not</em> certified</td></tr>
+</table>
+
+<p>
+The certified class is the on-target census <em>plus its transform-orbit closure</em>.  That
+distinction matters for elbows: filtered transforms can carry an all-on-target move to a clean move
+with one <em>off</em>-target link whose cross terms cancel in context.  Concretely, a clean 2-link
+elbow plus a context-neutral third link is a genuine 3-link move that no on-target enumeration can
+see.  The library builder constructs the closure, so that is the honest certified class.  For face
+displacements the closure adds nothing: 828 stays 828.
+</p>
+
+<p>
+The caveats are deliberately explicit.  Coefficients \(\pm2\) and beyond are not enumerated (they
+cost \(4\times\) the action per link).  For face and elbow displacements, supports beyond the
+certified \(\le3\)-link census are not exhaustively classified, except for the 16 four-link elbow
+orbit images imported from the same-sign seed.  For same-sign displacements, the current 4-link
+family is minimal but not a complete \(\le4\)-link census.  And "clean" is judged on the
+<em>empty</em> background: moves that are clean only against a particular background exist, but they
+cannot live in a fixed, state-independent catalog without Metropolis&ndash;Hastings corrections; the
+worm reaches such background-adapted maneuvers by composition instead.
 </p>
 
 <p>
@@ -895,9 +938,10 @@ because \(q\) is quadratic).  Translations are absorbed by re-anchoring every te
 <em>filtered</em> action rather than a clean group action on the library: only the 96-element
 subgroup generated by permutations, parity, and negation is an exact symmetry of the lattice
 \(q\) (single-axis reflections fail, by the wedge shift of &sect;1), so a transform can carry a
-clean move to an unclean template that the filter discards; and an orbit spreads over all eight
-direction buckets, so we classify within one bucket.  The result, verified numerically as an exact
-partition: <b>the 828 moves per direction fall into 41 equivalence classes</b>,
+clean move to an unclean template that the filter discards; and an orbit spreads over many signed
+displacement buckets, so we classify by representative displacement.  The stored reduced library is
+<b>85 seed representatives</b>: 41 face classes, 43 elbow classes, and 1 same-sign class.  For the
+face classes within a single bucket, the class-size partition remains
 </p>
 
 <figure id="fig-8">
@@ -906,11 +950,12 @@ partition: <b>the 828 moves per direction fall into 41 equivalence classes</b>,
     <marker id="arP" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#777"/></marker>
   </defs>
   <!-- pipeline -->
-  <rect x="20" y="40" width="130" height="52" rx="7" fill="#eaf3ea" stroke="#4a7d4a" stroke-width="1.5"/>
-  <text x="85" y="62" text-anchor="middle" fill="#2d5a2d" font-weight="bold">41 classes</text>
-  <text x="85" y="80" text-anchor="middle" fill="#2d5a2d" font-size="10">(one representative each)</text>
-  <line x1="152" y1="66" x2="212" y2="66" stroke="#777" stroke-width="1.4" marker-end="url(#arP)"/>
-  <text x="182" y="52" text-anchor="middle" fill="#555" font-size="10">&#215;768</text>
+  <rect x="18" y="34" width="148" height="64" rx="7" fill="#eaf3ea" stroke="#4a7d4a" stroke-width="1.5"/>
+  <text x="92" y="54" text-anchor="middle" fill="#2d5a2d" font-weight="bold">85 seeds</text>
+  <text x="92" y="71" text-anchor="middle" fill="#2d5a2d" font-size="9">41 face + 43 elbow</text>
+  <text x="92" y="86" text-anchor="middle" fill="#2d5a2d" font-size="9">+ 1 same-sign class</text>
+  <line x1="168" y1="66" x2="212" y2="66" stroke="#777" stroke-width="1.4" marker-end="url(#arP)"/>
+  <text x="190" y="52" text-anchor="middle" fill="#555" font-size="10">&#215;768</text>
   <rect x="215" y="40" width="150" height="52" rx="7" fill="#e9eef6" stroke="#4a6a9d" stroke-width="1.5"/>
   <text x="290" y="60" text-anchor="middle" fill="#2d4a7d" font-size="11">signed permutations,</text>
   <text x="290" y="76" text-anchor="middle" fill="#2d4a7d" font-size="11">negation, re-anchor</text>
@@ -919,12 +964,12 @@ partition: <b>the 828 moves per direction fall into 41 equivalence classes</b>,
   <rect x="430" y="40" width="120" height="52" rx="7" fill="#fbf3e4" stroke="#c78a2d" stroke-width="1.5"/>
   <text x="490" y="60" text-anchor="middle" fill="#8a5a10" font-size="11">clean on empty</text>
   <text x="490" y="76" text-anchor="middle" fill="#8a5a10" font-size="11">background?</text>
-  <line x1="552" y1="66" x2="608" y2="66" stroke="#777" stroke-width="1.4" marker-end="url(#arP)"/>
-  <rect x="610" y="30" width="76" height="72" rx="7" fill="#f0efe9" stroke="#888" stroke-width="1.5"/>
-  <text x="648" y="58" text-anchor="middle" fill="#333" font-weight="bold">8 &#215; 828</text>
-  <text x="648" y="76" text-anchor="middle" fill="#555" font-size="10">buckets</text>
+  <line x1="552" y1="66" x2="596" y2="66" stroke="#777" stroke-width="1.4" marker-end="url(#arP)"/>
+  <rect x="598" y="30" width="92" height="72" rx="7" fill="#f0efe9" stroke="#888" stroke-width="1.5"/>
+  <text x="644" y="55" text-anchor="middle" fill="#333" font-weight="bold">32 buckets:</text>
+  <text x="644" y="76" text-anchor="middle" fill="#555" font-size="10">828 / 556 / 8</text>
   <!-- class-size histogram -->
-  <text x="90" y="132" fill="#555" font-size="11">class sizes within a bucket:</text>
+  <text x="90" y="132" fill="#555" font-size="11">face class sizes within a bucket:</text>
   <g fill="#4a6a9d">
     <rect x="250" y="168" width="26" height="9"  /><text x="263" y="196" text-anchor="middle" font-size="10" fill="#333">6 (&#215;3)</text>
     <rect x="320" y="123" width="26" height="54" /><text x="333" y="196" text-anchor="middle" font-size="10" fill="#333">12 (&#215;18)</text>
@@ -933,13 +978,14 @@ partition: <b>the 828 moves per direction fall into 41 equivalence classes</b>,
     <rect x="530" y="162" width="26" height="15" /><text x="543" y="196" text-anchor="middle" font-size="10" fill="#333">48 (&#215;5)</text>
   </g>
 </svg>
-<figcaption><b>Fig 8. From 41 representatives to the full library.</b> Each class representative
-is expanded under the 768 transforms (signed axis permutations &#215; global negation, with
-translations absorbed by re-anchoring on the +1 defect); candidates that survive the
-empty-background cleanliness filter fill the eight direction buckets with 828 shapes each.  Class
-sizes are irregular (histogram: size &#215; multiplicity) because reflections are not exact
-symmetries and orbits spread over all buckets.  Exactly two classes &mdash; both of size 6 &mdash;
-are the 2-link moves; the original hand-found seed&rsquo;s class has size 12.</figcaption>
+<figcaption><b>Fig 9. From 85 representatives to the unified library.</b> The stored representatives
+(41 face + 43 elbow + 1 same-sign) are expanded under the 768 transforms (signed axis permutations
+&#215; global negation, with translations absorbed by re-anchoring on the +1 defect); candidates that
+survive the empty-background cleanliness filter fill 32 signed displacement buckets with 828, 556,
+or 8 shapes depending on displacement type.  The histogram shown is the face class-size partition
+within one bucket; those numbers stay useful because the face census is still the cleanest certified
+case.  Exactly two face classes &mdash; both of size 6 &mdash; are the 2-link face moves; the original
+hand-found seed&rsquo;s face class has size 12.</figcaption>
 </figure>
 
 <p>
@@ -950,21 +996,22 @@ with sizes \(6\,(\times3)\), \(12\,(\times18)\), \(18\,(\times1)\),
 <div class="keypoint">
 <span class="tag">Implementation status.</span>
 The current generated file stores the reduced form directly: <code>moves.py</code> contains
-<b>41</b> seed representatives.  Of these,
-<b>2</b> are two-link representatives and <b>39</b> are three-link representatives.  Expanding
-those seeds and filtering on the empty-background dipole condition reproduces exactly
-<b>828 shapes in each of the 8 unit-direction buckets</b>, which is the count asserted by
+<b>41 + 43 + 1 = 85</b> seed representatives.  Expanding those seeds and filtering on the
+empty-background dipole condition reproduces exactly
+<b>828 shapes in each face bucket, 556 in each elbow bucket, and 8 in each same-sign bucket</b>,
+which is the count asserted by
 <code>test_intersection_worm_library_covers_all_directions</code>.
 </div>
 
 <p>
 <b>Would a smaller set do?</b>  Three answers for three senses of &ldquo;smaller.&rdquo;
-Under symmetry, the library <em>is</em> 41 classes &mdash; but that is bookkeeping, not
+Under symmetry, the library <em>is</em> 85 stored classes &mdash; but that is bookkeeping, not
 redundancy: at proposal time, orbit-mates anchored at the same head are genuinely different moves
 (different links, different \(\Delta S\), independently blocked or clean on a live background),
 and likewise each shape and its negation.  As a <em>generating set</em> the answer is
-density-dependent, and we measured it: sampling (head, direction) situations and counting how many
-of the candidate moves are clean,
+density-dependent.  The measurements below predate the diagonal families: they sampled face-step
+(head, direction) situations with the unit-only library and counted how many candidate moves were
+clean.
 </p>
 
 <table>
@@ -972,7 +1019,7 @@ of the candidate moves are clean,
 <th colspan="2">dilute (beside the trefoil sheet)</th>
 <th colspan="2">dense (47% plaquette occupancy)</th></tr>
 <tr><th></th><th></th><th>P(&#8805;1 clean)</th><th>mean # clean</th><th>P(&#8805;1 clean)</th><th>mean # clean</th></tr>
-<tr><td>full library</td><td class="num">1656</td><td class="num">1.000</td><td class="num">553.7</td><td class="num"><b>0.060</b></td><td class="num">1.89</td></tr>
+<tr><td>full unit-only face library</td><td class="num">2 &times; 828</td><td class="num">1.000</td><td class="num">553.7</td><td class="num"><b>0.060</b></td><td class="num">1.89</td></tr>
 <tr><td>2-link shapes only</td><td class="num">24</td><td class="num">0.992</td><td class="num">9.0</td><td class="num">0.037</td><td class="num">0.13</td></tr>
 <tr><td>original seed&rsquo;s class</td><td class="num">12</td><td class="num">0.998</td><td class="num">8.6</td><td class="num"><b>0.007</b></td><td class="num">0.01</td></tr>
 </table>
@@ -1018,26 +1065,28 @@ of the candidate moves are clean,
   <text x="587" y="159" text-anchor="middle" font-size="10" fill="#8a5a10">0.007</text>
   <text x="510" y="222" text-anchor="middle" fill="#555" font-size="11" font-style="italic">completeness buys ~9&#215; mobility</text>
 </svg>
-<figcaption><b>Fig 9. Would a smaller set do?  Only where it isn&rsquo;t needed.</b>
-Fraction of sampled (head, direction) situations with at least one clean move, per sub-library
-(note the different vertical scales).  Beside a dilute worldsheet the redundancy is enormous
-(554 clean options on average) and even 12 shapes cover 99.8% of situations; on a dense background
-the full library unlocks 9&#215; more situations than the original class &mdash; and pruning only
-enlarges the worm-blocked set, whose extreme case is the frozen configurations of &sect;5.</figcaption>
+<figcaption><b>Fig 10. Would a smaller set do?  Only where it isn&rsquo;t needed.</b>
+Unit-only pre-diagonal measurement: fraction of sampled face-step (head, direction) situations with
+at least one clean move, per sub-library (note the different vertical scales).  Beside a dilute
+worldsheet the redundancy is enormous (554 clean options on average) and even 12 shapes cover 99.8%
+of situations; on a dense background the full face library unlocks 9&#215; more situations than the
+original class &mdash; and pruning only enlarges the worm-blocked set, whose extreme case is the
+frozen configurations of &sect;5.</figcaption>
 </figure>
 
 <p>
 So a smaller set &ldquo;would do&rdquo; only in the dilute regime, where it doesn&rsquo;t matter;
 in cluttered environments &mdash; exactly where ergodicity is fragile &mdash; every pruning
 strictly enlarges the set of worm-impassable situations.  And since completeness is free at run
-time (drawing 1 of 1656 costs the same as 1 of 24; the build is 3 seconds, cached per process),
-there is no efficiency argument for pruning.  The principled version of the question &mdash; the
+time (drawing one shape from a bucket pair costs the same whether the pair is large or tiny; the
+build is cached per process), there is no efficiency argument for pruning.  The principled version
+of the question &mdash; the
 smallest subset whose induced worm walk remains irreducible on the constraint surface &mdash; is
 precisely the open ergodicity question of &sect;4.1&rsquo;s docstring, and the original
 library&rsquo;s history (a plausible-looking set that turned out to be 1.4% of the elementary
 moves) argues for settling that question before pruning anything.  If anything, the profitable
-direction is the opposite: <em>reweighting</em> the draw toward the cheap 2-link shapes, which is
-detailed-balance-legal for any state-independent weights.
+direction is the opposite: <em>reweighting</em> the draw toward the cheap 2-link shapes and/or
+non-uniform displacement weights, which is detailed-balance-legal for any state-independent weights.
 </p>
 
 <h3>4.4 Subtlety: the global charge recomputation</h3>
@@ -1074,12 +1123,14 @@ and reorganizes the knotted sheet in the condensed phase with validity maintaine
 <h2>5. Interlude: frozen configurations</h2>
 
 <p>
-Evan&rsquo;s constructions (<code>example/no-intersection-frozen.py</code>) build valid
-configurations with space-filling <em>staggered</em> flux &mdash; e.g. the single-pair family
+Aleksey's frozen-configuration theory and Evan's \(u\wedge v\) constructions
+(<code>example/no-intersection/frozen.py</code>) build valid configurations with space-filling
+<em>staggered</em> flux &mdash; e.g. the single-pair family
 \(F_{01}\propto(-1)^{x_0}\), \(F_{23}\propto(-1)^{x_0+x_2+x_3}\), where \(q\) cancels between the
 two wedge orderings; and the six-plane family \(F_{\mu\nu} = A_{\mu\nu}(-1)^{x_\mu+x_\nu}\) with
 \(\mathrm{Pf}(A)=0\).  The exhaustive scan
-(<code>example/no-intersection-unfreeze.py</code>) shows how rigid they are:
+(<code>example/no-intersection/unfreeze.py</code>, with the legacy root-level wrapper still present)
+shows how rigid they are:
 </p>
 
 <table>
@@ -1087,7 +1138,7 @@ two wedge orderings; and the six-plane family \(F_{\mu\nu} = A_{\mu\nu}(-1)^{x_\
 <tr><td>single links (all \(\pm1\))</td><td class="num">0 legal</td><td class="num">0 legal</td></tr>
 <tr><td>all 2-link templates (offsets \(\le1\))</td><td class="num">0</td><td class="num">0</td></tr>
 <tr><td>straight open segments (any length)</td><td class="num">0</td><td class="num">0</td></tr>
-<tr><td>IntersectionWorm proposals (exhaustive \(\le3\)-link library)</td><td class="num">0 / 3000 clean</td><td class="num">0 / 3000 clean</td></tr>
+<tr><td>IntersectionWorm proposals (full unified library)</td><td class="num">0 / 3000 clean</td><td class="num">0 / 3000 clean</td></tr>
 <tr><td><b>transverse rings</b> (\(n_\mu\pm1\) on a full \(\nu\)-ring, \(\nu\ne\mu\))</td>
 <td><b>legal:</b> \((\mu,\nu)=(0,1),(3,2)\)</td><td><b>legal:</b> 8 of 12 classes</td></tr>
 </table>
@@ -1122,7 +1173,7 @@ map.)
   <!-- staggered +/- flux markers -->
   <g font-size="13" text-anchor="middle">
     <text x="56"  y="61" fill="#c0392b">+</text><text x="88"  y="61" fill="#2d6a9d">&#8722;</text><text x="120" y="61" fill="#c0392b">+</text><text x="152" y="61" fill="#2d6a9d">&#8722;</text><text x="184" y="61" fill="#c0392b">+</text>
-    <text x="56"  y="93" fill="#2d6a9d">&#8722;</text><text x="88"  y="93" fill="#c0392b">+</text><text x="120" y="93" fill="#2d6a9d">&#8722;</text><text x="152" y="93" fill="#c0392b">+</text><text x="184" y="93" fill="#2d6a9d">&#8722;</text>
+    <text x="56"  y="94" fill="#2d6a9d">&#8722;</text><text x="88"  y="94" fill="#c0392b">+</text><text x="120" y="94" fill="#2d6a9d">&#8722;</text><text x="152" y="94" fill="#c0392b">+</text><text x="184" y="94" fill="#2d6a9d">&#8722;</text>
     <text x="56"  y="125" fill="#c0392b">+</text><text x="88"  y="125" fill="#2d6a9d">&#8722;</text><text x="120" y="125" fill="#c0392b">+</text><text x="152" y="125" fill="#2d6a9d">&#8722;</text><text x="184" y="125" fill="#c0392b">+</text>
     <text x="56"  y="157" fill="#2d6a9d">&#8722;</text><text x="88"  y="157" fill="#c0392b">+</text><text x="120" y="157" fill="#2d6a9d">&#8722;</text><text x="152" y="157" fill="#c0392b">+</text><text x="184" y="157" fill="#2d6a9d">&#8722;</text>
     <text x="56"  y="189" fill="#c0392b">+</text><text x="88"  y="189" fill="#2d6a9d">&#8722;</text><text x="120" y="189" fill="#c0392b">+</text><text x="152" y="189" fill="#2d6a9d">&#8722;</text><text x="184" y="189" fill="#c0392b">+</text>
@@ -1142,7 +1193,7 @@ map.)
   </g>
   <g font-size="13" text-anchor="middle" opacity="0.5">
     <text x="386" y="61" fill="#c0392b">+</text><text x="418" y="61" fill="#2d6a9d">&#8722;</text><text x="450" y="61" fill="#c0392b">+</text><text x="482" y="61" fill="#2d6a9d">&#8722;</text><text x="514" y="61" fill="#c0392b">+</text>
-    <text x="386" y="93" fill="#2d6a9d">&#8722;</text><text x="418" y="93" fill="#c0392b">+</text><text x="450" y="93" fill="#2d6a9d">&#8722;</text><text x="482" y="93" fill="#c0392b">+</text><text x="514" y="93" fill="#2d6a9d">&#8722;</text>
+    <text x="386" y="94" fill="#2d6a9d">&#8722;</text><text x="418" y="94" fill="#c0392b">+</text><text x="450" y="94" fill="#2d6a9d">&#8722;</text><text x="482" y="94" fill="#c0392b">+</text><text x="514" y="94" fill="#2d6a9d">&#8722;</text>
     <text x="386" y="157" fill="#2d6a9d">&#8722;</text><text x="418" y="157" fill="#c0392b">+</text><text x="450" y="157" fill="#2d6a9d">&#8722;</text><text x="482" y="157" fill="#c0392b">+</text><text x="514" y="157" fill="#2d6a9d">&#8722;</text>
     <text x="386" y="189" fill="#c0392b">+</text><text x="418" y="189" fill="#2d6a9d">&#8722;</text><text x="450" y="189" fill="#c0392b">+</text><text x="482" y="189" fill="#2d6a9d">&#8722;</text><text x="514" y="189" fill="#c0392b">+</text>
   </g>
@@ -1151,7 +1202,7 @@ map.)
   <line x1="374" y1="136" x2="526" y2="136" stroke="#4a7d4a" stroke-width="1.6" marker-end="url(#ar5)"/>
   <text x="450" y="222" text-anchor="middle" fill="#2d5a2d" font-size="11">wraps the torus; avoids lit complements</text>
 </svg>
-<figcaption><b>Fig 10. Why frozen textures need wrapping moves.</b> On the space-filling staggered flux (&plusmn; markers), any bounded change has an extremal plaquette whose cross term against the everywhere-nonzero background deposits an uncancellable charge (left, &#10007;). Only a change whose &#916;F is constant along a lattice direction &mdash; hence <em>wraps the torus</em> (right) &mdash; escapes; these are the length-<em>N</em> rings of <code>WrappingLoopUpdate</code>.</figcaption>
+<figcaption><b>Fig 11. Why frozen textures need wrapping moves.</b> On the space-filling staggered flux (&plusmn; markers), any bounded change has an extremal plaquette whose cross term against the everywhere-nonzero background deposits an uncancellable charge (left, &#10007;). Only a change whose &#916;F is constant along a lattice direction &mdash; hence <em>wraps the torus</em> (right) &mdash; escapes; these are the length-<em>N</em> rings of <code>WrappingLoopUpdate</code>.</figcaption>
 </figure>
 
 <p>
@@ -1183,7 +1234,7 @@ back undoes the deposit and every step&rsquo;s inverse is on the reverse menu wi
 background any charge comes from the cross terms with the existing \(F\).  Those charges are
 tracked in an explicit defect ledger, a sparse dictionary of hypercube charges updated by
 <code>local_dq</code> after each proposed crossed-link deposit.
-In contrast to the IntersectionWorm&rsquo;s coordinated 2&ndash;3-link shapes, each StringWorm step
+In contrast to the IntersectionWorm&rsquo;s coordinated few-link shapes, each StringWorm step
 changes exactly <b>one</b> link; and as there, <b>only the head moves</b> &mdash; the tail marks
 the insertion site until the episode closes.
 </p>
@@ -1259,12 +1310,12 @@ catalog can enumerate.  These are exactly what a frozen droplet&rsquo;s boundary
     <rect x="28" y="62" width="78" height="78" fill="#fff0f0" stroke="#d49b9b" stroke-width="1.4" stroke-dasharray="4 3"/>
     <rect x="154" y="22" width="78" height="78" fill="#ecf2fb" stroke="#9bb0d4" stroke-width="1.4" stroke-dasharray="4 3"/>
     <text x="67" y="54" text-anchor="middle" fill="#c0392b" font-size="11">tail neighborhood</text>
-    <text x="193" y="114" text-anchor="middle" fill="#2d4a7d" font-size="11">head neighborhood</text>
+    <text x="194" y="114" text-anchor="middle" fill="#2d4a7d" font-size="11">head neighborhood</text>
     <circle cx="67" cy="101" r="10" fill="#fffefa" stroke="#c0392b" stroke-width="2"/>
     <text x="67" y="126" text-anchor="middle" fill="#c0392b" font-size="11">tail</text>
-    <circle cx="193" cy="61" r="10" fill="#42669b"/>
-    <text x="193" y="65" text-anchor="middle" fill="#fff" font-size="10">H</text>
-    <text x="193" y="86" text-anchor="middle" fill="#2d4a7d" font-size="11">head</text>
+    <circle cx="194" cy="61" r="10" fill="#42669b"/>
+    <text x="194" y="65" text-anchor="middle" fill="#fff" font-size="10">H</text>
+    <text x="194" y="86" text-anchor="middle" fill="#2d4a7d" font-size="11">head</text>
     <circle cx="50" cy="84" r="9" fill="#c0392b"/><text x="50" y="88" text-anchor="middle" fill="#fff" font-size="10">q</text>
     <circle cx="212" cy="44" r="9" fill="#42669b"/><text x="212" y="48" text-anchor="middle" fill="#fff" font-size="10">q</text>
     <path d="M76 94 C 103 60, 151 50, 184 58" class="guide" marker-end="url(#fig11Arrow)"/>
@@ -1283,7 +1334,7 @@ n_\ell\mapsto n_\ell+s,\qquad
 \Delta F\wedge\Delta F\equiv 0\ \text{because only }n_\mu\text{ changes.}
 \]
 </div>
-<figcaption><b>Fig 11. The StringWorm crossing rule.</b> The head and tail are drawn with the same color convention used elsewhere in the document; here they are string endpoints, while the nearby \(q\)-defects are auxiliary violations tracked by <code>local_dq</code>.  A step is accepted only while the accumulated defects stay inside the endpoint neighborhoods and below the ceiling, and the worm emits only when the head returns to the tail with no defects left.</figcaption>
+<figcaption><b>Fig 12. The StringWorm crossing rule.</b> The head and tail are drawn with the same color convention used elsewhere in the document; here they are string endpoints, while the nearby \(q\)-defects are auxiliary violations tracked by <code>local_dq</code>.  A step is accepted only while the accumulated defects stay inside the endpoint neighborhoods and below the ceiling, and the worm emits only when the head returns to the tail with no defects left.</figcaption>
 </figure>
 
 <figure id="fig-12">
@@ -1309,8 +1360,8 @@ n_\ell\mapsto n_\ell+s,\qquad
   <text x="305" y="24" text-anchor="middle" fill="#333" font-weight="bold">open G state</text>
   <rect x="225" y="45" width="160" height="96" fill="#fffefa" stroke="#d2d2ca" stroke-width="1"/>
   <g fill="#ccc">
-    <circle cx="253" cy="78" r="2.5"/><circle cx="293" cy="78" r="2.5"/><circle cx="333" cy="78" r="2.5"/><circle cx="373" cy="78" r="2.5"/>
-    <circle cx="253" cy="112" r="2.5"/><circle cx="293" cy="112" r="2.5"/><circle cx="333" cy="112" r="2.5"/><circle cx="373" cy="112" r="2.5"/>
+    <circle cx="253" cy="78" r="2.5"/><circle cx="294" cy="78" r="2.5"/><circle cx="333" cy="78" r="2.5"/><circle cx="373" cy="78" r="2.5"/>
+    <circle cx="253" cy="112" r="2.5"/><circle cx="294" cy="112" r="2.5"/><circle cx="333" cy="112" r="2.5"/><circle cx="373" cy="112" r="2.5"/>
   </g>
   <g stroke="#2d5a2d" stroke-width="4">
     <line x1="273" y1="84" x2="273" y2="106"/><line x1="313" y1="84" x2="313" y2="106"/>
@@ -1326,8 +1377,8 @@ n_\ell\mapsto n_\ell+s,\qquad
   <text x="505" y="24" text-anchor="middle" fill="#333" font-weight="bold">merge local change</text>
   <rect x="425" y="45" width="160" height="96" fill="#fffefa" stroke="#d2d2ca" stroke-width="1"/>
   <g fill="#ccc">
-    <circle cx="453" cy="78" r="2.5"/><circle cx="493" cy="78" r="2.5"/><circle cx="533" cy="78" r="2.5"/><circle cx="573" cy="78" r="2.5"/>
-    <circle cx="453" cy="112" r="2.5"/><circle cx="493" cy="112" r="2.5"/><circle cx="533" cy="112" r="2.5"/><circle cx="573" cy="112" r="2.5"/>
+    <circle cx="453" cy="78" r="2.5"/><circle cx="494" cy="78" r="2.5"/><circle cx="533" cy="78" r="2.5"/><circle cx="573" cy="78" r="2.5"/>
+    <circle cx="453" cy="112" r="2.5"/><circle cx="494" cy="112" r="2.5"/><circle cx="533" cy="112" r="2.5"/><circle cx="573" cy="112" r="2.5"/>
   </g>
   <g stroke="#2d5a2d" stroke-width="4">
     <line x1="473" y1="84" x2="473" y2="106"/><line x1="513" y1="84" x2="513" y2="106"/><line x1="553" y1="84" x2="553" y2="106"/>
@@ -1337,7 +1388,7 @@ n_\ell\mapsto n_\ell+s,\qquad
   <circle cx="533" cy="78" r="10" fill="#42669b"/>
   <text x="533" y="82" text-anchor="middle" fill="#fff" font-size="10">H</text>
   <circle cx="552" cy="63" r="8" fill="#42669b"/><text x="552" y="67" text-anchor="middle" fill="#fff" font-size="9">q</text>
-  <circle cx="493" cy="78" r="9" fill="#fffefa" stroke="#888" stroke-width="1.2"/>
+  <circle cx="494" cy="78" r="9" fill="#fffefa" stroke="#888" stroke-width="1.2"/>
   <line x1="486" y1="71" x2="500" y2="85" stroke="#888" stroke-width="1.5"/>
   <line x1="500" y1="71" x2="486" y2="85" stroke="#888" stroke-width="1.5"/>
   <text x="505" y="154" text-anchor="middle" fill="#777" font-size="10">opposite entries cancel</text>
@@ -1375,12 +1426,12 @@ n_\ell\mapsto n_\ell+s,\qquad
 \[
 \Delta S_{\mathrm{test}}
 =\Delta S_{\mathrm{Villain}}
-\lambda\Bigl(\sum_x |q_x|_{\mathrm{new}}-\sum_x |q_x|_{\mathrm{old}}\Bigr),
++\lambda\Bigl(\sum_x |q_x|_{\mathrm{new}}-\sum_x |q_x|_{\mathrm{old}}\Bigr),
 \qquad
 \text{emit only if } \mathrm{head}=\mathrm{tail}\ \text{and}\ \texttt{defects}=\varnothing .
 \]
 </div>
-<figcaption><b>Fig 12. How the StringWorm cleans up temporary violations.</b> The soft fugacity is
+<figcaption><b>Fig 13. How the StringWorm cleans up temporary violations.</b> The soft fugacity is
 applied only to the open-string ledger inside \(G\).  A later step can cancel earlier local charge
 entries, and exact backtracking is the simplest cancellation.  If the head returns to the tail with
 a nonempty ledger, the state is still auxiliary and cannot be emitted; the physical \(Z\)-sector
@@ -1502,7 +1553,7 @@ closed-form expression.
 \kappa^\ast=\frac{\ln 7}{2\pi^2}\approx 0.099 .
 \]
 </div>
-<figcaption><b>Fig 13. The sampler&rsquo;s own phase transition.</b> From fresh territory the head has \(2D-1=7\) ways to grow the string, each costing \(e^{-2\pi^2\kappa}\), against essentially one free retraction.  Near and below \(\kappa^\ast\), episode lengths acquire heavy tails; the StringWorm is a \(\kappa \gtrsim 0.12\) tool, precisely the stiff regime where frozen regions live.</figcaption>
+<figcaption><b>Fig 14. The sampler&rsquo;s own phase transition.</b> From fresh territory the head has \(2D-1=7\) ways to grow the string, each costing \(e^{-2\pi^2\kappa}\), against essentially one free retraction.  Near and below \(\kappa^\ast\), episode lengths acquire heavy tails; the StringWorm is a \(\kappa \gtrsim 0.12\) tool, precisely the stiff regime where frozen regions live.</figcaption>
 </figure>
 
 <div class="resolution">
@@ -1599,7 +1650,7 @@ whatever origin &mdash; appears as a persistent spatial hole of zeros.  The demo
     <div class="caption"><b>frozen texture</b> &mdash; 91.6% dead</div>
   </div>
 </div>
-<figcaption><b>Fig 14. The activity map.</b> Mean |&#916;n<sub>&#8467;</sub>| between consecutive stored configurations, one cell per link (warm = active, grey = dead). A healthy chain moves nearly everywhere; a frozen region shows up as a persistent block of grey &mdash; a spatial hole no local update can touch. Schematic; dead fractions match the measured 4.8% vs 91.6%.</figcaption>
+<figcaption><b>Fig 15. The activity map.</b> Mean |&#916;n<sub>&#8467;</sub>| between consecutive stored configurations, one cell per link (warm = active, grey = dead). A healthy chain moves nearly everywhere; a frozen region shows up as a persistent block of grey &mdash; a spatial hole no local update can touch. Schematic; dead fractions match the measured 4.8% vs 91.6%.</figcaption>
 </figure>
 
 <p>
@@ -1619,8 +1670,11 @@ a non-issue in practice, whatever its in-principle status.
 <tr><td class="mono">WrappingLoopUpdate</td><td>atomic single-direction rings (axis + diagonal)</td>
 <td>the \(\kappa\approx0\) / topological-sector tool; the unique escape from pristine frozen
 configurations; exponentially suppressed at physical \(\kappa\)</td></tr>
-<tr><td class="mono">IntersectionWorm</td><td>intersection-charge defect pair; complete
-\(\le3\)-link move library</td>
+<tr><td class="mono">PlanarFluxUpdate</td><td>global decomposable flux sheets \(A=u\wedge v\)</td>
+<td>Evan-side whole-lattice tunneling move for staggered sheet sectors; now part of the default
+Hammer</td></tr>
+<tr><td class="mono">IntersectionWorm</td><td>intersection-charge defect pair; unified face,
+elbow, and same-sign move buckets</td>
 <td>vortex-sheet reconnection and knot-sector mixing at moderate density</td></tr>
 <tr><td class="mono">StringWorm</td><td>open single-direction strings; emits background-adapted
 closed loops</td>
@@ -1637,78 +1691,62 @@ own \(i\theta\, q\) Lagrange structure made real).  The worms make that machiner
 be needed; they do not make it redundant.
 </p>
 
-<h2>8. Postscript: convergent evolution and the unified worm</h2>
+<h3>7.3 Reading the worm's own correlator</h3>
 
 <p>
-While this document was being written, Evan was independently developing his own
-IntersectionWorm on <code>origin/feature/no-intersection-model</code> &mdash; and the two lines
-attacked the same weaknesses from opposite directions.  His branch grew the move set by
-<em>hand-discovery</em>: a 2-link orthogonal move (the two links, surprisingly, share no corner),
-a 2-link opposite-sign-diagonal &ldquo;elbow,&rdquo; and a 4-link same-sign-diagonal move &mdash;
-teaching the head to walk a richer neighbour graph &mdash; while keeping the global
-\(O(\text{volume})\) charge check.  Ours grew the move set by <em>exhaustive enumeration</em>
-within the unit-displacement class and made every constraint check local, but had filtered out
-diagonal displacements entirely.  Verified relationships: his orthogonal families are strict
-subsets of our 828 (every clean orbit member present); his diagonal families were entirely
-outside our move class.  Each side had found what the other's blind spot hid.
+Evan's parameter scans supply the practical sweet-spot anatomy.  At high \(\kappa\) the
+IntersectionWorm is Metropolis-starved: even the cheapest move costs two links,
+\(e^{-4\pi^2\kappa}\).  At low \(\kappa\) it is constraint-starved: vortex proliferation makes
+almost every shape unclean.  The product peaks near \(\kappa \approx 0.1\), which is the natural
+place to cross-validate alternative proposal schemes.
 </p>
 
 <p>
-His parameter scans also supplied the empirical sweet-spot anatomy of &sect;2 and &sect;4 from
-the physics side: at high \(\kappa\) the worm is Metropolis-starved (the cheapest move costs
-two links, \(e^{-4\pi^2\kappa}\)), at low \(\kappa\) it is constraint-starved (vortex
-proliferation makes almost every shape unclean), and the product peaks near
-\(\kappa \approx 0.1\).  One diagnostic caution his data make vivid: the
-<code>Intersection_Intersection</code> correlator is measured <em>inline by the worm itself</em>,
-so where the worm jams, the correlator&rsquo;s long-distance bins are not small &mdash; they are
-<em>unmeasured</em>.  Plot the worm-length distribution next to the correlator, and trust
-\(I\)-\(I(\Delta x)\) only where the head&rsquo;s excursions actually reach \(\Delta x\).
-On the physics: \(e^{i\theta}\) is the disorder operator for intersection charge, so
+One diagnostic caution follows immediately: the <code>Intersection_Intersection</code> correlator is
+measured <em>inline by the worm itself</em>.  Where the worm jams, the long-distance bins are not
+small; they are <em>unmeasured</em>.  Plot the worm-length distribution next to the correlator, and
+trust \(I\)-\(I(\Delta x)\) only where the head's excursions actually reach \(\Delta x\).  On the
+physics side, \(e^{i\theta}\) is the disorder operator for intersection charge, so
 Spin&ndash;Spin long-range order at large \(\kappa\) should be mirrored by intersection-charge
-condensation at small \(\kappa\) &mdash; dual order parameters.
+condensation at small \(\kappa\): dual order parameters.
 </p>
+
+<h2>8. Open items</h2>
 
 <p>
-The branch <code>feature/no-intersection-unified</code> merges the two designs.  The head walks
-the <b>32-neighbour graph</b> (8 face steps, 24 signed 2-plane diagonals); every bucket is filled
-by the census machinery; every check is the local \(\Delta q\):
+This list doubles as the PR's follow-up agenda.
 </p>
 
-<table>
-<tr><th>displacement</th><th>buckets</th><th>shapes each</th><th>status</th></tr>
-<tr><td>face \(\pm\hat e_\mu\)</td><td class="num">8</td><td class="num">828 (12&#215;2-link, 816&#215;3-link)</td>
-<td>exhaustive census, 41 classes</td></tr>
-<tr><td>elbow \(\pm(\hat e_\mu - \hat e_\nu)\)</td><td class="num">12</td>
-<td class="num">556 (4&#215;2-link, 536&#215;3-link, 16&#215;4-link)</td>
-<td>exhaustive census (412) + orbit closure (540) + same-sign orbit images; 43 classes</td></tr>
-<tr><td>same-sign \(\pm(\hat e_\mu + \hat e_\nu)\)</td><td class="num">12</td><td class="num">8 (all 4-link)</td>
-<td>hand-found family; \(\le3\)-link census provably empty, so 4 links is minimal &mdash;
-completeness <em>not</em> certified</td></tr>
-</table>
-
-<p>
-The unification found one more completeness subtlety, caught by an assertion: the elbow
-census&rsquo;s orbit closure is <em>larger</em> than its on-target enumeration (540 vs 412),
-because a filtered transform can map an all-on-target move to a clean move carrying one link that
-touches neither defect hypercube &mdash; its cross terms cancel in context.  A clean 2-link elbow
-plus such a context-neutral third link is a genuine 3-link move that no on-target enumeration can
-see.  The certified class is therefore the on-target census <em>plus its orbit closure</em>,
-which is precisely the set the library builder constructs; for the face displacement the closure
-happens to add nothing.  Also merged from Evan&rsquo;s branch: the global
-<code>PlanarFluxUpdate</code> (decomposable \(A = u\wedge v\) sheet tunneling, now in the
-Hammer) and the relocated frozen-configuration examples with the \(u\wedge v\)
-parametrization of the six-plane family.
-</p>
-
-<p>
-<b>Open items after the merge.</b>  Evan&rsquo;s newest worm replaces plain Metropolis with full
-Metropolis&ndash;Hastings (state-dependent proposals) &mdash; the &ldquo;directed worm&rdquo; rung
-of &sect;4&rsquo;s proposal-intelligence ladder; it should be cross-validated against this plain
-worm at \(\kappa\approx0.1\) where both move, and its per-candidate cost drops dramatically
-on top of the local \(\Delta q\).  The same-sign-diagonal family awaits a \(\le4\)-link
-census.  And the state-independent reweighting toward cheap 2-link shapes (&sect;4.3) remains an
-easy unexplored knob.
-</p>
+<ol>
+<li><b>Cross-validate the state-dependent worm.</b>  Evan's Metropolis&ndash;Hastings worm should be
+run against this plain-Metropolis worm at \(\kappa\sim0.1\), where both move.  Porting it onto the
+local \(\Delta q\) helpers should drop its per-candidate cost dramatically.</li>
+<li><b>Run a \(\le4\)-link census.</b>  Certify or extend the same-sign family, and check for other
+displacement-forced 4-link families.  The on-target pool is roughly 60 links, so
+\(\binom{60}{4}2^4\sim10^7\) candidates: feasible offline.</li>
+<li><b>A/B test the same-sign buckets.</b>  Remove the 4-link same-sign buckets, rerun the same
+ensembles, and compare autocorrelations against the present unified worm.  The question is whether
+that family earns its 12 displacement slots.</li>
+<li><b>Try state-independent proposal reweighting.</b>  Bias toward cheap 2-link shapes and/or use
+non-uniform displacement weights.  Detailed balance is legal as long as the weights are fixed
+independently of the current state and paired with the same reverse weights.</li>
+<li><b>Do one production-scale validation run.</b>  The existing ensemble cross-checks are
+small-lattice tests.  Before using the unified worm as production evidence, run a scale that can
+expose slow modes.</li>
+<li><b>Map the small-\(\kappa\) phase.</b>  Measure occupancy and intersection susceptibility versus
+\(\kappa\) against plain Villain, add a staggered-flux order parameter (the Fourier peak of \(F\) at
+the frozen textures' momenta), and keep activity maps beside the physics observables so sampler
+holes are visible.  The entropic-order mechanism of arXiv:2503.22789 (Han, Huang, Komargodski,
+Lucas, Popov) makes the frozen textures candidate caricatures of genuine small-\(\kappa\) order; if
+that scenario pans out, tempering or cluster-type updates become mandatory rather than
+precautionary.</li>
+<li><b>Settle the StringWorm's operating regime.</b>  Decide when it is useful, when its long
+episodes are unacceptable, and whether it belongs in the default Hammer.</li>
+<li><b>Consolidate the example layout.</b>  The root-level
+<code>example/no-intersection-*.py</code> scripts and the <code>example/no-intersection/</code>
+directory now overlap.  Pick one layout and leave thin wrappers only where backward compatibility is
+worth it.</li>
+</ol>
 
 <h2>9. Where everything lives</h2>
 
@@ -1719,8 +1757,11 @@ easy unexplored knob.
 <tr><td>Exhaustive move enumeration</td><td class="mono">example/no-intersection-move-search.py</td></tr>
 <tr><td>Local \(\Delta q\) machinery</td><td class="mono">supervillain/generator/no_intersection/charge.py</td></tr>
 <tr><td>String worm</td><td class="mono">supervillain/generator/no_intersection/string.py</td></tr>
-<tr><td>Frozen configurations and the unfreeze scan</td>
-<td class="mono">example/no-intersection/frozen.py, example/no-intersection/unfreeze.py, example/no-intersection-unfreeze.py</td></tr>
+<tr><td>Planar flux update (Evan-side provenance)</td>
+<td class="mono">supervillain/generator/no_intersection/planar.py</td></tr>
+<tr><td>Frozen configurations and the unfreeze scan (Evan-side \(u\wedge v\) layout)</td>
+<td class="mono">example/no-intersection/frozen.py, example/no-intersection/unfreeze.py</td></tr>
+<tr><td>Legacy unfreeze wrapper</td><td class="mono">example/no-intersection-unfreeze.py</td></tr>
 <tr><td>Activity diagnostic + demo</td>
 <td class="mono">supervillain/analysis/activity.py, example/no-intersection-activity.py</td></tr>
 <tr><td>Spun-trefoil seed configuration</td>
@@ -1729,7 +1770,7 @@ easy unexplored knob.
 </table>
 
 <p class="caption">
-Commits, in order: <span class="mono">a94ea5b</span> (worm library + local \(\Delta q\)),
+Provenance, in order: <span class="mono">a94ea5b</span> (Aleksey-line worm library + local \(\Delta q\)),
 <span class="mono">0b38aee</span> (shared charge helpers, fast link update),
 <span class="mono">0656a54</span> (exhaustive move enumeration),
 <span class="mono">6200c5b</span> (spun trefoil),
@@ -1737,12 +1778,13 @@ Commits, in order: <span class="mono">a94ea5b</span> (worm library + local \(\De
 <span class="mono">d9c5a0d</span> (frozen-configuration characterization),
 <span class="mono">f4ac056</span> (StringWorm + activity map),
 <span class="mono">9c3bf4a</span> (this illustrated document), and
-<span class="mono">139416c</span> (move-search re-anchoring), on branch
-<span class="mono">feature/fable-intersection-worm</span>.
+<span class="mono">139416c</span> (move-search re-anchoring), unified with Evan-side diagonal
+families, <code>PlanarFluxUpdate</code>, and \(u\wedge v\) examples on branch
+<span class="mono">feature/no-intersection-unified</span>.
 </p>
 
 <script>
-// Fig 8: fill the two activity grids.  Deterministic (fixed hash), so the figure
+// Fig 14: fill the two activity grids.  Deterministic (fixed hash), so the figure
 // is reproducible; the dead fractions are set to match the measured 4.8% / 91.6%.
 (function () {
   var NS = 'http://www.w3.org/2000/svg', COLS = 10, ROWS = 6, CW = 22, GAP = 3, O = 6;
