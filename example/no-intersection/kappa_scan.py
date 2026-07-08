@@ -109,6 +109,14 @@ for kappa in args.kappas:
 
     os.makedirs(f'{args.outdir}/N{args.N}', exist_ok=True)
     path = f'{args.outdir}/N{args.N}/kappa{kappa}-{args.worm}.h5'
+    # The h5 writer pickles the Action's Lattice; cached properties accumulated during
+    # the analysis (correlator machinery etc.) scale with volume and blow HDF5's ~64KB
+    # attribute limit at N >= 8 (same library limitation as the workarounds above).
+    # Strip everything a fresh Lattice would not carry; cached properties recompute on
+    # demand, so this is always safe.
+    baseline = set(supervillain.lattice.Lattice(4, args.N).__dict__)
+    for stale in [k for k in L.__dict__ if k not in baseline]:
+        del L.__dict__[stale]
     with h5.File(path, 'w') as f:
         # The worm's private enumeration caches (e.g. FreeTargetWorm._library) are keyed
         # by shape tuples, which supervillain.h5.strategy.dict.Dict refuses to serialize
