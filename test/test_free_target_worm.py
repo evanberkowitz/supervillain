@@ -294,3 +294,19 @@ def test_closure_involution_over_all_realized_targets():
                        for ch, tgt in Cp)                   # closure: reverse enumerated
             checked += 1
     assert checked > 0
+
+
+def test_runs_in_ensemble_and_normalizes():
+    L = Lattice(4, 5)
+    S = supervillain.action.NoIntersections(L, kappa=0.3)
+    w = gen.FreeTargetWorm(S)
+    e = supervillain.Ensemble(S).generate(60, w, start='cold')
+    q2 = np.asarray(e.TopologicalChargeDensitySquared)
+    assert np.abs(q2).max() == 0                            # every emitted config valid
+    theta = np.asarray(e.Intersection_Intersection)
+    origins = theta[(slice(None),) + L.origin]
+    assert (origins >= 1).all()                             # origin >= 1 per worm, by construction
+    mean = theta.mean(axis=0)
+    normalized = mean / mean[L.origin]
+    assert normalized[L.origin] == 1
+    assert 'free-target worms' in w.report()
