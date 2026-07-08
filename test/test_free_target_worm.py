@@ -229,6 +229,19 @@ def test_elementary_detailed_balance_no_menu_factor():
     assert tested > 0
 
 
+def test_compiled_classified_set_matches_python():
+    S, configs = _valid_configs()
+    w = gen.FreeTargetWorm(S)
+    N = S.Lattice.N
+    rng = np.random.default_rng(5)
+    for cfg in configs:
+        F = np.asarray(d(cfg['n'])).astype(np.int64)
+        for _ in range(4):
+            head = tuple(int(x) for x in rng.integers(0, N, size=4))
+            assert (w.classified_set_local(F, head)
+                    == w.classified_set_local_py(F, head))
+
+
 def test_closure_involution_over_all_realized_targets():
     # For each clean mover, the negated change must be enumerated from its target
     # (facts (1)+(2)); checked with the full local enumeration on both ends.  Movers

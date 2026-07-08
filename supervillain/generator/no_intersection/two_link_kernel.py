@@ -183,3 +183,94 @@ def clean_mask(F2, N, factor, anchor, head_rav, target_rav, mode,
                     break
             clean[si] = ok_head and ok_target and not bad
     return clean
+
+
+@njit(cache=True)
+def classify_mask(F2, N, anchor, head_rav,
+                  link_ptr, link_mu, link_r, link_c,
+                  sc_ptr, sc_off, sc_val,
+                  st_o, st_p, st_s, st_k, st_ptr):
+    r"""
+    Per-shape classification over a flattened family evaluated against ``F2``
+    ($F = dn$ reshaped to ``(n_planes, N**4)``), for the free-target worm: ``-2`` if the
+    shape's $\Delta q$ is neither, ``-1`` for an idle ($\Delta q \equiv 0$), else the
+    raveled cell of the ``+1`` defect of the clean dipole rooted at ``head_rav``.
+    Shapes carry their own signed coefficients (no ``factor``) and anchor at the head.
+    """
+    nshapes = link_ptr.shape[0] - 1
+    status = np.empty(nshapes, dtype=np.int64)
+    cap = 256
+    cells = np.empty(cap, dtype=np.int64)
+    vals = np.empty(cap, dtype=np.int64)
+    for si in range(nshapes):
+        nc = 0
+        for li in range(link_ptr[si], link_ptr[si + 1]):
+            mu = link_mu[li]
+            c = link_c[li]
+            s0 = (anchor[0] + link_r[li, 0] + N) % N
+            s1 = (anchor[1] + link_r[li, 1] + N) % N
+            s2 = (anchor[2] + link_r[li, 2] + N) % N
+            s3 = (anchor[3] + link_r[li, 3] + N) % N
+            for ti in range(st_ptr[mu], st_ptr[mu + 1]):
+                r0 = (s0 + st_s[ti, 0] + N) % N
+                r1 = (s1 + st_s[ti, 1] + N) % N
+                r2 = (s2 + st_s[ti, 2] + N) % N
+                r3 = (s3 + st_s[ti, 3] + N) % N
+                fval = F2[st_p[ti], ((r0 * N + r1) * N + r2) * N + r3]
+                if fval == 0:
+                    continue
+                val = st_k[ti] * c * fval
+                o0 = (s0 + st_o[ti, 0] + N) % N
+                o1 = (s1 + st_o[ti, 1] + N) % N
+                o2 = (s2 + st_o[ti, 2] + N) % N
+                o3 = (s3 + st_o[ti, 3] + N) % N
+                cell = ((o0 * N + o1) * N + o2) * N + o3
+                found = False
+                for b in range(nc):
+                    if cells[b] == cell:
+                        vals[b] += val
+                        found = True
+                        break
+                if not found and nc < cap:
+                    cells[nc] = cell
+                    vals[nc] = val
+                    nc += 1
+        for ci in range(sc_ptr[si], sc_ptr[si + 1]):
+            o0 = (anchor[0] + sc_off[ci, 0] + N) % N
+            o1 = (anchor[1] + sc_off[ci, 1] + N) % N
+            o2 = (anchor[2] + sc_off[ci, 2] + N) % N
+            o3 = (anchor[3] + sc_off[ci, 3] + N) % N
+            cell = ((o0 * N + o1) * N + o2) * N + o3
+            val = sc_val[ci]
+            found = False
+            for b in range(nc):
+                if cells[b] == cell:
+                    vals[b] += val
+                    found = True
+                    break
+            if not found and nc < cap:
+                cells[nc] = cell
+                vals[nc] = val
+                nc += 1
+        # Classify: count the nonzero cells and pattern-match the dipole.
+        minus_ok = False
+        plus_cell = np.int64(-1)
+        bad = False
+        nz = 0
+        for b in range(nc):
+            if vals[b] == 0:
+                continue
+            nz += 1
+            if cells[b] == head_rav and vals[b] == -1:
+                minus_ok = True
+            elif vals[b] == 1 and plus_cell < 0:
+                plus_cell = cells[b]
+            else:
+                bad = True
+        if nz == 0:
+            status[si] = -1
+        elif nz == 2 and minus_ok and plus_cell >= 0 and not bad:
+            status[si] = plus_cell
+        else:
+            status[si] = -2
+    return status

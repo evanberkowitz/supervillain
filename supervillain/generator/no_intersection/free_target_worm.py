@@ -7,7 +7,7 @@ import numpy as np
 from supervillain.lattice import Form, Lattice, d as _d
 from supervillain.generator.no_intersection.charge import charge
 from supervillain.generator.no_intersection import local_charge, two_link_kernel
-from supervillain.generator.no_intersection.adaptive_worm import AdaptiveIntersectionWorm
+from supervillain.generator.no_intersection.adaptive_worm import AdaptiveIntersectionWorm, _ravel
 
 
 class FreeTargetWorm(AdaptiveIntersectionWorm):
@@ -51,6 +51,10 @@ class FreeTargetWorm(AdaptiveIntersectionWorm):
         super().__init__(S, class_weights=class_weights)
         self._reach = self._link_reach()     # derive once; _link_reach probes a scratch lattice
         self._family = self._build_family()
+        # Flatten the family once for the compiled classifier.
+        self._dq_stencil = two_link_kernel.dq_stencil_arrays()
+        self._family_flat = two_link_kernel.flatten_family(self._family,
+                                                           self._self_charge)
 
     def __str__(self):
         return 'FreeTargetWorm'
@@ -232,6 +236,42 @@ class FreeTargetWorm(AdaptiveIntersectionWorm):
                   and sorted(defects.values()) == [-1, 1]):
                 target = next(cell for cell, v in defects.items() if v == 1)
                 seen.add(key)
+                out.append((change, target))
+        return out
+
+    def classified_set_local(self, F, head):
+        r"""
+        Compiled twin of :meth:`classified_set_local_py`: the whole family's $\Delta q$
+        is classified against ``F`` by :func:`.two_link_kernel.classify_mask`; the clean
+        shapes become ``(change, target)`` pairs in Python (deduped, family order).
+        Bit-for-bit with the pure-Python version; used by :meth:`step`.
+        """
+        N = self.Lattice.N
+        Farr = np.asarray(F)
+        F2 = np.ascontiguousarray(Farr.reshape(Farr.shape[0], -1))
+        status = two_link_kernel.classify_mask(
+            F2, N, np.array(head, dtype=np.int64), _ravel(head, N),
+            *self._family_flat, *self._dq_stencil)
+        seen = set()
+        out = []
+        for si in range(len(self._family)):
+            if status[si] == -2:
+                continue
+            shape = self._family[si]
+            change = {}
+            for mu, rs, c in shape:
+                link = (mu,) + tuple((head[k] + rs[k]) % N for k in range(4))
+                change[link] = change.get(link, 0) + c
+            key = frozenset((lnk, c) for lnk, c in change.items() if c != 0)
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            if status[si] == -1:
+                out.append((change, head))
+            else:
+                t = int(status[si])
+                target = ((t // (N * N * N)) % N, (t // (N * N)) % N,
+                          (t // N) % N, t % N)
                 out.append((change, target))
         return out
 
