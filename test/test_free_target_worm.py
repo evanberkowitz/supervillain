@@ -133,3 +133,84 @@ def test_merged_set_contains_two_link_worm_moves():
                         present_as(ch, target)              # mover present, same target
             for ch in two.clean_idle_reference(n_arr, q0, head):
                 present_as(ch, head)                        # idle present
+
+
+def test_local_py_matches_reference_on_subsamples():
+    # Pointwise global-vs-local equality on random family subsamples (full-family
+    # reference calls are infeasible; the subsample makes the comparison exact on the
+    # shapes it covers, movers, idles, and discards alike).
+    S, configs = _valid_configs()
+    w = gen.FreeTargetWorm(S)
+    N = S.Lattice.N
+    rng = np.random.default_rng(3)
+    for cfg in configs:
+        n_arr = np.asarray(cfg['n']).astype(np.int64)
+        F = np.asarray(d(cfg['n'])).astype(np.int64)
+        q0 = charge(cfg['n'])
+        for _ in range(2):
+            head = tuple(int(x) for x in rng.integers(0, N, size=4))
+            sub = [w._family[i] for i in
+                   rng.choice(len(w._family), size=2000, replace=False)]
+            assert (w.classified_set_local_py(F, head, shapes=sub)
+                    == w.classified_set_reference(n_arr, q0, head, shapes=sub))
+
+
+def test_full_local_enumeration_is_clean_and_reaches_beyond_orthogonal():
+    # Full-family local enumeration (tractable); every CLEAN element it returns is
+    # verified by a global recompute (clean sets are small, so this is cheap), and the
+    # merged worm's raison d'etre -- transport beyond the orthogonal menu -- appears.
+    S, configs = _valid_configs()
+    w = gen.FreeTargetWorm(S)
+    L, N = S.Lattice, S.Lattice.N
+    rng = np.random.default_rng(4)
+    targets = set()
+    for cfg in configs:
+        n_arr = np.asarray(cfg['n']).astype(np.int64)
+        F = np.asarray(d(cfg['n'])).astype(np.int64)
+        q0 = charge(cfg['n'])
+        head = tuple(int(x) for x in rng.integers(0, N, size=4))
+        C = w.classified_set_local_py(F, head)
+        keys = [frozenset((l, c) for l, c in ch.items() if c != 0) for ch, _ in C]
+        assert len(keys) == len(set(keys))                  # deduped
+        for change, target in C:
+            dq_map = _defects(L, _apply(n_arr, change), q0)
+            if target == head:
+                assert dq_map == {}
+            else:
+                assert dq_map == {head: -1, target: 1}
+                targets.add(tuple((target[k] - head[k]) % N for k in range(4)))
+    assert any(sum(min(x, N - x) for x in t) > 1 for t in targets)
+
+
+def test_closure_involution_over_all_realized_targets():
+    # For each clean mover, the negated change must be enumerated from its target
+    # (facts (1)+(2)); checked with the full local enumeration on both ends.  Movers
+    # per head are capped to keep the runtime sane; idles are checked at fixed head.
+    S, configs = _valid_configs()
+    w = gen.FreeTargetWorm(S)
+    N = S.Lattice.N
+    rng = np.random.default_rng(5)
+    checked = 0
+    for cfg in configs[:3]:
+        n_arr = np.asarray(cfg['n']).astype(np.int64)
+        F = np.asarray(d(cfg['n'])).astype(np.int64)
+        head = tuple(int(x) for x in rng.integers(0, N, size=4))
+        C = w.classified_set_local_py(F, head)
+        movers = [(ch, t) for ch, t in C if t != head]
+        idles = [(ch, t) for ch, t in C if t == head]
+        picks = ([movers[i] for i in rng.choice(len(movers),
+                                                size=min(6, len(movers)),
+                                                replace=False)] if movers else []) \
+            + ([idles[i] for i in rng.choice(len(idles),
+                                             size=min(3, len(idles)),
+                                             replace=False)] if idles else [])
+        for change, target in picks:
+            trial = _apply(n_arr, change)
+            Fp = np.asarray(d(Form(trial, degree=1, lattice=S.Lattice))).astype(np.int64)
+            Cp = w.classified_set_local_py(Fp, target)
+            inv = frozenset((l, -c) for l, c in change.items() if c != 0)
+            assert any(frozenset((l, c) for l, c in ch.items() if c != 0) == inv
+                       and tgt == head
+                       for ch, tgt in Cp)                   # closure: reverse enumerated
+            checked += 1
+    assert checked > 0

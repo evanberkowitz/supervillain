@@ -208,3 +208,29 @@ class FreeTargetWorm(AdaptiveIntersectionWorm):
                 seen.add(key)
                 out.append((change, target))
         return out
+
+    # ------------------------------------------------------------------ enumeration (local)
+
+    def classified_set_local_py(self, F, head, shapes=None):
+        r"""
+        Pure-Python twin of :meth:`classified_set_reference`: same result, same order,
+        but $\Delta q$ comes from :meth:`_local_dq` on the maintained ``F`` $= dn$
+        instead of a global recompute.  :meth:`step_reference` drives this (full
+        family); tests compare subsets against the oracle via ``shapes``.
+        """
+        seen = set()
+        out = []
+        for change, shape in self._placed(head, shapes):
+            key = frozenset((lnk, c) for lnk, c in change.items() if c != 0)
+            if not key or key in seen:
+                continue
+            defects = self._local_dq(F, change, head, shape)
+            if defects == {}:
+                seen.add(key)
+                out.append((change, head))
+            elif (len(defects) == 2 and defects.get(head) == -1
+                  and sorted(defects.values()) == [-1, 1]):
+                target = next(cell for cell, v in defects.items() if v == 1)
+                seen.add(key)
+                out.append((change, target))
+        return out
