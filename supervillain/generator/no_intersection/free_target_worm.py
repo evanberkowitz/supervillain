@@ -277,6 +277,17 @@ class FreeTargetWorm(AdaptiveIntersectionWorm):
 
     # ------------------------------------------------------------------ step
 
+    def step(self, configuration):
+        r"""
+        One worm update: drop a coincident head/tail on a random hypercube, evolve the
+        head with the $\Delta q$-classified move until it returns to the tail, and emit
+        the resulting valid configuration and the inline head$-$tail histogram
+        (pre-populated at the origin with the pivot dwell).  The fast path --- compiled
+        classification, and the reverse enumeration carried into the next iteration;
+        :meth:`step_reference` is the fresh-enumeration oracle it matches bit-for-bit.
+        """
+        return self._run_free_worm(configuration, self.classified_set_local, reuse=True)
+
     def step_reference(self, configuration):
         r"""
         Readable worm walk driving the pure-Python enumeration, recomputed fresh every

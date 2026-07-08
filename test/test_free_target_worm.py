@@ -242,6 +242,26 @@ def test_compiled_classified_set_matches_python():
                     == w.classified_set_local_py(F, head))
 
 
+def test_step_matches_reference_bit_for_bit():
+    # Also the cache validator: step reuses the reverse enumeration across
+    # iterations, step_reference recomputes fresh; caching consumes no RNG, so any
+    # stale cache shows up as a trajectory divergence.
+    S, configs = _valid_configs()
+    cfg = configs[0]
+    a = gen.FreeTargetWorm(S)
+    b = gen.FreeTargetWorm(S)
+    for seed in (2024, 2025, 2026):
+        a.rng = np.random.default_rng(seed)
+        b.rng = np.random.default_rng(seed)
+        ra = a.step(cfg)
+        rb = b.step_reference(cfg)
+        assert np.array_equal(np.asarray(ra['n']), np.asarray(rb['n']))
+        assert np.array_equal(ra['Intersection_Intersection'],
+                              rb['Intersection_Intersection'])
+        assert ra['Worm_Length'] == rb['Worm_Length']
+        cfg = rb
+
+
 def test_closure_involution_over_all_realized_targets():
     # For each clean mover, the negated change must be enumerated from its target
     # (facts (1)+(2)); checked with the full local enumeration on both ends.  Movers
