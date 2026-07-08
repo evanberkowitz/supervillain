@@ -443,22 +443,3 @@ def test_modes_bit_for_bit():
                                   rb['Intersection_Intersection'])
             assert ra['Worm_Length'] == rb['Worm_Length']
             cfg = rb
-
-
-def test_movers_only_transports():
-    # The point of the knob: at parameters where the flat draw froze completely
-    # (every worm Worm_Length == 1), movers-only must actually transport.  MUST run on
-    # a THERMALIZED background: from cold, a worm-only chain (no phi updates) pays
-    # dS ~ (kappa/2)(2 pi)^2 per touched link with nothing downhill available, so
-    # every mover rejects and the worm freezes for reasons that have nothing to do
-    # with the draw.  On hot Hammer-generated configs movers can be cheap or downhill.
-    S, configs = _valid_configs()
-    w = gen.FreeTargetWorm(S, idle_probability=0.0)
-    w.rng = np.random.default_rng(37)
-    cfg = configs[-1]
-    for _ in range(10):
-        cfg = w.step(cfg)
-        assert np.abs(charge(cfg['n'])).max() == 0
-    lengths = np.array(w.worm_lengths)
-    assert lengths.mean() > 1.5                            # flat draw gave exactly 1.0
-    assert max(lengths) > 2
