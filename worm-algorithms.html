@@ -117,7 +117,8 @@ and are reproducible from the scripts and tests cited in &sect;8.
   <li>5. Interlude: frozen configurations</li>
   <li>6. The StringWorm</li>
   <li>7. Diagnostics and division of labor</li>
-  <li>8. Where everything lives</li>
+  <li>8. Postscript: convergent evolution and the unified worm</li>
+  <li>9. Where everything lives</li>
 </ul>
 </div>
 
@@ -867,10 +868,12 @@ background.  The minimal charge-creating move has two links of distinct directio
 class: <em>every</em> \(\Delta n\) supported on at most 3 links, with coefficients \(\pm1\),
 whose \(\Delta q\) on the empty background is a clean unit dipole
 (<code>example/no-intersection-move-search.py</code>).  The enumeration takes all 1-, 2- and
-3-subsets of the links that can influence the charge of the two defect hypercubes, and separately
-allows the third link of a 3-link candidate to sit <em>anywhere</em> that could cancel the residue
-left by two on-target links &mdash; that stage finds nothing, closing the &ldquo;off-target
-helper&rdquo; loophole.  One dipole direction is enumerated; the other seven buckets follow from
+3-subsets of the links that can influence the charge of the two defect hypercubes.  The certified
+class is that on-target census <em>plus its transform-orbit closure</em>: as discovered during the
+unification of &sect;8, the filtered transforms can carry an all-on-target move to a clean move
+with one <em>off</em>-target link whose cross terms cancel in context, so the closure &mdash;
+which is exactly what the library builder constructs &mdash; is the honest boundary of the class.
+(For the face displacement the closure adds nothing: 828 stays 828.)  One dipole direction is enumerated; the other seven buckets follow from
 axis permutations and full parity, which are exact symmetries of \(q\).  As an independent
 cross-check, the library builder regenerates <em>exactly</em> 828 shapes per direction in all 8
 buckets from the stored representatives &mdash; two very different computations agreeing on the
@@ -1634,7 +1637,80 @@ own \(i\theta\, q\) Lagrange structure made real).  The worms make that machiner
 be needed; they do not make it redundant.
 </p>
 
-<h2>8. Where everything lives</h2>
+<h2>8. Postscript: convergent evolution and the unified worm</h2>
+
+<p>
+While this document was being written, Evan was independently developing his own
+IntersectionWorm on <code>origin/feature/no-intersection-model</code> &mdash; and the two lines
+attacked the same weaknesses from opposite directions.  His branch grew the move set by
+<em>hand-discovery</em>: a 2-link orthogonal move (the two links, surprisingly, share no corner),
+a 2-link opposite-sign-diagonal &ldquo;elbow,&rdquo; and a 4-link same-sign-diagonal move &mdash;
+teaching the head to walk a richer neighbour graph &mdash; while keeping the global
+\(O(\text{volume})\) charge check.  Ours grew the move set by <em>exhaustive enumeration</em>
+within the unit-displacement class and made every constraint check local, but had filtered out
+diagonal displacements entirely.  Verified relationships: his orthogonal families are strict
+subsets of our 828 (every clean orbit member present); his diagonal families were entirely
+outside our move class.  Each side had found what the other's blind spot hid.
+</p>
+
+<p>
+His parameter scans also supplied the empirical sweet-spot anatomy of &sect;2 and &sect;4 from
+the physics side: at high \(\kappa\) the worm is Metropolis-starved (the cheapest move costs
+two links, \(e^{-4\pi^2\kappa}\)), at low \(\kappa\) it is constraint-starved (vortex
+proliferation makes almost every shape unclean), and the product peaks near
+\(\kappa \approx 0.1\).  One diagnostic caution his data make vivid: the
+<code>Intersection_Intersection</code> correlator is measured <em>inline by the worm itself</em>,
+so where the worm jams, the correlator&rsquo;s long-distance bins are not small &mdash; they are
+<em>unmeasured</em>.  Plot the worm-length distribution next to the correlator, and trust
+\(I\)-\(I(\Delta x)\) only where the head&rsquo;s excursions actually reach \(\Delta x\).
+On the physics: \(e^{i\theta}\) is the disorder operator for intersection charge, so
+Spin&ndash;Spin long-range order at large \(\kappa\) should be mirrored by intersection-charge
+condensation at small \(\kappa\) &mdash; dual order parameters.
+</p>
+
+<p>
+The branch <code>feature/no-intersection-unified</code> merges the two designs.  The head walks
+the <b>32-neighbour graph</b> (8 face steps, 24 signed 2-plane diagonals); every bucket is filled
+by the census machinery; every check is the local \(\Delta q\):
+</p>
+
+<table>
+<tr><th>displacement</th><th>buckets</th><th>shapes each</th><th>status</th></tr>
+<tr><td>face \(\pm\hat e_\mu\)</td><td class="num">8</td><td class="num">828 (12&#215;2-link, 816&#215;3-link)</td>
+<td>exhaustive census, 41 classes</td></tr>
+<tr><td>elbow \(\pm(\hat e_\mu - \hat e_\nu)\)</td><td class="num">12</td>
+<td class="num">556 (4&#215;2-link, 536&#215;3-link, 16&#215;4-link)</td>
+<td>exhaustive census (412) + orbit closure (540) + same-sign orbit images; 43 classes</td></tr>
+<tr><td>same-sign \(\pm(\hat e_\mu + \hat e_\nu)\)</td><td class="num">12</td><td class="num">8 (all 4-link)</td>
+<td>hand-found family; \(\le3\)-link census provably empty, so 4 links is minimal &mdash;
+completeness <em>not</em> certified</td></tr>
+</table>
+
+<p>
+The unification found one more completeness subtlety, caught by an assertion: the elbow
+census&rsquo;s orbit closure is <em>larger</em> than its on-target enumeration (540 vs 412),
+because a filtered transform can map an all-on-target move to a clean move carrying one link that
+touches neither defect hypercube &mdash; its cross terms cancel in context.  A clean 2-link elbow
+plus such a context-neutral third link is a genuine 3-link move that no on-target enumeration can
+see.  The certified class is therefore the on-target census <em>plus its orbit closure</em>,
+which is precisely the set the library builder constructs; for the face displacement the closure
+happens to add nothing.  Also merged from Evan&rsquo;s branch: the global
+<code>PlanarFluxUpdate</code> (decomposable \(A = u\wedge v\) sheet tunneling, now in the
+Hammer) and the relocated frozen-configuration examples with the \(u\wedge v\)
+parametrization of the six-plane family.
+</p>
+
+<p>
+<b>Open items after the merge.</b>  Evan&rsquo;s newest worm replaces plain Metropolis with full
+Metropolis&ndash;Hastings (state-dependent proposals) &mdash; the &ldquo;directed worm&rdquo; rung
+of &sect;4&rsquo;s proposal-intelligence ladder; it should be cross-validated against this plain
+worm at \(\kappa\approx0.1\) where both move, and its per-candidate cost drops dramatically
+on top of the local \(\Delta q\).  The same-sign-diagonal family awaits a \(\le4\)-link
+census.  And the state-independent reweighting toward cheap 2-link shapes (&sect;4.3) remains an
+easy unexplored knob.
+</p>
+
+<h2>9. Where everything lives</h2>
 
 <table>
 <tr><th>artifact</th><th>path</th></tr>
@@ -1644,7 +1720,7 @@ be needed; they do not make it redundant.
 <tr><td>Local \(\Delta q\) machinery</td><td class="mono">supervillain/generator/no_intersection/charge.py</td></tr>
 <tr><td>String worm</td><td class="mono">supervillain/generator/no_intersection/string.py</td></tr>
 <tr><td>Frozen configurations and the unfreeze scan</td>
-<td class="mono">example/no-intersection-frozen.py, example/no-intersection-unfreeze.py</td></tr>
+<td class="mono">example/no-intersection/frozen.py, example/no-intersection/unfreeze.py, example/no-intersection-unfreeze.py</td></tr>
 <tr><td>Activity diagnostic + demo</td>
 <td class="mono">supervillain/analysis/activity.py, example/no-intersection-activity.py</td></tr>
 <tr><td>Spun-trefoil seed configuration</td>
