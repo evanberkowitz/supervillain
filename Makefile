@@ -40,7 +40,19 @@ help:
 livehtml:
 	@$(SPHINXAUTOBUILD) "$(SOURCEDIR)" "$(BUILDDIR)/html" --ignore "$(BUILDDIR)" --re-ignore "__pycache__" $(SPHINXOPTS) $(O)
 
-.PHONY: help livehtml Makefile
+# Clear numba's on-disk kernel cache (*.nbc / *.nbi under the source tree).
+#
+# The @njit(cache=True) kernels in supervillain/lattice/_kernels.py persist
+# compiled variants into source-tree __pycache__ dirs.  On this pre-release
+# stack (py3.14 + numba 0.65 + numpy 2.x) numba's cache invalidation does not
+# reliably fire when numpy is bumped, so a variant compiled against an old numpy
+# can be served against a new one and blow up with
+#   RuntimeError: In 'NRT_adapt_ndarray_to_python', 'descr' is NULL
+# Run this after any dependency change that moves numpy or numba.
+clean-numba:
+	find . \( -name '*.nbc' -o -name '*.nbi' \) -delete
+
+.PHONY: help livehtml clean-numba Makefile
 
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
