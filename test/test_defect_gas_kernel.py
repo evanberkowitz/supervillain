@@ -100,11 +100,13 @@ def test_run_matches_reference_uncapped():
 
 def test_step_matches_reference():
     S = _action()
-    fast, slow = _twins(S, seed=3, zeta=0.1, D_max=8, emit_every=300)
+    fast, slow = _twins(S, seed=3, zeta=0.1, D_max=8, emit_every=3000)
     phi, n = _cold(S)
     cfg_f = {'phi': phi, 'n': n}
     cfg_s = {'phi': phi, 'n': n}
 
+    excursions = 0.
+    max_rsq = 0.
     for _ in range(3):
         cfg_f = fast.step(cfg_f)
         cfg_s = slow.step_reference(cfg_s)
@@ -112,10 +114,18 @@ def test_step_matches_reference():
         assert np.array_equal(cfg_f['Theta_Theta'], cfg_s['Theta_Theta'])
         assert cfg_f['Vacuum_Ticks'] == cfg_s['Vacuum_Ticks']
         assert np.array_equal(cfg_f['Four_Defect'], cfg_s['Four_Defect'])
+        assert cfg_f['Pair_Excursions'] == cfg_s['Pair_Excursions']
+        assert cfg_f['Max_Pair_RSq'] == cfg_s['Max_Pair_RSq']
+        assert np.array_equal(cfg_f['Excursion_Lengths'], cfg_s['Excursion_Lengths'])
+        excursions += cfg_f['Pair_Excursions']
+        max_rsq = max(max_rsq, cfg_f['Max_Pair_RSq'])
 
     assert fast.proposed == slow.proposed
     assert fast.accepted == slow.accepted
     assert fast.D_trace == slow.D_trace
+    # Transport happened over the run and both paths saw it identically.
+    assert excursions > 0
+    assert max_rsq > 0
 
 
 def test_paths_interleave():

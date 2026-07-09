@@ -84,6 +84,42 @@ class Vacuum_Ticks(Observable):
     """
 
 
+class Pair_Excursions(Observable):
+    r"""
+    The number of pair *excursions* --- maximal stretches of nonvacuum ticks of the
+    :class:`~supervillain.generator.no_intersection.DefectGas` chain --- completed
+    during the step.  The effective sample count behind the far bins of
+    :class:`~.Theta_Theta`: those bins are fed only by excursions whose relative walk
+    survives to large separation, so a small excursion count means the far bins are
+    *transport-censored*, not measured.
+
+    Produced inline by the :class:`~supervillain.generator.no_intersection.DefectGas` only.
+    """
+
+
+class Max_Pair_RSq(Observable):
+    r"""
+    The largest min-image separation squared $\left|\Delta x\right|^{2}$ reached by any
+    single $\pm$ pair during the step --- the step's *transport ceiling*.  Bins of
+    :class:`~.Theta_Theta` beyond $\sqrt{\texttt{Max\_Pair\_RSq}}$ were never even
+    visited: a zero there is a censored value, bounded by transport, and carries no
+    information about $\theta$ long-range order.
+
+    Produced inline by the :class:`~supervillain.generator.no_intersection.DefectGas` only.
+    """
+
+
+class Excursion_Lengths(Observable):
+    r"""
+    Histogram of completed excursion lengths (in Monte-Carlo ticks) during the step,
+    in saturating power-of-two bins: entry $b$ counts excursions whose length had
+    bit-length $b$, i.e.\ lengths in $[2^{b-1}, 2^{b})$.  Far-separation dwell lives
+    in the extreme tail of this distribution.
+
+    Produced inline by the :class:`~supervillain.generator.no_intersection.DefectGas` only.
+    """
+
+
 class IntersectionSusceptibility(DerivedQuantity):
     r"""
     The *intersection susceptibility* is the spacetime integral of the

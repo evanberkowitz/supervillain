@@ -61,7 +61,8 @@ def tick_batch(F2, n2, dphi2, q, nzc, D, nnz,
                kappa, zeta, D_max, N,
                st_o, st_p, st_s, st_k, st_ptr,
                df_off, df_plane, df_val, df_ptr,
-               H_pair, H_four, tally, vac_stop):
+               H_pair, H_four, tally, vac_stop,
+               tstate, exc_hist):
     r"""
     Run the pre-drawn proposal batch from index ``i0`` to its end --- or until
     ``vac_stop`` vacuum ticks have been seen, if ``vac_stop > 0`` --- mutating the chain
@@ -81,6 +82,14 @@ def tick_batch(F2, n2, dphi2, q, nzc, D, nnz,
     classes $\{+1,+1,-1,-1\}$, $\{+2,-1,-1\}$, $\{+1,+1,-2\}$, $\{+2,-2\}$ are keyed
     here by ``nnz`` and the sign of the doubled charge, equivalent by neutrality) ---
     or is scaffolding.  Pair and four tallies are recorded only when ``tally``.
+
+    Transport instrumentation (mutated in place, always on): ``tstate`` is
+    ``[current excursion length in ticks, completed excursion count, max single-pair
+    min-image separation squared]``; ``exc_hist[b]`` counts completed excursions whose
+    length had bit-length $b$ (power-of-two bins, top bin saturating).  An *excursion*
+    is a maximal stretch of nonvacuum ticks; a zero-count far bin plus a small
+    ``tstate[2]`` shows the run was transport-censored there, not that the dwell is
+    zero.
 
     Returns
     -------
@@ -166,10 +175,23 @@ def tick_batch(F2, n2, dphi2, q, nzc, D, nnz,
         i += 1
         # ---- classify the sector at this tick (accepted or not), as in step_reference.
         if D == 0:
+            if tstate[0] > 0:
+                # Close the excursion: power-of-two length bin, top bin saturating.
+                x = tstate[0]
+                b = 0
+                while x > 0:
+                    x >>= 1
+                    b += 1
+                if b > 31:
+                    b = 31
+                exc_hist[b] += 1
+                tstate[1] += 1
+                tstate[0] = 0
             vac += 1
             if vac_stop > 0 and vac == vac_stop:
                 break
-        elif tally:
+        else:
+            tstate[0] += 1
             if D == 2 and nnz == 2:
                 v1 = q[nzc[0]]
                 v2 = q[nzc[1]]
@@ -188,8 +210,17 @@ def tick_batch(F2, n2, dphi2, q, nzc, D, nnz,
                     d1 = (p1 - m1 + N) % N
                     d2 = (p2 - m2 + N) % N
                     d3 = (p3 - m3 + N) % N
-                    H_pair[((d0 * N + d1) * N + d2) * N + d3] += 1
-            elif D == 4:
+                    # Min-image separation squared: the transport ceiling.
+                    w0 = d0 if d0 <= N - d0 else N - d0
+                    w1 = d1 if d1 <= N - d1 else N - d1
+                    w2 = d2 if d2 <= N - d2 else N - d2
+                    w3 = d3 if d3 <= N - d3 else N - d3
+                    rsq = w0 * w0 + w1 * w1 + w2 * w2 + w3 * w3
+                    if rsq > tstate[2]:
+                        tstate[2] = rsq
+                    if tally:
+                        H_pair[((d0 * N + d1) * N + d2) * N + d3] += 1
+            elif tally and D == 4:
                 # Neutrality (sum q = 0 identically) pins each nnz to one sorted-charge
                 # class: nnz=4 -> {+1,+1,-1,-1}; nnz=3 -> {+2,-1,-1} or {+1,+1,-2} by
                 # the doubled charge's sign; nnz=2 -> {+2,-2}.

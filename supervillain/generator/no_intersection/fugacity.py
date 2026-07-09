@@ -198,6 +198,12 @@ class DefectGas(ReadWriteable, Generator):
         nz = np.flatnonzero(st.q)
         st.nzc[:len(nz)] = nz
         st.nnz = int(len(nz))
+        # Transport instrumentation, shared by both paths: [current excursion length,
+        # completed excursions, max single-pair min-image separation squared] and the
+        # power-of-two excursion-length histogram.  These turn empty far bins into
+        # honest transport-censoring statements instead of silent zeros.
+        st.tstate = np.zeros(3, dtype=np.int64)
+        st.exc_hist = np.zeros(32, dtype=np.int64)
         st.site_update = SiteUpdate(self.S)
         st.site_update.rng = self.rng
         st.dphi = np.ascontiguousarray(d(Form(st.phi, degree=0, lattice=L)))
@@ -301,17 +307,26 @@ class DefectGas(ReadWriteable, Generator):
         # happens to sit.  A rejection is a genuine self-loop and must be counted, or
         # the dwell-time ratio is biased.
         if st.D == 0:
-            # Vacuum sector: a valid q ≡ 0 configuration -- one tick of Z.
+            # Vacuum sector: a valid q ≡ 0 configuration -- one tick of Z.  Close any
+            # excursion: power-of-two length bin (bit_length), top bin saturating.
+            if st.tstate[0] > 0:
+                st.exc_hist[min(31, int(st.tstate[0]).bit_length())] += 1
+                st.tstate[1] += 1
+                st.tstate[0] = 0
             return True, None, None
+        st.tstate[0] += 1
         if st.D == 2 and len(st.defects) == 2:
             # Exactly the worm's G-sector: a single ±1 pair.  (D == 2 alone is not
             # enough -- one cell with |q| = 2 also has D = 2.)
             (c1, v1), (c2, v2) = st.defects.items()
             if v1 == -v2 and abs(v1) == 1:
                 plus, minus = (c1, c2) if v1 == 1 else (c2, c1)
-                return (False,
-                        tuple((plus[k] - minus[k]) % self.N for k in range(4)),
-                        None)
+                disp = tuple((plus[k] - minus[k]) % self.N for k in range(4))
+                # Min-image separation squared: the transport ceiling.
+                rsq = sum(min(d, self.N - d)**2 for d in disp)
+                if rsq > st.tstate[2]:
+                    st.tstate[2] = rsq
+                return (False, disp, None)
         if st.D == 4:
             # The two-pair sectors that feed <|M|^4> for the Binder cumulant.  Net-zero
             # D = 4 patterns come in exactly four geometric classes, keyed by the sorted
@@ -327,11 +342,15 @@ class DefectGas(ReadWriteable, Generator):
     # ---------------------------------------------------------------- Generator API
 
     def inline_observables(self, steps):
-        r"""Storage for the inline ``Theta_Theta`` histogram and ``Vacuum_Ticks``."""
+        r"""Storage for the inline ``Theta_Theta`` histogram, ``Vacuum_Ticks``, the
+        four-defect classes, and the transport diagnostics."""
         return {
             'Theta_Theta': Batch(steps, shape=self.L.dims),
             'Vacuum_Ticks': Batch(steps, shape=(), dtype=float),
             'Four_Defect': Batch(steps, shape=(4,), dtype=float),
+            'Pair_Excursions': Batch(steps, shape=(), dtype=float),
+            'Max_Pair_RSq': Batch(steps, shape=(), dtype=float),
+            'Excursion_Lengths': Batch(steps, shape=(32,), dtype=float),
         }
 
     def _kernel_ticks(self, st, tally, vac_stop, H_pair, H_four):
@@ -345,7 +364,7 @@ class DefectGas(ReadWriteable, Generator):
             self.kappa, self.zeta,
             -1 if self.D_max is None else int(self.D_max), self.N,
             *defect_gas_kernel.stencil_pack(),
-            H_pair, H_four, tally, vac_stop)
+            H_pair, H_four, tally, vac_stop, st.tstate, st.exc_hist)
         st.i = int(i)
         st.D = int(D)
         st.nnz = int(nnz)
@@ -368,6 +387,11 @@ class DefectGas(ReadWriteable, Generator):
             st = self._state = self._init_state(phi_in, n_in, update_phi=False)
         H_pair = np.zeros(V, dtype=np.int64)
         H_four = np.zeros(4, dtype=np.int64)
+        # Per-step transport bookkeeping: the max separation resets each step; the
+        # excursion count and length histogram are emitted as this step's increments.
+        st.tstate[2] = 0
+        exc0 = int(st.tstate[1])
+        hist0 = st.exc_hist.copy()
         vacuum = 0
         ticks = 0
         cap = self.max_step_sweeps * st.n_links
@@ -389,6 +413,9 @@ class DefectGas(ReadWriteable, Generator):
             'Theta_Theta': H_pair.reshape(tuple(L.dims)) / (V * self.zeta**2),
             'Vacuum_Ticks': float(vacuum),
             'Four_Defect': H_four / self.zeta**4,
+            'Pair_Excursions': float(st.tstate[1] - exc0),
+            'Max_Pair_RSq': float(st.tstate[2]),
+            'Excursion_Lengths': (st.exc_hist - hist0).astype(float),
         }
 
     def step(self, configuration):
@@ -486,6 +513,78 @@ class DefectGas(ReadWriteable, Generator):
             if vac > target:
                 break
         return zeta
+
+    @classmethod
+    def tune_edge(cls, S, D_max=32, rng=None, phi=None, n=None,
+                  ladder=(0.002, 0.003, 0.005, 0.008, 0.012, 0.02, 0.03,
+                          0.05, 0.08, 0.12, 0.2, 0.3),
+                  sweeps=400, floor=0.002, step_sweeps=25):
+        r"""
+        Ride the edge: pick the **largest** $\zeta$ whose vacuum dwell stays above
+        ``floor``, ascending the ladder until the dwell collapses.
+
+        Where :meth:`tune` optimizes the vacuum clock (dwell $> 15\%$: cheap steps,
+        best denominator statistics), this optimizes the *numerator's reach*: pair
+        creation and --- through the paid corridors of a dense sheet --- pair
+        *transport* both scale like $\zeta^{2}$, so far-separation dwell responds
+        $\sim \zeta^{4}$, and a conservatively small $\zeta$ silently censors exactly
+        the large-$\Delta x$ bins that diagnose $\theta$ order.  The floor exists
+        because the vacuum sector is not optional: :meth:`step` can only emit at a
+        vacuum tick, so the chain must keep *occasionally* coming home.
+
+        Because a step still needs ``emit_every`` vacuum ticks, the emission cadence
+        must shrink with the dwell: the returned ``emit_every`` is sized so one
+        :meth:`step` costs about ``step_sweeps`` sweeps at the measured dwell.
+
+        If a chain run at the returned $\zeta$ later stops returning to the vacuum
+        (the :meth:`step` RuntimeError), that is *data* --- the documented
+        defect-condensation signature --- and the honest response is to record it and
+        start a fresh chain at a smaller $\zeta$, never to silently retry.
+
+        Parameters
+        ----------
+        S: a NoIntersections action
+        phi, n: arrays, optional
+            A thermalized **valid** starting configuration (cold if omitted).
+        floor: float
+            Minimum acceptable vacuum dwell (fraction of ticks with $D = 0$).
+        step_sweeps: int
+            Target sweeps per :meth:`step` at the chosen $\zeta$.
+
+        Returns
+        -------
+        (float, int)
+            The chosen $\zeta$ and the matched ``emit_every``.
+        """
+        L = S.Lattice
+        if phi is None:
+            phi = np.zeros((1,) + tuple(L.dims))
+        if n is None:
+            n = np.zeros((L.D,) + L.dims, dtype=np.int64)
+        n_links = 4 * L.N**4
+        best = (ladder[0], None)
+        for z in ladder:
+            probe = cls(S, zeta=z, D_max=D_max,
+                        rng=rng if rng is not None else np.random.default_rng())
+            probe.run(phi, n, sweeps, tally=False)
+            probe.blocks = []
+            probe._new_block()
+            probe.run(phi, n, sweeps, tally=True)
+            probe.close_block()
+            dwell = probe.blocks[0][1] / (sweeps * n_links)
+            if dwell > floor:
+                best = (z, dwell)
+            else:
+                # Dwell falls monotonically with zeta; past the edge, stop probing.
+                break
+        zeta, dwell = best
+        if dwell is None:
+            raise RuntimeError(
+                f'tune_edge: even the smallest ladder rung zeta={ladder[0]} has '
+                f'vacuum dwell below floor={floor}; the chain cannot emit here '
+                f'(defect condensation?).  Treat as signal and investigate D_trace.')
+        emit_every = max(1, int(round(dwell * n_links * step_sweeps)))
+        return zeta, emit_every
 
     def _new_block(self):
         self._H_pair = np.zeros(self.L.dims)
