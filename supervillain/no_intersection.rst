@@ -353,6 +353,64 @@ A tuned $\zeta$ that must fall like $1/V$, and a pair-sector dwell spreading fla
    :members:
    :show-inheritance:
 
+Order diagnostics from sector dwell
+===================================
+
+Because the defect gas measures $\Theta$ with **absolute** normalization, quantities
+that were previously out of reach become simple bookkeeping.  The order parameter of the
+$\theta$-shift symmetry is $M = \sum_x e^{i\theta_x}$, and on the torus
+$\langle M \rangle = \langle M^2 \rangle = 0$ *exactly* (total charge vanishes for
+every configuration), so its even moments carry all the information and never need
+disconnected subtractions.
+
+The second moment is the **intersection susceptibility**,
+
+.. math ::
+
+   \left\langle \left|M\right|^2 \right\rangle = V \chi_\theta,
+   \qquad
+   \chi_\theta = \sum_{\Delta x} \Theta_{\Delta x} = 1 + \sum_{\Delta x \neq 0} \Theta_{\Delta x},
+
+where the $1$ is the identically-unit origin.  Like every susceptibility it obeys the
+standard trichotomy: it goes to a **constant** in the thermodynamic limit when the
+$\theta$ correlations are short-ranged, grows like $L^{D - 2\Delta_\theta}$ at a
+critical point (only if $e^{i\theta}$ is light, $\Delta_\theta < D/2$), and grows like
+$\left|\langle e^{i\theta}\rangle\right|^2 V$ if the defects condense --- so its
+*volume trend*, not its value, is the order diagnostic.
+
+The fourth moment needs the $D = 4$ sectors, and this is where the gas's bookkeeping
+shines: classify each ordered insertion 4-tuple $(x_1, x_2; y_1, y_2)$ of
+$\left|M\right|^4$ by its **net** charge pattern.  Vacuum patterns contribute pure
+combinatorics; single-pair patterns reduce to $\Theta$; and only the genuine two-pair
+sectors --- tallied by the gas whenever $D = 4$, in four geometric classes --- are new
+measurements:
+
+.. math ::
+
+   \left\langle \left|M\right|^4 \right\rangle
+   = \underbrace{(2V^2 - V)}_{\text{vacuum patterns}}
+   + \underbrace{4(V-1)\, V\, S_1}_{\text{single-pair patterns}}
+   + \underbrace{\frac{E\!\left[(4,2,2,1)\cdot \mathbf{1}_{D=4\ \text{classes}}\right]}{\zeta^4\, E\!\left[\mathbf{1}_{q \equiv 0}\right]}}_{\text{two-pair sectors}},
+
+with $S_1 = \sum_{\Delta x \neq 0}\Theta_{\Delta x}$ and the classes
+$\{+1,+1,-1,-1\}$, $\{+2,-1,-1\}$, $\{+1,+1,-2\}$, $\{+2,-2\}$ entering with the
+ordered-insertion multiplicities $4, 2, 2, 1$.  The **Binder cumulant**
+$U = \langle\left|M\right|^4\rangle / \langle\left|M\right|^2\rangle^2$ then
+follows with no new normalization: $U \to 2 - 1/V$ exactly in the symmetric phase (the
+vacuum-pattern combinatorics reproduce the complex-Gaussian value --- a built-in check
+the implementation passes to six digits), $U \to 1$ in a $\theta$-ordered phase, and
+curves of $U(\kappa; L)$ at different volumes **cross at a critical point without
+knowledge of any scaling dimension** --- the exponent-free tool for a model whose
+scaling dimensions are unknown.
+
+Two practical notes.  All fugacity prices divide out, so $U$ is $\zeta$-independent ---
+the same free exactness test as for $\Theta$ --- but the *statistics* are not: the
+quartic-sector dwell scales like $\zeta^4$, so the Binder measurement wants the
+**largest healthy** $\zeta$ (exactly what :meth:`~supervillain.generator.no_intersection.DefectGas.tune`
+selects), and an under-visited quartic sector shows up as impossible values ($U < 1$
+violates Cauchy--Schwarz) with underestimated jackknife errors --- loud, like every
+other failure mode of this sampler.
+
 .. autoclass:: supervillain.observable.Theta_Theta
    :members:
    :show-inheritance:
