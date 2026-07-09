@@ -100,7 +100,9 @@ def report(label, e, gas, zeta, emit_every):
     Theta = Lsym.symmetrize(T / VT[:, None, None, None, None])
     mean, err = Theta.mean(axis=0), Theta.std(axis=0)
 
-    counts = np.asarray(e.Theta_Theta).real.sum(axis=0) * V * zeta**2
+    # Censoring is judged on the symmetrized ORBIT (a lone empty on-axis bin says
+    # nothing if its hyperoctahedral partners carry counts): orbit-mean counts.
+    counts = Lsym.symmetrize(np.asarray(e.Theta_Theta).real.sum(axis=0) * V * zeta**2)
     H_Z = np.asarray(e.Vacuum_Ticks).real.sum()
     one_count = 2.3 / (V * zeta**2 * H_Z)          # 90% Poisson upper limit scale
 
@@ -121,13 +123,13 @@ def report(label, e, gas, zeta, emit_every):
           f'max pair separation {rmax:.2f}   longest excursion < 2^{top} ticks')
     print(f'  chi_theta - 1 = {chi.mean()-1:+.4e} ({chi.std():.1e})   '
           f'U = {U.mean():.3f} ({U.std():.3f})')
-    print(f'  {"r":>10} {"Theta(r)":>14} {"err":>10} {"counts":>10}')
+    print(f'  {"r":>10} {"Theta(r)":>14} {"err":>10} {"orbit<cts>":>10}')
     rows = [((r, 0, 0, 0), f'({r},0,0,0)') for r in range(1, args.N // 2 + 1)]
     rows.append(((args.N // 2,) * 4, 'antipode'))
     for x, name in rows:
         c = counts[x]
         if c > 0:
-            print(f'  {name:>10} {mean[x]:>+14.6e} {err[x]:>10.1e} {c:>10.0f}')
+            print(f'  {name:>10} {mean[x]:>+14.6e} {err[x]:>10.1e} {c:>10.1f}')
         else:
             status = ('never visited: transport-censored'
                       if np.sqrt(sum(min(v, args.N - v)**2 for v in x)) > rmax
