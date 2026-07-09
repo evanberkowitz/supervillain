@@ -27,69 +27,61 @@ class DefectGas(ReadWriteable, Generator):
     mess*.  The underlying chain samples the enlarged ensemble
 
     .. math ::
-        \pi(\phi, n) = e^{-S_{V}(\phi, n)}\, \zeta^{D(n)},
+        \Pi = \sum\hspace{-1.33em}\int D\phi\; Dn\; e^{-S[\phi, n]}\, \zeta^{D(n)},
         \qquad D(n) = \sum_{x} \left|q_{x}(n)\right|,
         \quad q = dn \wedge dn,
 
     with $\zeta$ conjugate to each *insertion* of the charge operator $e^{\pm i\theta}$.
     $D$ is always even ($\left|q\right| \equiv q \bmod 2$ sitewise and the total charge
     vanishes identically), so $D/2$ counts the $\pm$ *pairs in flight* --- the number of
-    worms the grand-canonical ensemble runs at once --- and is what :meth:`report`
-    quotes,
+    worms the grand-canonical ensemble runs at once.
 
-    with single-link Metropolis: a link and $c = \pm 1$ are drawn uniformly (a
-    symmetric proposal) and accepted with $\min\!\left(1, e^{-\Delta S}\,
-    \zeta^{\Delta D}\right)$.  In a :meth:`step` the $\phi$ field is **frozen**: the
-    chain then targets the conditional $\pi_{\zeta}(n \mid \phi)$, whose vacuum trace
-    preserves the constrained conditional --- so the step composes Gibbs-style with a
-    $\phi$-update in a :class:`~supervillain.generator.combining.Sequentially`, exactly
-    like the other $n$-only worms.  (The standalone :meth:`run` interleaves its own
-    :class:`~supervillain.generator.villain.SiteUpdate` sweeps so it is self-contained.)  Every link is always
-    proposable --- a messy $\Delta q$ is a *legal* state with more defects,
-    exponentially discounted by the fugacity $\zeta < 1$, and defect-annihilating moves
+    Standard single-link updates $n\to n \pm 1$ are Metropolis tested with the 
+    fugacity included in the weight and are accepted with probability $\min\!\left(1, e^{-\Delta S}\,
+    \zeta^{\Delta D}\right)$.  Every link can always receive a proposal but a proposal with
+    a messy $\Delta q$ is exponentially discounted by the fugacity $\zeta < 1$, and defect-annihilating moves
     are correspondingly rewarded.  The higher-defect sectors are the corridors through
     jammed backgrounds that clean worms lack, so the sampler cannot jam; single-link
     moves connect every $n$ with nonzero acceptance, making ergodicity on the enlarged
     space manifest.
 
-    **As a** :class:`~supervillain.generator.Generator`, :meth:`step` advances the
-    enlarged chain until its ``emit_every``-th visit to the **vacuum sector** and emits
-    that configuration --- the trace of the chain on the constraint surface.  Restricted
-    to the vacuum sector the enlarged weight is $e^{-S_{V}} \zeta^{0} = e^{-S_{V}}$, so
-    the emitted ensemble is the **constrained theory, exactly**: like the walking worms,
+    While generating, the :meth:`step` advances the the enlarged chain until its
+    ``emit_every``th visit to the vacuum sector and emits that configuration.
+    Restricted to the vacuum sector the enlarged weight is $e^{-S_{V}} \zeta^{0} = e^{-S_{V}}$,
+    so the emitted ensemble is exactly the constrained theory.  Like the worms,
     invalid states live only *inside* a step, and every emitted configuration satisfies
-    $q \equiv 0$.  Because the step consumes and produces valid configurations while
-    preserving the constrained measure, it composes with the other constrained
-    generators in a :class:`~supervillain.generator.combining.Sequentially` --- and its
-    defect excursions tunnel between valid configurations that the constrained updates
-    may connect only slowly (or, for the frozen configurations, not at all).
+    $q \equiv 0$ and therefore this generator can be combined with other constrained generators.
 
     The correlator is read off by bookkeeping rather than steering.  Since inserting
     $e^{+i\theta_{x}} e^{-i\theta_{y}}$ shifts the constraint to
-    $q = \delta_{x} - \delta_{y}$,
+    $q = \delta_{x} - \delta_{y}$, tallying after every proposal which sector the
+    chain sits in gives
 
     .. math ::
-        \left\langle e^{+i\theta_{x}} e^{-i\theta_{y}} \right\rangle
-        = \frac{E\!\left[\mathbf{1}_{q = \delta_{x} - \delta_{y}}\right]}
-               {\zeta^{2}\, E\!\left[\mathbf{1}_{q \equiv 0}\right]},
+        \Theta_{x,y}
+        = \frac{\left\langle \prod_{p} [q_{p} = \delta_{px} - \delta_{py}] \right\rangle_{\Pi}}
+               {\zeta^{2} \left\langle \prod_{p} [q_{p} = 0] \right\rangle_{\Pi}},
 
-    tallied after every proposal.  Per step the pair-sector dwell histogram (scaled by
-    the known price, $H_{\text{pair}} / V \zeta^{2}$) and the vacuum dwell are emitted
-    as the inline observables ``Theta_Theta`` and ``Vacuum_Ticks``, so on an ensemble
+    with $[\cdots]$ the Iverson bracket: the ratio of the time spent in the exact
+    single-pair sector to the time spent in the vacuum, with the known price
+    $\zeta^{2}$ divided back out.  Per step the pair-sector dwell histogram (scaled by
+    that price, $H_{\text{pair}} / V \zeta^{2}$) and the vacuum dwell are emitted as
+    the inline observables ``Theta_Theta`` and ``Vacuum_Ticks``, so on an ensemble
     ``e``
 
     .. math ::
-        G(r) = \frac{\overline{\texttt{Theta\_Theta}}(r)}{\overline{\texttt{Vacuum\_Ticks}}}
+        \Theta_{\Delta x} = \frac{\overline{\texttt{Theta\_Theta}}_{\Delta x}}{\overline{\texttt{Vacuum\_Ticks}}}
 
     (ratio of ensemble means; use :class:`~supervillain.analysis.Bootstrap` for
     errors).  Two properties are worth internalizing:
 
-    * $G(0) = 1$ **identically** --- a coincident pair *is* the vacuum --- so $G$ is
-      **absolutely normalized**; the $r = 0$ bin of ``Theta_Theta`` is empty by
-      construction.
-    * $G$ is **independent of** $\zeta$ --- the fugacity price the sampler charged the
-      pair sector is divided back out --- so $\zeta$ tunes only the variance.  Running
-      at two values of $\zeta$ and comparing is a sharp end-to-end exactness test.
+    * $\Theta_{0} = 1$ **identically** --- a coincident pair *is* the vacuum --- so
+      $\Theta$ is **absolutely normalized**; the $\Delta x = 0$ bin of ``Theta_Theta``
+      is empty by construction.
+    * $\Theta$ is **independent of** $\zeta$ --- the fugacity price the sampler charged
+      the pair sector is divided back out --- so $\zeta$ tunes only the variance.
+      Running at two values of $\zeta$ and comparing is a sharp end-to-end exactness
+      test.
 
     Tuning: entropy pushes $D$ upward (each defect may live anywhere, and the denser
     the sheet the larger a single link's $\left|\Delta D\right|$), so the right $\zeta$
@@ -101,12 +93,12 @@ class DefectGas(ReadWriteable, Generator):
     chain out of the defect condensate, not for correctness.  Note that a *physical*
     defect condensate --- $\theta$ long-range order, where pairs cost $O(1)$ at any
     separation --- shows up as the tuned $\zeta$ acquiring a strong volume dependence
-    and the pair dwell spreading flat in $r$; that is signal, not failure.
+    and the pair dwell spreading flat in $\Delta x$; that is signal, not failure.
 
     $\left\langle e^{i\theta} \right\rangle$ itself vanishes identically on the torus
     (the total charge $Q = \sum_{x} q_{x}$ vanishes for every $n$, since
-    $q = d(n \wedge dn)$ is exact), so the large-$r$ plateau of $G$ is the only
-    order-parameter diagnostic for the $\theta$ shift symmetry.
+    $q = d(n \wedge dn)$ is exact), so the large-$\Delta x$ plateau of $\Theta$ is the
+    only order-parameter diagnostic for the $\theta$ shift symmetry.
 
     Besides the :class:`~supervillain.Ensemble` route, :meth:`run` +
     :meth:`correlator` drive the same chain standalone (block-jackknife errors) ---
@@ -437,22 +429,22 @@ class DefectGas(ReadWriteable, Generator):
     def correlator(self):
         r"""
         The block-jackknife mean and error of the absolutely-normalized correlator
-        $G(r) = H_{\text{pair}}(r) / (V \zeta^{2} H_{Z})$ over the blocks accumulated
-        by :meth:`run` (skipping leave-one-out terms whose vacuum dwell vanishes ---
-        only possible when $\zeta$ is badly tuned).
+        $\Theta_{\Delta x} = H_{\text{pair}}(\Delta x) / (V \zeta^{2} H_{Z})$ over the
+        blocks accumulated by :meth:`run` (skipping leave-one-out terms whose vacuum
+        dwell vanishes --- only possible when $\zeta$ is badly tuned).
 
         Returns
         -------
-        (G, dG)
-            Arrays of spatial shape ``L.dims``; recall $G(0) = 1$ by definition and
-            the $r = 0$ bin of $H_{\text{pair}}$ is empty by construction.
+        (Theta, dTheta)
+            Arrays of spatial shape ``L.dims``; recall $\Theta_{0} = 1$ by definition
+            and the $\Delta x = 0$ bin of $H_{\text{pair}}$ is empty by construction.
         """
-        # The estimator: E[1_{pair at displacement r}] / E[1_{vacuum}] equals
-        # ζ² V G(r) in the enlarged ensemble -- the pair sector carries the known
-        # fugacity price ζ² (divided back out here, which is why the answer cannot
-        # depend on ζ) and V translated copies contribute to each displacement bin.
-        # G(0) = 1 identically: a coincident pair IS the vacuum, so no origin
-        # normalization is needed -- G comes out ABSOLUTE.
+        # The estimator: the sector-dwell ratio ⟨Π_p [q_p = δ_{px} - δ_{py}]⟩ over
+        # ⟨Π_p [q_p = 0]⟩ equals ζ² V Θ_Δx in the enlarged ensemble -- the pair sector
+        # carries the known fugacity price ζ² (divided back out here, which is why the
+        # answer cannot depend on ζ) and V translated copies contribute to each
+        # displacement bin.  Θ_0 = 1 identically: a coincident pair IS the vacuum, so
+        # no origin normalization is needed -- Θ comes out ABSOLUTE.
         V = self.N**4
         H_pair = np.stack([b[0] for b in self.blocks])
         H_Z = np.array([b[1] for b in self.blocks], dtype=float)

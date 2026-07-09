@@ -75,7 +75,7 @@ G, dG = w.correlator()
 print(w.report())
 Lsym = Lattice(4, args.N)                     # throwaway for symmetrize caches
 Gs, dGs = Lsym.symmetrize(G), Lsym.symmetrize(dG)
-print(f'\n{"r":>3} {"G(r,0,0,0) [absolute; G(0) = 1 by definition]":>48}')
+print(f'\n{"r":>3} {"Θ(r,0,0,0) [absolute; Θ(0) = 1 by definition]":>48}')
 for r in range(1, args.N // 2 + 1):
     print(f'{r:>3} {Gs[(r,0,0,0)]:>+14.8f}±{dGs[(r,0,0,0)]:<12.8f}')
 ap = (args.N // 2,) * 4
