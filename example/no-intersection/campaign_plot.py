@@ -10,6 +10,10 @@ Figures from a campaign.py output directory.
 * ``binder.pdf`` --- the Binder cumulant U(κ; L) with its exact symmetric-phase value
   2 - 1/V per volume and the broken-phase limit 1; curves at different volumes cross
   at a critical point with no knowledge of scaling dimensions.
+* ``zeta.pdf`` --- the tuned fugacity ζ against κ per volume: the defect-pressure
+  thermometer.  ζ dips where single-link moves light up charge most easily (dense
+  sheets and the transition window) and shrinks with volume there; a ζ forced to
+  scale like 1/V would itself be a defect-condensation (θ-order) diagnostic.
 
 Run from example/no-intersection/:
 
@@ -110,3 +114,20 @@ ax.legend()
 fig.savefig(f'{args.outdir}/binder.pdf', bbox_inches='tight')
 fig.savefig(f'{args.outdir}/binder.png', bbox_inches='tight', dpi=160)
 print(f'wrote {args.outdir}/binder.pdf')
+
+# ----------------------------------------------------------------------- zeta
+fig, ax = plt.subplots(figsize=(7, 4.5))
+for N, rows in sorted(data.items()):
+    c = colors.get(N, 'k')
+    k = np.array([r['kappa'] for r in rows])
+    z = np.array([r['zeta'] for r in rows])
+    ax.plot(k, z, color=c, marker='o', label=f'N={N}')
+ax.set_xscale('log')
+ax.set_yscale('log')
+ax.set_xlabel(r'$\kappa$')
+ax.set_ylabel(r'tuned $\zeta$')
+ax.set_title('Tuned fugacity (largest with vacuum dwell $> 15\\%$)')
+ax.legend()
+fig.savefig(f'{args.outdir}/zeta.pdf', bbox_inches='tight')
+fig.savefig(f'{args.outdir}/zeta.png', bbox_inches='tight', dpi=160)
+print(f'wrote {args.outdir}/zeta.pdf')

@@ -77,6 +77,10 @@ parser.add_argument('--kappas', type=float, nargs='+', default=None,
                     help='override the per-tier κ list')
 parser.add_argument('--outdir', default='campaign-2026-07-08')
 parser.add_argument('--seed', type=int, default=137)
+parser.add_argument('--configurations', type=int, default=None,
+                    help='override the per-tier configuration count')
+parser.add_argument('--force', action='store_true',
+                    help='regenerate points whose h5 already exists (default: skip)')
 args = parser.parse_args()
 
 
@@ -120,21 +124,35 @@ def point(N, kappa, configurations, therm, seed):
     phi, n = g0.run(phi, n, therm, tally=False)
     phi, n = land_in_vacuum(S, phi, n, seed + 3)
 
+    # Longer probes than the tune() default: a short probe from a fresh valid start has
+    # not yet built the equilibrium defect density and overestimates the vacuum dwell.
     zeta = gen.DefectGas.tune(S, D_max=D_MAX, rng=np.random.default_rng(seed + 1),
-                              phi=phi, n=n, ladder=LADDER)
+                              phi=phi, n=n, ladder=LADDER, sweeps=150)
 
-    gas = gen.DefectGas(S, zeta=zeta, D_max=D_MAX,
-                        rng=np.random.default_rng(seed + 2))
-    chain = Sequentially((
-        villain.SiteUpdate(S),
-        villain.ExactUpdate(S),
-        villain.CohomologyUpdate(S),
-        gas,                       # last, so the emitted configuration is its vacuum tick
-    ))
-    e = supervillain.Ensemble(S).generate(
-        configurations, chain,
-        start={'phi': Form(phi, degree=0, lattice=L),
-               'n': Form(n, degree=1, lattice=L)})
+    # Even so, a mid-run condensation (step() exhausting its horizon) is possible in
+    # the transition window; retry down the ladder rather than losing the point.
+    candidates = [zeta] + [z for z in LADDER if z < zeta][:3]
+    for attempt, z in enumerate(candidates):
+        gas = gen.DefectGas(S, zeta=z, D_max=D_MAX, max_step_sweeps=2000,
+                            rng=np.random.default_rng(seed + 2 + attempt))
+        chain = Sequentially((
+            villain.SiteUpdate(S),
+            villain.ExactUpdate(S),
+            villain.CohomologyUpdate(S),
+            gas,                   # last, so the emitted configuration is its vacuum tick
+        ))
+        try:
+            e = supervillain.Ensemble(S).generate(
+                configurations, chain,
+                start={'phi': Form(phi, degree=0, lattice=L),
+                       'n': Form(n, degree=1, lattice=L)})
+            zeta = z
+            break
+        except RuntimeError:
+            if attempt == len(candidates) - 1:
+                raise
+            print(f'  N={N} kappa={kappa:g}: zeta={z:g} condensed mid-run; '
+                  f'retrying at zeta={candidates[attempt + 1]:g}', flush=True)
 
     q2 = np.asarray(e.TopologicalChargeDensitySquared)
     assert np.abs(q2).max() == 0, f'constraint violated at N={N} kappa={kappa}'
@@ -195,6 +213,14 @@ def point(N, kappa, configurations, therm, seed):
                         'decorrelated': len(decorrelated),
                         'thermalization_suspect': suspect})
 
+    # The per-ensemble diagnostic PDF (histories, bootstrap distributions, correlator
+    # plots) rides along next to the h5.
+    try:
+        import campaign_diagnostics
+        campaign_diagnostics.diagnose(path)
+    except Exception:
+        traceback.print_exc()
+
     chi_S = summaries['SpinSusceptibility']
     chi_T = summaries['IntersectionSusceptibility']
     U = summaries['ThetaBinderCumulant']
@@ -210,9 +236,14 @@ os.makedirs(args.outdir, exist_ok=True)
 for N in args.tiers:
     tier = TIERS[N]
     for kappa in (args.kappas if args.kappas is not None else tier['kappas']):
+        if not args.force and os.path.exists(f'{args.outdir}/N{N}/kappa{kappa:g}.h5'):
+            print(f'N={N:<3} kappa={kappa:<6g} exists, skipping', flush=True)
+            continue
         seed = args.seed + 1000 * N + int(round(kappa * 10000))
+        configurations = (args.configurations if args.configurations is not None
+                          else tier['configurations'])
         try:
-            row = point(N, kappa, tier['configurations'], tier['therm'], seed)
+            row = point(N, kappa, configurations, tier['therm'], seed)
         except Exception:
             row = f'N={N:<3} kappa={kappa:<6g} FAILED'
             traceback.print_exc()
