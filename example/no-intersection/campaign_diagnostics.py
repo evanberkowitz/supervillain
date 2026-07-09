@@ -129,12 +129,14 @@ def diagnose(h5path, pdfpath=None):
         fig, axs = plt.subplots(len(correlators), 1, sharex=True, squeeze=False,
                                 figsize=(6, 3 * len(correlators)))
         axs = axs[:, 0]
-        # Linear Δx (not the log of action-comparison.py) so the Δx = 0 point ---
-        # Θ's absolute anchor Θ(0) = 1 --- is visible.
+        # Log-log so power-law behavior is a straight line.  (The Δx = 0 point ---
+        # Θ's absolute anchor Θ(0) = 1 --- falls off the log axis; it is identical
+        # to 1 by construction, so nothing is lost.)
         for a, (name, yscale) in zip(axs, correlators):
             b.plot_correlator(a, name)
             a.set_yscale(yscale)
             a.set_ylabel(name)
+        axs[-1].set_xscale('log')
         for a in axs[:-1]:
             a.set_xlabel('')
         axs[-1].set_xlabel('Δx')
