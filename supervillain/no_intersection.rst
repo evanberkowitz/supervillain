@@ -365,6 +365,14 @@ A tuned $\zeta$ that must fall like $1/V$, and a pair-sector dwell spreading fla
    :members:
    :show-inheritance:
 
+.. autoclass:: supervillain.observable.Four_Defect
+   :members:
+   :show-inheritance:
+
+.. autoclass:: supervillain.observable.ThetaBinderCumulant
+   :members:
+   :show-inheritance:
+
 Irreducibility by construction
 ==============================
 

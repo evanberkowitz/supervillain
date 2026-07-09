@@ -128,6 +128,10 @@ class DefectGas(ReadWriteable, Generator):
         $\phi$-update such as :class:`~supervillain.generator.villain.SiteUpdate`.
     """
 
+    # D == 4 sector classes for the fourth moment, keyed by the sorted charge values:
+    # index 0: {+1,+1,-1,-1}, 1: {+2,-1,-1}, 2: {+1,+1,-2}, 3: {+2,-2}.
+    _FOUR = {(-1, -1, 1, 1): 0, (-1, -1, 2): 1, (-2, 1, 1): 2, (-2, 2): 3}
+
     def __init__(self, S, zeta, D_max=None, emit_every=None, max_step_sweeps=500,
                  rng=None):
         if not isinstance(S, supervillain.action.NoIntersections):
@@ -172,6 +176,10 @@ class DefectGas(ReadWriteable, Generator):
         st = SimpleNamespace()
         st.n = np.asarray(n).astype(np.int64).copy()
         st.phi = np.asarray(phi).astype(float).copy()
+        # 0-forms carry a leading singleton component axis, (1,) + dims; accept bare
+        # (N, ..., N) arrays too (the cold default) by restoring it.
+        if st.phi.shape == tuple(L.dims):
+            st.phi = st.phi.reshape((1,) + tuple(L.dims))
         st.F = np.asarray(d(Form(st.n, degree=1, lattice=L))).astype(np.int64)
         q_arr = np.asarray(charge(Form(st.n, degree=1, lattice=L))).astype(np.int64)
         # defects: nonzero hypercubes, keyed by the 4-tuple cell (component axis stripped).
@@ -266,18 +274,27 @@ class DefectGas(ReadWriteable, Generator):
         # the dwell-time ratio is biased.
         if st.D == 0:
             # Vacuum sector: a valid q ≡ 0 configuration -- one tick of Z.
-            return True, None
+            return True, None, None
         if st.D == 2 and len(st.defects) == 2:
             # Exactly the worm's G-sector: a single ±1 pair.  (D == 2 alone is not
             # enough -- one cell with |q| = 2 also has D = 2.)
             (c1, v1), (c2, v2) = st.defects.items()
             if v1 == -v2 and abs(v1) == 1:
                 plus, minus = (c1, c2) if v1 == 1 else (c2, c1)
-                return False, tuple((plus[k] - minus[k]) % self.N for k in range(4))
-        # Every other sector (4 defects, charge-2 cells, ...) is scaffolding: legal
-        # states that carry the chain THROUGH jammed backgrounds but never enter the
-        # estimator.
-        return False, None
+                return (False,
+                        tuple((plus[k] - minus[k]) % self.N for k in range(4)),
+                        None)
+        if st.D == 4:
+            # The two-pair sectors that feed <|M|^4> for the Binder cumulant.  Net-zero
+            # D = 4 patterns come in exactly four geometric classes, keyed by the sorted
+            # charge multiset; their ordered-insertion multiplicities (4, 2, 2, 1) enter
+            # the Binder formula, not the tally.
+            cls = self._FOUR.get(tuple(sorted(st.defects.values())))
+            if cls is not None:
+                return False, None, cls
+        # Every other sector is scaffolding: legal states that carry the chain THROUGH
+        # jammed backgrounds but never enter the estimators.
+        return False, None, None
 
     # ---------------------------------------------------------------- Generator API
 
@@ -286,6 +303,7 @@ class DefectGas(ReadWriteable, Generator):
         return {
             'Theta_Theta': Batch(steps, shape=self.L.dims),
             'Vacuum_Ticks': Batch(steps, shape=(), dtype=float),
+            'Four_Defect': Batch(steps, shape=(4,), dtype=float),
         }
 
     def step(self, configuration):
@@ -307,16 +325,19 @@ class DefectGas(ReadWriteable, Generator):
                               and np.array_equal(st.phi, phi_in)):
             st = self._state = self._init_state(phi_in, n_in, update_phi=False)
         pair = np.zeros(L.dims)
+        four = np.zeros(4)
         vacuum = 0
         cap = self.max_step_sweeps * st.n_links
         for ticks in range(1, cap + 1):
-            vac, disp = self._tick(st)
+            vac, disp, cls4 = self._tick(st)
             if vac:
                 vacuum += 1
                 if vacuum == self.emit_every:
                     break
             elif disp is not None:
                 pair[disp] += 1
+            elif cls4 is not None:
+                four[cls4] += 1
         else:
             raise RuntimeError(
                 f'no {self.emit_every} vacuum ticks in {self.max_step_sweeps} sweeps: '
@@ -331,6 +352,7 @@ class DefectGas(ReadWriteable, Generator):
             'n': Form(st.n.copy(), degree=1, lattice=L),
             'Theta_Theta': pair / (V * self.zeta**2),
             'Vacuum_Ticks': float(vacuum),
+            'Four_Defect': four / self.zeta**4,
         }
 
     # ---------------------------------------------------------------- standalone API
@@ -361,7 +383,7 @@ class DefectGas(ReadWriteable, Generator):
         """
         L = S.Lattice
         if phi is None:
-            phi = np.zeros(L.dims)
+            phi = np.zeros((1,) + tuple(L.dims))
         if n is None:
             n = np.zeros((L.D,) + L.dims, dtype=np.int64)
         zeta = ladder[-1]
@@ -382,10 +404,11 @@ class DefectGas(ReadWriteable, Generator):
     def _new_block(self):
         self._H_pair = np.zeros(self.L.dims)
         self._H_Z = 0
+        self._H_four = np.zeros(4)
 
     def close_block(self):
         r"""End the current jackknife block and start a new one (:meth:`run` path)."""
-        self.blocks.append((self._H_pair, self._H_Z))
+        self.blocks.append((self._H_pair, self._H_Z, self._H_four))
         self._new_block()
 
     def run(self, phi, n, sweeps, tally=True, progress=None):
@@ -417,12 +440,14 @@ class DefectGas(ReadWriteable, Generator):
             iterator = progress(iterator)
         for _ in iterator:
             for _ in range(st.n_links):
-                vac, disp = self._tick(st)
+                vac, disp, cls4 = self._tick(st)
                 if tally:
                     if vac:
                         self._H_Z += 1
                     elif disp is not None:
                         self._H_pair[disp] += 1
+                    elif cls4 is not None:
+                        self._H_four[cls4] += 1
         self._phi_sweep(st)
         return st.phi, st.n
 
@@ -458,6 +483,39 @@ class DefectGas(ReadWriteable, Generator):
             for j in rows])
         err = np.sqrt((len(rows) - 1) * jack.var(axis=0)) if len(rows) > 1 \
             else np.full(self.L.dims, np.nan)
+        return total, err
+
+    def binder(self):
+        r"""
+        The block-jackknife mean and error of the Binder ratio
+        $U = \left\langle\left|M\right|^{4}\right\rangle /
+        \left\langle\left|M\right|^{2}\right\rangle^{2}$ for the $\theta$-shift
+        order parameter $M = \sum_{x} e^{i\theta_{x}}$, over the blocks accumulated by
+        :meth:`run`.  See :class:`~supervillain.observable.ThetaBinderCumulant` for the
+        sector decomposition; $U \to 2$ (complex Gaussian) deep in the symmetric phase
+        and $U \to 1$ in a broken phase.
+        """
+        V = self.N**4
+        Hp = np.stack([b[0] for b in self.blocks])
+        HZ = np.array([b[1] for b in self.blocks], dtype=float)
+        H4 = np.stack([b[2] for b in self.blocks])
+        C = np.array([4., 2., 2., 1.])
+
+        def U(hp, hz, h4):
+            # <|M|^2> = V (1 + S1); <|M|^4> = (2V^2 - V) + 4(V-1) V S1 + sector term.
+            S1 = hp.sum() / (V * self.zeta**2 * hz)
+            M2 = V * (1 + S1)
+            M4 = (2 * V**2 - V) + 4 * (V - 1) * V * S1 \
+                + (C * h4).sum() / (self.zeta**4 * hz)
+            return M4 / M2**2
+
+        if HZ.sum() == 0:
+            return np.nan, np.nan
+        total = U(Hp.sum(axis=0), HZ.sum(), H4.sum(axis=0))
+        rows = [j for j in range(len(self.blocks)) if HZ.sum() - HZ[j] > 0]
+        jack = np.array([U(Hp.sum(axis=0) - Hp[j], HZ.sum() - HZ[j],
+                           H4.sum(axis=0) - H4[j]) for j in rows])
+        err = np.sqrt((len(rows) - 1) * jack.var()) if len(rows) > 1 else np.nan
         return total, err
 
     def report(self):

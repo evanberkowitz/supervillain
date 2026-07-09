@@ -72,7 +72,9 @@ for b in tqdm(range(args.blocks)):
     w.close_block()
 
 G, dG = w.correlator()
+U, dU = w.binder()
 print(w.report())
+print(f'ThetaBinderCumulant U = {U:.4f} ± {dU:.4f}   (Gaussian: 2 - 1/V; broken: -> 1)')
 Lsym = Lattice(4, args.N)                     # throwaway for symmetrize caches
 Gs, dGs = Lsym.symmetrize(G), Lsym.symmetrize(dG)
 print(f'\n{"r":>3} {"Θ(r,0,0,0) [absolute; Θ(0) = 1 by definition]":>48}')
@@ -83,5 +85,8 @@ print(f'{"apd":>3} {Gs[ap]:>+14.8f}±{dGs[ap]:<12.8f}')
 if args.out:
     np.savez(args.out, kappa=args.kappa, N=args.N, zeta=zeta,
              D_max=args.D_max, sweeps=args.sweeps, G=G, dG=dG,
-             Gsym=Gs, dGsym=dGs, D_trace=np.array(w.D_trace))
+             Gsym=Gs, dGsym=dGs, D_trace=np.array(w.D_trace),
+             binder=U, dbinder=dU,
+             H_four=sum(b[2] for b in w.blocks),
+             H_Z=sum(b[1] for b in w.blocks))
     print(f'wrote {args.out}')

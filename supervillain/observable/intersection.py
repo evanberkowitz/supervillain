@@ -116,3 +116,76 @@ class IntersectionSusceptibility(DerivedQuantity):
     @staticmethod
     def default(S, Theta_Theta, Vacuum_Ticks):
         return 1 + np.sum(Theta_Theta.real) / Vacuum_Ticks
+
+
+class Four_Defect(Observable):
+    r"""
+    The :class:`~supervillain.generator.no_intersection.DefectGas`'s per-step dwell in
+    the four $D = 4$ sector classes, scaled by the known fugacity price $1/\zeta^{4}$:
+    index 0 counts $\{+1,+1,-1,-1\}$ (four distinct hypercubes), 1 counts
+    $\{+2,-1,-1\}$, 2 counts $\{+1,+1,-2\}$, and 3 counts $\{+2,-2\}$.  The raw
+    material of the fourth moment of the $\theta$-shift order parameter (see
+    :class:`~.ThetaBinderCumulant`).
+
+    Produced inline by the :class:`~supervillain.generator.no_intersection.DefectGas` only.
+    """
+
+
+class ThetaBinderCumulant(DerivedQuantity):
+    r"""
+    The Binder ratio of the $\theta$-shift order parameter
+    $M = \sum_{x} e^{i\theta_{x}}$,
+
+    .. math ::
+
+        \texttt{ThetaBinderCumulant} = U =
+        \frac{\left\langle \left|M\right|^{4} \right\rangle}
+             {\left\langle \left|M\right|^{2} \right\rangle^{2}},
+
+    a dimensionless, exponent-free diagnostic: $U \to 2$ (complex Gaussian) deep in the
+    symmetric phase, $U \to 1$ in a $\theta$-ordered phase, and curves of $U(\kappa; L)$
+    at different volumes cross at a critical point without knowledge of any scaling
+    dimension.
+
+    Both moments reduce to sector dwell.  With $\Theta(0) = 1$ identically and
+    $S_{1} = \sum_{r \neq 0} \Theta(r) =
+    \overline{\texttt{Theta\_Theta}}\,\Sigma / \overline{\texttt{Vacuum\_Ticks}}$,
+
+    .. math ::
+
+        \left\langle \left|M\right|^{2} \right\rangle = V (1 + S_{1}).
+
+    For the fourth moment, classify the ordered insertion 4-tuples
+    $(x_{1}, x_{2}; y_{1}, y_{2})$ by their net charge pattern: vacuum patterns
+    contribute the contact combinatorics $2V^{2} - V$; single-pair patterns contribute
+    $4(V-1)\, V\, S_{1}$ (a multiset count: $\{x_{1}, x_{2}, b\} = \{y_{1}, y_{2}, a\}$
+    has $4(V-1)$ ordered solutions per $(a, b)$); and the genuine two-pair sectors enter
+    with ordered multiplicities $4, 2, 2, 1$ for the classes
+    $\{+1,+1,-1,-1\}$, $\{+2,-1,-1\}$, $\{+1,+1,-2\}$, $\{+2,-2\}$ counted by
+    :class:`~.Four_Defect`:
+
+    .. math ::
+
+        \left\langle \left|M\right|^{4} \right\rangle
+        = (2V^{2} - V) + 4(V-1)\, V\, S_{1}
+        + \frac{\overline{(4, 2, 2, 1) \cdot \texttt{Four\_Defect}}}
+               {\overline{\texttt{Vacuum\_Ticks}}}.
+
+    Checks: at $V = 1$ the formula returns $1$ exactly; deep in the symmetric phase the
+    contact term alone gives $U = 2 - 1/V$; and $U$ is independent of $\zeta$ (all
+    fugacity prices are divided back out), so runs at two $\zeta$ values test the
+    implementation end to end.  Note $\langle M \rangle = \langle M^{2} \rangle = 0$
+    exactly on the torus (charge neutrality), so no disconnected subtractions arise.
+
+    Requires the inline observables of the
+    :class:`~supervillain.generator.no_intersection.DefectGas`.
+    """
+
+    @staticmethod
+    def default(S, Theta_Theta, Vacuum_Ticks, Four_Defect):
+        V = int(np.prod(S.Lattice.dims))
+        S1 = np.sum(Theta_Theta.real) / Vacuum_Ticks
+        M2 = V * (1 + S1)
+        M4 = (2 * V**2 - V) + 4 * (V - 1) * V * S1 \
+            + np.sum(np.array([4., 2., 2., 1.]) * Four_Defect.real) / Vacuum_Ticks
+        return M4 / M2**2
