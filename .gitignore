@@ -181,3 +181,13 @@ cython_debug/
 #Data from csvs
 *.csvtyt
 numba-profiling-report.md
+
+# Claude Code local state.  Only the machine-local artifacts are ignored, not the
+# .claude/ directory itself: shared project config (settings.json, agents/,
+# skills/, commands/) belongs in the repo, and git cannot descend into an
+# excluded directory to un-ignore it later.
+#
+# running-commentary.json is written by a PostToolUse hook into whatever
+# directory it happens to run from, hence the ** prefix.
+**/.claude/running-commentary.json
+**/.claude/settings.local.json
