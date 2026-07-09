@@ -31,6 +31,12 @@ class DefectGas(ReadWriteable, Generator):
         \qquad D(n) = \sum_{x} \left|q_{x}(n)\right|,
         \quad q = dn \wedge dn,
 
+    with $\zeta$ conjugate to each *insertion* of the charge operator $e^{\pm i\theta}$.
+    $D$ is always even ($\left|q\right| \equiv q \bmod 2$ sitewise and the total charge
+    vanishes identically), so $D/2$ counts the $\pm$ *pairs in flight* --- the number of
+    worms the grand-canonical ensemble runs at once --- and is what :meth:`report`
+    quotes,
+
     with single-link Metropolis: a link and $c = \pm 1$ are drawn uniformly (a
     symmetric proposal) and accepted with $\min\!\left(1, e^{-\Delta S}\,
     \zeta^{\Delta D}\right)$.  In a :meth:`step` the $\phi$ field is **frozen**: the
@@ -463,12 +469,18 @@ class DefectGas(ReadWriteable, Generator):
         return total, err
 
     def report(self):
-        r"""A short summary: acceptance, the defect-count trace, and (run-path) sector dwell."""
+        r"""A short summary: acceptance, the pairs-in-flight trace, and (run-path) sector dwell."""
+        # D = Σ|q| is always EVEN (|q| ≡ q mod 2 per site and the total charge Q = Σq
+        # vanishes identically), so D/2 -- the number of ±pairs in flight, i.e. the
+        # number of worms the grand-canonical ensemble is running at once -- is the
+        # natural human-facing count.  The MEASURE stays in per-endpoint (per-insertion)
+        # convention: ζ per unit of |q|.
         Dt = np.array(self.D_trace)
         H_Z = sum(b[1] for b in self.blocks)
         H_pair = sum(b[0].sum() for b in self.blocks)
         lines = [f'proposals {self.proposed}  acceptance {self.accepted/max(1,self.proposed):.4f}',
-                 f'defect count D: mean {Dt.mean():.2f}  max {int(Dt.max())}' if len(Dt) else 'no sweeps',
+                 (f'pairs in flight D/2: mean {Dt.mean()/2:.2f}  max {int(Dt.max())//2}'
+                  if len(Dt) else 'no sweeps'),
                  f'run-path sector dwell: vacuum {H_Z}  single-pair {int(H_pair)}  '
                  f'other {max(0, self.proposed - int(H_Z) - int(H_pair))}']
         return '\n'.join(lines)
