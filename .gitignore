@@ -191,3 +191,10 @@ numba-profiling-report.md
 # directory it happens to run from, hence the ** prefix.
 **/.claude/running-commentary.json
 **/.claude/settings.local.json
+
+# uv's resolved lockfile.  supervillain is a library, not an application: the
+# convention is to let downstreams resolve for themselves, and nothing here reads
+# the lock (Read the Docs installs from requirements.txt).  The campaign repo,
+# supervillain-no-intersections, does commit its lock -- reproducing a run wants a
+# pinned graph, and its lock already pins this package's dependencies transitively.
+uv.lock
