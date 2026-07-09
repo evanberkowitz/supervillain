@@ -17,6 +17,7 @@ The physical interpretation is that vortices may not intersect in this model.
 
 The model has two $U(1)$ symmetries, the standard Villain $U(1)$ and the shift symmetry of $\theta$.
 Remarkably, neither symmetry is anomalous on its own, but they have a mixed anomaly that is an axial-vector-vector anomaly in 4D, just like the ABJ anomaly!
+We give :ref:`a step-by-step derivation of that anomaly <no_intersection_anomaly>` by gauging one $U(1)$ and tracking the resulting integer-valued obstruction to the other.
 
 This model must undergo a transition of some kind as you tune $\kappa$ but the character of that transition is unknown.
 It may be first order.
@@ -282,6 +283,75 @@ It is provided as an opt-in generator and is not part of the default :func:`~sup
 
 .. autoclass:: supervillain.generator.no_intersection.TwoLinkAdaptiveWorm
    :members: step_reference, step, report
+   :show-inheritance:
+
+Beyond worms: the grand-canonical defect gas
+============================================
+
+Even the live-enumerated worm starves, and measurement says why.
+On thermalized small-$\kappa$ backgrounds the sheet is so dense that the *median* hypercube admits **no** clean mover of any one- or two-link shape at all --- enriching the candidate family (wider coefficients, farther-flung pairs, millions of shapes) does not help, because the jam is structural: on a background with multi-unit flux everywhere, an exact unit-dipole $\Delta q$ demands cancellations that small templates simply cannot arrange.
+At moderate $\kappa$ the movers exist but the action suppresses them, and the worm's all-or-nothing structure compounds the problem: every step must be perfectly clean, so one unlucky draw ends the excursion.
+Both failures share a root: the worm insists that the constraint be *exactly* repaired at every single move.
+
+So we stop insisting, and *price the mess instead*.
+Enlarge the ensemble with a per-defect fugacity $\zeta$,
+
+.. math ::
+
+   \Pi = \sum\hspace{-1.33em}\int D\phi\; Dn\; e^{-S[\phi, n]}\, \zeta^{D(n)},
+   \qquad
+   D(n) = \sum_x \left|q_x(n)\right|,
+
+and sample it with the humblest move there is: a single link and $c = \pm 1$, drawn uniformly, accepted with $\min(1, e^{-\Delta S} \zeta^{\Delta D})$.
+The very move that was poison for the constrained model --- a single-link change smears $q$ over its neighborhood --- is now merely *expensive*: whatever charge it scatters is a legal state, discounted by $\zeta^{\Delta D}$, and the reverse move that cleans it up is *rewarded* by the same factor.
+Every link is always proposable, so there is no jam and no frozen sector: the frozen configurations that isolate the :class:`~supervillain.generator.no_intersection.ConstrainedLinkUpdate` are frozen only for moves that must keep $q = 0$ exactly; the defect gas walks straight through them, paying the toll on the way in and collecting it on the way out.
+Ergodicity, which every constrained move set above had to argue for case by case, is manifest.
+
+What does this buy us physically?  Recall :ref:`the worm's shifted constraint <theta worm constraint>`: inserting $e^{i(\theta_x - \theta_y)}$ demands $q = \delta_x - \delta_y$.
+The worm's $G$ ensemble is the *two*-defect sector of $\Pi$, carrying weight $\zeta^2$ --- one factor of $\zeta$ per insertion of the charge operator $e^{\pm i\theta}$, which is exactly the sense in which $\Pi$ is the *grand-canonical* worm ensemble: it sums over any number of worms in flight, with fugacity $\zeta$ per endpoint.
+The correlator is then read off by pure bookkeeping, no steering required.
+Tally, after every proposal, which sector the chain sits in:
+
+.. math ::
+
+   \Theta_{x,y}
+   = \frac{\left\langle \prod_p [q_p = \delta_{px} - \delta_{py}] \right\rangle_\Pi}
+          {\zeta^2 \left\langle \prod_p [q_p = 0] \right\rangle_\Pi},
+
+the ratio of the time spent in the exact single-pair sector to the time spent in the vacuum, with the known price $\zeta^2$ divided back out.
+Two properties are worth internalizing.
+First, $\Theta_{x,x} = 1$ *identically* --- a coincident pair *is* the vacuum --- so this estimator is **absolutely normalized**: where the worm histogram must be normalized by its origin bin, the defect gas measures $\Theta$ outright.
+Second, $\Theta$ is **independent of** $\zeta$, because the intermediate sectors' weights cancel from the ratio entirely; $\zeta$ tunes only the variance.
+Running twice at different $\zeta$ and comparing is therefore a sharp end-to-end exactness test that comes for free.
+
+The fugacity also has a clean meaning in terms of the Lagrange multiplier we integrated out.
+Since $q$ is integer-valued,
+
+.. math ::
+
+   \zeta^{\left|q\right|} = \int_{-\pi}^{\pi} \frac{d\theta}{2\pi}\; \frac{1 - \zeta^2}{1 - 2\zeta\cos\theta + \zeta^2}\; e^{i\theta q},
+
+the Poisson kernel: the defect gas is the theory in which the *flat* $\theta$ measure (whose integration produced the hard constraint) is replaced by a Poisson-kernel prior on every hypercube.
+$\zeta \to 0$ collapses the kernel to the flat measure's delta function and recovers the hard constraint; $\zeta \to 1$ removes the constraint altogether.
+
+Topologically, the defect gas finishes the story the worm began.
+The Freedman--Quinn caveat above was that homotopies between embedded sheets may require *several* double-point pairs in flight at once --- Casson's obstruction --- while the worm carries exactly one.
+The defect gas carries **any number**: a finger move is a pair creation (priced $\zeta^2$), a Whitney move is a pair annihilation (rewarded $\zeta^{-2}$), an isotopy is a $\Delta q$-neutral rearrangement (free), and higher-multiplicity double points ($\left|q_x\right| \geq 2$) are ordinary states of the gas rather than special cases needing bespoke repair moves.
+It walks the full immersed corridor, not the one-pair shortcut.
+
+Despite its name, the :class:`~supervillain.generator.no_intersection.FugacityWorm` is not a worm in the traditional sense --- nothing walks, nothing is steered; defects appear, diffuse, and annihilate on their own schedule, and the physics is read off from where the chain happens to sit.
+As a :class:`~supervillain.generator.Generator` it nonetheless slots into the machinery above through a simple device: a :meth:`~supervillain.generator.no_intersection.FugacityWorm.step` advances the gas until a prescribed number of returns to the vacuum sector and emits *that* configuration.
+The visits of a reversible chain to a subset of its states form the *trace chain* on that subset, reversible with respect to the restricted measure --- and $\Pi$ restricted to the vacuum sector is exactly $e^{-S}$ on the constraint surface.
+So, exactly as for the walking worms, the invalid states live only *inside* a step; every emitted configuration satisfies $q \equiv 0$; and because $\phi$ is frozen within a step the update is $n$-only and composes with a $\phi$-update in a :class:`~supervillain.generator.combining.Sequentially` like every other generator here.
+The pair-sector dwell rides along as the inline observables ``Theta_Theta`` and ``Vacuum_Ticks``, from which $\Theta$ is the ratio of ensemble means.
+
+The one knob that must be handled with respect is $\zeta$ itself.
+Entropy pushes $D$ up --- each defect may live anywhere, and the denser the sheet the more charge a single link scatters --- so the well-tuned $\zeta$ shrinks with the volume and with $1/\kappa$, and a badly-large $\zeta$ condenses the gas into a defect soup that never revisits the measured sectors (the failure is loud: the step raises rather than hang).
+But this tuning pressure is itself a diagnostic, because *physical* defect condensation is precisely $\theta$ long-range order --- pairs costing $O(1)$ at any separation --- the phase the mixed anomaly is hunting for.
+A tuned $\zeta$ that must fall like $1/V$, and a pair-sector dwell spreading flat in separation, are that phase announcing itself: signal, not failure.
+
+.. autoclass:: supervillain.generator.no_intersection.FugacityWorm
+   :members:
    :show-inheritance:
 
 Irreducibility by construction
