@@ -41,18 +41,36 @@ HISTORIES = ('ActionDensity', 'InternalEnergyDensity', 'InternalEnergyDensitySqu
 DERIVED = ('SpinSusceptibility', 'IntersectionSusceptibility', 'ThetaBinderCumulant')
 
 
+def _tau_label(prefix, data):
+    # Guarded τ: deep in a phase an observable can be exactly constant (e.g.
+    # WindingSquared at large κ), where the autocorrelation estimator raises rather
+    # than reporting nonsense.
+    try:
+        return f'{prefix} τ={supervillain.analysis.autocorrelation_time(data)}'
+    except ValueError:
+        return f'{prefix} (no fluctuations)'
+
+
 def _histories(ax, e, observables):
-    # comparison_plot.histories with the τ computation guarded: deep in a phase an
-    # observable can be exactly constant (e.g. WindingSquared at large κ), where the
-    # autocorrelation estimator raises rather than reporting nonsense.
+    # comparison_plot.histories for the stored decorrelated ensemble --- the legacy
+    # fallback when the h5 predates the raw/ group.
     for a, o in zip(ax, observables):
-        try:
-            tau = supervillain.analysis.autocorrelation_time(np.asarray(getattr(e, o)).real)
-            label = f'τ={tau}'
-        except ValueError:
-            label = 'τ undefined (no fluctuations)'
+        label = _tau_label('', np.asarray(getattr(e, o)).real)
         e.plot_history(a, o, alpha=0.5,
                        history_kwargs={'zorder': -1, 'label': label})
+        a[0].legend(loc='upper left')
+
+
+def _raw_histories(ax, raw, observables):
+    # The full Monte Carlo history of the run (campaign.py's raw/ group), including
+    # thermalization and the configurations the cut and decorrelation stride drop ---
+    # what the stored decorrelated ensemble cannot show.  The quoted τ is the raw
+    # one, so it should agree with the campaign's cut decisions.
+    for a, o in zip(ax, observables):
+        data = raw[o]
+        a[0].plot(np.arange(len(data)), data, zorder=-1, alpha=0.5,
+                  label=_tau_label('raw', data))
+        a[1].hist(data, orientation='horizontal', bins=31, density=True, alpha=0.5)
         a[0].legend(loc='upper left')
 
 
@@ -63,6 +81,8 @@ def diagnose(h5path, pdfpath=None):
     with h5.File(h5path, 'r') as f:
         b = Bootstrap.from_h5(f['bootstrap'])
         attrs = dict(f.attrs)
+        raw = ({name: f[f'raw/{name}'][()] for name in HISTORIES}
+               if 'raw' in f else None)
     e = b.Ensemble          # the decorrelated ensemble rides inside the bootstrap
     title = (f"N={attrs['N']} κ={attrs['kappa']:g} ζ={attrs['zeta']:g} "
              f"configurations={attrs['configurations']} τ={attrs['tau']} "
@@ -71,9 +91,15 @@ def diagnose(h5path, pdfpath=None):
     with PdfPages(pdfpath) as pdf:
         # Histories + bootstrap bands and histograms of the scalar observables.  The
         # stored ensemble is already decorrelated, so the quoted τ should be ~1.
+        # The decorrelated history + band (via bootstraps) with the raw history
+        # underneath, as in action-comparison.py; the decorrelated index preserves
+        # the original Monte Carlo time, so the traces align.
         fig, ax = comparison_plot.setup(HISTORIES)
-        comparison_plot.bootstraps(ax, (b,), ('',), observables=HISTORIES)
-        _histories(ax, e, HISTORIES)
+        comparison_plot.bootstraps(ax, (b,), ('decorrelated',), observables=HISTORIES)
+        if raw is not None:
+            _raw_histories(ax, raw, HISTORIES)
+        else:
+            _histories(ax, e, HISTORIES)
         fig.suptitle(title)
         fig.tight_layout()
         pdf.savefig(fig)

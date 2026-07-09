@@ -44,6 +44,11 @@ from supervillain.generator.combining import Sequentially
 SCALARS = ('ActionDensity', 'InternalEnergyDensity', 'InternalEnergyDensitySquared')
 SUMMARIES = ('SpinSusceptibility', 'IntersectionSusceptibility',
              'ThetaBinderCumulant', 'WindingSquared')
+# Per-configuration scalar traces of the RAW run, stored in the h5's raw/ group: the
+# cut+decorrelated ensemble cannot show thermalization, so the diagnostics overlay
+# these full histories (cheap: one float per configuration per observable).
+RAW_HISTORIES = ('ActionDensity', 'InternalEnergyDensity',
+                 'InternalEnergyDensitySquared', 'WindingSquared', 'Vacuum_Ticks')
 
 # Detail concentrates in the transition window κ ≈ 0.03-0.2 (spin LRO dies, χ_θ peaks),
 # with anchors deep in the low-κ (defect-dense) and high-κ (spin-ordered) flanks.
@@ -157,6 +162,8 @@ def point(N, kappa, configurations, therm, seed):
     q2 = np.asarray(e.TopologicalChargeDensitySquared)
     assert np.abs(q2).max() == 0, f'constraint violated at N={N} kappa={kappa}'
 
+    raw = {name: np.asarray(getattr(e, name)).real for name in RAW_HISTORIES}
+
     # Standard cut / decorrelate / bootstrap.  Unattended run: if the cut would eat
     # everything, take half and flag it for morning review instead of aborting.
     auto = e.autocorrelation_time(observables=SCALARS)
@@ -206,6 +213,8 @@ def point(N, kappa, configurations, therm, seed):
         for name, (mean, err) in summaries.items():
             f[f'scalars/{name}/mean'] = mean
             f[f'scalars/{name}/err'] = err
+        for name, trace in raw.items():
+            f[f'raw/{name}'] = trace
         f['meta/report'] = chain.report()
         f.attrs.update({'kappa': kappa, 'N': N, 'configurations': configurations,
                         'therm': therm, 'zeta': zeta, 'D_max': D_MAX,
