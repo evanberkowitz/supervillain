@@ -12,7 +12,22 @@ SOURCEDIR     = .
 BUILDDIR      = _build
 
 # Put it first so that "make" without argument is like "make help".
-help:
+#
+# Targets carrying a "## " comment are listed automatically, so a new target
+# documents itself.  The catch-all below hands every *other* target to Sphinx as
+# a builder name, which is why the builders get their own listing: ask Sphinx.
+help: ## Show this message
+	@echo 'Usage: make [target]'
+	@echo
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## /{printf "  %-12s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@echo
+	@echo 'Any other target is forwarded to Sphinx as a builder (html, latexpdf, ...).'
+	@echo 'Run "make sphinx-help" to list those.'
+
+# Sphinx's own help, i.e. the builders it can run.  This needs an explicit rule:
+# the catch-all would forward the literal word "sphinx-help" to -M, and Sphinx
+# would reject it as an unknown builder.  What Sphinx wants is -M help.
+sphinx-help: ## List the builders Sphinx provides (html, latexpdf, linkcheck, ...)
 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 # Watch for changes and rebuild; serves on http://127.0.0.1:8000
@@ -37,7 +52,7 @@ help:
 #
 # (conf.py's exclude_patterns only affects which sources are parsed, not what the
 # watcher monitors.)
-livehtml:
+livehtml: ## Rebuild on change and serve on http://127.0.0.1:8000
 	@$(SPHINXAUTOBUILD) "$(SOURCEDIR)" "$(BUILDDIR)/html" --ignore "$(BUILDDIR)" --re-ignore "__pycache__" $(SPHINXOPTS) $(O)
 
 # Clear numba's on-disk kernel cache (*.nbc / *.nbi under the source tree).
@@ -49,10 +64,10 @@ livehtml:
 # can be served against a new one and blow up with
 #   RuntimeError: In 'NRT_adapt_ndarray_to_python', 'descr' is NULL
 # Run this after any dependency change that moves numpy or numba.
-clean-numba:
+clean-numba: ## Delete numba's on-disk kernel cache (*.nbc / *.nbi)
 	find . \( -name '*.nbc' -o -name '*.nbi' \) -delete
 
-.PHONY: help livehtml clean-numba Makefile
+.PHONY: help sphinx-help livehtml clean-numba Makefile
 
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
