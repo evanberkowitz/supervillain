@@ -11,6 +11,7 @@ from supervillain.lattice import Form, d
 from supervillain.generator.villain.site import SiteUpdate
 from supervillain.generator.no_intersection.charge import charge
 from supervillain.generator.no_intersection import local_charge
+from supervillain.generator.no_intersection import defect_gas_kernel
 import supervillain.action
 
 
@@ -186,9 +187,21 @@ class DefectGas(ReadWriteable, Generator):
         st.defects = {tuple(int(x) for x in z[1:]): int(q_arr[tuple(z)])
                       for z in np.argwhere(q_arr != 0)}
         st.D = int(np.abs(q_arr).sum())
+        # Flat views and the dense charge state for the compiled tick loop (step); the
+        # sparse dict above serves the pure-python step_reference.  n2/F2 are VIEWS, so
+        # kernel writes keep st.n/st.F current; q/nzc mirror the dict and are kept in
+        # sync by BOTH paths so step and step_reference may be freely interleaved.
+        st.F2 = st.F.reshape(st.F.shape[0], -1)
+        st.n2 = st.n.reshape(4, -1)
+        st.q = np.ascontiguousarray(q_arr.ravel())
+        st.nzc = np.zeros(self.N**4, dtype=np.int64)
+        nz = np.flatnonzero(st.q)
+        st.nzc[:len(nz)] = nz
+        st.nnz = int(len(nz))
         st.site_update = SiteUpdate(self.S)
         st.site_update.rng = self.rng
-        st.dphi = np.asarray(d(Form(st.phi, degree=0, lattice=L)))
+        st.dphi = np.ascontiguousarray(d(Form(st.phi, degree=0, lattice=L)))
+        st.dphi2 = st.dphi.reshape(4, -1)
         st.n_links = 4 * self.N**4
         st.update_phi = update_phi
         self._draw_batch(st)
@@ -215,7 +228,8 @@ class DefectGas(ReadWriteable, Generator):
         cfg = st.site_update.step({'phi': Form(st.phi, degree=0, lattice=L),
                                    'n': Form(st.n, degree=1, lattice=L)})
         st.phi = np.asarray(cfg['phi']).astype(float)
-        st.dphi = np.asarray(d(cfg['phi']))
+        st.dphi = np.ascontiguousarray(d(cfg['phi']))
+        st.dphi2 = st.dphi.reshape(4, -1)
 
     def _tick(self, st):
         r"""One clock tick of the enlarged chain: a single-link Metropolis proposal
@@ -260,12 +274,26 @@ class DefectGas(ReadWriteable, Generator):
             if st.us[i] < np.exp(-dS) * self.zeta**dD:
                 st.n[link] += c
                 local_charge.apply_link_to_F(st.F, mu, site, c, self.N)
+                N = self.N
                 for cell, dv in dq.items():
                     q1 = st.defects.get(cell, 0) + dv
                     if q1:
                         st.defects[cell] = q1
                     else:
                         st.defects.pop(cell, None)
+                    # Mirror into the dense q and compact nonzero list the compiled
+                    # step uses, so the two paths can be freely interleaved.
+                    rav = ((cell[0] * N + cell[1]) * N + cell[2]) * N + cell[3]
+                    if st.q[rav] == 0:
+                        st.nzc[st.nnz] = rav
+                        st.nnz += 1
+                    elif q1 == 0:
+                        for b in range(st.nnz):
+                            if st.nzc[b] == rav:
+                                st.nzc[b] = st.nzc[st.nnz - 1]
+                                st.nnz -= 1
+                                break
+                    st.q[rav] = q1
                 st.D += dD
                 self.accepted += 1
         # ---- classify the sector at this tick (accepted or not).  This is where the
@@ -306,15 +334,29 @@ class DefectGas(ReadWriteable, Generator):
             'Four_Defect': Batch(steps, shape=(4,), dtype=float),
         }
 
-    def step(self, configuration):
-        r"""
-        Advance the enlarged chain until its ``emit_every``-th vacuum tick and emit
-        that configuration --- the trace of the chain on the constraint surface, so
-        every emitted configuration satisfies $q \equiv 0$ exactly and the emitted
-        ensemble is the constrained theory.  The pair-sector dwell accumulated along
-        the way rides along as the inline ``Theta_Theta`` (already scaled by
-        $1/V\zeta^{2}$) and ``Vacuum_Ticks``.
-        """
+    def _kernel_ticks(self, st, tally, vac_stop, H_pair, H_four):
+        # One compiled pass over the remainder of the current proposal batch (stopping
+        # early at vac_stop vacuum ticks when positive); mutates the dense chain state
+        # in place and returns the number of vacuum ticks seen.
+        i0 = st.i
+        i, D, nnz, acc, vac = defect_gas_kernel.tick_batch(
+            st.F2, st.n2, st.dphi2, st.q, st.nzc, st.D, st.nnz,
+            st.mus, st.sites, st.cs, st.us, i0,
+            self.kappa, self.zeta,
+            -1 if self.D_max is None else int(self.D_max), self.N,
+            *defect_gas_kernel.stencil_pack(),
+            H_pair, H_four, tally, vac_stop)
+        st.i = int(i)
+        st.D = int(D)
+        st.nnz = int(nnz)
+        self.proposed += st.i - i0
+        self.accepted += int(acc)
+        return int(vac)
+
+    def _step_body(self, configuration, ticker):
+        # Shared frame of step and step_reference: state (re)build, the advance-until-
+        # emit loop via `ticker`, and the emission.  `ticker` advances the chain and
+        # returns (vacuum ticks seen, ticks consumed), tallying into its arguments.
         L, V = self.L, self.N**4
         n_in = np.asarray(configuration['n']).astype(np.int64)
         phi_in = np.asarray(configuration['phi']).astype(float)
@@ -324,36 +366,80 @@ class DefectGas(ReadWriteable, Generator):
         if st is None or not (np.array_equal(st.n, n_in)
                               and np.array_equal(st.phi, phi_in)):
             st = self._state = self._init_state(phi_in, n_in, update_phi=False)
-        pair = np.zeros(L.dims)
-        four = np.zeros(4)
+        H_pair = np.zeros(V, dtype=np.int64)
+        H_four = np.zeros(4, dtype=np.int64)
         vacuum = 0
+        ticks = 0
         cap = self.max_step_sweeps * st.n_links
-        for ticks in range(1, cap + 1):
-            vac, disp, cls4 = self._tick(st)
-            if vac:
-                vacuum += 1
-                if vacuum == self.emit_every:
-                    break
-            elif disp is not None:
-                pair[disp] += 1
-            elif cls4 is not None:
-                four[cls4] += 1
-        else:
-            raise RuntimeError(
-                f'no {self.emit_every} vacuum ticks in {self.max_step_sweeps} sweeps: '
-                f'zeta={self.zeta} is likely too large for this volume/kappa (defect '
-                f'condensation).  Retune (DefectGas.tune), lower zeta, or note that '
-                f'a genuinely condensed theta phase requires zeta ~ 1/V.')
-        # Emit AT a vacuum tick: st.n is exactly valid here.  Copies, so the chain's
-        # working arrays stay private.
+        while vacuum < self.emit_every:
+            if ticks >= cap:
+                raise RuntimeError(
+                    f'no {self.emit_every} vacuum ticks in {self.max_step_sweeps} sweeps: '
+                    f'zeta={self.zeta} is likely too large for this volume/kappa (defect '
+                    f'condensation).  Retune (DefectGas.tune), lower zeta, or note that '
+                    f'a genuinely condensed theta phase requires zeta ~ 1/V.')
+            v, t = ticker(st, self.emit_every - vacuum, H_pair, H_four)
+            vacuum += v
+            ticks += t
+        # Emit AT a vacuum tick: st.n is exactly valid here.
         # φ was frozen for the whole step, so it passes through unchanged; only n is
         # re-emitted (a copy, so the chain's working array stays private).
         return configuration | {
             'n': Form(st.n.copy(), degree=1, lattice=L),
-            'Theta_Theta': pair / (V * self.zeta**2),
+            'Theta_Theta': H_pair.reshape(tuple(L.dims)) / (V * self.zeta**2),
             'Vacuum_Ticks': float(vacuum),
-            'Four_Defect': four / self.zeta**4,
+            'Four_Defect': H_four / self.zeta**4,
         }
+
+    def step(self, configuration):
+        r"""
+        Advance the enlarged chain until its ``emit_every``-th vacuum tick and emit
+        that configuration --- the trace of the chain on the constraint surface, so
+        every emitted configuration satisfies $q \equiv 0$ exactly and the emitted
+        ensemble is the constrained theory.  The pair-sector dwell accumulated along
+        the way rides along as the inline ``Theta_Theta`` (already scaled by
+        $1/V\zeta^{2}$) and ``Vacuum_Ticks``.
+
+        The tick loop runs in a compiled kernel
+        (:func:`~supervillain.generator.no_intersection.defect_gas_kernel.tick_batch`)
+        consuming the same pre-drawn proposals as the pure-python
+        :meth:`step_reference`, which it reproduces bit-for-bit.
+        """
+        def ticker(st, vac_stop, H_pair, H_four):
+            if st.i == st.n_links:
+                self.D_trace.append(st.D)
+                self._draw_batch(st)
+            i0 = st.i
+            vac = self._kernel_ticks(st, True, vac_stop, H_pair, H_four)
+            return vac, st.i - i0
+        out = self._step_body(configuration, ticker)
+        # Mirror the dense charge state back into the sparse dict so step_reference
+        # can pick up where the kernel left off.
+        st, dims = self._state, tuple(self.L.dims)
+        st.defects = {
+            tuple(int(x) for x in np.unravel_index(int(cell), dims)): int(st.q[cell])
+            for cell in st.nzc[:st.nnz]}
+        return out
+
+    def step_reference(self, configuration):
+        r"""
+        The plain, obviously-correct :meth:`step`: the same advance-until-emit loop
+        driven tick-by-tick through the pure-python :meth:`_tick` (sparse defect dict,
+        per-proposal stencil dicts).  Kept as the correctness oracle the compiled
+        :meth:`step` is validated against --- same proposals, same accept test, same
+        tallies, bit-for-bit.
+        """
+        def ticker(st, vac_stop, H_pair, H_four):
+            vac, disp, cls4 = self._tick(st)
+            if vac:
+                return 1, 1
+            if disp is not None:
+                N = self.N
+                H_pair[((disp[0] * N + disp[1]) * N + disp[2]) * N + disp[3]] += 1
+            elif cls4 is not None:
+                H_four[cls4] += 1
+            return 0, 1
+        return self._step_body(configuration, ticker)
 
     # ---------------------------------------------------------------- standalone API
 
@@ -411,7 +497,7 @@ class DefectGas(ReadWriteable, Generator):
         self.blocks.append((self._H_pair, self._H_Z, self._H_four))
         self._new_block()
 
-    def run(self, phi, n, sweeps, tally=True, progress=None):
+    def run(self, phi, n, sweeps, tally=True, progress=None, compiled=True):
         r"""
         Standalone driver: evolve ``sweeps`` sweeps --- each $4 N^{4}$ single-link
         proposals plus one $\phi$ sweep --- from ``(phi, n)``, tallying the sector
@@ -428,6 +514,9 @@ class DefectGas(ReadWriteable, Generator):
         tally: bool
         progress: callable, optional
             e.g. ``tqdm``.
+        compiled: bool
+            Use the compiled tick kernel (default); ``False`` runs the pure-python
+            :meth:`_tick` loop, which the kernel reproduces bit-for-bit.
 
         Returns
         -------
@@ -438,16 +527,32 @@ class DefectGas(ReadWriteable, Generator):
         iterator = range(sweeps)
         if progress is not None:
             iterator = progress(iterator)
-        for _ in iterator:
-            for _ in range(st.n_links):
-                vac, disp, cls4 = self._tick(st)
+        if compiled:
+            V = self.N**4
+            for _ in iterator:
+                # Sweep boundary, in the same order the pure _tick performs it.
+                if st.i == st.n_links:
+                    self.D_trace.append(st.D)
+                    self._phi_sweep(st)
+                    self._draw_batch(st)
+                H_pair = np.zeros(V, dtype=np.int64)
+                H_four = np.zeros(4, dtype=np.int64)
+                vac = self._kernel_ticks(st, tally, -1, H_pair, H_four)
                 if tally:
-                    if vac:
-                        self._H_Z += 1
-                    elif disp is not None:
-                        self._H_pair[disp] += 1
-                    elif cls4 is not None:
-                        self._H_four[cls4] += 1
+                    self._H_Z += vac
+                    self._H_pair += H_pair.reshape(tuple(self.L.dims))
+                    self._H_four += H_four
+        else:
+            for _ in iterator:
+                for _ in range(st.n_links):
+                    vac, disp, cls4 = self._tick(st)
+                    if tally:
+                        if vac:
+                            self._H_Z += 1
+                        elif disp is not None:
+                            self._H_pair[disp] += 1
+                        elif cls4 is not None:
+                            self._H_four[cls4] += 1
         self._phi_sweep(st)
         return st.phi, st.n
 
