@@ -14,7 +14,7 @@ from supervillain.generator.no_intersection import local_charge
 import supervillain.action
 
 
-class FugacityWorm(ReadWriteable, Generator):
+class DefectGas(ReadWriteable, Generator):
     r"""
     Grand-canonical defect sampler for the $q = dn \wedge dn = 0$ constraint in 4D,
     with the inline estimator of the Lagrange-multiplier correlator
@@ -105,7 +105,7 @@ class FugacityWorm(ReadWriteable, Generator):
     Besides the :class:`~supervillain.Ensemble` route, :meth:`run` +
     :meth:`correlator` drive the same chain standalone (block-jackknife errors) ---
     convenient for $\zeta$ scans and quick studies; ``example/no-intersection/
-    fugacity_worm.py`` is the command-line driver.
+    defect_gas.py`` is the command-line driver.
 
     Parameters
     ----------
@@ -133,9 +133,9 @@ class FugacityWorm(ReadWriteable, Generator):
     def __init__(self, S, zeta, D_max=None, emit_every=None, max_step_sweeps=500,
                  rng=None):
         if not isinstance(S, supervillain.action.NoIntersections):
-            raise ValueError('FugacityWorm requires a NoIntersections action.')
+            raise ValueError('DefectGas requires a NoIntersections action.')
         if S.Lattice.D != 4:
-            raise ValueError('FugacityWorm is only implemented for D = 4.')
+            raise ValueError('DefectGas is only implemented for D = 4.')
         if not (0 < zeta <= 1):
             raise ValueError(f'zeta must be in (0, 1]; got {zeta}.')
 
@@ -159,7 +159,7 @@ class FugacityWorm(ReadWriteable, Generator):
         self._state = None
 
     def __str__(self):
-        return f'FugacityWorm(zeta={self.zeta}, D_max={self.D_max})'
+        return f'DefectGas(zeta={self.zeta}, D_max={self.D_max})'
 
     # ---------------------------------------------------------------- chain internals
 
@@ -323,7 +323,7 @@ class FugacityWorm(ReadWriteable, Generator):
             raise RuntimeError(
                 f'no {self.emit_every} vacuum ticks in {self.max_step_sweeps} sweeps: '
                 f'zeta={self.zeta} is likely too large for this volume/kappa (defect '
-                f'condensation).  Retune (FugacityWorm.tune), lower zeta, or note that '
+                f'condensation).  Retune (DefectGas.tune), lower zeta, or note that '
                 f'a genuinely condensed theta phase requires zeta ~ 1/V.')
         # Emit AT a vacuum tick: st.n is exactly valid here.  Copies, so the chain's
         # working arrays stay private.

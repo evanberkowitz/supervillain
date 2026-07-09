@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 r"""
-Command-line driver for :class:`~.FugacityWorm` --- the grand-canonical defect sampler
+Command-line driver for :class:`~.DefectGas` --- the grand-canonical defect sampler
 of the No-Intersection model, with the inline estimator of
 $\langle e^{+i\theta_x} e^{-i\theta_y}\rangle$ (absolutely normalized).  See the class
 docstring in ``supervillain/generator/no_intersection/fugacity.py`` for the algorithm
@@ -12,7 +12,7 @@ variance); run twice with different values and compare.
 
 Run from example/no-intersection/:
 
-    uv run python fugacity_worm.py --N 6 --kappa 0.05 --tune --sweeps 2000
+    uv run python defect_gas.py --N 6 --kappa 0.05 --tune --sweeps 2000
 """
 
 import argparse
@@ -56,12 +56,12 @@ phi0, n0 = np.asarray(cfg['phi']), np.asarray(cfg['n'])
 
 zeta = args.zeta
 if args.tune:
-    zeta = gen.FugacityWorm.tune(S, D_max=args.D_max,
+    zeta = gen.DefectGas.tune(S, D_max=args.D_max,
                                  rng=np.random.default_rng(args.seed + 1),
                                  phi=phi0, n=n0)
     print(f'tuned zeta = {zeta}')
 
-w = gen.FugacityWorm(S, zeta=zeta, D_max=args.D_max,
+w = gen.DefectGas(S, zeta=zeta, D_max=args.D_max,
                      rng=np.random.default_rng(args.seed))
 phi, n = w.run(phi0, n0, args.thermalize, tally=False, progress=tqdm)
 w.blocks = []

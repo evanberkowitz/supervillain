@@ -339,8 +339,8 @@ The Freedman--Quinn caveat above was that homotopies between embedded sheets may
 The defect gas carries **any number**: a finger move is a pair creation (priced $\zeta^2$), a Whitney move is a pair annihilation (rewarded $\zeta^{-2}$), an isotopy is a $\Delta q$-neutral rearrangement (free), and higher-multiplicity double points ($\left|q_x\right| \geq 2$) are ordinary states of the gas rather than special cases needing bespoke repair moves.
 It walks the full immersed corridor, not the one-pair shortcut.
 
-Despite its name, the :class:`~supervillain.generator.no_intersection.FugacityWorm` is not a worm in the traditional sense --- nothing walks, nothing is steered; defects appear, diffuse, and annihilate on their own schedule, and the physics is read off from where the chain happens to sit.
-As a :class:`~supervillain.generator.Generator` it nonetheless slots into the machinery above through a simple device: a :meth:`~supervillain.generator.no_intersection.FugacityWorm.step` advances the gas until a prescribed number of returns to the vacuum sector and emits *that* configuration.
+The :class:`~supervillain.generator.no_intersection.DefectGas` is deliberately *not* named a worm --- nothing walks, nothing is steered; defects appear, diffuse, and annihilate on their own schedule, and the physics is read off from where the chain happens to sit.
+As a :class:`~supervillain.generator.Generator` it nonetheless slots into the machinery above through a simple device: a :meth:`~supervillain.generator.no_intersection.DefectGas.step` advances the gas until a prescribed number of returns to the vacuum sector and emits *that* configuration.
 The visits of a reversible chain to a subset of its states form the *trace chain* on that subset, reversible with respect to the restricted measure --- and $\Pi$ restricted to the vacuum sector is exactly $e^{-S}$ on the constraint surface.
 So, exactly as for the walking worms, the invalid states live only *inside* a step; every emitted configuration satisfies $q \equiv 0$; and because $\phi$ is frozen within a step the update is $n$-only and composes with a $\phi$-update in a :class:`~supervillain.generator.combining.Sequentially` like every other generator here.
 The pair-sector dwell rides along as the inline observables ``Theta_Theta`` and ``Vacuum_Ticks``, from which $\Theta$ is the ratio of ensemble means.
@@ -350,7 +350,7 @@ Entropy pushes $D$ up --- each defect may live anywhere, and the denser the shee
 But this tuning pressure is itself a diagnostic, because *physical* defect condensation is precisely $\theta$ long-range order --- pairs costing $O(1)$ at any separation --- the phase the mixed anomaly is hunting for.
 A tuned $\zeta$ that must fall like $1/V$, and a pair-sector dwell spreading flat in separation, are that phase announcing itself: signal, not failure.
 
-.. autoclass:: supervillain.generator.no_intersection.FugacityWorm
+.. autoclass:: supervillain.generator.no_intersection.DefectGas
    :members:
    :show-inheritance:
 
