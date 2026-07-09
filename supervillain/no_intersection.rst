@@ -302,14 +302,14 @@ Enlarge the ensemble with a per-defect fugacity $\zeta$,
    \qquad
    D(n) = \sum_x \left|q_x(n)\right|,
 
-and sample it with the humblest move there is: a single link and $c = \pm 1$, drawn uniformly, accepted with $\min(1, e^{-\Delta S} \zeta^{\Delta D})$.
-The very move that was poison for the constrained model --- a single-link change smears $q$ over its neighborhood --- is now merely *expensive*: whatever charge it scatters is a legal state, discounted by $\zeta^{\Delta D}$, and the reverse move that cleans it up is *rewarded* by the same factor.
+and sample it with a plain single link $n\to n\pm 1$ sampled uniformly and accepted with $\min\left(1, e^{-\Delta S} \zeta^{\Delta D}\right)$.
+The very move that was poison for the constrained model --- a single-link change smears $q$ over its neighborhood --- is now merely *expensive*: whatever charge it scatters is a legal state, with cost inflated by $\zeta^{\Delta D}$, and the reverse move that cleans it up is *discounted* by the same factor.
 Every link is always proposable, so there is no jam and no frozen sector: the frozen configurations that isolate the :class:`~supervillain.generator.no_intersection.ConstrainedLinkUpdate` are frozen only for moves that must keep $q = 0$ exactly; the defect gas walks straight through them, paying the toll on the way in and collecting it on the way out.
 Ergodicity, which every constrained move set above had to argue for case by case, is manifest.
 
 What does this buy us physically?  Recall :ref:`the worm's shifted constraint <theta worm constraint>`: inserting $e^{i(\theta_x - \theta_y)}$ demands $q = \delta_x - \delta_y$.
 The worm's $G$ ensemble is the *two*-defect sector of $\Pi$, carrying weight $\zeta^2$ --- one factor of $\zeta$ per insertion of the charge operator $e^{\pm i\theta}$, which is exactly the sense in which $\Pi$ is the *grand-canonical* worm ensemble: it sums over any number of worms in flight, with fugacity $\zeta$ per endpoint.
-The correlator is then read off by pure bookkeeping, no steering required.
+The correlator is then read off by pure bookkeeping.
 Tally, after every proposal, which sector the chain sits in:
 
 .. math ::
@@ -318,7 +318,8 @@ Tally, after every proposal, which sector the chain sits in:
    = \frac{\left\langle \prod_p [q_p = \delta_{px} - \delta_{py}] \right\rangle_\Pi}
           {\zeta^2 \left\langle \prod_p [q_p = 0] \right\rangle_\Pi},
 
-the ratio of the time spent in the exact single-pair sector to the time spent in the vacuum, with the known price $\zeta^2$ divided back out.
+with $[\cdots]$ the Iverson bracket.
+This correlator is the ratio of the time spent in the exact single-pair sector to the time spent in the vacuum, with the known price $\zeta^2$ divided back out.
 Two properties are worth internalizing.
 First, $\Theta_{x,x} = 1$ *identically* --- a coincident pair *is* the vacuum --- so this estimator is **absolutely normalized**: where the worm histogram must be normalized by its origin bin, the defect gas measures $\Theta$ outright.
 Second, $\Theta$ is **independent of** $\zeta$, because the intermediate sectors' weights cancel from the ratio entirely; $\zeta$ tunes only the variance.
@@ -339,15 +340,13 @@ The Freedman--Quinn caveat above was that homotopies between embedded sheets may
 The defect gas carries **any number**: a finger move is a pair creation (priced $\zeta^2$), a Whitney move is a pair annihilation (rewarded $\zeta^{-2}$), an isotopy is a $\Delta q$-neutral rearrangement (free), and higher-multiplicity double points ($\left|q_x\right| \geq 2$) are ordinary states of the gas rather than special cases needing bespoke repair moves.
 It walks the full immersed corridor, not the one-pair shortcut.
 
-The :class:`~supervillain.generator.no_intersection.DefectGas` is deliberately *not* named a worm --- nothing walks, nothing is steered; defects appear, diffuse, and annihilate on their own schedule, and the physics is read off from where the chain happens to sit.
-As a :class:`~supervillain.generator.Generator` it nonetheless slots into the machinery above through a simple device: a :meth:`~supervillain.generator.no_intersection.DefectGas.step` advances the gas until a prescribed number of returns to the vacuum sector and emits *that* configuration.
-The visits of a reversible chain to a subset of its states form the *trace chain* on that subset, reversible with respect to the restricted measure --- and $\Pi$ restricted to the vacuum sector is exactly $e^{-S}$ on the constraint surface.
+The :class:`~supervillain.generator.no_intersection.DefectGas` is *not* a worm --- nothing walks, nothing is steered; defects appear, diffuse, and annihilate on their own schedule, and the physics is read off when the system revisits the vacuum sector, which is distributed exactly according to the expected constraint-satisfying Villain model.
 So, exactly as for the walking worms, the invalid states live only *inside* a step; every emitted configuration satisfies $q \equiv 0$; and because $\phi$ is frozen within a step the update is $n$-only and composes with a $\phi$-update in a :class:`~supervillain.generator.combining.Sequentially` like every other generator here.
 The pair-sector dwell rides along as the inline observables ``Theta_Theta`` and ``Vacuum_Ticks``, from which $\Theta$ is the ratio of ensemble means.
 
-The one knob that must be handled with respect is $\zeta$ itself.
-Entropy pushes $D$ up --- each defect may live anywhere, and the denser the sheet the more charge a single link scatters --- so the well-tuned $\zeta$ shrinks with the volume and with $1/\kappa$, and a badly-large $\zeta$ condenses the gas into a defect soup that never revisits the measured sectors (the failure is loud: the step raises rather than hang).
-But this tuning pressure is itself a diagnostic, because *physical* defect condensation is precisely $\theta$ long-range order --- pairs costing $O(1)$ at any separation --- the phase the mixed anomaly is hunting for.
+The fugacity $\zeta$ must be handled with care.
+Entropy pushes $D$ up --- each defect may live anywhere, and the denser the sheet the more charge a single link scatters --- so the well-tuned $\zeta$ shrinks with the volume and with $1/\kappa$, and a badly-large $\zeta$ condenses the gas into a defect soup that never revisits the measured sectors: the sampling will hang.
+But this tuning pressure is itself a diagnostic, because *physical* defect condensation is precisely $\theta$ long-range order.
 A tuned $\zeta$ that must fall like $1/V$, and a pair-sector dwell spreading flat in separation, are that phase announcing itself: signal, not failure.
 
 .. autoclass:: supervillain.generator.no_intersection.DefectGas
