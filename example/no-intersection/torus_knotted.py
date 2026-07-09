@@ -2,7 +2,7 @@
 r"""
 Build a valid NoIntersections configuration whose vortex sheet is a KNOTTED TORUS.
 
-Recipe (ergodicity.md, open question 6): realize a torus knot γ = T(k, g−k) as a closed
+Recipe: realize a torus knot γ = T(k, g−k) as a closed
 cubic-lattice polygon from its cyclic grid diagram (grid size g, shift k; the default
 g=5, k=2 is the trefoil), lay it in the (x1, x2, x3) sublattice, hang a Dirac sheet below
 it (vertical curtains under every horizontal strand + a winding-number filling of the
@@ -18,6 +18,21 @@ factor, so q = dn ∧ dn ≡ 0 identically (the same mechanism that validates th
 single-direction configurations of genus.py).  Knottedness is inherited from the diagram
 (π₁ of the complement is the torus-knot group × ℤ); the intrinsic topology is a torus,
 which genus.topology confirms (χ = 0) --- χ cannot see knotting, only the embedding does.
+
+That argument is more general than this construction: the ENTIRE 3D sector is
+constraint-blind.  Any n with no x0-component and no x0-dependence has q ≡ 0
+identically, however tangled its spatial part.  The valid space therefore contains an
+isomorphic copy of the whole unconstrained 3D configuration space, and with it every
+knotted sheet of the form γ × S¹.  That is why the constraint has no teeth here, and why
+spun_sphere.py --- whose sheet lights five dual planes --- is the construction that
+genuinely tests the cup product.
+
+Worm mobility on these backgrounds is nearly free: of 344,064 worm-template placements on
+the N = 8 trefoil, 153,744 are legal first steps (44.7%, against exactly 50% on the
+vacuum) and 90% produce a ± dipole somewhere.  The knotted torus is thus the *opposite*
+regime from the frozen families that isolated.py sweeps: locally the worm moves almost
+everywhere, and the open mixing question is purely the GLOBAL one --- can the dynamics
+actually unknot the sheet?  torus_dismantle.py answers it with an explicit certificate.
 
 Grid diagrams make the polygon robust and scalable: column i carries a vertical strand
 from row i to row (i+k) mod g, at a HIGHER x3-level than the horizontal row strands, so
@@ -35,6 +50,9 @@ Verifications performed:
   2. f = dm is supported exactly on the plaquettes dual to γ's steps, with |f| = 1;
   3. q ≡ 0 exactly on the assembled 4D configuration (charge());
   4. the dual sheet is a single manifold component with χ = 0 (genus 1), no junctions.
+
+All four pass for the trefoil at scale 1 (N = 8, 34-step polygon), the trefoil at
+scale 2 (N = 12), and the cinquefoil T(2,5) (g = 7, N = 10).
 
 Run from example/no-intersection/ (imports genus.py; corridors.py under --worm):
 

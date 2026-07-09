@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 r"""
-Corridor realizability (ergodicity.md §5.3/§7.4): does the committed library connect
+Corridor realizability: does the committed library connect
 every *continuum-adjacent* pair of valid configurations?
 
 The sharp version of the question, made decidable.  Two valid configurations that
@@ -26,10 +26,19 @@ by the committed library:
    dipole legality and the final validity), using only shapes from the committed
    library.
 
-Every found realization is re-verified with direct charge() calls.  The verdict for
-the catalog: if all irreducible moves are realized, the library's corridors carry
-every continuum-adjacent transition we can construct --- the decidable content of
-§5.3(a, b) --- with this script as the decision procedure for future backgrounds.
+Every found realization is re-verified with direct charge() calls.
+
+Verdict for the catalog: all 86 irreducible coordinated moves found --- 52 on the knotted
+trefoil torus and 34 on the spun trefoil at N = 8; the staggered N = 4 planes have none ---
+are realized by 2-step worm excursions.  Zero unrealized; not one even needed a clean
+detour.  So the continuum-adjacent valid pairs we can construct are all connected by the
+committed library, with the worm supplying exactly the coordinated corridors its
+finger/Whitney design promised.
+
+The quantifier honesty stands: "every background" is not enumerable, so this is not a
+theorem.  What was an open question is now a maintained invariant --- no continuum-adjacent
+valid pair without a library corridor is known --- and any future suspect is adjudicated by
+running this script on it.
 
 Run from example/no-intersection/:
 

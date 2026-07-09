@@ -21,9 +21,31 @@ Move tiers:
   T1  : all 2-link (±1, ±1) moves, partner within L1 ≤ --window   (background-
         activated ±1 pairs; NOT in the library, but no Diophantine content)
   T2  : 2-link mixed magnitudes, |c_i| ≤ --cmax, not both |c| = 1  (the Diophantine
-        tower of §4.8b in ergodicity.md; the (2,2)-only example lives here)
+        tower; the (2,2)-only example lives here)
   TX3 : 1-link dipoles with taxicab-3 head displacement            (would require new
         worm buckets, changing 2M)
+
+Why a "Diophantine tower" exists at all.  For a SINGLE link there is no number theory:
+Δq = c·L_ℓ(F) is linear (the self-wedge vanishes, since every plaquette of dδ_ℓ contains
+the link's direction, so no two are complementary).  Cleanliness ⟺ L_ℓ(F) = 0 regardless
+of c, so ±1 suffices for Z-moves; and moving a unit defect demands that c·L_ℓ have entries
+±1, while every entry is divisible by c --- so c | 1 and c = ±1 is *forced* for the worm.
+For TWO OR MORE links linearity breaks: the cross terms
+M_ij = dδ_i ∧ dδ_j + dδ_j ∧ dδ_i are nonzero whenever the two links generate plaquettes in
+complementary planes (exactly the diagonal-template geometry), and cleanliness becomes a
+system of quadratic Diophantine equations in the c_i.  T2 is that tier.
+
+A discovery counts as IRREDUCIBLE only if no unit-step path through valid intermediates
+decomposes it; decomposable moves are already executable by the committed idle + 1-link
+repertoire (clean steps = idles, final step = 1-link head move).
+
+Verdict: nothing beyond the committed library is needed.  On the vacuum, T2 yields 0 of
+24,576 dipoles --- the divisibility argument above, confirmed numerically.  TX3 has no
+customers: zero taxicab-3 one-link dipoles occur on ANY catalog background, and no head's
+only exit is taxicab-3, so new worm buckets would tax every vacuum worm for nothing.  And
+mixed magnitudes do NOT unfreeze the frozen sector: on both frozen families T1 and T2 give
+0 clean and 0 dipole moves, extending corridors.py's (±1, ±1) isolation result to the whole
+|c| ≤ 3, k = 2, window-L1 ≤ 3 Diophantine tier.
 
 Two provable scope restrictions keep the scan honest and finite:
 

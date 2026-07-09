@@ -20,14 +20,38 @@ dn ∧ dn = 0 identically, so every configuration is manifestly valid, and each
 single-link move between two valid configurations is a legal
 ConstrainedLinkUpdate proposal (legality *is* endpoint validity).
 
-Why we care (see ergodicity.md at the repository root): 2-knot invariants are
-invariants of *isotopy of embedded surfaces of fixed topology*.  Because the
-dynamics changes component number and genus with legal elementary moves, and
-because internally-stabilized homologous surfaces in a compact 4-manifold are
-isotopic (Hosokawa–Kawauchi 1979 for S⁴; Baykur–Sunukjian 2016 in general),
-2-knot type cannot label dynamically-disconnected sectors --- *unless* the
-lattice constraint blocks the stabilization/isotopy path on some background,
-which is the remaining finite, checkable question.
+Verified at N = 6:
+
+  add one link between two small spheres
+      before: 2 components, χ = 2 each      after: 1 component, χ = 2
+      => component number is not conserved
+
+  remove the center link of a 3×3 patch
+      before: sphere  F=30, E=60, V=32, χ=2, g=0
+      after:  torus   F=32, E=64, V=32, χ=0, g=1
+      => genus is not conserved
+
+Why we care: 2-knot invariants are invariants of *isotopy of embedded surfaces
+of fixed topology*.  Because the dynamics changes component number and genus
+with legal elementary moves, and because internally-stabilized homologous
+surfaces in a compact 4-manifold are isotopic (Hosokawa–Kawauchi 1979 for S⁴;
+Baykur–Sunukjian 2016 in general), 2-knot type cannot label
+dynamically-disconnected sectors --- *unless* the lattice constraint blocks the
+stabilization/isotopy path on some background, which is the remaining finite,
+checkable question.  The sphere <-> torus move above is precisely the
+attachment/removal of a trivial 1-handle, so the elementary moves of the
+existing library *are* stabilization moves and elementary isotopy steps, at
+least on backgrounds where they are clean.
+
+Terminology: "sphere" and "torus" name the *intrinsic* topology of a component.
+Once a component is verified to be a closed 2-manifold (every dual edge carries
+exactly two faces, no junction lines) and orientable --- which the integer signs
+of F guarantee --- the classification of closed connected orientable surfaces
+makes χ decisive: χ = 2 ⇔ S², χ = 0 ⇔ T².  Intrinsic topology says nothing about
+the embedding: a *knotted* 2-sphere also has χ = 2.  In these demos the sheets
+also arise as boundaries, since duality exchanges d on n with ∂ on the 3-chain of
+dual 3-cubes of the occupied links: the 3×3 patch gives ∂(slab) = S², and the
+punctured patch gives ∂(solid torus) = T².
 
 The χ computation uses the dual-complex cell counts:
 

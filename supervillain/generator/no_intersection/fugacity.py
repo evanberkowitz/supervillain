@@ -103,8 +103,8 @@ class DefectGas(ReadWriteable, Generator):
 
     Besides the :class:`~supervillain.Ensemble` route, :meth:`run` +
     :meth:`correlator` drive the same chain standalone (block-jackknife errors) ---
-    convenient for $\zeta$ scans and quick studies; ``example/no-intersection/
-    defect_gas.py`` is the command-line driver.
+    convenient for $\zeta$ scans and quick studies; ``defect_gas.py`` in the
+    companion supervillain-no-intersections repository is the command-line driver.
 
     Parameters
     ----------

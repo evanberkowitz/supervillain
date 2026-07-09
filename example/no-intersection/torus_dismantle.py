@@ -2,13 +2,20 @@
 r"""
 A machine-verified certificate that the EXISTING WrappingLoopUpdate unknots the knotted tori.
 
-Theorem (one line, from the constraint-blindness of the x0-independent sector,
-ergodicity.md §4.7/§4.9): if n is x0-independent with only spatial components, then
+Theorem (one line, from the constraint-blindness of the x0-independent sector): if n is
+x0-independent with only spatial components, then
 q = dn ∧ dn ≡ 0 --- for ANY such n.  Any two such configurations differ by a sum of
-**x0-wrapping axis rings** (add ±1 to n_i at one spatial position, at every x0), and
-applying the rings in ANY order keeps every intermediate configuration x0-independent
-and purely spatial, hence exactly valid.  So every knotted torus of torus_knotted.py is
-connected to the vacuum by Σ|m| such rings, each individually clean.
+**x0-wrapping axis rings** (add ±1 to n_i at one spatial position, at every x0) --- exactly
+the axis-ring proposals of the existing WrappingLoopUpdate, with μ spatial and the wrapped
+axis ν = x0 --- and applying the rings in ANY order keeps every intermediate configuration
+x0-independent and purely spatial, hence exactly valid.  So every knotted torus of
+torus_knotted.py is connected to the vacuum by Σ|m| such rings, each individually clean.
+The knotted tori therefore lie in the existing library's reachability graph: for them
+ergodicity is settled outright, and only the rate remains open.
+
+Machine-verified: the trefoil torus (N = 8) dismantles to n ≡ 0 in Σ|m| = 51 rings, the
+cinquefoil (N = 10) in 95, applied in random order with q ≡ 0 asserted after every single
+move, and the generator's own tallies reporting proposed = clean = accepted = Σ|m|.
 
 **Is it obvious that WrappingLoopUpdate performs these rings?**  Not by fiat --- so this
 script does not ask you to trust a by-eye correspondence.  Each ring is applied by
@@ -33,8 +40,16 @@ UNRIGGED WrappingLoopUpdate draws a specific signed axis ring with probability
 reachability problem.  Certificates prove reachability; Monte Carlo measures rates.
 
 Limitation: the certificate exists because the tori live in the x0-independent sector.
-The spun spheres of spun_sphere.py do not (their rings span (x3, x0)), so no such free
-pass exists for them; see ergodicity.md §4.9.
+The spun spheres of spun_sphere.py do not --- their rings span (x3, x0) --- so no such
+free pass exists for them.  A by-hand certificate there is a genuine but *structured*
+project.  Hosokawa–Kawauchi stabilization, plus the fact that a crossing change on the arc
+lifts to a single 1-handle stabilization of the spun sphere, suggests the spun trefoil
+unknots after attaching ONE tube in the right place (the classical trefoil has unknotting
+number 1).  The plan: (1) attach a tube at the lift of the crossing-change site --- a few
+links, validity machine-checked; (2) isotope and shrink the now-unknotted genus-1 surface
+by cube moves, the laborious part, best done by guided search (best-first on Σn² with
+bounded uphill) using the stabilization as a hand-placed waypoint; (3) dismantle the
+standard remnant.  That is the sharp remaining unknotting target.
 
 Run from example/no-intersection/:
 

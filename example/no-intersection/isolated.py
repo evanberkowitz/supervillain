@@ -2,11 +2,14 @@
 r"""
 Is any valid configuration ISOLATED under the full structured library?
 
-This is the decision tool for the kinetic-trap question (ergodicity.md §7.4/§8): the
-frozen configurations prove that single-link sweeps alone are not ergodic, and the
-global generators (WrappingLoopUpdate, PlanarFluxUpdate) were built to escape them
---- but "escapes the known examples" is weaker than "escapes the known trap
-*classes*".  This script closes that gap two ways:
+This is the decision tool for the kinetic-trap question.  The frozen configurations
+prove that single-link sweeps alone are not ergodic: on a frozen background not one
+local move of any implemented kind is even a *dipole*, so the worm inserts and
+immediately closes --- the G-space corridor is shut, not merely the Z-space one, and
+the sector's only exits are the two global generators.  WrappingLoopUpdate and
+PlanarFluxUpdate were built to provide them, and ``unfreeze.py`` shows wrapping loops
+escape the two known *examples* --- but "escapes the known examples" is weaker than
+"escapes the known trap *classes*".  This script closes that gap two ways:
 
 1. ``census(n)``: for ANY configuration, exhaustively enumerate the legal moves of
    every structured-generator class --- all single-link ±1 moves, ALL wrapping loops
@@ -25,6 +28,13 @@ global generators (WrappingLoopUpdate, PlanarFluxUpdate) were built to escape th
 
    For every valid member the script decides: is it frozen (every single-link move
    blocked)?  If frozen, does at least one global move escape it?
+
+Result at N = 4: of 2,456 valid family members, 1,948 are frozen, and every single
+one of them has global escapes --- zero stuck.  Complete counts for the flagships:
+the a = b = 1 single-pair trap admits 384 legal wrapping loops and 1,664 legal planar
+moves; the six-plane default admits 512 and 2,592.  So no "super-frozen"
+configuration --- blocked for locals *and* globals --- exists anywhere in the complete
+known families, and any future suspect is adjudicated by ``census(n)``.
 
 Everything is early-exited (a single clean link disqualifies "frozen"; a single
 legal global move settles "escapable"), so the sweep is fast; ``--full`` forces
