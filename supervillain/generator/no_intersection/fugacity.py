@@ -46,8 +46,8 @@ class DefectGas(ReadWriteable, Generator):
     moves connect every $n$ with nonzero acceptance, making ergodicity on the enlarged
     space manifest.
 
-    While generating, the :meth:`step` advances the the enlarged chain until its
-    ``emit_every``th visit to the vacuum sector and emits that configuration.
+    While generating, the :meth:`step` advances the enlarged chain until its
+    ``emit_every``-th visit to the vacuum sector and emits that configuration.
     Restricted to the vacuum sector the enlarged weight is $e^{-S_{V}} \zeta^{0} = e^{-S_{V}}$,
     so the emitted ensemble is exactly the constrained theory.  Like the worms,
     invalid states live only *inside* a step, and every emitted configuration satisfies
