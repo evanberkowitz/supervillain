@@ -63,7 +63,7 @@ TIERS = {
     6:  dict(configurations=3000, therm=1500, kappas=KAPPAS_FULL),
     8:  dict(configurations=2000, therm=1500, kappas=KAPPAS_FULL),
     12: dict(configurations=1000, therm=1000, kappas=KAPPAS_FOCUS),
-    16: dict(configurations=250,  therm=600,  kappas=KAPPAS_PEAK),
+    16: dict(configurations=250,  therm=2000, kappas=KAPPAS_PEAK),
 }
 
 # One rung below the default ladder, for the biggest volumes (entropy pushes D up, so
@@ -163,6 +163,24 @@ def point(N, kappa, configurations, therm, seed):
     assert np.abs(q2).max() == 0, f'constraint violated at N={N} kappa={kappa}'
 
     raw = {name: np.asarray(getattr(e, name)).real for name in RAW_HISTORIES}
+
+    # The full raw ensemble --- every configuration, fields and inline observables,
+    # before any cut or decorrelation --- in its own h5, so later analyses are never
+    # limited by tonight's cut decisions.  (The Lattice cache-strip and generator
+    # withholding are the same h5 workarounds as the analysis write below.)
+    os.makedirs(f'{args.outdir}/N{N}', exist_ok=True)
+    baseline = set(Lattice(4, N).__dict__)
+    for stale in [k for k in L.__dict__ if k not in baseline]:
+        del L.__dict__[stale]
+    with h5.File(f'{args.outdir}/N{N}/kappa{kappa:g}-raw.h5', 'w') as f:
+        generator = e.__dict__.pop('generator', None)
+        try:
+            e.to_h5(f.create_group('ensemble'))
+        finally:
+            if generator is not None:
+                e.generator = generator
+        f.attrs.update({'kappa': kappa, 'N': N, 'configurations': configurations,
+                        'therm': therm, 'zeta': zeta, 'D_max': D_MAX, 'seed': seed})
 
     # Standard cut / decorrelate / bootstrap.  Unattended run: if the cut would eat
     # everything, take half and flag it for morning review instead of aborting.
