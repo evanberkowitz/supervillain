@@ -42,8 +42,9 @@ parser.add_argument('--N', type=int, default=8)
 parser.add_argument('--kappa', type=float, default=0.02)
 parser.add_argument('--configurations', type=int, default=2000)
 parser.add_argument('--therm', type=int, default=1500)
-parser.add_argument('--floor', type=float, default=0.002)
-parser.add_argument('--edge-D-max', type=int, default=32)
+parser.add_argument('--floor', type=float, default=None,
+                    help='optional explicit dwell floor; default: measurability only')
+parser.add_argument('--edge-D-max', type=int, default=64)
 parser.add_argument('--seed', type=int, default=271828)
 args = parser.parse_args()
 
@@ -68,10 +69,14 @@ def land_in_vacuum(phi, n, seed):
     raise RuntimeError(f'cooldown failed: D = {defect_count(n)} persists')
 
 
+LADDER = (0.002, 0.003, 0.005, 0.008, 0.012, 0.02, 0.03, 0.05,
+          0.06, 0.08, 0.1, 0.12, 0.15, 0.2, 0.3)
+
+
 def generate(label, zeta, D_max, emit_every, phi, n, seed):
     r"""One Generator-route run; a chain that stops returning to the vacuum is
-    RECORDED as condensation-signature data and restarted fresh one rung lower."""
-    ladder = (0.002, 0.003, 0.005, 0.008, 0.012, 0.02, 0.03, 0.05, 0.08, 0.12, 0.2, 0.3)
+    RECORDED as condensation-signature data, then a fresh chain is started from a
+    RE-TUNE capped below the condensed rung (so emit_every stays matched)."""
     while True:
         gas = gen.DefectGas(S, zeta=zeta, D_max=D_max, emit_every=emit_every,
                             max_step_sweeps=2000, rng=np.random.default_rng(seed))
@@ -82,14 +87,17 @@ def generate(label, zeta, D_max, emit_every, phi, n, seed):
                 args.configurations, chain,
                 start={'phi': Form(phi, degree=0, lattice=L),
                        'n': Form(n, degree=1, lattice=L)})
-            return e, gas, zeta
+            return e, gas, zeta, emit_every
         except RuntimeError:
-            below = [z for z in ladder if z < zeta]
             print(f'[{label}] RECORDED: zeta={zeta:g} stopped returning to the '
                   f'vacuum (defect-condensation signature; D_trace tail '
-                  f'{gas.D_trace[-5:]}).  Fresh chain at zeta={below[-1]:g}.',
-                  flush=True)
-            zeta = below[-1]
+                  f'{gas.D_trace[-5:]}).  Re-tuning below it.', flush=True)
+            zeta, emit_every = gen.DefectGas.tune_edge(
+                S, D_max=D_max, rng=np.random.default_rng(seed + 17),
+                phi=phi, n=n, floor=args.floor,
+                ladder=tuple(z for z in LADDER if z < zeta))
+            print(f'[{label}] fresh chain at zeta={zeta:g}, '
+                  f'emit_every={emit_every}', flush=True)
 
 
 def report(label, e, gas, zeta, emit_every):
@@ -115,9 +123,11 @@ def report(label, e, gas, zeta, emit_every):
     U = np.asarray(b.ThetaBinderCumulant).real
     D_trace = np.array(gas.D_trace)
 
+    pairs = (f'pairs in flight D/2: mean {D_trace.mean()/2:.2f} '
+             f'max {int(D_trace.max())//2}' if len(D_trace)
+             else 'D_trace empty (steps shorter than a sweep batch)')
     print(f'\n=== {label}: zeta={zeta:g}  D_max={gas.D_max}  emit_every={emit_every}')
-    print(f'  acceptance {gas.accepted/max(1, gas.proposed):.4f}   '
-          f'pairs in flight D/2: mean {D_trace.mean()/2:.2f} max {int(D_trace.max())//2}')
+    print(f'  acceptance {gas.accepted/max(1, gas.proposed):.4f}   {pairs}')
     print(f'  vacuum dwell {H_Z/max(1, gas.proposed):.5f}   '
           f'excursions/step {exc.mean():.1f}   '
           f'max pair separation {rmax:.2f}   longest excursion < 2^{top} ticks')
@@ -153,18 +163,19 @@ z_tuned = gen.DefectGas.tune(S, D_max=8, rng=np.random.default_rng(args.seed + 2
                              phi=phi, n=n, sweeps=150,
                              ladder=(0.1, 0.05, 0.02, 0.01, 0.005, 0.002, 0.001, 0.0005))
 print(f'tuned zeta = {z_tuned:g} (dwell > 15% protocol)', flush=True)
-e_A, gas_A, z_A = generate('tuned', z_tuned, 8, 4 * V, phi, n, args.seed + 3)
-tab_A = report('tuned (campaign protocol)', e_A, gas_A, z_A, 4 * V)
+e_A, gas_A, z_A, emit_A = generate('tuned', z_tuned, 8, 4 * V, phi, n, args.seed + 3)
+tab_A = report('tuned (campaign protocol)', e_A, gas_A, z_A, emit_A)
 
 # ---- edge
 z_edge, emit_edge = gen.DefectGas.tune_edge(
     S, D_max=args.edge_D_max, rng=np.random.default_rng(args.seed + 4),
     phi=phi, n=n, floor=args.floor)
-print(f'\nedge zeta = {z_edge:g}, emit_every = {emit_edge} (floor {args.floor})',
-      flush=True)
-e_B, gas_B, z_B = generate('edge', z_edge, args.edge_D_max, emit_edge, phi, n,
-                           args.seed + 5)
-tab_B = report(f'edge (floor {args.floor})', e_B, gas_B, z_B, emit_edge)
+print(f'\nedge zeta = {z_edge:g}, emit_every = {emit_edge} '
+      f'(floor {"measurability only" if args.floor is None else args.floor}, '
+      f'D_max {args.edge_D_max})', flush=True)
+e_B, gas_B, z_B, emit_B = generate('edge', z_edge, args.edge_D_max, emit_edge,
+                                   phi, n, args.seed + 5)
+tab_B = report('edge', e_B, gas_B, z_B, emit_B)
 
 # ---- the two-zeta disagreement test where both runs have counts
 print('\n=== two-zeta comparison (mean is zeta-independent; disagreement = '

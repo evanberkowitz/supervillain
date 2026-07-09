@@ -516,24 +516,35 @@ class DefectGas(ReadWriteable, Generator):
 
     @classmethod
     def tune_edge(cls, S, D_max=32, rng=None, phi=None, n=None,
-                  ladder=(0.002, 0.003, 0.005, 0.008, 0.012, 0.02, 0.03,
-                          0.05, 0.08, 0.12, 0.2, 0.3),
-                  sweeps=400, floor=0.002, step_sweeps=25):
+                  ladder=(0.002, 0.003, 0.005, 0.008, 0.012, 0.02, 0.03, 0.05,
+                          0.06, 0.08, 0.1, 0.12, 0.15, 0.2, 0.3),
+                  min_vacuum_ticks=500, probe_sweeps=200, max_probe_sweeps=4000,
+                  step_sweeps=25, floor=None):
         r"""
-        Ride the edge: pick the **largest** $\zeta$ whose vacuum dwell stays above
-        ``floor``, ascending the ladder until the dwell collapses.
+        Ride the edge: pick the **largest** $\zeta$ at which the chain still
+        *demonstrably* returns to the vacuum, ascending the ladder until it does not.
 
         Where :meth:`tune` optimizes the vacuum clock (dwell $> 15\%$: cheap steps,
         best denominator statistics), this optimizes the *numerator's reach*: pair
         creation and --- through the paid corridors of a dense sheet --- pair
         *transport* both scale like $\zeta^{2}$, so far-separation dwell responds
         $\sim \zeta^{4}$, and a conservatively small $\zeta$ silently censors exactly
-        the large-$\Delta x$ bins that diagnose $\theta$ order.  The floor exists
-        because the vacuum sector is not optional: :meth:`step` can only emit at a
-        vacuum tick, so the chain must keep *occasionally* coming home.
+        the large-$\Delta x$ bins that diagnose $\theta$ order.
+
+        There is deliberately **no dwell percentage** here.  The vacuum sector is not
+        optional --- :meth:`step` can only emit at a vacuum tick --- but per tick the
+        chain costs the same at any dwell and the step path's denominator is exact
+        (``Vacuum_Ticks`` $\equiv$ ``emit_every``), so the only *hard* floor is
+        measurability: a rung is accepted iff its probe collects
+        ``min_vacuum_ticks`` vacuum ticks within ``max_probe_sweeps`` sweeps
+        (implicitly dwell $\gtrsim$ ``min_vacuum_ticks / (max_probe_sweeps
+        \cdot 4V)`` --- $\sim 10^{-5}$ at $N = 8$ with the defaults) **and** the
+        dwell is stationary across the probe (second half at least a quarter of the
+        first: a collapsing dwell is condensation in progress, not an equilibrium
+        rate).  An explicit ``floor`` may still be imposed on top.
 
         Because a step still needs ``emit_every`` vacuum ticks, the emission cadence
-        must shrink with the dwell: the returned ``emit_every`` is sized so one
+        shrinks with the dwell: the returned ``emit_every`` is sized so one
         :meth:`step` costs about ``step_sweeps`` sweeps at the measured dwell.
 
         If a chain run at the returned $\zeta$ later stops returning to the vacuum
@@ -546,10 +557,16 @@ class DefectGas(ReadWriteable, Generator):
         S: a NoIntersections action
         phi, n: arrays, optional
             A thermalized **valid** starting configuration (cold if omitted).
-        floor: float
-            Minimum acceptable vacuum dwell (fraction of ticks with $D = 0$).
+        min_vacuum_ticks: int
+            Vacuum ticks a probe must collect for the rung to count as measurable.
+        probe_sweeps: int
+            Equilibration sweeps at each rung, and the tallied chunk size.
+        max_probe_sweeps: int
+            Tallied-sweep budget per rung; exhausting it rejects the rung.
         step_sweeps: int
             Target sweeps per :meth:`step` at the chosen $\zeta$.
+        floor: float, optional
+            An explicit minimum dwell imposed on top of measurability.
 
         Returns
         -------
@@ -562,27 +579,44 @@ class DefectGas(ReadWriteable, Generator):
         if n is None:
             n = np.zeros((L.D,) + L.dims, dtype=np.int64)
         n_links = 4 * L.N**4
-        best = (ladder[0], None)
+        best = None
         for z in ladder:
             probe = cls(S, zeta=z, D_max=D_max,
                         rng=rng if rng is not None else np.random.default_rng())
-            probe.run(phi, n, sweeps, tally=False)
+            # Equilibrate at THIS rung before believing anything: from a valid start
+            # the condensate takes time to build, and a probe that tallies the
+            # transient accepts rungs that later never come home.
+            probe.run(phi, n, 2 * probe_sweeps, tally=False)
             probe.blocks = []
             probe._new_block()
-            probe.run(phi, n, sweeps, tally=True)
-            probe.close_block()
-            dwell = probe.blocks[0][1] / (sweeps * n_links)
-            if dwell > floor:
+            # Tally at least 4 chunks (so stationarity has something to compare) and
+            # keep going until the vacuum-tick quota is met or the budget dies.
+            chunks = []
+            tallied = 0
+            while tallied < max_probe_sweeps and (len(chunks) < 4
+                                                  or sum(chunks) < min_vacuum_ticks):
+                probe.run(phi, n, probe_sweeps, tally=True)
+                probe.close_block()
+                chunks.append(probe.blocks[-1][1])
+                tallied += probe_sweeps
+            H_Z = sum(chunks)
+            dwell = H_Z / (tallied * n_links)
+            half = len(chunks) // 2
+            stationary = sum(chunks[half:]) >= sum(chunks[:half]) / 4
+            if (H_Z >= min_vacuum_ticks and stationary
+                    and (floor is None or dwell > floor)):
                 best = (z, dwell)
             else:
-                # Dwell falls monotonically with zeta; past the edge, stop probing.
+                # Past the edge (unmeasurable, collapsing, or below the explicit
+                # floor); dwell falls monotonically with zeta, so stop probing.
                 break
-        zeta, dwell = best
-        if dwell is None:
+        if best is None:
             raise RuntimeError(
-                f'tune_edge: even the smallest ladder rung zeta={ladder[0]} has '
-                f'vacuum dwell below floor={floor}; the chain cannot emit here '
-                f'(defect condensation?).  Treat as signal and investigate D_trace.')
+                f'tune_edge: even the smallest ladder rung zeta={ladder[0]} never '
+                f'demonstrated {min_vacuum_ticks} vacuum ticks in '
+                f'{max_probe_sweeps} sweeps; the chain cannot emit here (defect '
+                f'condensation?).  Treat as signal and investigate D_trace.')
+        zeta, dwell = best
         emit_every = max(1, int(round(dwell * n_links * step_sweeps)))
         return zeta, emit_every
 
