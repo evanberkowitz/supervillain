@@ -10,7 +10,7 @@ from supervillain.generator.no_intersection.charge import charge
 def _valid_configs(kappa=0.3, N=6, steps=140, burn=100, stride=8):
     L = Lattice(4, N)
     S = supervillain.action.NoIntersections(L, kappa=kappa)
-    H = gen.Hammer(S)
+    H = gen.Hammer(S, zeta=0.025)
     e = supervillain.Ensemble(S).generate(steps, H, start='cold')
     return S, [e.configuration[i] for i in range(burn, steps, stride)]
 
