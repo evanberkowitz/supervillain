@@ -10,7 +10,7 @@ from .winding import WindingSquared, Winding_Winding
 from .wrapping import TorusWrapping, WrappingSquared
 from .spin import Spin_Spin, Spin_Spin_Normalized, SpinSusceptibility, SpinSusceptibilityScaled, SpinCriticalMoment
 from .vortex import Vortex_Vortex, Vortex_Vortex_Normalized, VortexSusceptibility, VortexSusceptibilityScaled, VortexCriticalMoment
-from .intersection import Intersection_Intersection, Intersection_Intersection_Normalized, Theta_Theta, Vacuum_Ticks, IntersectionSusceptibility, Four_Defect, ThetaBinderCumulant, Pair_Excursions, Max_Pair_RSq, Excursion_Lengths
+from .intersection import IntersectionTwoPoint, Intersection_Intersection, Intersection_Intersection_Normalized, Theta_Theta, Vacuum_Ticks, IntersectionSusceptibility, Four_Defect, ThetaBinderCumulant, Pair_Excursions, Max_Pair_RSq, Excursion_Lengths
 
 def progress(iterable, **kwargs):
     r'''

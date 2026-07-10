@@ -468,7 +468,7 @@ class FreeTargetWorm(IntersectionWorm):
             wl = displacements.sum()
             self.worm_lengths.append(wl)
             return configuration | {'n': Form(n, degree=1, lattice=L),
-                                    'Intersection_Intersection': displacements,
+                                    'IntersectionTwoPoint': displacements,
                                     'Worm_Length': wl}
 
         def touch(change, s):

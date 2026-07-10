@@ -3,53 +3,66 @@ from supervillain.observable import Observable, DerivedQuantity
 import supervillain.action
 
 
-class Intersection_Intersection(Observable):
+class IntersectionTwoPoint(Observable):
     r'''
-    The intersection--intersection correlator in the :class:`~supervillain.action.NoIntersections`
-    model,
+    The raw head$-$tail displacement histogram accumulated inline by a worm on the
+    :class:`~supervillain.action.NoIntersections` model --- the ingredient from which
+    :class:`~.Intersection_Intersection` would be built, exactly as
+    :class:`~.ActionTwoPoint` is the ingredient of :class:`~.Action_Action`.
+
+    **There is no closed-form estimator**, and this histogram is *not* normalized: the
+    normalization is by its expectation value at the origin, which cannot be applied
+    configuration-by-configuration.
+
+    .. warning ::
+
+        Every worm we built jams --- see :ref:`the no-intersection docs
+        <no_intersection>`.  This observable exists for the opt-in
+        :class:`~supervillain.generator.no_intersection.IntersectionWorm` and
+        :class:`~supervillain.generator.no_intersection.FreeTargetWorm`, neither of which
+        is in the default :func:`~supervillain.generator.no_intersection.Hammer`.  For the
+        physical correlator use :class:`~.Intersection_Intersection`, which the
+        :class:`~supervillain.generator.no_intersection.DefectGas` measures with absolute
+        normalization.
+    '''
+
+
+class Intersection_Intersection(DerivedQuantity):
+    r'''
+    The intersection--intersection correlator in the
+    :class:`~supervillain.action.NoIntersections` model,
 
     .. math ::
-        \Theta_{x,y} = \left\langle e^{i(\theta_x - \theta_y)} \right\rangle,
+        \Theta_{\Delta x} = \left\langle e^{i(\theta_x - \theta_{x - \Delta x})} \right\rangle,
 
     the two-point function of the operator $e^{i\theta}$ that inserts a unit of
-    vortex-sheet self-intersection $q = (dn \wedge dn)$, reduced by translation
-    invariance to a single relative coordinate
+    vortex-sheet self-intersection $q = (dn \wedge dn)$.
 
-    .. math ::
-        \texttt{Intersection\_Intersection}_{\Delta x} = \Theta_{\Delta x} = \frac{1}{\Lambda} \sum_x \Theta_{x, x-\Delta x}.
+    Measured by the :class:`~supervillain.generator.no_intersection.DefectGas` as the
+    ratio of sector dwells,
+    $\Theta_{\Delta x} = \overline{\texttt{Theta\_Theta}}_{\Delta x} /
+    \overline{\texttt{Vacuum\_Ticks}}$, and therefore **absolutely normalized**: no
+    origin-bin division is needed, and $\Theta$ is independent of the fugacity $\zeta$.
 
-    **There is no closed-form estimator** because the constraint can obstruct any straightforward way to compute the correlator.
-    The correlator is measured *inline* as the head$-$tail displacement histogram of the :class:`~supervillain.generator.no_intersection.IntersectionWorm`.
-    The inline histogram is not normalized to $1$ at the origin, and that normalization can only be applied *after* the ensemble average.
-    Therefore, the :class:`~.Intersection_Intersection_Normalized` is a :class:`~.DerivedQuantity`.
-
-    The observable is only ever produced inline by the worm, so it is available on
-    the :class:`~supervillain.action.NoIntersections` model only; there is no
-    generic :class:`~.Villain` or :class:`~.Worldline` implementation.
-
-    .. note ::
-
-        In fact, because of the constraint issue there is no ex-post-facto observable at all!
-        This is a stub placeholder.
+    The origin bin is *written*, not divided out: $\Theta_0 = 1$ identically (a coincident
+    pair is the vacuum), so the gas never visits it and
+    :class:`~.Theta_Theta`'s origin bin is empty by construction.
     '''
+
+    @staticmethod
+    def NoIntersections(S, Theta_Theta, Vacuum_Ticks):
+        theta = np.array(Theta_Theta / Vacuum_Ticks)
+        theta[S.Lattice.origin] = 1.0
+        return theta
 
 
 class Intersection_Intersection_Normalized(DerivedQuantity):
     r'''
-    The :class:`~.Intersection_Intersection` correlator $\Theta_{\Delta x}$ normalized by
-    its value at zero separation,
-
-    .. math ::
-
-        \texttt{Intersection\_Intersection\_Normalized}_{\Delta x} = \frac{\Theta_{\Delta x}}{\Theta_0},
-
-    so that $\texttt{Intersection\_Intersection\_Normalized}_0 = 1$.
-
-    The inline worm histogram must be normalized by the *expectation value* of the
-    histogram at the origin, which cannot be done configuration-by-configuration,
-    so this is a :class:`~.DerivedQuantity`.  We provide a default implementation,
-    but notice that only the :class:`~supervillain.action.NoIntersections` even supports the idea
-    and the requisite observable must be measured by the :class:`~supervillain.generator.no_intersection.IntersectionWorm`.
+    The :class:`~.Intersection_Intersection` correlator normalized by its value at zero
+    separation.  Since :class:`~.Intersection_Intersection` is already absolutely
+    normalized ($\Theta_0 = 1$), this is the identity; it is retained so that analysis
+    code written against the :class:`~.Vortex_Vortex_Normalized` /
+    :class:`~.Spin_Spin_Normalized` idiom keeps working.
     '''
 
     @staticmethod
