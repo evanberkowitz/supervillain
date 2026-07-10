@@ -21,7 +21,7 @@ class DefectGas(ReadWriteable, Generator):
     with the inline estimator of the Lagrange-multiplier correlator
     $\left\langle e^{+i\theta_{x}} e^{-i\theta_{y}} \right\rangle$.
 
-    Where the clean-set worms (:class:`~.AdaptiveIntersectionWorm` and friends) walk a
+    Where the clean-set worms (:class:`~.FreeTargetWorm` and friends) walk a
     defect pair through the *valid* configurations and demand every step be an exact
     unit-dipole transport --- steps that often do not exist at all on the dense sheets of
     small $\kappa$ --- this sampler stops demanding cleanliness and instead *prices the
