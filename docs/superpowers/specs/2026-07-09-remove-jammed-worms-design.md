@@ -30,23 +30,31 @@ live class before deletion and are historical (see §5).
 
 ### The clean sets
 
-| $\kappa$ | worm | median $\lvert C\rvert$ | mean | **frac $\lvert C\rvert = 0$** | max |
-|---|---|---|---|---|---|
-| 0.1 | adaptive | **0** | 0.24 | **0.814** | 5 |
-| 0.1 | two-link | **0** | 8.51 | **0.572** | 225 |
-| 0.1 | free-target | 1208 | 1560 | 0.008 | 5618 |
-| 0.5 | adaptive | 2 | 2.90 | **0.497** | 6 |
-| 0.5 | two-link | 12 | 14.36 | 0.004 | 279 |
-| 0.5 | free-target | 192 | 486 | 0.000 | 15409 |
+**$\kappa$ is a temperature knob: small $\kappa$ is the warm, dense, jammed phase.**  The
+jammed phase lies *below* $\kappa \approx 0.02$; $\kappa = 0.1$ and $0.5$ are outside it.
 
-The adaptive and two-link worms jam: on the warm, dense $\kappa = 0.1$ sheet the median
-hypercube admits **no clean mover** in a drawn direction.  The adaptive worm is dead in
-81% of (head, direction, sign) triples; the two-link worm in 57%.
+frac $\lvert C\rvert = 0$, the fraction of proposals with no legal move:
 
-### The free-target worm does *not* jam
+| $\kappa$ | adaptive | two-link | free-target | free-target median $\lvert C\rvert$ |
+|---|---|---|---|---|
+| 0.01 | **0.977** | **0.948** | **0.488** | **1** |
+| 0.03 | 0.947 | 0.848 | 0.038 | 450 |
+| 0.05 | 0.869 | 0.739 | 0.000 | 594 |
+| 0.1 | 0.814 | 0.572 | 0.008 | 1208 |
+| 0.5 | 0.497 | 0.004 | 0.000 | 192 |
 
-On the same backgrounds it finds a median of **1208** clean movers.  Its clean set is not
-the problem.
+Two facts, and they pull in different directions:
+
+- **The directional worms are dead everywhere.**  The adaptive worm never gets below a
+  50% dead fraction, even at $\kappa = 0.5$.  In the jammed phase it is dead 98% of the
+  time, with a maximum clean set of **one** move.
+- **Free-target starves only in the jammed phase.**  Below $\kappa \approx 0.02$ half its
+  hypercubes admit no mover at all and the median is a single move.  Above it, enrichment
+  rescues the clean set completely (median 450–1208).
+
+So enriching the candidate family *does* help — it takes the dead fraction from 97.7% to
+48.8% at $\kappa = 0.01$ — but in the jammed phase it does **not rescue** the worm.  Both
+halves of that sentence matter.
 
 Composition of the free-target clean union at $\kappa = 0.1$ (40 heads):
 
@@ -64,20 +72,30 @@ very shapes `TwoLinkAdaptiveWorm` was built to find, and starves for.  The diffe
 family breadth: free-target admits $\lvert c\rvert \leq 2$ over a proximity ball with
 *either* slot touching the head, and allows $L_1 = 2$ and diagonal targets.
 
-### The free-target worm fails on transport, not starvation
+### Outside the jammed phase, free-target fails on acceptance instead
 
-Worm lengths, 160 worms per cell.  `Worm_Length = 1` is a **zero-length worm**: the worm
-opened, its opening proposal was rejected or was an accepted idle, head never left tail,
-nothing was transported.
+> **`Worm_Length` is not a transport counter.**  `IntersectionWorm` uses the
+> Prokof'ev--Svistunov open/close branch and tallies head--tail dwell on *every* iteration
+> including rejected stay-puts (`worm.py:730`: *"We tally on EVERY step, including these
+> stay-puts"*).  Its length can be large while the head never leaves the tail.  Only
+> `FreeTargetWorm` auto-closes when head returns to tail, so for **it alone**
+> `Worm_Length = 1` $\iff$ zero transport.  The two lengths are not comparable; transport
+> must be read off the off-origin weight of the inline displacement histogram, which is
+> the correlator itself.
 
-| $\kappa$ | worm | median len | mean | **frac(len = 1)** | max |
+`FreeTargetWorm` worm lengths (auto-close, so `len = 1` means the defect never moved):
+
+| $\kappa$ | worms | median len | mean | **frac(len = 1)** | max |
 |---|---|---|---|---|---|
-| 0.1 | `IntersectionWorm` | 25 | 221.1 | 0.019 | 23738 |
-| 0.1 | `FreeTargetWorm` | **1** | **1.00** | **1.0000** | **1** |
-| 0.5 | `IntersectionWorm` | 20 | 29.4 | 0.025 | 210 |
-| 0.5 | `FreeTargetWorm` | **1** | **1.00** | **1.0000** | **1** |
+| 0.01 | 60 | 1 | 1.00 | **1.0000** | 1 |
+| 0.03 | 60 | 1 | 1.15 | 0.983 | 10 |
+| 0.05 | 60 | 1 | 1.17 | 0.950 | 7 |
+| 0.1 | 160 | 1 | 1.00 | **1.0000** | 1 |
+| 0.5 | 160 | 1 | 1.00 | **1.0000** | 1 |
 
-`FreeTargetWorm` transported the defect **zero times in 160 worms, at both $\kappa$**.
+It essentially never transports, at any $\kappa$ — but for *different reasons* at the two
+ends: starvation in the jammed phase (there is nothing to draw), acceptance outside it
+(there is plenty to draw and none of it is affordable).
 
 `_run_free_worm` auto-closes the instant the head returns to the tail, and the worm opens
 with head $=$ tail.  So an accepted *idle* at the opening step closes the worm at length 1,
@@ -106,6 +124,20 @@ two-link), whose cost scales with $\kappa$.
 This is exactly what the `DefectGas` escapes: it pays $\zeta^{\Delta D}$ on a *cheap
 single-link* move rather than $e^{-21}$ on a *mandatory two-link* exact repair.
 
+### The naive worm in the jammed phase (provisional)
+
+The `IntersectionWorm` also jams at small $\kappa$ — established by the author from prior
+experience, **not yet by a measurement in this document**.  It is taken as given for the
+design; the docs must not present it as measured until it is.
+
+The measurement that would settle it is running: the off-origin weight of the inline
+displacement histogram (transport) at $\kappa = 0.01, 0.03, 0.1$, together with the worm's
+own `tallies` — `unclean/drawn` is the constraint-violating-stencil rate the docs attribute
+to warm backgrounds, `accepted/clean` the costly-rejection rate they attribute to cold
+ones.  **Falsifier:** if off-origin weight at $\kappa = 0.01$ is comparable to that at
+$\kappa = 0.1$, the naive worm does *not* jam in the jammed phase, and the hierarchy in
+**Corrected narrative** step 1 needs rewriting.
+
 ### The inclusion lemma
 
 Every adaptive or two-link mover at head $h$ changes $q$ at $h$ and at $h + \hat d$, so its
@@ -127,9 +159,18 @@ The current `no_intersection.rst` says:
 > enriching the candidate family (wider coefficients, farther-flung pairs, millions of
 > shapes) does not help, because the jam is structural
 
-**This is false.**  Enriching the family is exactly what unjams the clean set: median 0 →
-1208 on identical backgrounds.  The starvation comes from **drawing a direction first**,
-not from the constraint's structure.
+**Half right, and the half that is right is the half that matters.**  In the jammed phase
+($\kappa \lesssim 0.02$) the jam *is* structural: free-target's vastly enriched family
+still leaves 48.8% of hypercubes with no legal mover, and a median clean set of one.  But
+"does not help" overstates it — enrichment halves the dead fraction (97.7% → 48.8%), and
+*outside* the jammed phase it eliminates starvation outright (median 1208 at
+$\kappa = 0.1$, where the adaptive worm is dead 81% of the time).
+
+The sharper statement, which the measurements support:
+
+> Enriching the family buys real ground, and buys it where the worm was already losing.
+> It does not buy enough.  In the jammed phase no local exact-repair family suffices, and
+> outside the jammed phase the moves that exist are too expensive to accept.
 
 The corrected hierarchy — each fix exposing the next failure:
 
@@ -137,20 +178,30 @@ The corrected hierarchy — each fix exposing the next failure:
    cold backgrounds; constraint-violating on warm ones.
 2. **`AdaptiveIntersectionWorm`** — look at $F$ before proposing.  Still starves: it
    commits to a *direction*, then asks which of a fixed library advances the head that
-   way.  81% of the time nothing does.
-3. **`TwoLinkAdaptiveWorm`** — enrich the two-link sector by live enumeration.  Helps by
-   ~35× in the mean, but the median is still zero: the direction is still drawn first.
-4. **`FreeTargetWorm`** — drop the direction; let $\Delta q$ land where it wants.  The
-   starvation **vanishes**.  And the worm still fails, now on *acceptance*: its movers are
-   99.8% two-link exact repairs costing a median $\Delta S$ of 6 at $\kappa = 0.1$ and 21
-   at $\kappa = 0.5$.  It transported zero times in 320 worms.
+   way.  Dead in 81% of proposals at $\kappa = 0.1$, and 98% in the jammed phase.
+3. **`TwoLinkAdaptiveWorm`** — enrich the two-link sector by live enumeration.  Real
+   improvement (dead fraction 0.814 → 0.572 at $\kappa = 0.1$), still a zero median.  The
+   direction is still drawn first.
+4. **`FreeTargetWorm`** — drop the direction; let $\Delta q$ land where it wants.  Outside
+   the jammed phase the starvation **vanishes** (median 1208 movers) and the worm fails on
+   *acceptance* instead: its movers are 99.8% two-link exact repairs costing a median
+   $\Delta S$ of 6 at $\kappa = 0.1$ and 21 at $\kappa = 0.5$.  *Inside* the jammed phase
+   the starvation returns anyway (48.8% dead, median clean set 1).  It transports
+   essentially never, at any $\kappa$.
 
-This is what makes the `DefectGas` *necessary* rather than merely convenient.  A worm's
-clean set can be unjammed — `FreeTargetWorm` proves it.  What cannot be fixed, while
-insisting the constraint be exactly repaired at every move, is that exact repair *forces
-expensive shapes*: the cheapest legal mover is a two-link move whose cost grows with
-$\kappa$, and the excursion is all-or-nothing.  The gas stops insisting, and buys a cheap
-single-link move by paying $\zeta^{\Delta D}$ instead.
+This is what makes the `DefectGas` *necessary* rather than merely convenient.  The worm is
+squeezed from both sides, and no amount of family engineering escapes the squeeze:
+
+- **In the jammed phase**, a background with multi-unit flux everywhere admits no local
+  exact-repair shape.  Enrichment halves the dead fraction and no more.
+- **Outside it**, exact repair *forces expensive shapes* — the cheapest legal mover is a
+  two-link move whose $\Delta S$ grows with $\kappa$ — and the excursion is all-or-nothing,
+  so one unlucky draw ends it.
+
+Both failures come from the same insistence: that the constraint be exactly repaired at
+every single move.  The gas stops insisting.  It buys a *cheap single-link* move and pays
+$\zeta^{\Delta D}$ for the mess, instead of demanding a mandatory two-link repair and
+paying $e^{-21}$ for it.
 
 ## Design
 
@@ -250,7 +301,15 @@ Reproduces the adaptive and free-target rows from **live code only**:
   `_change_from_shape`, and `_local_dq` — all `IntersectionWorm` methods that survive.
   (`AdaptiveIntersectionWorm.clean_set_local` was nothing more than this loop.)
 - $C_\text{free}$ measured directly, with the idle/mover split and the mover composition.
-- Worm-length distributions for `IntersectionWorm` and `FreeTargetWorm`.
+- **Transport**, measured as the off-origin weight of the inline displacement histogram —
+  *not* `Worm_Length`, which counts dwell including rejected stay-puts and is therefore
+  not comparable between the auto-closing and open/close worms.
+- `FreeTargetWorm` worm lengths (where auto-close does make `len = 1` mean zero transport)
+  and the opening-step $P(\text{mover}) \times \mathbb{E}[\text{accept}]$ decomposition.
+
+It must sweep $\kappa$ across the jammed boundary ($\kappa \approx 0.02$); a script that
+only samples $\kappa \geq 0.1$ measures outside the phase of interest and will draw the
+wrong conclusion, as this design's first draft did.
 
 The **two-link row is historical**: it was measured against the live
 `TwoLinkAdaptiveWorm` before deletion (numbers above) and is recorded in the docs with the
