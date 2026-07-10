@@ -126,20 +126,39 @@ single-link* move rather than $e^{-21}$ on a *mandatory two-link* exact repair.
 
 ### The naive worm jams in the jammed phase too
 
-Transport is the **off-origin weight of the inline displacement histogram** — not
-`Worm_Length`.  60 worms per $\kappa$:
+> **Beware dwell-contaminated statistics.**  `Worm_Length` counts head--tail dwell on
+> *every* iteration including rejected stay-puts (`worm.py:730`), so it measures stalling,
+> not walking.  **Off-origin dwell shares the defect**: `IntersectionWorm` does not
+> auto-close, so a *single* accepted mover pins the head away from the tail and every
+> subsequent rejected iteration inflates the off-origin numerator.  Measured at
+> $\kappa = 0.01$ on four independent backgrounds, off-origin dwell came out
+> $0.00000$, $0.00000$, $0.00000$, and $0.21303$ — the outlier produced by exactly **two**
+> accepted movers out of 2502 draws, which then contributed 533 stalled ticks.
+>
+> The robust statistic is the **clean-mover draw rate**, which integrates no dwell.
 
-| $\kappa$ | `IntersectionWorm` off-origin dwell | `FreeTargetWorm` |
+| $\kappa$ | clean movers drawn / total drawn | multi-link `unclean/drawn` |
 |---|---|---|
-| 0.01 | **0 / 1675 = 0.00000** | 0 / 60 |
-| 0.03 | 800 / 2824 = 0.28329 | 0 / 60 |
-| 0.1 | 663 / 2209 = 0.30014 | 0 / 60 |
+| 0.01 | **0–2 / ~2500** ($\lesssim 0.08\%$) | **1.0000** |
+| 0.03 | 14 / 2824 ($0.50\%$) | 1.0000 |
+| 0.1 | 22 / 2209 ($1.00\%$) | 1.0000 |
 
-`FreeTargetWorm` transports **nothing at any $\kappa$**.
+Clean-mover availability falls roughly tenfold from $\kappa = 0.1$ into the jammed phase,
+and **every multi-link stencil is unclean at every $\kappa$**.  That is the naive worm's
+jam.
 
-At $\kappa = 0.01$ the naive worm **transported nothing in 1675 iterations**, while
-recording a median `Worm_Length` of 22.5 — length was pure stalling.  Its per-family
-tallies say why, and say exactly what the docs always claimed:
+(The background is *not* a confound: thermalizing with a roster that contains the
+`DefectGas` versus one that does not gives the same sheet density at $\kappa = 0.01$ —
+$\lvert F\rvert_1 = 7594$–$7748$, $\mathrm{nnz}(F) = 3298$–$3325$ — and the same
+clean-mover starvation.)
+
+`FreeTargetWorm`'s robust statistic is different, because it *does* auto-close: for it
+alone `Worm_Length = 1` means the defect never moved.  Over 200 worms at $\kappa = 0.01$:
+`frac(len == 1) = 1.0000`, `max = 1`.  It transports essentially never — though rare long
+excursions do exist, and when one occurs it dominates any dwell ratio.
+
+At $\kappa = 0.01$ the naive worm's per-family tallies say exactly what the docs always
+claimed:
 
 | family | drawn | unclean | clean | accepted | `unclean/drawn` |
 |---|---|---|---|---|---|
@@ -149,13 +168,13 @@ tallies say why, and say exactly what the docs always claimed:
 | same4 | 124 | 124 | 0 | 0 | **1.0000** |
 | 1link | 1389 | 1049 | 0 | 0 | 0.7552 |
 
-**Every multi-link stencil drawn violated the constraint**, and not one clean mover was
-ever drawn in any family.  (The 1-link shortfall is idles, not movers.)  This is the doc's
-"constraint-violating stencils on the warm background", measured.
+**Every multi-link stencil drawn violated the constraint**, and in this run not one clean
+mover was drawn in any family.  (The 1-link shortfall is idles, not movers.)  This is the
+doc's "constraint-violating stencils on the warm background", measured.
 
-At $\kappa = 0.03$ the worm revives — off-origin dwell $0 \to 0.283$ — but only barely: of
-2824 iterations, **14** clean movers were drawn and 8 accepted.  The naive worm's jam
-switches on at the same boundary as free-target's.
+At $\kappa = 0.03$ the worm revives, but only barely: of 2824 iterations, **14** clean
+movers were drawn and 8 accepted.  At $\kappa = 0.1$, **22** drawn and 4 accepted.  The
+naive worm's jam switches on at the same boundary as free-target's.
 
 A further fact worth putting in the docs: the naive worm's **multi-link library is dead
 weight at every $\kappa$**, not just in the jammed phase.  `unclean/drawn` is exactly
@@ -205,7 +224,8 @@ The corrected hierarchy — each fix exposing the next failure:
    multi-link library is constraint-violating essentially always
    (`unclean/drawn` $= 1.0000$ for `ortho3`/`ortho2`/`same4` at every $\kappa$ measured),
    so what transport it manages rides on 1-link moves alone.  In the jammed phase even
-   that dies: **zero transport in 1675 iterations** at $\kappa = 0.01$.
+   that dies: **0–2 clean movers per ~2500 draws** at $\kappa = 0.01$, a tenfold drop from
+   $\kappa = 0.1$.
 2. **`AdaptiveIntersectionWorm`** — look at $F$ before proposing.  Still starves: it
    commits to a *direction*, then asks which of a fixed library advances the head that
    way.  Dead in 81% of proposals at $\kappa = 0.1$, and 98% in the jammed phase.
@@ -329,11 +349,20 @@ Reproduces the adaptive and free-target rows from **live code only**:
   `_change_from_shape`, and `_local_dq` — all `IntersectionWorm` methods that survive.
   (`AdaptiveIntersectionWorm.clean_set_local` was nothing more than this loop.)
 - $C_\text{free}$ measured directly, with the idle/mover split and the mover composition.
-- **Transport**, measured as the off-origin weight of the inline displacement histogram —
-  *not* `Worm_Length`, which counts dwell including rejected stay-puts and is therefore
-  not comparable between the auto-closing and open/close worms.
-- `FreeTargetWorm` worm lengths (where auto-close does make `len = 1` mean zero transport)
-  and the opening-step $P(\text{mover}) \times \mathbb{E}[\text{accept}]$ decomposition.
+- **`IntersectionWorm`'s per-family tallies** — `clean/drawn` (the robust jam statistic)
+  and `unclean/drawn`.  Off-origin histogram weight is reported too, flagged as
+  high-variance: the worm does not auto-close, so one accepted mover pins the head
+  off-origin and every later stall inflates it.  Neither `Worm_Length` nor off-origin
+  dwell may headline this worm.
+- `FreeTargetWorm` worm lengths — for it alone, auto-close makes `len = 1` mean zero
+  transport, so `frac(len == 1)` is a low-variance transport statistic.
+
+**Reproducibility limitation, documented not fixed:** `Hammer`'s sub-generators
+(`ConstrainedLinkUpdate`, `WrappingLoopUpdate`, `PlanarFluxUpdate`, `ScattershotUpdate`,
+`DefectGas`) each construct an unseeded `np.random.default_rng()` in `__init__`, so the
+thermalized background is not reproducible from `--seed` alone.  The script seeds what it
+can (census heads, both worms' walks) and says so.  The qualitative jam signature is stable
+across every seed measured.
 
 It must sweep $\kappa$ across the jammed boundary ($\kappa \approx 0.02$); a script that
 only samples $\kappa \geq 0.1$ measures outside the phase of interest and will draw the
@@ -383,5 +412,5 @@ prose as a claim, not enforced by a test — there is no longer a superset to pr
 
 None.  Resolved: no h5 backward compatibility (§3); tests use `zeta = 0.025` (§2);
 `IntersectionTwoPoint` names the worms' inline histogram (§3); the `IntersectionWorm`'s
-low-$\kappa$ jam is **measured**, not provisional — zero transport in 1675 iterations at
-$\kappa = 0.01$, reviving to 0.283 off-origin dwell at $\kappa = 0.03$.
+low-$\kappa$ jam is **measured**, not provisional — 0–2 clean movers per ~2500 draws at
+$\kappa = 0.01$ with every multi-link stencil unclean, rising to 22/2209 at $\kappa = 0.1$.
