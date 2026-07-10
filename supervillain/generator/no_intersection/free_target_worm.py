@@ -4,13 +4,18 @@ from itertools import product
 
 import numpy as np
 
-from supervillain.lattice import Form, d as _d
+from supervillain.lattice import Form, Lattice, d as _d
 from supervillain.generator.no_intersection.charge import charge
 from supervillain.generator.no_intersection import local_charge, two_link_kernel
-from supervillain.generator.no_intersection.adaptive_worm import AdaptiveIntersectionWorm, _ravel
+from supervillain.generator.no_intersection.worm import IntersectionWorm
 
 
-class FreeTargetWorm(AdaptiveIntersectionWorm):
+def _ravel(site, N):
+    # C-order flat index of a 4D hypercube site (matches F.reshape(n_planes, -1)).
+    return ((int(site[0]) * N + int(site[1])) * N + int(site[2])) * N + int(site[3])
+
+
+class FreeTargetWorm(IntersectionWorm):
     r"""
     $\Delta q$-classified Metropolis--Hastings worm for the $q = dn \wedge dn = 0$
     constraint in 4D.
@@ -68,6 +73,9 @@ class FreeTargetWorm(AdaptiveIntersectionWorm):
                 f'got {idle_probability}.')
         self.idle_probability = idle_probability
         super().__init__(S)
+        # One scratch lattice, reused for every self-charge derivation (same extent N as
+        # the target, so small-N periodic-image cross terms are exact).
+        self._scratch = Lattice(4, self.Lattice.N)
         self._reach = self._link_reach()     # derive once; _link_reach probes a scratch lattice
         self._candidate_family = self._build_family()
         # Flatten the family once for the compiled classifier.
@@ -85,6 +93,49 @@ class FreeTargetWorm(AdaptiveIntersectionWorm):
             return 'There were 0 free-target worms.'
         return (f'There were {len(l)} free-target worms.\nWorm lengths:\n'
                 f'    mean {l.mean()}\n    std  {l.std()}\n    max  {int(max(l))}')
+
+    # --------------------------------------------------------------- family construction
+    # These three helpers were factored out of the retired AdaptiveIntersectionWorm.
+    # They are background-INDEPENDENT: they derive a shape's self-charge and its reach
+    # once, at construction, on a scratch lattice of the same extent (so small-N periodic
+    # image cross terms are exact).
+
+    def _shape_self_charge(self, shape):
+        r"""
+        The background-independent self-charge $d\Delta n \wedge d\Delta n$ of ``shape``
+        (for a two-link shape, exactly $c_{1} c_{2} M_{12}$), as ``((offset, value), ...)``
+        with offsets measured (mod $N$) from the anchor.
+        """
+        N = self.Lattice.N
+        L0 = self._scratch
+        anchor = (N // 2,) * 4
+        dn = L0.zeros(1, dtype=int)   # Lattice.zeros returns a Form; charge(dn) needs no re-wrap
+        for mu, rs, c in shape:
+            dn[(mu,) + tuple((anchor[k] + rs[k]) % N for k in range(4))] += c
+        q = np.asarray(charge(dn))
+        return tuple(
+            (tuple((int(h[1 + k]) - anchor[k]) % N for k in range(4)), int(q[tuple(h)]))
+            for h in np.argwhere(q != 0)
+        )
+
+    @staticmethod
+    def _scaled_self_charge(unit_M, factor):
+        r"""Scale a unit cross-charge pattern by ``factor`` $= c_{1} c_{2}$, pruning zeros."""
+        return tuple((off, factor * v) for off, v in unit_M if factor * v)
+
+    def _reach_touching_slots(self, cells):
+        r"""Link slots ``(mu, r)`` whose single-link charge reach touches any cell in ``cells``."""
+        # A mu-link at r responds on r + reach[mu], so it touches x iff r == x - off for
+        # some off in the reach.  Offsets are reduced mod N so the box is right at small N.
+        N = self.Lattice.N
+        reach = self._link_reach()
+        slots = set()
+        for mu, offsets in reach.items():
+            for x in cells:
+                for off in offsets:
+                    r = tuple((x[k] - off[k]) % N for k in range(4))
+                    slots.add((mu, r))
+        return sorted(slots)
 
     # ------------------------------------------------------------------ family
 
