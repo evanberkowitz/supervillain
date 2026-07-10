@@ -327,18 +327,34 @@ def test_scattershot_proposals_are_joint():
 
 def test_hammer_includes_constraint_preserving_villain_updates():
     # The Hammer reuses the Villain ExactUpdate and CohomologyUpdate, which change n
-    # by a closed form and so leave dn (hence q = dn∧dn) untouched.
+    # by a closed form and so leave dn (hence q = dn∧dn) untouched.  The DefectGas
+    # replaces the worm: it is manifestly ergodic and emits the absolutely-normalized
+    # correlator, where every worm we tried jammed.
     S = _action()
-    H = str(supervillain.generator.no_intersection.Hammer(S))
+    H = str(supervillain.generator.no_intersection.Hammer(S, zeta=0.025))
     for name in ('SiteUpdate', 'ExactUpdate', 'CohomologyUpdate', 'ConstrainedLinkUpdate',
                  'WrappingLoopUpdate', 'PlanarFluxUpdate', 'ScattershotUpdate',
-                 'IntersectionWorm'):
+                 'DefectGas'):
         assert name in H
+
+
+def test_hammer_has_no_worm():
+    # Every worm we built jams; none is in the default generator.
+    S = _action()
+    H = str(supervillain.generator.no_intersection.Hammer(S, zeta=0.025))
+    assert 'Worm' not in H
+
+
+def test_hammer_zeta_none_autotunes():
+    # zeta=None runs DefectGas.tune, which returns a fugacity in (0, 1].
+    S = _action()
+    H = supervillain.generator.no_intersection.Hammer(S)
+    assert 'DefectGas' in str(H)
 
 
 def test_hammer_steps_stay_valid():
     S = _action()
-    H = supervillain.generator.no_intersection.Hammer(S)
+    H = supervillain.generator.no_intersection.Hammer(S, zeta=0.025)
     cfg = _cold(S)
     for _ in range(5):
         cfg = H.step(cfg)
@@ -347,7 +363,7 @@ def test_hammer_steps_stay_valid():
 
 def test_ensemble_generate_stays_valid():
     S = _action()
-    H = supervillain.generator.no_intersection.Hammer(S)
+    H = supervillain.generator.no_intersection.Hammer(S, zeta=0.025)
     e = supervillain.Ensemble(S).generate(10, H, start='cold')
     for c in e.configuration:
         assert S.valid(c)
@@ -358,7 +374,7 @@ def test_nointersections_inherits_villain_observables():
     # Villain implementations apply --- the field-based observables computed from (phi, n)
     # are all available.  (Vortex_Vortex is excluded: its Villain measurement is D=2 only.)
     S = _action()
-    H = supervillain.generator.no_intersection.Hammer(S)
+    H = supervillain.generator.no_intersection.Hammer(S, zeta=0.025)
     e = supervillain.Ensemble(S).generate(20, H, start='cold')
     for o in ('ActionDensity', 'InternalEnergyDensity', 'InternalEnergyDensitySquared',
               'WindingSquared', 'Winding_Winding', 'Spin_Spin'):
@@ -371,7 +387,7 @@ def test_nointersections_topological_charge_vanishes():
     # The constraint q = dn∧dn = 0 makes the topological-charge density identically zero,
     # so its (inherited Villain) same-site observable is exactly 0 on every configuration.
     S = _action()
-    H = supervillain.generator.no_intersection.Hammer(S)
+    H = supervillain.generator.no_intersection.Hammer(S, zeta=0.025)
     e = supervillain.Ensemble(S).generate(20, H, start='cold')
     assert not np.asarray(e.TopologicalChargeDensitySquared).any()
 
@@ -388,16 +404,18 @@ def test_intersection_intersection_is_inline_only():
     assert not hasattr(obs, 'NoIntersections')
 
 
-def test_intersection_intersection_normalized_is_one_at_origin():
+def test_defect_gas_theta_is_normalized_at_origin():
     L = Lattice(4, 3)
     S = supervillain.action.NoIntersections(L, kappa=0.3)
-    H = supervillain.generator.no_intersection.Hammer(S)
+    H = supervillain.generator.no_intersection.Hammer(S, zeta=0.025)
     e = supervillain.Ensemble(S).generate(40, H, start='cold')
 
-    # The worm fills the inline Intersection_Intersection histogram.
-    assert np.asarray(e.Intersection_Intersection).shape == (len(e),) + L.dims
+    # The gas fills the inline Theta_Theta histogram and the Vacuum_Ticks denominator.
+    assert np.asarray(e.Theta_Theta).shape == (len(e),) + L.dims
+    assert np.asarray(e.Vacuum_Ticks).shape == (len(e),)
 
     b = supervillain.analysis.Bootstrap(e, 25)
-    norm = np.asarray(b.Intersection_Intersection_Normalized)
-    # Normalized to 1 at the origin on every bootstrap sample.
-    assert np.allclose(norm[(slice(None),) + L.origin], 1)
+    # Theta_0 is not measured -- a coincident pair IS the vacuum, so the origin bin of
+    # Theta_Theta is empty by construction.  Theta_0 = 1 is restored, not divided out.
+    theta = np.asarray(b.Theta_Theta).real
+    assert theta[(slice(None),) + L.origin].max() == 0.0
