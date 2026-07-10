@@ -137,15 +137,23 @@ single-link* move rather than $e^{-21}$ on a *mandatory two-link* exact repair.
 >
 > The robust statistic is the **clean-mover draw rate**, which integrates no dwell.
 
+Because the thermalized background is not reproducible (see the seeding limitation below),
+every number here is quoted as the **range observed across independent runs**, not as a
+single draw.
+
 | $\kappa$ | clean movers drawn / total drawn | multi-link `unclean/drawn` |
 |---|---|---|
-| 0.01 | **0–2 / ~2500** ($\lesssim 0.08\%$) | **1.0000** |
+| 0.01 | **0/1146, 0/1675, 0/1713, 0/1782, 0/1943, 2/2502** — i.e. $\lesssim 0.08\%$ | **1.0000** in every run |
 | 0.03 | 14 / 2824 ($0.50\%$) | 1.0000 |
-| 0.1 | 22 / 2209 ($1.00\%$) | 1.0000 |
+| 0.1 | 22 / 2209, 27 / 2360 ($1.0$–$1.1\%$) | 0.955–1.000 |
 
-Clean-mover availability falls roughly tenfold from $\kappa = 0.1$ into the jammed phase,
-and **every multi-link stencil is unclean at every $\kappa$**.  That is the naive worm's
-jam.
+Clean-mover availability falls roughly tenfold from $\kappa = 0.1$ into the jammed phase.
+In the jammed phase the multi-link library is **totally dead** — `unclean/drawn = 1.0000`
+for `ortho3`, `ortho2`, and `same4` in every run measured, i.e. not one clean multi-link
+move in thousands of draws.  Above the jammed phase it is *nearly* dead: at $\kappa = 0.1$
+one run gave $1.0000$ across the board, another gave `ortho3` $= 0.9831$ and `ortho2`
+$= 0.9552$.  Whatever transport the worm manages rides on 1-link moves.  That is the naive
+worm's jam.
 
 (The background is *not* a confound: thermalizing with a roster that contains the
 `DefectGas` versus one that does not gives the same sheet density at $\kappa = 0.01$ —
@@ -153,9 +161,22 @@ $\lvert F\rvert_1 = 7594$–$7748$, $\mathrm{nnz}(F) = 3298$–$3325$ — and th
 clean-mover starvation.)
 
 `FreeTargetWorm`'s robust statistic is different, because it *does* auto-close: for it
-alone `Worm_Length = 1` means the defect never moved.  Over 200 worms at $\kappa = 0.01$:
-`frac(len == 1) = 1.0000`, `max = 1`.  It transports essentially never — though rare long
-excursions do exist, and when one occurs it dominates any dwell ratio.
+alone `Worm_Length = 1` means the defect never moved.  Across runs:
+
+| $\kappa$ | worms | `frac(len == 1)` |
+|---|---|---|
+| 0.01 | 200 | 1.0000 |
+| 0.01 | 40 | 0.9750 |
+| 0.03 | 60 | 0.9833 |
+| 0.05 | 60 | 0.9500 |
+| 0.1 | 160 | 1.0000 |
+| 0.1 | 40 | 0.9750 |
+| 0.5 | 160 | 1.0000 |
+
+So it transports on **at most a few percent of openings**, and its median worm length is
+$1$ everywhere.  "Essentially never" is defensible; "never" is not — rare long excursions
+do occur, and when one does it dominates any dwell ratio (one excursion of length $\approx
+124$ produced an off-origin dwell of $0.81$ in a 30-worm run).
 
 At $\kappa = 0.01$ the naive worm's per-family tallies say exactly what the docs always
 claimed:
@@ -168,9 +189,10 @@ claimed:
 | same4 | 124 | 124 | 0 | 0 | **1.0000** |
 | 1link | 1389 | 1049 | 0 | 0 | 0.7552 |
 
-**Every multi-link stencil drawn violated the constraint**, and in this run not one clean
-mover was drawn in any family.  (The 1-link shortfall is idles, not movers.)  This is the
-doc's "constraint-violating stencils on the warm background", measured.
+In the jammed phase, **every multi-link stencil drawn violated the constraint** — this held
+in every run measured — and in this particular run not one clean mover was drawn in any
+family at all.  (The 1-link shortfall, 1389 drawn − 1049 unclean, is idles, not movers.)
+This is the doc's "constraint-violating stencils on the warm background", measured.
 
 At $\kappa = 0.03$ the worm revives, but only barely: of 2824 iterations, **14** clean
 movers were drawn and 8 accepted.  At $\kappa = 0.1$, **22** drawn and 4 accepted.  The
