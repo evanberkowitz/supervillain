@@ -90,10 +90,10 @@ def adaptive_clean_set(worm, F, head, dd, sign):
     return out
 
 
-def thermalize(kappa, N, steps, zeta):
+def thermalize(kappa, N, steps, fugacity):
     L = Lattice(4, N)
     S = supervillain.action.NoIntersections(L, kappa=kappa)
-    H = gen.Hammer(S, zeta=zeta)
+    H = gen.Hammer(S, fugacity=fugacity)
     return S, supervillain.Ensemble(S).generate(steps, H, start='cold')
 
 
@@ -161,7 +161,7 @@ def transport(S, e, worms, seed):
 
 
 def report(kappa, args, rng):
-    S, e = thermalize(kappa, args.N, args.steps, args.zeta)
+    S, e = thermalize(kappa, args.N, args.steps, args.fugacity)
     print(f'=== kappa = {kappa}   (jammed phase is kappa < ~0.02) ===', flush=True)
 
     a, f, idles, movers, links, dist = census(
@@ -235,7 +235,7 @@ if __name__ == '__main__':
     p.add_argument('--kappa', type=float, nargs='+', default=[0.01, 0.03, 0.1],
                    help='couplings to sweep; the jammed phase is below ~0.02')
     p.add_argument('--N', type=int, default=6, help='lattice extent (default 6)')
-    p.add_argument('--zeta', type=float, default=0.025, help="the Hammer's fugacity")
+    p.add_argument('--fugacity', type=float, default=0.025, help="the Hammer's fugacity")
     p.add_argument('--steps', type=int, default=100, help='thermalization steps')
     p.add_argument('--burn', type=int, default=70)
     p.add_argument('--stride', type=int, default=15)

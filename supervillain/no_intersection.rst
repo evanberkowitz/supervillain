@@ -380,7 +380,7 @@ squeeze:
   hypercubes with no mover at all, and a median clean set of one.  Enrichment halves the
   dead fraction ($97.7\% \to 48.8\%$); it does not rescue the worm.
 
-* **Above the jammed phase the moves exist and cannot be afforded.**  The free-target clean
+* **Above the jammed phase the moves exist but are too expensive.**  The free-target clean
   union is $90.2\%$ *idles*, and the worm auto-closes the instant an accepted idle leaves
   the head on the tail.  Of the movers, $99.8\%$ are two-link exact repairs whose cost grows
   with $\kappa$: median $\Delta S = 6.01$ at $\kappa = 0.1$ and $21.06$ at $\kappa = 0.5$,
@@ -404,8 +404,8 @@ which is no way to transport a defect.  Outside the jammed phase the repairs are
 and too expensive to accept.  Two failures, mirror images of each other, produced by the
 same demand.
 
-Beyond worms: the grand-canonical defect gas
-============================================
+The grand-canonical defect gas
+==============================
 
 Every worm starves, and measurement says exactly where.  Enriching the candidate family
 buys real ground --- and buys it where the worm was already losing.  It does not buy enough:
@@ -413,7 +413,9 @@ in the jammed phase no local exact-repair family suffices, and outside the jamme
 movers that exist are too expensive to accept.  Both failures share a root: the worm insists
 that the constraint be *exactly* repaired at every single move.
 
-So we stop insisting, and *price the mess instead*.
+The worm enlarges the configuration space it samples by adding a defect pair.
+In this case, we tell the same joke again and again and it gets funnier: rather than
+a fixed number of defects, we allow any number of defects to appear and disappear.
 Enlarge the ensemble with a per-defect fugacity $\zeta$,
 
 .. math ::
@@ -423,14 +425,14 @@ Enlarge the ensemble with a per-defect fugacity $\zeta$,
    D(n) = \sum_x \left|q_x(n)\right|,
 
 and sample it with a plain single link $n\to n\pm 1$ sampled uniformly and accepted with $\min\left(1, e^{-\Delta S} \zeta^{\Delta D}\right)$.
-The very move that was poison for the constrained model --- a single-link change smears $q$ over its neighborhood --- is now merely *expensive*: whatever charge it scatters is a legal state, with cost inflated by $\zeta^{\Delta D}$, and the reverse move that cleans it up is *discounted* by the same factor.
+The very move that was poison for the constrained model --- a single-link change that can populate charge defects in its neighborhood --- is now merely *expensive*: whatever charge it scatters is a legal state, with cost inflated by $\zeta^{\Delta D}$, and the reverse move that cleans it up is *discounted* by the same factor.
 Every link is always proposable, so there is no jam and no frozen sector: the frozen configurations that isolate the :class:`~supervillain.generator.no_intersection.ConstrainedLinkUpdate` are frozen only for moves that must keep $q = 0$ exactly; the defect gas walks straight through them, paying the toll on the way in and collecting it on the way out.
 Ergodicity, which every constrained move set above had to argue for case by case, is manifest.
 
 What does this buy us physically?  Recall :ref:`the worm's shifted constraint <theta worm constraint>`: inserting $e^{i(\theta_x - \theta_y)}$ demands $q = \delta_x - \delta_y$.
-The worm's $G$ ensemble is the *two*-defect sector of $\Pi$, carrying weight $\zeta^2$ --- one factor of $\zeta$ per insertion of the charge operator $e^{\pm i\theta}$, which is exactly the sense in which $\Pi$ is the *grand-canonical* worm ensemble: it sums over any number of worms in flight, with fugacity $\zeta$ per endpoint.
+The worm's $G$ ensemble is the *two*-defect sector of $\Pi$, carrying weight $\zeta^2$ --- one factor of the fugacity $\zeta$ per insertion of the charge operator $e^{\pm i\theta}$, which is exactly the sense in which $\Pi$ is the *grand-canonical* worm ensemble: it sums over any number of worms in flight, with fugacity $\zeta$ per endpoint.
 The correlator is then read off by pure bookkeeping.
-Tally, after every proposal, which sector the chain sits in:
+Tally, after every proposal, which sector the chain sits in.  The two-point defect correlator is the ratio of the time spent in the single-pair sector to the time spent in the vacuum,
 
 .. math ::
 
@@ -438,12 +440,12 @@ Tally, after every proposal, which sector the chain sits in:
    = \frac{\left\langle \prod_p [q_p = \delta_{px} - \delta_{py}] \right\rangle_\Pi}
           {\zeta^2 \left\langle \prod_p [q_p = 0] \right\rangle_\Pi},
 
-with $[\cdots]$ the Iverson bracket.
-This correlator is the ratio of the time spent in the exact single-pair sector to the time spent in the vacuum, with the known price $\zeta^2$ divided back out.
+with $[\cdots]$ the Iverson bracket, and the factor of $\zeta^2$ dividing out the fugacity price of the insertion.
+
 Two properties are worth internalizing.
-First, $\Theta_{x,x} = 1$ *identically* --- a coincident pair *is* the vacuum --- so this estimator is **absolutely normalized**: where the worm histogram must be normalized by its origin bin, the defect gas measures $\Theta$ outright.
-Second, $\Theta$ is **independent of** $\zeta$, because the intermediate sectors' weights cancel from the ratio entirely; $\zeta$ tunes only the variance.
-Running twice at different $\zeta$ and comparing is therefore a sharp end-to-end exactness test that comes for free.
+First, $\Theta_{x,x} = 1$ *identically* --- a coincident pair *is* the vacuum --- so this estimator is *absolutely normalized*: where the worm histogram must be normalized by its origin bin, the defect gas measures $\Theta$ outright.
+Second, $\Theta$ is *independent of* $\zeta$, because the intermediate sectors' weights cancel from the ratio entirely; $\zeta$ tunes only the variance.
+Running twice at different $\zeta$ and comparing is therefore a sharp end-to-end exactness test.
 
 The fugacity also has a clean meaning in terms of the Lagrange multiplier we integrated out.
 Since $q$ is integer-valued,
@@ -453,21 +455,22 @@ Since $q$ is integer-valued,
    \zeta^{\left|q\right|} = \int_{-\pi}^{\pi} \frac{d\theta}{2\pi}\; \frac{1 - \zeta^2}{1 - 2\zeta\cos\theta + \zeta^2}\; e^{i\theta q},
 
 the Poisson kernel: the defect gas is the theory in which the *flat* $\theta$ measure (whose integration produced the hard constraint) is replaced by a Poisson-kernel prior on every hypercube.
-$\zeta \to 0$ collapses the kernel to the flat measure's delta function and recovers the hard constraint; $\zeta \to 1$ removes the constraint altogether.
+Taking the fugacity $\zeta \to 0$ collapses the kernel to the flat measure's delta function and recovers the hard constraint; $\zeta \to 1$ removes the constraint altogether.
 
 Topologically, the defect gas finishes the story the worm began.
 The Freedman--Quinn caveat above was that homotopies between embedded sheets may require *several* double-point pairs in flight at once --- Casson's obstruction --- while the worm carries exactly one.
-The defect gas carries **any number**: a finger move is a pair creation (priced $\zeta^2$), a Whitney move is a pair annihilation (rewarded $\zeta^{-2}$), an isotopy is a $\Delta q$-neutral rearrangement (free), and higher-multiplicity double points ($\left|q_x\right| \geq 2$) are ordinary states of the gas rather than special cases needing bespoke repair moves.
+The defect gas carries *any number*: a finger move is a pair creation (priced by the fugacity $\zeta^2$), a Whitney move is a pair annihilation (rewarded $\zeta^{-2}$), an isotopy is a $\Delta q$-neutral rearrangement (free in terms of fugacity), and higher-multiplicity double points ($\left|q_x\right| \geq 2$) are ordinary states of the gas rather than special cases needing bespoke repair moves.
 It walks the full immersed corridor, not the one-pair shortcut.
 
 The :class:`~supervillain.generator.no_intersection.DefectGas` is *not* a worm --- nothing walks, nothing is steered; defects appear, diffuse, and annihilate on their own schedule, and the physics is read off when the system revisits the vacuum sector, which is distributed exactly according to the expected constraint-satisfying Villain model.
-So, exactly as for the walking worms, the invalid states live only *inside* a step; every emitted configuration satisfies $q \equiv 0$; and because $\phi$ is frozen within a step the update is $n$-only and composes with a $\phi$-update in a :class:`~supervillain.generator.combining.Sequentially` like every other generator here.
+Importantly, a negative defect from one step may annihilate a positive defect created far away in another step rather than the positive defect it was originally created with.
+Exactly as for the walking worms, the invalid states live only *inside* a step; every emitted configuration satisfies $q \equiv 0$.
 The pair-sector dwell rides along as the inline observables ``Theta_Theta`` and ``Vacuum_Ticks``, from which $\Theta$ is the ratio of ensemble means.
 
 The fugacity $\zeta$ must be handled with care.
-Entropy pushes $D$ up --- each defect may live anywhere, and the denser the sheet the more charge a single link scatters --- so the well-tuned $\zeta$ shrinks with the volume and with $1/\kappa$, and a badly-large $\zeta$ condenses the gas into a defect soup that never revisits the measured sectors: the sampling will hang.
+Entropy pushes $D$ up --- each defect may live anywhere, and the denser the sheet the more charge a single link scatters --- so the well-tuned fugacity $\zeta$ shrinks with the volume and with $1/\kappa$, and a badly-large fugacity condenses the gas into a defect soup that never revisits the measured sectors: the sampling will hang.
 But this tuning pressure is itself a diagnostic, because *physical* defect condensation is precisely $\theta$ long-range order.
-A tuned $\zeta$ that must fall like $1/V$, and a pair-sector dwell spreading flat in separation, are that phase announcing itself: signal, not failure.
+A tuned fugacity that must fall like $1/V$, and a pair-sector dwell spreading flat in separation, are that phase announcing itself: signal, not failure.
 
 .. autoclass:: supervillain.generator.no_intersection.DefectGas
    :members:
@@ -476,7 +479,7 @@ A tuned $\zeta$ that must fall like $1/V$, and a pair-sector dwell spreading fla
 Order diagnostics from sector dwell
 ===================================
 
-Because the defect gas measures $\Theta$ with **absolute** normalization, quantities
+Because the defect gas measures $\Theta$ with *absolute* normalization, quantities
 that were previously out of reach become simple bookkeeping.  The order parameter of the
 $\theta$-shift symmetry is $M = \sum_x e^{i\theta_x}$, and on the torus
 $\langle M \rangle = \langle M^2 \rangle = 0$ *exactly* (total charge vanishes for
@@ -492,7 +495,7 @@ The second moment is the **intersection susceptibility**,
    \chi_\theta = \sum_{\Delta x} \Theta_{\Delta x} = 1 + \sum_{\Delta x \neq 0} \Theta_{\Delta x},
 
 where the $1$ is the identically-unit origin.  Like every susceptibility it obeys the
-standard trichotomy: it goes to a **constant** in the thermodynamic limit when the
+standard trichotomy: it goes to a *constant* in the thermodynamic limit when the
 $\theta$ correlations are short-ranged, grows like $L^{D - 2\Delta_\theta}$ at a
 critical point (only if $e^{i\theta}$ is light, $\Delta_\theta < D/2$), and grows like
 $\left|\langle e^{i\theta}\rangle\right|^2 V$ if the defects condense --- so its
@@ -500,7 +503,7 @@ $\left|\langle e^{i\theta}\rangle\right|^2 V$ if the defects condense --- so its
 
 The fourth moment needs the $D = 4$ sectors, and this is where the gas's bookkeeping
 shines: classify each ordered insertion 4-tuple $(x_1, x_2; y_1, y_2)$ of
-$\left|M\right|^4$ by its **net** charge pattern.  Vacuum patterns contribute pure
+$\left|M\right|^4$ by its *net* charge pattern.  Vacuum patterns contribute pure
 combinatorics; single-pair patterns reduce to $\Theta$; and only the genuine two-pair
 sectors --- tallied by the gas whenever $D = 4$, in four geometric classes --- are new
 measurements:
@@ -519,14 +522,14 @@ $U = \langle\left|M\right|^4\rangle / \langle\left|M\right|^2\rangle^2$ then
 follows with no new normalization: $U \to 2 - 1/V$ exactly in the symmetric phase (the
 vacuum-pattern combinatorics reproduce the complex-Gaussian value --- a built-in check
 the implementation passes to six digits), $U \to 1$ in a $\theta$-ordered phase, and
-curves of $U(\kappa; L)$ at different volumes **cross at a critical point without
-knowledge of any scaling dimension** --- the exponent-free tool for a model whose
+curves of $U(\kappa; L)$ at different volumes *cross at a critical point without
+knowledge of any scaling dimension* --- the exponent-free tool for a model whose
 scaling dimensions are unknown.
 
 Two practical notes.  All fugacity prices divide out, so $U$ is $\zeta$-independent ---
 the same free exactness test as for $\Theta$ --- but the *statistics* are not: the
-quartic-sector dwell scales like $\zeta^4$, so the Binder measurement wants the
-**largest healthy** $\zeta$ (exactly what :meth:`~supervillain.generator.no_intersection.DefectGas.tune`
+quartic-sector dwell scales like $\zeta^4$, so the Binder cumulant measurement wants the
+*largest healthy* fugacity (exactly what :meth:`~supervillain.generator.no_intersection.DefectGas.tune`
 selects), and an under-visited quartic sector shows up as impossible values ($U < 1$
 violates Cauchy--Schwarz) with underestimated jackknife errors --- loud, like every
 other failure mode of this sampler.

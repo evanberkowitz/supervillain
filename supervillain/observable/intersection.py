@@ -221,8 +221,8 @@ class ThetaBinderCumulant(DerivedQuantity):
                {\overline{\texttt{Vacuum\_Ticks}}}.
 
     Checks: at $V = 1$ the formula returns $1$ exactly; deep in the symmetric phase the
-    contact term alone gives $U = 2 - 1/V$; and $U$ is independent of $\zeta$ (all
-    fugacity prices are divided back out), so runs at two $\zeta$ values test the
+    contact term alone gives $U = 2 - 1/V$; and $U$ is independent of the fugacity $\zeta$ (all
+    fugacity prices are divided back out), so runs at two fugacities test the
     implementation end to end.  Note $\langle M \rangle = \langle M^{2} \rangle = 0$
     exactly on the torus (charge neutrality), so no disconnected subtractions arise.
 

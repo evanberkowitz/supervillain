@@ -12,7 +12,7 @@ import supervillain.generator.villain as _villain
 import supervillain.generator.combining as _combining
 
 
-def Hammer(S, zeta=None):
+def Hammer(S, fugacity=None):
     r'''
     Syntactic sugar for an ergodic :class:`~.Sequentially` combination of the
     No-Intersection generators.  It may change from version to version as new
@@ -46,18 +46,18 @@ def Hammer(S, zeta=None):
     Parameters
     ----------
     S: a NoIntersections action
-    zeta: float or None
+    fugacity: float or None
         The per-defect fugacity handed to the :class:`DefectGas`.  ``None`` (the default)
         calls :meth:`DefectGas.tune`, which runs short Monte-Carlo probes down a ladder;
         pass an explicit value to skip that cost.  The emitted configurations satisfy the
-        constraint for **any** $\zeta \in (0, 1]$ --- it tunes only the variance.
+        constraint for **any** fugacity $\zeta \in (0, 1]$ --- it tunes only the variance.
 
     Returns
     -------
     An ergodic generator for updating No-Intersection configurations.
     '''
-    if zeta is None:
-        zeta = DefectGas.tune(S)
+    if fugacity is None:
+        fugacity = DefectGas.tune(S)
     return _combining.Sequentially((
         _villain.SiteUpdate(S),
         _villain.ExactUpdate(S),
@@ -66,5 +66,5 @@ def Hammer(S, zeta=None):
         WrappingLoopUpdate(S),
         PlanarFluxUpdate(S),
         ScattershotUpdate(S),
-        DefectGas(S, zeta),
+        DefectGas(S, fugacity),
     ))

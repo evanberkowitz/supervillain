@@ -32,7 +32,7 @@ class DefectGas(ReadWriteable, Generator):
         \qquad D(n) = \sum_{x} \left|q_{x}(n)\right|,
         \quad q = dn \wedge dn,
 
-    with $\zeta$ conjugate to each *insertion* of the charge operator $e^{\pm i\theta}$.
+    with the fugacity $\zeta$ conjugate to each *insertion* of the charge operator $e^{\pm i\theta}$.
     $D$ is always even ($\left|q\right| \equiv q \bmod 2$ sitewise and the total charge
     vanishes identically), so $D/2$ counts the $\pm$ *pairs in flight* --- the number of
     worms the grand-canonical ensemble runs at once.
@@ -76,10 +76,10 @@ class DefectGas(ReadWriteable, Generator):
     (ratio of ensemble means; use :class:`~supervillain.analysis.Bootstrap` for
     errors).  Two properties are worth internalizing:
 
-    * $\Theta_{0} = 1$ **identically** --- a coincident pair *is* the vacuum --- so
-      $\Theta$ is **absolutely normalized**; the $\Delta x = 0$ bin of ``Theta_Theta``
+    * $\Theta_{0} = 1$ *identically* --- a coincident pair *is* the vacuum --- so
+      $\Theta$ is *absolutely normalized*; the $\Delta x = 0$ bin of ``Theta_Theta``
       is empty by construction.
-    * $\Theta$ is **independent of** $\zeta$ --- the fugacity price the sampler charged
+    * $\Theta$ is *independent of* the fugacity $\zeta$ --- the price the sampler charged
       the pair sector is divided back out --- so $\zeta$ tunes only the variance.
       Running at two values of $\zeta$ and comparing is a sharp end-to-end exactness
       test.
@@ -110,7 +110,7 @@ class DefectGas(ReadWriteable, Generator):
     ----------
     S: a NoIntersections action
         Supplies $S_{V}$, $\kappa$, and the lattice.
-    zeta: float
+    fugacity: float
         The per-defect fugacity $\zeta \in (0, 1]$.
     D_max: int or None
         Hard cap on $D$; ``None`` uncaps.
@@ -133,20 +133,20 @@ class DefectGas(ReadWriteable, Generator):
     # index 0: {+1,+1,-1,-1}, 1: {+2,-1,-1}, 2: {+1,+1,-2}, 3: {+2,-2}.
     _FOUR = {(-1, -1, 1, 1): 0, (-1, -1, 2): 1, (-2, 1, 1): 2, (-2, 2): 3}
 
-    def __init__(self, S, zeta, D_max=None, emit_every=None, max_step_sweeps=500,
+    def __init__(self, S, fugacity, D_max=None, emit_every=None, max_step_sweeps=500,
                  rng=None):
         if not isinstance(S, supervillain.action.NoIntersections):
             raise ValueError('DefectGas requires a NoIntersections action.')
         if S.Lattice.D != 4:
             raise ValueError('DefectGas is only implemented for D = 4.')
-        if not (0 < zeta <= 1):
-            raise ValueError(f'zeta must be in (0, 1]; got {zeta}.')
+        if not (0 < fugacity <= 1):
+            raise ValueError(f'fugacity must be in (0, 1]; got {fugacity}.')
 
         self.S = S
         self.L = S.Lattice
         self.N = self.L.N
         self.kappa = S.kappa
-        self.zeta = float(zeta)
+        self.fugacity = float(fugacity)
         self.D_max = D_max
         self.emit_every = emit_every if emit_every is not None else 4 * self.N**4
         self.max_step_sweeps = max_step_sweeps
@@ -162,7 +162,7 @@ class DefectGas(ReadWriteable, Generator):
         self._state = None
 
     def __str__(self):
-        return f'DefectGas(zeta={self.zeta}, D_max={self.D_max})'
+        return f'DefectGas(fugacity={self.fugacity}, D_max={self.D_max})'
 
     # ---------------------------------------------------------------- chain internals
 
@@ -277,7 +277,7 @@ class DefectGas(ReadWriteable, Generator):
             link = (mu,) + site
             A = st.dphi[link] - 2 * np.pi * st.n[link]
             dS = (self.kappa / 2) * ((A - 2 * np.pi * c)**2 - A**2)
-            if st.us[i] < np.exp(-dS) * self.zeta**dD:
+            if st.us[i] < np.exp(-dS) * self.fugacity**dD:
                 st.n[link] += c
                 local_charge.apply_link_to_F(st.F, mu, site, c, self.N)
                 N = self.N
@@ -361,7 +361,7 @@ class DefectGas(ReadWriteable, Generator):
         i, D, nnz, acc, vac = defect_gas_kernel.tick_batch(
             st.F2, st.n2, st.dphi2, st.q, st.nzc, st.D, st.nnz,
             st.mus, st.sites, st.cs, st.us, i0,
-            self.kappa, self.zeta,
+            self.kappa, self.fugacity,
             -1 if self.D_max is None else int(self.D_max), self.N,
             *defect_gas_kernel.stencil_pack(),
             H_pair, H_four, tally, vac_stop, st.tstate, st.exc_hist)
@@ -399,9 +399,9 @@ class DefectGas(ReadWriteable, Generator):
             if ticks >= cap:
                 raise RuntimeError(
                     f'no {self.emit_every} vacuum ticks in {self.max_step_sweeps} sweeps: '
-                    f'zeta={self.zeta} is likely too large for this volume/kappa (defect '
-                    f'condensation).  Retune (DefectGas.tune), lower zeta, or note that '
-                    f'a genuinely condensed theta phase requires zeta ~ 1/V.')
+                    f'fugacity={self.fugacity} is likely too large for this volume/kappa (defect '
+                    f'condensation).  Retune (DefectGas.tune), lower fugacity, or note that '
+                    f'a genuinely condensed theta phase requires fugacity ~ 1/V.')
             v, t = ticker(st, self.emit_every - vacuum, H_pair, H_four)
             vacuum += v
             ticks += t
@@ -410,9 +410,9 @@ class DefectGas(ReadWriteable, Generator):
         # re-emitted (a copy, so the chain's working array stays private).
         return configuration | {
             'n': Form(st.n.copy(), degree=1, lattice=L),
-            'Theta_Theta': H_pair.reshape(tuple(L.dims)) / (V * self.zeta**2),
+            'Theta_Theta': H_pair.reshape(tuple(L.dims)) / (V * self.fugacity**2),
             'Vacuum_Ticks': float(vacuum),
-            'Four_Defect': H_four / self.zeta**4,
+            'Four_Defect': H_four / self.fugacity**4,
             'Pair_Excursions': float(st.tstate[1] - exc0),
             'Max_Pair_RSq': float(st.tstate[2]),
             'Excursion_Lengths': (st.exc_hist - hist0).astype(float),
@@ -499,9 +499,9 @@ class DefectGas(ReadWriteable, Generator):
             phi = np.zeros((1,) + tuple(L.dims))
         if n is None:
             n = np.zeros((L.D,) + L.dims, dtype=np.int64)
-        zeta = ladder[-1]
+        fugacity = ladder[-1]
         for z in ladder:
-            probe = cls(S, zeta=z, D_max=D_max,
+            probe = cls(S, fugacity=z, D_max=D_max,
                         rng=rng if rng is not None else np.random.default_rng())
             probe.run(phi, n, sweeps, tally=False)
             probe.blocks = []
@@ -509,10 +509,10 @@ class DefectGas(ReadWriteable, Generator):
             probe.run(phi, n, sweeps, tally=True)
             probe.close_block()
             vac = probe.blocks[0][1] / max(1, probe.proposed / 2)
-            zeta = z
+            fugacity = z
             if vac > target:
                 break
-        return zeta
+        return fugacity
 
     @classmethod
     def tune_edge(cls, S, D_max=32, rng=None, phi=None, n=None,
@@ -521,17 +521,17 @@ class DefectGas(ReadWriteable, Generator):
                   min_vacuum_ticks=500, probe_sweeps=200, max_probe_sweeps=4000,
                   step_sweeps=25, floor=None):
         r"""
-        Ride the edge: pick the **largest** $\zeta$ at which the chain still
+        Ride the edge: pick the *largest* fugacity $\zeta$ at which the chain still
         *demonstrably* returns to the vacuum, ascending the ladder until it does not.
 
         Where :meth:`tune` optimizes the vacuum clock (dwell $> 15\%$: cheap steps,
         best denominator statistics), this optimizes the *numerator's reach*: pair
         creation and --- through the paid corridors of a dense sheet --- pair
         *transport* both scale like $\zeta^{2}$, so far-separation dwell responds
-        $\sim \zeta^{4}$, and a conservatively small $\zeta$ silently censors exactly
+        $\sim \zeta^{4}$, and a conservatively small fugacity $\zeta$ silently censors exactly
         the large-$\Delta x$ bins that diagnose $\theta$ order.
 
-        There is deliberately **no dwell percentage** here.  The vacuum sector is not
+        There is deliberately *no dwell percentage* here.  The vacuum sector is not
         optional --- :meth:`step` can only emit at a vacuum tick --- but per tick the
         chain costs the same at any dwell and the step path's denominator is exact
         (``Vacuum_Ticks`` $\equiv$ ``emit_every``), so the only *hard* floor is
@@ -547,7 +547,7 @@ class DefectGas(ReadWriteable, Generator):
         shrinks with the dwell: the returned ``emit_every`` is sized so one
         :meth:`step` costs about ``step_sweeps`` sweeps at the measured dwell.
 
-        If a chain run at the returned $\zeta$ later stops returning to the vacuum
+        If a chain run at the returned fugacity $\zeta$ later stops returning to the vacuum
         (the :meth:`step` RuntimeError), that is *data* --- the documented
         defect-condensation signature --- and the honest response is to record it and
         start a fresh chain at a smaller $\zeta$, never to silently retry.
@@ -556,7 +556,7 @@ class DefectGas(ReadWriteable, Generator):
         ----------
         S: a NoIntersections action
         phi, n: arrays, optional
-            A thermalized **valid** starting configuration (cold if omitted).
+            A thermalized *valid* starting configuration (cold if omitted).
         min_vacuum_ticks: int
             Vacuum ticks a probe must collect for the rung to count as measurable.
         probe_sweeps: int
@@ -564,14 +564,14 @@ class DefectGas(ReadWriteable, Generator):
         max_probe_sweeps: int
             Tallied-sweep budget per rung; exhausting it rejects the rung.
         step_sweeps: int
-            Target sweeps per :meth:`step` at the chosen $\zeta$.
+            Target sweeps per :meth:`step` at the chosen fugacity $\zeta$.
         floor: float, optional
             An explicit minimum dwell imposed on top of measurability.
 
         Returns
         -------
         (float, int)
-            The chosen $\zeta$ and the matched ``emit_every``.
+            The chosen fugacity $\zeta$ and the matched ``emit_every``.
         """
         L = S.Lattice
         if phi is None:
@@ -581,7 +581,7 @@ class DefectGas(ReadWriteable, Generator):
         n_links = 4 * L.N**4
         best = None
         for z in ladder:
-            probe = cls(S, zeta=z, D_max=D_max,
+            probe = cls(S, fugacity=z, D_max=D_max,
                         rng=rng if rng is not None else np.random.default_rng())
             # Equilibrate at THIS rung before believing anything: from a valid start
             # the condensate takes time to build, and a probe that tallies the
@@ -608,17 +608,17 @@ class DefectGas(ReadWriteable, Generator):
                 best = (z, dwell)
             else:
                 # Past the edge (unmeasurable, collapsing, or below the explicit
-                # floor); dwell falls monotonically with zeta, so stop probing.
+                # floor); dwell falls monotonically with fugacity, so stop probing.
                 break
         if best is None:
             raise RuntimeError(
-                f'tune_edge: even the smallest ladder rung zeta={ladder[0]} never '
+                f'tune_edge: even the smallest ladder rung fugacity={ladder[0]} never '
                 f'demonstrated {min_vacuum_ticks} vacuum ticks in '
                 f'{max_probe_sweeps} sweeps; the chain cannot emit here (defect '
                 f'condensation?).  Treat as signal and investigate D_trace.')
-        zeta, dwell = best
+        fugacity, dwell = best
         emit_every = max(1, int(round(dwell * n_links * step_sweeps)))
-        return zeta, emit_every
+        return fugacity, emit_every
 
     def _new_block(self):
         self._H_pair = np.zeros(self.L.dims)
@@ -694,7 +694,7 @@ class DefectGas(ReadWriteable, Generator):
         The block-jackknife mean and error of the absolutely-normalized correlator
         $\Theta_{\Delta x} = H_{\text{pair}}(\Delta x) / (V \zeta^{2} H_{Z})$ over the
         blocks accumulated by :meth:`run` (skipping leave-one-out terms whose vacuum
-        dwell vanishes --- only possible when $\zeta$ is badly tuned).
+        dwell vanishes --- only possible when the fugacity $\zeta$ is badly tuned).
 
         Returns
         -------
@@ -714,10 +714,10 @@ class DefectGas(ReadWriteable, Generator):
         if H_Z.sum() == 0:
             nan = np.full(self.L.dims, np.nan)
             return nan, nan
-        total = H_pair.sum(axis=0) / (V * self.zeta**2 * H_Z.sum())
+        total = H_pair.sum(axis=0) / (V * self.fugacity**2 * H_Z.sum())
         rows = [j for j in range(len(self.blocks)) if H_Z.sum() - H_Z[j] > 0]
         jack = np.stack([
-            (H_pair.sum(axis=0) - H_pair[j]) / (V * self.zeta**2 * (H_Z.sum() - H_Z[j]))
+            (H_pair.sum(axis=0) - H_pair[j]) / (V * self.fugacity**2 * (H_Z.sum() - H_Z[j]))
             for j in rows])
         err = np.sqrt((len(rows) - 1) * jack.var(axis=0)) if len(rows) > 1 \
             else np.full(self.L.dims, np.nan)
@@ -741,10 +741,10 @@ class DefectGas(ReadWriteable, Generator):
 
         def U(hp, hz, h4):
             # <|M|^2> = V (1 + S1); <|M|^4> = (2V^2 - V) + 4(V-1) V S1 + sector term.
-            S1 = hp.sum() / (V * self.zeta**2 * hz)
+            S1 = hp.sum() / (V * self.fugacity**2 * hz)
             M2 = V * (1 + S1)
             M4 = (2 * V**2 - V) + 4 * (V - 1) * V * S1 \
-                + (C * h4).sum() / (self.zeta**4 * hz)
+                + (C * h4).sum() / (self.fugacity**4 * hz)
             return M4 / M2**2
 
         if HZ.sum() == 0:

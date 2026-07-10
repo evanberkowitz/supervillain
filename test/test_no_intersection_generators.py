@@ -331,7 +331,7 @@ def test_hammer_includes_constraint_preserving_villain_updates():
     # replaces the worm: it is manifestly ergodic and emits the absolutely-normalized
     # correlator, where every worm we tried jammed.
     S = _action()
-    H = str(supervillain.generator.no_intersection.Hammer(S, zeta=0.025))
+    H = str(supervillain.generator.no_intersection.Hammer(S, fugacity=0.025))
     for name in ('SiteUpdate', 'ExactUpdate', 'CohomologyUpdate', 'ConstrainedLinkUpdate',
                  'WrappingLoopUpdate', 'PlanarFluxUpdate', 'ScattershotUpdate',
                  'DefectGas'):
@@ -341,12 +341,12 @@ def test_hammer_includes_constraint_preserving_villain_updates():
 def test_hammer_has_no_worm():
     # Every worm we built jams; none is in the default generator.
     S = _action()
-    H = str(supervillain.generator.no_intersection.Hammer(S, zeta=0.025))
+    H = str(supervillain.generator.no_intersection.Hammer(S, fugacity=0.025))
     assert 'Worm' not in H
 
 
-def test_hammer_zeta_none_autotunes():
-    # zeta=None runs DefectGas.tune, which returns a fugacity in (0, 1].
+def test_hammer_fugacity_none_autotunes():
+    # fugacity=None runs DefectGas.tune, which returns a fugacity in (0, 1].
     S = _action()
     H = supervillain.generator.no_intersection.Hammer(S)
     assert 'DefectGas' in str(H)
@@ -354,7 +354,7 @@ def test_hammer_zeta_none_autotunes():
 
 def test_hammer_steps_stay_valid():
     S = _action()
-    H = supervillain.generator.no_intersection.Hammer(S, zeta=0.025)
+    H = supervillain.generator.no_intersection.Hammer(S, fugacity=0.025)
     cfg = _cold(S)
     for _ in range(5):
         cfg = H.step(cfg)
@@ -363,7 +363,7 @@ def test_hammer_steps_stay_valid():
 
 def test_ensemble_generate_stays_valid():
     S = _action()
-    H = supervillain.generator.no_intersection.Hammer(S, zeta=0.025)
+    H = supervillain.generator.no_intersection.Hammer(S, fugacity=0.025)
     e = supervillain.Ensemble(S).generate(10, H, start='cold')
     for c in e.configuration:
         assert S.valid(c)
@@ -374,7 +374,7 @@ def test_nointersections_inherits_villain_observables():
     # Villain implementations apply --- the field-based observables computed from (phi, n)
     # are all available.  (Vortex_Vortex is excluded: its Villain measurement is D=2 only.)
     S = _action()
-    H = supervillain.generator.no_intersection.Hammer(S, zeta=0.025)
+    H = supervillain.generator.no_intersection.Hammer(S, fugacity=0.025)
     e = supervillain.Ensemble(S).generate(20, H, start='cold')
     for o in ('ActionDensity', 'InternalEnergyDensity', 'InternalEnergyDensitySquared',
               'WindingSquared', 'Winding_Winding', 'Spin_Spin'):
@@ -387,7 +387,7 @@ def test_nointersections_topological_charge_vanishes():
     # The constraint q = dn∧dn = 0 makes the topological-charge density identically zero,
     # so its (inherited Villain) same-site observable is exactly 0 on every configuration.
     S = _action()
-    H = supervillain.generator.no_intersection.Hammer(S, zeta=0.025)
+    H = supervillain.generator.no_intersection.Hammer(S, fugacity=0.025)
     e = supervillain.Ensemble(S).generate(20, H, start='cold')
     assert not np.asarray(e.TopologicalChargeDensitySquared).any()
 
@@ -411,7 +411,7 @@ def test_intersection_intersection_is_a_derived_quantity():
 def test_intersection_intersection_is_one_at_origin():
     L = Lattice(4, 3)
     S = supervillain.action.NoIntersections(L, kappa=0.3)
-    H = supervillain.generator.no_intersection.Hammer(S, zeta=0.025)
+    H = supervillain.generator.no_intersection.Hammer(S, fugacity=0.025)
     e = supervillain.Ensemble(S).generate(40, H, start='cold')
 
     b = supervillain.analysis.Bootstrap(e, 25)

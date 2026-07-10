@@ -23,7 +23,7 @@ model:
   The worms' raw histogram survives, opt-in, as ``IntersectionTwoPoint``.)
 
 Note that ``Hammer(S)`` with no fugacity runs ``DefectGas.tune`` --- short Monte-Carlo
-probes down a ladder --- before sampling begins.  Pass ``Hammer(S, zeta=...)`` to skip it.
+probes down a ladder --- before sampling begins.  Pass ``Hammer(S, fugacity=...)`` to skip it.
 
 Run from example/no-intersection/:
 

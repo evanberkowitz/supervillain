@@ -58,7 +58,7 @@ def stencil_pack():
 @njit(cache=True)
 def tick_batch(F2, n2, dphi2, q, nzc, D, nnz,
                mus, sites, cs, us, i0,
-               kappa, zeta, D_max, N,
+               kappa, fugacity, D_max, N,
                st_o, st_p, st_s, st_k, st_ptr,
                df_off, df_plane, df_val, df_ptr,
                H_pair, H_four, tally, vac_stop,
@@ -145,7 +145,7 @@ def tick_batch(F2, n2, dphi2, q, nzc, D, nnz,
             srav = ((x0 * N + x1) * N + x2) * N + x3
             A = dphi2[mu, srav] - 2 * np.pi * n2[mu, srav]
             dS = (kappa / 2) * ((A - 2 * np.pi * c) ** 2 - A ** 2)
-            if us[i] < np.exp(-dS) * zeta ** np.float64(dD):
+            if us[i] < np.exp(-dS) * fugacity ** np.float64(dD):
                 n2[mu, srav] += c
                 for t in range(df_ptr[mu], df_ptr[mu + 1]):
                     w0 = (x0 + df_off[t, 0] + N) % N

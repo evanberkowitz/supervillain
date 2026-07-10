@@ -48,7 +48,7 @@ def _assert_blocks_equal(fast, slow):
 
 def test_run_matches_reference():
     S = _action()
-    fast, slow = _twins(S, zeta=0.2, D_max=8)
+    fast, slow = _twins(S, fugacity=0.2, D_max=8)
     phi, n = _start(S)
 
     pf, nf = fast.run(phi, n, sweeps=5)
@@ -72,7 +72,7 @@ def test_run_matches_reference_quartic_sector():
     # A fugacity high enough that the D = 4 classes are actually populated, so the
     # kernel's nnz-based classification is exercised against the sorted-charge dict.
     S = _action()
-    fast, slow = _twins(S, seed=23, zeta=0.5, D_max=8)
+    fast, slow = _twins(S, seed=23, fugacity=0.5, D_max=8)
     phi, n = _start(S)
 
     fast.run(phi, n, sweeps=4)
@@ -86,7 +86,7 @@ def test_run_matches_reference_quartic_sector():
 
 def test_run_matches_reference_uncapped():
     S = _action()
-    fast, slow = _twins(S, seed=29, zeta=0.1, D_max=None)
+    fast, slow = _twins(S, seed=29, fugacity=0.1, D_max=None)
     phi, n = _start(S)
 
     pf, nf = fast.run(phi, n, sweeps=3)
@@ -100,7 +100,7 @@ def test_run_matches_reference_uncapped():
 
 def test_step_matches_reference():
     S = _action()
-    fast, slow = _twins(S, seed=3, zeta=0.1, D_max=8, emit_every=3000)
+    fast, slow = _twins(S, seed=3, fugacity=0.1, D_max=8, emit_every=3000)
     phi, n = _cold(S)
     cfg_f = {'phi': phi, 'n': n}
     cfg_s = {'phi': phi, 'n': n}
@@ -132,7 +132,7 @@ def test_paths_interleave():
     # step and step_reference maintain one coherent chain state, so mixing them on a
     # single instance equals an all-reference twin.
     S = _action()
-    mixed, pure = _twins(S, seed=11, zeta=0.1, D_max=8, emit_every=300)
+    mixed, pure = _twins(S, seed=11, fugacity=0.1, D_max=8, emit_every=300)
     phi, n = _cold(S)
     a = {'phi': phi, 'n': n}
     b = {'phi': phi, 'n': n}
