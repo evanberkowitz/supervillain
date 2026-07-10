@@ -356,9 +356,11 @@ That is the flaw.  Measured on thermalized backgrounds, as the fraction of
      - 192
 
 Recall that small $\kappa$ is the *warm, dense, jammed* phase; it lies below
-$\kappa \approx 0.02$.  The adaptive worm never gets below a 50\% dead fraction anywhere,
-and in the jammed phase it is dead 98\% of the time with a maximum clean set of **one**
-move.  Live-enumerating the two-link sector helps --- and never enough.
+$\kappa \approx 0.02$.  The adaptive worm is dead in at least half of its proposals
+everywhere we measured, only just dipping under one-half at the largest coupling we
+tried ($0.497$ at $\kappa = 0.5$), and in the jammed phase it is dead 98\% of the time
+with a maximum clean set of **one** move.  Live-enumerating the two-link sector helps
+--- and never enough.
 
 Dropping the direction requirement is what unjams the clean set.  The
 :class:`~supervillain.generator.no_intersection.FreeTargetWorm` enumerates one
@@ -385,7 +387,7 @@ squeeze:
   the head on the tail.  Of the movers, $99.8\%$ are two-link exact repairs whose cost grows
   with $\kappa$: median $\Delta S = 6.01$ at $\kappa = 0.1$ and $21.06$ at $\kappa = 0.5$,
   where **not one of $4756$ movers had $\Delta S \le 0$**.  The probability of transporting
-  at all on a given opening is $4 \times 10^{-3}$ at $\kappa = 0.1$ and $2 \times 10^{-10}$
+  at all on a given opening is $4.1 \times 10^{-3}$ at $\kappa = 0.1$ and $2.3 \times 10^{-10}$
   at $\kappa = 0.5$.
 
 The result is that the free-target worm transports **essentially never**, at any coupling we
@@ -399,7 +401,8 @@ ratio is not quoted here.
 
 Both failures come from one insistence: that the constraint be *exactly repaired at every
 single move*.  In the jammed phase no local exact repair exists; outside it, the exact
-repairs that exist are too expensive to accept.  So we stop insisting.
+repairs that exist are too expensive to accept --- two failures, mirror images of each
+other, produced by the same demand.
 
 Beyond worms: the grand-canonical defect gas
 ============================================
