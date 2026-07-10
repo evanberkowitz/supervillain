@@ -184,13 +184,9 @@ Notice that
 
 where the expectation values are over configurations drawn from $G$ (not $Z$!).
 If we draw from the larger space of $G$ configurations and histogram the head$-$tail displacement, normalizing that histogram by its value at zero displacement recovers $\Theta_{x,y}$.
-We accumulate the histogram as the worm evolves and save it inline with $\phi$ and $n$ as ``Intersection_Intersection`` (alongside the ``Worm_Length``), remembering to normalize any :class:`~.DerivedQuantity` built from it by its value at the origin---exactly as for :class:`~.Vortex_Vortex`.
+We accumulate the histogram as the worm evolves and save it inline with $\phi$ and $n$ as ``IntersectionTwoPoint`` (alongside the ``Worm_Length``), remembering to normalize any :class:`~.DerivedQuantity` built from it by its value at the origin---exactly as for :class:`~.Vortex_Vortex`.
 
-.. autoclass:: supervillain.observable.Intersection_Intersection
-   :members:
-   :show-inheritance:
-
-.. autoclass:: supervillain.observable.Intersection_Intersection_Normalized
+.. autoclass:: supervillain.observable.IntersectionTwoPoint
    :members:
    :show-inheritance:
 
@@ -240,7 +236,7 @@ We give :ref:`a separate step-by-step argument<no_intersection_ergodicity>`; the
    :show-inheritance:
 
 The worm accumulates its head$-$tail displacement histogram inline as the
-:class:`~.Intersection_Intersection` observable.
+:class:`~.IntersectionTwoPoint` observable.
 
 In the Villain model constraint is linear and therefore we could construct an :class:`~.ExactUpdate` which was in the kernel of the constraint that was essentially a closed 4-plaquette :class:`~supervillain.generator.villain.ClassicWorm`.
 Similarly in the Worldline model the :class:`~supervillain.generator.worldline.PlaquetteUpdate` could be understood as the smallest nontrivial worm.
@@ -248,50 +244,171 @@ These could be essentially proposed everywhere because they automatically preser
 The essential fact was that the constraint is linear.
 But here we have a quadratic constraint and therefore it is not always legal to just stamp a tight worm on an existing configuration---it could break the constraint.
 
-In fact, the above worm performed absolutely dismally.
-On cold (large-$\kappa$) backgrounds, $F=0$ it had the room to move the defect around.
-But the multi-link moves were so costly that essentally all were rejected.
-On warm (small-$\kappa$) backgrounds, the plaquette flux is nonzero and the :class:`~supervillain.generator.no_intersection.IntersectionWorm`'s dipole stencils wound up breaking the constraint!
-So it is a very inefficient update scheme no matter $\kappa$.
+In fact, the above worm performs absolutely dismally, and its own tallies say why.
+The right statistic is the rate at which it draws a *clean mover* at all --- a proposal that
+is legal on the background it is standing on.  Averaged over its whole stencil library:
+
+.. list-table::
+   :header-rows: 1
+
+   * - $\kappa$
+     - clean movers drawn / drawn
+   * - 0.01
+     - $0$ / $1146$ --- $2$ / $2502$   (:math:`\lesssim 0.08\%`)
+   * - 0.03
+     - $14$ / $2824$   ($0.50\%$)
+   * - 0.1
+     - $22$ / $2209$, $27$ / $2360$   ($1.0$--$1.1\%$)
+
+Clean-mover availability falls roughly tenfold as the coupling drops into the jammed phase.
+And the *multi-link* stencils are constraint-violating essentially always: at
+$\kappa = 0.01$, every single ``ortho3``, ``ortho2`` and ``same4`` shape drawn broke the
+constraint ($\texttt{unclean}/\texttt{drawn} = 1.0000$) in every run we measured --- not one
+clean multi-link move in thousands of draws.  Above the jammed phase the library is only
+*nearly* dead ($\texttt{unclean}/\texttt{drawn} = 0.955$--$1.000$ at $\kappa = 0.1$).  What
+little transport the worm achieves rides on 1-link moves alone.
+
+.. warning ::
+
+   Neither ``Worm_Length`` nor the off-origin weight of the head--tail histogram measures
+   this worm's transport.  It tallies head--tail dwell on *every* iteration, including
+   rejected stay-puts, and it does not auto-close --- so a single accepted mover pins the
+   head away from the tail and every later rejection inflates both numbers.  At
+   $\kappa = 0.01$ the off-origin dwell reads $0.000$ on three independent backgrounds and
+   $0.213$ on a fourth, the outlier produced by exactly *two* accepted movers out of $2502$
+   draws, which then contributed $533$ stalled ticks.  Only the clean-mover draw rate is
+   free of dwell.
+
+The census is :source:`example/no-intersection/worm_jam.py`.  Because every generator in the
+:func:`~supervillain.generator.no_intersection.Hammer` roster seeds its own RNG, the
+thermalized background varies run to run; the numbers above are the observed ranges, and the
+jam is stable across every seed we measured.
 
 
-The adaptive worm
-=================
+The adaptive worms, and why they were retired
+=============================================
 
-The two failures of the :class:`~supervillain.generator.no_intersection.IntersectionWorm`---costly rejections on the cold background and constraint-violating stencils on the warm one---share a cause: it commits to a single dipole stencil *before* looking at the flux it has to move through.
-The :class:`~supervillain.generator.no_intersection.AdaptiveIntersectionWorm` keeps the head/tail construction, the Freedman--Quinn corridor, and the orthogonal 1-, 2-, and 3-link stencils above, but at each step it *enumerates* the clean set $C$ of every move that would advance the head in the drawn direction on the *current* background $F = dn$, draws one uniformly, and corrects for the state-dependence of that count with the exact Metropolis--Hastings ratio
+.. note ::
+
+   The ``AdaptiveIntersectionWorm`` and ``TwoLinkAdaptiveWorm`` described here **no longer
+   exist** in the library; they were removed once measurement showed they jam.  Their code
+   lives in the history at commit ``45244c3`` and its ancestors.  The
+   :class:`~supervillain.generator.no_intersection.FreeTargetWorm` survives, opt-in, as the
+   culmination of the idea --- and as the experiment that separates the two ways a worm can
+   fail.
+
+The naive worm commits to a dipole stencil *before* looking at the flux it must move
+through.  The **adaptive worm** fixed that: it kept the head/tail construction, the
+Freedman--Quinn corridor, and the orthogonal 1-, 2-, and 3-link stencils, but at each step
+it *enumerated* the clean set $C$ of every move that would advance the head in the drawn
+direction on the *current* background $F = dn$, drew one uniformly, and corrected for the
+state-dependence of that count with the exact Metropolis--Hastings ratio
 
 .. math ::
 
    A = \min\left(1,\; \frac{\left|C\right|}{\left|C'\right|}\, e^{-\Delta S}\right),
 
-where $\left|C'\right|$ is the size of the clean set for the reverse move at the destination.
-Because $F$ is a function of the current configuration and not of the chain's history, this is ordinary state-dependent Metropolis--Hastings.
-The head now proposes only among moves that are legal on the sheet it is actually standing on, so on a fluxful background it advances instead of stalling.
-The exactness turns on three facts, spelled out in the class documentation: the reverse of every clean move is itself clean (so $\left|C'\right| \geq 1$ and the ratio is well defined), the deduplicated uniform draw makes the proposal symmetric up to $\left|C\right|/\left|C'\right|$, and the open/close accounting that emits the worm is left exactly as in the Prokof'ev--Svistunov prescription.
-The head-fixed *idle* moves that supply the corridor's isotopy leg are enumerated the same way.
+where $\left|C'\right|$ is the size of the clean set for the reverse move at the
+destination.  Because $F$ is a function of the current configuration and not of the chain's
+history, this is ordinary state-dependent Metropolis--Hastings.
 
-.. autoclass:: supervillain.generator.no_intersection.AdaptiveIntersectionWorm
-   :members: step, report
-   :show-inheritance:
+It still starved.  The **two-link adaptive worm** then *live-enumerated* the two-link
+sector --- every pair of nearby links with coefficients up to $\left|c\right| = 2$, keeping
+every pair whose combined charge change is exactly the head dipole --- a strict superset of
+the adaptive worm's moves.  It starved too.
 
-Even the adaptive worm draws from a *fixed* library of stencils, and on a sufficiently structured background none of those templates happen to be clean---the head can still stall for want of a move of the right shape.
-The :class:`~supervillain.generator.no_intersection.TwoLinkAdaptiveWorm` removes that limitation for the two-link sector by *live-enumerating* it: for the drawn direction it tests every pair of nearby links, with coefficients up to $\left|c\right| = 2$ (which carries the mixed-magnitude solutions the quadratic constraint occasionally forces), and keeps every pair whose combined charge change is exactly the head dipole---together with the analogous two-link *idle* isotopies.
-It is a strict superset of the adaptive worm: its clean sets still contain all the library moves, so it advances the head wherever the fixed templates can *and* wherever a bespoke two-link move is the only clean option.
-Because this is still the same fixed-family-filtered-by-$F$ construction, closed under inversion, the Metropolis--Hastings exactness carries over unchanged; only the candidate set grows---to thousands of shapes per direction, so the clean-set evaluation is compiled (see the class documentation for both the exactness argument and the acceleration).
-It is provided as an opt-in generator and is not part of the default :func:`~supervillain.generator.no_intersection.Hammer`.
+Both worms drew a **direction** first, and then asked what could move the head that way.
+That is the flaw.  Measured on thermalized backgrounds, as the fraction of
+(head, direction, sign) proposals with *no legal move at all*:
 
-.. autoclass:: supervillain.generator.no_intersection.TwoLinkAdaptiveWorm
+.. list-table::
+   :header-rows: 1
+
+   * - $\kappa$
+     - adaptive
+     - two-link
+     - free-target
+     - free-target median $\left|C\right|$
+   * - 0.01
+     - **0.977**
+     - **0.948**
+     - **0.488**
+     - **1**
+   * - 0.03
+     - 0.947
+     - 0.848
+     - 0.038
+     - 450
+   * - 0.05
+     - 0.869
+     - 0.739
+     - 0.000
+     - 594
+   * - 0.1
+     - 0.814
+     - 0.572
+     - 0.008
+     - 1208
+   * - 0.5
+     - 0.497
+     - 0.004
+     - 0.000
+     - 192
+
+Recall that small $\kappa$ is the *warm, dense, jammed* phase; it lies below
+$\kappa \approx 0.02$.  The adaptive worm never gets below a 50\% dead fraction anywhere,
+and in the jammed phase it is dead 98\% of the time with a maximum clean set of **one**
+move.  Live-enumerating the two-link sector helps --- and never enough.
+
+Dropping the direction requirement is what unjams the clean set.  The
+:class:`~supervillain.generator.no_intersection.FreeTargetWorm` enumerates one
+head-anchored family, computes each placement's $\Delta q$ on the current $F$, and lets the
+transport go where it wants: $\Delta q \equiv 0$ is an idle, a clean dipole is a mover to
+wherever the dipole lands.  Above the jammed phase its clean set explodes --- a median of
+$1208$ movers at $\kappa = 0.1$, where the adaptive worm is dead $81\%$ of the time.
+
+.. autoclass:: supervillain.generator.no_intersection.FreeTargetWorm
    :members: step_reference, step, report
    :show-inheritance:
+
+And it fails anyway.  It is squeezed from both sides, and no family engineering escapes the
+squeeze:
+
+* **In the jammed phase the jam is structural.**  On a background with multi-unit flux
+  everywhere, an exact unit-dipole $\Delta q$ demands cancellations that local templates
+  cannot arrange.  At $\kappa = 0.01$ even the free-target family leaves $48.8\%$ of
+  hypercubes with no mover at all, and a median clean set of one.  Enrichment halves the
+  dead fraction ($97.7\% \to 48.8\%$); it does not rescue the worm.
+
+* **Above the jammed phase the moves exist and cannot be afforded.**  The free-target clean
+  union is $90.2\%$ *idles*, and the worm auto-closes the instant an accepted idle leaves
+  the head on the tail.  Of the movers, $99.8\%$ are two-link exact repairs whose cost grows
+  with $\kappa$: median $\Delta S = 6.01$ at $\kappa = 0.1$ and $21.06$ at $\kappa = 0.5$,
+  where **not one of $4756$ movers had $\Delta S \le 0$**.  The probability of transporting
+  at all on a given opening is $4 \times 10^{-3}$ at $\kappa = 0.1$ and $2 \times 10^{-10}$
+  at $\kappa = 0.5$.
+
+The result is that the free-target worm transports **essentially never**, at any coupling we
+measured.  Here, unlike for the naive worm, the worm length *is* an honest transport
+statistic: the free-target worm auto-closes the moment the head returns to the tail, so a
+worm of length $1$ is one that never moved the defect at all.  Across runs, the fraction of
+zero-length worms is $0.95$--$1.00$ --- $1.0000$ over $200$ worms at $\kappa = 0.01$ and over
+$160$ worms at $\kappa = 0.1$ --- and the median worm length is $1$ everywhere.  Rare long
+excursions do occur; when one does it dominates any dwell ratio, which is why the dwell
+ratio is not quoted here.
+
+Both failures come from one insistence: that the constraint be *exactly repaired at every
+single move*.  In the jammed phase no local exact repair exists; outside it, the exact
+repairs that exist are too expensive to accept.  So we stop insisting.
 
 Beyond worms: the grand-canonical defect gas
 ============================================
 
-Even the live-enumerated worm starves, and measurement says why.
-On thermalized small-$\kappa$ backgrounds the sheet is so dense that the *median* hypercube admits **no** clean mover of any one- or two-link shape at all --- enriching the candidate family (wider coefficients, farther-flung pairs, millions of shapes) does not help, because the jam is structural: on a background with multi-unit flux everywhere, an exact unit-dipole $\Delta q$ demands cancellations that small templates simply cannot arrange.
-At moderate $\kappa$ the movers exist but the action suppresses them, and the worm's all-or-nothing structure compounds the problem: every step must be perfectly clean, so one unlucky draw ends the excursion.
-Both failures share a root: the worm insists that the constraint be *exactly* repaired at every single move.
+Every worm starves, and measurement says exactly where.  Enriching the candidate family
+buys real ground --- and buys it where the worm was already losing.  It does not buy enough:
+in the jammed phase no local exact-repair family suffices, and outside the jammed phase the
+movers that exist are too expensive to accept.  Both failures share a root: the worm insists
+that the constraint be *exactly* repaired at every single move.
 
 So we stop insisting, and *price the mess instead*.
 Enlarge the ensemble with a per-defect fugacity $\zeta$,
@@ -420,6 +537,14 @@ other failure mode of this sampler.
    :show-inheritance:
 
 .. autoclass:: supervillain.observable.IntersectionSusceptibility
+   :members:
+   :show-inheritance:
+
+.. autoclass:: supervillain.observable.Intersection_Intersection
+   :members:
+   :show-inheritance:
+
+.. autoclass:: supervillain.observable.Intersection_Intersection_Normalized
    :members:
    :show-inheritance:
 
