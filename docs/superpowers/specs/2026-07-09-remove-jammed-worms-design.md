@@ -235,8 +235,9 @@ delete it and fix the `flatten_family` docstring that references it.  `dq_stenci
 `DefectGas(S, zeta)`.  The remaining generators are unchanged.
 
 Note: `Hammer(S)` construction now runs Monte Carlo (≈60-sweep probes down a 6-rung
-ladder).  Test call sites pass an explicit small `zeta` to stay cheap; only production
-`Hammer(S)` tunes.
+ladder).  Only production `Hammer(S)` tunes; **test call sites pass `zeta = 0.025`**.  If a
+test condenses the gas (the chain stops revisiting the vacuum sector, and `step` raises),
+lower it for that test rather than globally.
 
 ### 3. Observables
 
@@ -270,12 +271,9 @@ gas emits `Theta_Theta` + `Vacuum_Ticks`, from which the correlator is a ratio.
   users normalize `IntersectionTwoPoint` by its origin bin themselves; the worm histogram
   is a raw ingredient, exactly as `ActionTwoPoint` is.
 
-**Migration cost:** existing h5 ensembles store an inline `Intersection_Intersection`
-field.  After the promotion, that name resolves to a `DerivedQuantity` on `Bootstrap` and
-has no `Observable` on `Ensemble`, so the stored field is orphaned.  The
-`NoIntersections` production was split into its own repository at 3655d3f, so the blast
-radius should be small, but this must be checked against any archived ensembles before
-merge.
+**No backward compatibility.**  Existing h5 ensembles storing an inline
+`Intersection_Intersection` are not supported after the promotion, by decision.  No read
+shim, no deprecation alias.
 
 ### 4. Documentation — `supervillain/no_intersection.rst`
 
@@ -353,11 +351,7 @@ prose as a claim, not enforced by a test — there is no longer a superset to pr
 
 ## Open questions
 
-1. **h5 back-compat** for archived ensembles carrying inline `Intersection_Intersection`
-   (see §3 migration cost).  Must be checked against any archived ensembles before merge.
-
-2. **`zeta` default in tests.**  §2 has test call sites pass an explicit small `zeta` so
-   `Hammer(S)` construction does not run `DefectGas.tune`'s Monte-Carlo probes.  A value
-   must be chosen that emits vacuum ticks promptly at the test volumes ($N = 3$–$6$) —
-   `tune`'s ladder starts at 0.1 — without hanging.  Pick during implementation and assert
-   the emitted configurations satisfy the constraint.
+None blocking.  Resolved: no h5 backward compatibility (§3); tests use `zeta = 0.025` (§2);
+`IntersectionTwoPoint` names the worms' inline histogram (§3); the `IntersectionWorm`'s
+low-$\kappa$ jam is provisional pending the running transport measurement, with its
+falsifier stated above.
