@@ -244,7 +244,7 @@ These could be essentially proposed everywhere because they automatically preser
 The essential fact was that the constraint is linear.
 But here we have a quadratic constraint and therefore it is not always legal to just stamp a tight worm on an existing configuration---it could break the constraint.
 
-In fact, the above worm performs absolutely dismally, and its own tallies say why.
+In fact, the above worm performs absolutely dismally, and tallying its behavior says why.
 The right statistic is the rate at which it draws a *clean mover* at all --- a proposal that
 is legal on the background it is standing on.  Averaged over its whole stencil library:
 
@@ -261,16 +261,14 @@ is legal on the background it is standing on.  Averaged over its whole stencil l
      - $22$ / $2209$, $27$ / $2360$   ($1.0$--$1.1\%$)
 
 Clean-mover availability falls roughly tenfold as the coupling drops into the jammed phase.
-And the *multi-link* stencils are constraint-violating essentially always: at
+And the *multi-link* stencils are essentially always constraint-violating on nontrivial backgrouns: at
 $\kappa = 0.01$, every single ``ortho3``, ``ortho2`` and ``same4`` shape drawn broke the
 constraint ($\texttt{unclean}/\texttt{drawn} = 1.0000$) in every run we measured --- not one
 clean multi-link move in thousands of draws.  Above the jammed phase the library is only
 *nearly* dead ($\texttt{unclean}/\texttt{drawn} = 0.955$--$1.000$ at $\kappa = 0.1$).  What
-little transport the worm achieves rides on 1-link moves alone.
+little transport the worm achieves rides on 1-link moves alone, because when $\kappa$ is big the multi-link moves cost a lot of action and are often rejected.
 
-.. warning ::
-
-   Neither ``Worm_Length`` nor the off-origin weight of the head--tail histogram measures
+.. Neither ``Worm_Length`` nor the off-origin weight of the head--tail histogram measures
    this worm's transport.  It tallies head--tail dwell on *every* iteration, including
    rejected stay-puts, and it does not auto-close --- so a single accepted mover pins the
    head away from the tail and every later rejection inflates both numbers.  At
@@ -286,7 +284,7 @@ jam is stable across every seed we measured.
 
 
 The adaptive worms, and why they were retired
-=============================================
+---------------------------------------------
 
 .. note ::
 
@@ -313,7 +311,7 @@ destination.  Because $F$ is a function of the current configuration and not of 
 history, this is ordinary state-dependent Metropolis--Hastings.
 
 It still starved.  The **two-link adaptive worm** then *live-enumerated* the two-link
-sector --- every pair of nearby links with coefficients up to $\left|c\right| = 2$, keeping
+sector --- every pair of nearby links with coefficients up to $\left|\Delta n\right| = 2$, keeping
 every pair whose combined charge change is exactly the head dipole --- a strict superset of
 the adaptive worm's moves.  It starved too.
 
@@ -358,9 +356,9 @@ That is the flaw.  Measured on thermalized backgrounds, as the fraction of
 Recall that small $\kappa$ is the *warm, dense, jammed* phase; it lies below
 $\kappa \approx 0.02$.  The adaptive worm is dead in at least half of its proposals
 everywhere we measured, only just dipping under one-half at the largest coupling we
-tried ($0.497$ at $\kappa = 0.5$), and in the jammed phase it is dead 98\% of the time
-with a maximum clean set of **one** move.  Live-enumerating the two-link sector helps
---- and never enough.
+tried ($0.497$ at $\kappa = 0.5$), and in the jammed phase it is dead 98% of the time
+with a maximum clean set of **one** move, which often means the worm can take a step
+and then step back.  Live-enumerating the two-link sector helps --- but never enough.
 
 Dropping the direction requirement is what unjams the clean set.  The
 :class:`~supervillain.generator.no_intersection.FreeTargetWorm` enumerates one
@@ -400,9 +398,11 @@ excursions do occur; when one does it dominates any dwell ratio, which is why th
 ratio is not quoted here.
 
 Both failures come from one insistence: that the constraint be *exactly repaired at every
-single move*.  In the jammed phase no local exact repair exists; outside it, the exact
-repairs that exist are too expensive to accept --- two failures, mirror images of each
-other, produced by the same demand.
+single move*.  In the jammed phase no local exact-repair *family suffices* --- often no
+repair exists at all, and where one does it is a lone move, a median clean set of one,
+which is no way to transport a defect.  Outside the jammed phase the repairs are plentiful
+and too expensive to accept.  Two failures, mirror images of each other, produced by the
+same demand.
 
 Beyond worms: the grand-canonical defect gas
 ============================================
