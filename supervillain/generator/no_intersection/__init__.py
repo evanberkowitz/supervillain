@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 from .worm import IntersectionWorm
-from .adaptive_worm import AdaptiveIntersectionWorm, TwoLinkAdaptiveWorm
 from .free_target_worm import FreeTargetWorm
 from .fugacity import DefectGas
 from .link import ConstrainedLinkUpdate

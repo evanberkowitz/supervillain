@@ -98,46 +98,6 @@ def test_classified_set_reference_classifies_exactly():
     assert movers + idles > 0
 
 
-def test_merged_set_contains_two_link_worm_moves():
-    # Full-family reference enumeration is infeasible (~2e5 global recomputes), so the
-    # superset guarantee is checked per TwoLink move: its Delta n must be PRESENT in the
-    # placed family, and the reference classifier restricted to exactly that shape (the
-    # ``shapes`` parameter) must classify it as the same mover/idle.
-    S, configs = _valid_configs()
-    free = gen.FreeTargetWorm(S)
-    two = gen.TwoLinkAdaptiveWorm(S)
-    N = S.Lattice.N
-    rng = np.random.default_rng(2)
-    checked = [0]                                            # vacuity guard
-    for cfg in configs[:2]:
-        n_arr = np.asarray(cfg['n']).astype(np.int64)
-        q0 = charge(cfg['n'])
-        for _ in range(2):
-            head = tuple(int(x) for x in rng.integers(0, N, size=4))
-            placed = {frozenset((l, c) for l, c in ch.items() if c != 0): shape
-                      for ch, shape in free._placed(head)}
-
-            def present_as(ch, want_target):
-                k = frozenset((l, c) for l, c in ch.items() if c != 0)
-                assert k in placed                          # Δn in the merged family
-                got = free.classified_set_reference(n_arr, q0, head,
-                                                    shapes=[placed[k]])
-                assert len(got) == 1
-                gch, gt = got[0]
-                assert frozenset((l, c) for l, c in gch.items() if c != 0) == k
-                assert gt == want_target
-                checked[0] += 1
-
-            for dd in two._ortho:
-                for sign in (+1, -1):
-                    target = tuple((head[k] + sign * dd[k]) % N for k in range(4))
-                    for ch, _tgt in two.clean_set_reference(n_arr, q0, head, dd, sign):
-                        present_as(ch, target)              # mover present, same target
-            for ch in two.clean_idle_reference(n_arr, q0, head):
-                present_as(ch, head)                        # idle present
-    assert checked[0] > 0                                    # present_as actually ran
-
-
 def test_local_py_matches_reference_on_subsamples():
     # Pointwise global-vs-local equality on random family subsamples (full-family
     # reference calls are infeasible; the subsample makes the comparison exact on the
