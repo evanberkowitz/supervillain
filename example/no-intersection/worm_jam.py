@@ -97,20 +97,24 @@ def census(S, e, burn, stride, n_heads, rng):
     return np.array(adaptive), np.array(freemov), idles, movers, links, dist
 
 
-def transport(S, e, worms):
+def transport(S, e, worms, seed):
     r"""Off-origin weight of the inline displacement histogram: the actual transport."""
     origin = S.Lattice.origin
     cfg = e.configuration[len(e.configuration) - 1]
     out = {}
-    for name, w in (('IntersectionWorm', gen.IntersectionWorm(S)),
-                    ('FreeTargetWorm', gen.FreeTargetWorm(S))):
+    for i, (name, w) in enumerate((('IntersectionWorm', gen.IntersectionWorm(S)),
+                                   ('FreeTargetWorm', gen.FreeTargetWorm(S)))):
+        # Both worms' __init__ sets self.rng = np.random.default_rng() (unseeded); override
+        # here so the headline transport measurement is reproducible.  Distinct seeds per
+        # worm so the two do not walk in lockstep.
+        w.rng = np.random.default_rng(seed + i)
         c, off, tot = cfg, 0.0, 0.0
         for _ in range(worms):
             c = w.step(c)
             h = np.asarray(c['IntersectionTwoPoint'])
             tot += h.sum()
             off += h.sum() - h[origin]
-        out[name] = (off, tot, w.tallies)
+        out[name] = (off, tot, w.tallies, w)
     return out
 
 
@@ -130,7 +134,7 @@ def report(kappa, args, rng):
         print(f'    movers by link count:      {sorted(links.items())}', flush=True)
         print(f'    movers by L1 target dist:  {sorted(dist.items())}', flush=True)
 
-    for name, (off, tot, tallies) in transport(S, e, args.worms).items():
+    for name, (off, tot, tallies, w) in transport(S, e, args.worms, args.seed).items():
         frac = off / tot if tot else float('nan')
         print(f'  transport {name:17s} off-origin dwell = {off:.0f} / {tot:.0f} '
               f'= {frac:.5f}', flush=True)
@@ -142,6 +146,16 @@ def report(kappa, args, rng):
                 u_over_d = t['unclean'] / t['drawn'] if t['drawn'] else float('nan')
                 print(f'    {fam:>8} {t["drawn"]:>8} {t["unclean"]:>8} {t["clean"]:>8} '
                       f'{t["accepted"]:>9}   unclean/drawn={u_over_d:.4f}', flush=True)
+        # Worm lengths are meaningful ONLY for FreeTargetWorm, which auto-closes: length
+        # == 1 means zero transport (the pre-populated pivot dwell alone).  IntersectionWorm
+        # does not auto-close and tallies head-tail dwell on every iteration including
+        # rejected stay-puts (worm.py:730), so its Worm_Length counts stalling, not walking
+        # -- printing it here would be meaningless, so we don't.
+        if name == 'FreeTargetWorm':
+            l = np.array(w.worm_lengths)
+            print(f'    worm lengths: median={np.median(l):.1f}  mean={l.mean():.2f}  '
+                  f'frac(len==1)={np.mean(l == 1):.4f}  max={int(l.max())}  worms={len(l)}',
+                  flush=True)
     print(flush=True)
 
 
