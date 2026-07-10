@@ -124,19 +124,46 @@ two-link), whose cost scales with $\kappa$.
 This is exactly what the `DefectGas` escapes: it pays $\zeta^{\Delta D}$ on a *cheap
 single-link* move rather than $e^{-21}$ on a *mandatory two-link* exact repair.
 
-### The naive worm in the jammed phase (provisional)
+### The naive worm jams in the jammed phase too
 
-The `IntersectionWorm` also jams at small $\kappa$ — established by the author from prior
-experience, **not yet by a measurement in this document**.  It is taken as given for the
-design; the docs must not present it as measured until it is.
+Transport is the **off-origin weight of the inline displacement histogram** — not
+`Worm_Length`.  60 worms per $\kappa$:
 
-The measurement that would settle it is running: the off-origin weight of the inline
-displacement histogram (transport) at $\kappa = 0.01, 0.03, 0.1$, together with the worm's
-own `tallies` — `unclean/drawn` is the constraint-violating-stencil rate the docs attribute
-to warm backgrounds, `accepted/clean` the costly-rejection rate they attribute to cold
-ones.  **Falsifier:** if off-origin weight at $\kappa = 0.01$ is comparable to that at
-$\kappa = 0.1$, the naive worm does *not* jam in the jammed phase, and the hierarchy in
-**Corrected narrative** step 1 needs rewriting.
+| $\kappa$ | `IntersectionWorm` off-origin dwell | `FreeTargetWorm` |
+|---|---|---|
+| 0.01 | **0 / 1675 = 0.00000** | 0 / 60 |
+| 0.03 | 800 / 2824 = 0.28329 | 0 / 60 |
+| 0.1 | 663 / 2209 = 0.30014 | 0 / 60 |
+
+`FreeTargetWorm` transports **nothing at any $\kappa$**.
+
+At $\kappa = 0.01$ the naive worm **transported nothing in 1675 iterations**, while
+recording a median `Worm_Length` of 22.5 — length was pure stalling.  Its per-family
+tallies say why, and say exactly what the docs always claimed:
+
+| family | drawn | unclean | clean | accepted | `unclean/drawn` |
+|---|---|---|---|---|---|
+| ortho3 | 50 | 50 | 0 | 0 | **1.0000** |
+| ortho2 | 41 | 41 | 0 | 0 | **1.0000** |
+| elbow2 | 71 | 71 | 0 | 0 | **1.0000** |
+| same4 | 124 | 124 | 0 | 0 | **1.0000** |
+| 1link | 1389 | 1049 | 0 | 0 | 0.7552 |
+
+**Every multi-link stencil drawn violated the constraint**, and not one clean mover was
+ever drawn in any family.  (The 1-link shortfall is idles, not movers.)  This is the doc's
+"constraint-violating stencils on the warm background", measured.
+
+At $\kappa = 0.03$ the worm revives — off-origin dwell $0 \to 0.283$ — but only barely: of
+2824 iterations, **14** clean movers were drawn and 8 accepted.  The naive worm's jam
+switches on at the same boundary as free-target's.
+
+A further fact worth putting in the docs: the naive worm's **multi-link library is dead
+weight at every $\kappa$**, not just in the jammed phase.  `unclean/drawn` is exactly
+$1.0000$ for `ortho3`, `ortho2`, and `same4` at $\kappa = 0.01$, $0.03$, *and* $0.1$; the
+`elbow2` family contributed a grand total of 3 clean movers across all three runs.  What
+little transport the worm achieves comes almost entirely from **1-link** moves (21 clean
+drawn, 4 accepted at $\kappa = 0.1$).  The elaborate stencil library it commits to before
+looking at $F$ essentially never produces a legal move.
 
 ### The inclusion lemma
 
@@ -174,8 +201,11 @@ The sharper statement, which the measurements support:
 
 The corrected hierarchy — each fix exposing the next failure:
 
-1. **`IntersectionWorm`** — one fixed stencil, chosen before looking at $F$.  Rejected on
-   cold backgrounds; constraint-violating on warm ones.
+1. **`IntersectionWorm`** — one fixed stencil, chosen before looking at $F$.  Its
+   multi-link library is constraint-violating essentially always
+   (`unclean/drawn` $= 1.0000$ for `ortho3`/`ortho2`/`same4` at every $\kappa$ measured),
+   so what transport it manages rides on 1-link moves alone.  In the jammed phase even
+   that dies: **zero transport in 1675 iterations** at $\kappa = 0.01$.
 2. **`AdaptiveIntersectionWorm`** — look at $F$ before proposing.  Still starves: it
    commits to a *direction*, then asks which of a fixed library advances the head that
    way.  Dead in 81% of proposals at $\kappa = 0.1$, and 98% in the jammed phase.
@@ -351,7 +381,7 @@ prose as a claim, not enforced by a test — there is no longer a superset to pr
 
 ## Open questions
 
-None blocking.  Resolved: no h5 backward compatibility (§3); tests use `zeta = 0.025` (§2);
+None.  Resolved: no h5 backward compatibility (§3); tests use `zeta = 0.025` (§2);
 `IntersectionTwoPoint` names the worms' inline histogram (§3); the `IntersectionWorm`'s
-low-$\kappa$ jam is provisional pending the running transport measurement, with its
-falsifier stated above.
+low-$\kappa$ jam is **measured**, not provisional — zero transport in 1675 iterations at
+$\kappa = 0.01$, reviving to 0.283 off-origin dwell at $\kappa = 0.03$.
