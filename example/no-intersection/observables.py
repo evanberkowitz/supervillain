@@ -12,8 +12,18 @@ model:
 * ``TopologicalChargeDensitySquared`` is **identically zero** --- the constraint
   $q = dn\wedge dn = 0$ --- and is reported as a sanity check;
 * ``Intersection_Intersection`` (the two-point function of the operator that inserts a unit
-  of self-intersection) is filled in inline by the worm, and its normalized correlator is
-  plotted alongside the compact-boson ``Spin_Spin_Normalized``.
+  of self-intersection) is a ``DerivedQuantity``, the ratio of the sector dwells
+  ``Theta_Theta / Vacuum_Ticks`` that the ``DefectGas`` in the ``Hammer`` measures inline.
+  It is **absolutely normalized** ($\Theta_0 = 1$ identically), so its "normalized"
+  correlator is the identity; both are plotted alongside the compact-boson
+  ``Spin_Spin_Normalized``.
+
+  (Historically this was a raw histogram filled inline by a worm.  Every worm we built
+  jams --- see ``supervillain/no_intersection.rst`` --- so no worm is in the ``Hammer``.
+  The worms' raw histogram survives, opt-in, as ``IntersectionTwoPoint``.)
+
+Note that ``Hammer(S)`` with no fugacity runs ``DefectGas.tune`` --- short Monte-Carlo
+probes down a ladder --- before sampling begins.  Pass ``Hammer(S, zeta=...)`` to skip it.
 
 Run from example/no-intersection/:
 
@@ -84,8 +94,9 @@ comparison_plot.histories(ax_obs, (e,), ('NoIntersections',), observables=args.o
 fig_obs.suptitle(title)
 fig_obs.tight_layout()
 
-# Figure 2: the correlators --- the compact-boson Spin_Spin and the model's signature
-# self-intersection Intersection_Intersection, both normalized to 1 at the origin.
+# Figure 2: the correlators --- the compact-boson Spin_Spin, normalized by its origin bin,
+# and the model's signature self-intersection Intersection_Intersection, which the DefectGas
+# already delivers absolutely normalized (Theta_0 = 1 identically).
 correlators = (
     ('Spin_Spin_Normalized', 'log'),
     ('Intersection_Intersection_Normalized', 'log'),
