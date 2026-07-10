@@ -157,8 +157,8 @@ def test_step_matches_reference_bit_for_bit(seed):
     out_f = fast.step(cfg)
     out_r = ref.step_reference(cfg)
     assert np.array_equal(np.asarray(out_f['n']), np.asarray(out_r['n']))
-    assert np.array_equal(out_f['Intersection_Intersection'],
-                          out_r['Intersection_Intersection'])
+    assert np.array_equal(out_f['IntersectionTwoPoint'],
+                          out_r['IntersectionTwoPoint'])
     assert out_f['Worm_Length'] == out_r['Worm_Length']
 
 

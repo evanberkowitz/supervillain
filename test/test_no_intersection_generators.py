@@ -46,7 +46,7 @@ def test_intersection_worm_preserves_validity_and_closes():
     worm = supervillain.generator.no_intersection.IntersectionWorm(S)
     out = worm.step(_cold(S))
     assert S.valid(out)
-    assert np.asarray(out['Intersection_Intersection']).shape == S.Lattice.dims
+    assert np.asarray(out['IntersectionTwoPoint']).shape == S.Lattice.dims
     assert np.isscalar(out['Worm_Length']) or np.asarray(out['Worm_Length']).shape == ()
 
 
@@ -206,7 +206,7 @@ def test_intersection_worm_inline_observable_keys():
     S = _action()
     worm = supervillain.generator.no_intersection.IntersectionWorm(S)
     obs = worm.inline_observables(3)
-    assert set(obs) == {'Intersection_Intersection', 'Worm_Length'}
+    assert set(obs) == {'IntersectionTwoPoint', 'Worm_Length'}
 
 
 def test_constrained_link_update_requires_no_intersections_action():
@@ -392,30 +392,31 @@ def test_nointersections_topological_charge_vanishes():
     assert not np.asarray(e.TopologicalChargeDensitySquared).any()
 
 
-def test_intersection_intersection_is_inline_only():
-    # The correlator has no closed-form estimator, so it carries no measurement
-    # method for any action; it is only ever available when the IntersectionWorm
-    # produces it inline.  That is what effectively scopes it (and the normalized
-    # derived quantity built on it) to the NoIntersections model.
-    obs = supervillain.observable.Intersection_Intersection
+def test_intersection_two_point_is_inline_only():
+    # The raw worm histogram has no closed-form estimator; it is only ever produced
+    # inline by a worm, exactly as ActionTwoPoint is a raw ingredient.
+    obs = supervillain.observable.IntersectionTwoPoint
     assert not hasattr(obs, 'default')
     assert not hasattr(obs, 'Villain')
     assert not hasattr(obs, 'Worldline')
     assert not hasattr(obs, 'NoIntersections')
 
 
-def test_defect_gas_theta_is_normalized_at_origin():
+def test_intersection_intersection_is_a_derived_quantity():
+    from supervillain.observable import DerivedQuantity
+    assert issubclass(supervillain.observable.Intersection_Intersection, DerivedQuantity)
+    assert hasattr(supervillain.observable.Intersection_Intersection, 'NoIntersections')
+
+
+def test_intersection_intersection_is_one_at_origin():
     L = Lattice(4, 3)
     S = supervillain.action.NoIntersections(L, kappa=0.3)
     H = supervillain.generator.no_intersection.Hammer(S, zeta=0.025)
     e = supervillain.Ensemble(S).generate(40, H, start='cold')
 
-    # The gas fills the inline Theta_Theta histogram and the Vacuum_Ticks denominator.
-    assert np.asarray(e.Theta_Theta).shape == (len(e),) + L.dims
-    assert np.asarray(e.Vacuum_Ticks).shape == (len(e),)
-
     b = supervillain.analysis.Bootstrap(e, 25)
-    # Theta_0 is not measured -- a coincident pair IS the vacuum, so the origin bin of
-    # Theta_Theta is empty by construction.  Theta_0 = 1 is restored, not divided out.
-    theta = np.asarray(b.Theta_Theta).real
-    assert theta[(slice(None),) + L.origin].max() == 0.0
+    theta = np.asarray(b.Intersection_Intersection).real
+    assert theta.shape == (25,) + L.dims
+    # Theta_0 = 1 identically: a coincident pair IS the vacuum.  It is WRITTEN, not
+    # divided out -- Theta_Theta's origin bin is empty by construction.
+    assert np.allclose(theta[(slice(None),) + L.origin], 1.0)

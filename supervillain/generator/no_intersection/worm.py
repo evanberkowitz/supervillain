@@ -129,8 +129,9 @@ class IntersectionWorm(ReadWriteable, Generator):
     possibly non-manifold sheet --- so the smooth theorem is the structural reason for
     optimism, not a proof of lattice ergodicity.
 
-    As the head moves we tally the head$-$tail displacement histogram that yields the
-    :class:`~.Intersection_Intersection` correlator $\langle e^{i\theta_h} e^{-i\theta_t}\rangle$ ---
+    As the head moves we tally the head$-$tail displacement histogram
+    :class:`~.IntersectionTwoPoint`, the raw ingredient of the
+    $\langle e^{i\theta_h} e^{-i\theta_t}\rangle$ correlator ---
     the two-point function of the operator $e^{i\theta}$ that inserts a unit of
     vortex-sheet self-intersection $q = dn\wedge dn$.
 
@@ -629,10 +630,10 @@ class IntersectionWorm(ReadWriteable, Generator):
     # ------------------------------------------------------------------ observables
 
     def inline_observables(self, steps):
-        r"""Storage for the inline ``Intersection_Intersection`` histogram and ``Worm_Length``."""
+        r"""Storage for the inline ``IntersectionTwoPoint`` histogram and ``Worm_Length``."""
         L = self.Lattice
         return {
-            'Intersection_Intersection': Batch(steps, shape=L.dims),
+            'IntersectionTwoPoint': Batch(steps, shape=L.dims),
             'Worm_Length': Batch(steps, shape=(), dtype=float),
         }
 
@@ -695,7 +696,7 @@ class IntersectionWorm(ReadWriteable, Generator):
                 self.worm_lengths.append(wl)
                 new_n = Form(n, degree=1, lattice=L)
                 return configuration | {'n': new_n,
-                                        'Intersection_Intersection': displacements,
+                                        'IntersectionTwoPoint': displacements,
                                         'Worm_Length': wl}
 
             # Otherwise propose a uniformly random one of the 2M head moves: a canonical
@@ -726,7 +727,7 @@ class IntersectionWorm(ReadWriteable, Generator):
             # clean-but-rejected shape, the head stays put and we fall through to the
             # tally below.
 
-            # Tally the head−tail displacement for the Intersection_Intersection correlator.
+            # Tally the head−tail displacement for the IntersectionTwoPoint histogram.
             # We tally on EVERY step, including these stay-puts.  A rejection is a genuine
             # self-loop of the chain, and self-loops leave detailed balance between distinct
             # states untouched (only clean, symmetric draws move between distinct states), so
@@ -785,7 +786,7 @@ class IntersectionWorm(ReadWriteable, Generator):
                 wl = displacements.sum()
                 self.worm_lengths.append(wl)
                 new_n = Form(n, degree=1, lattice=L)
-                return configuration | {'n': new_n, 'Intersection_Intersection': displacements, 'Worm_Length': wl}
+                return configuration | {'n': new_n, 'IntersectionTwoPoint': displacements, 'Worm_Length': wl}
 
             # Otherwise propose a uniformly random one of the 2M head moves: a canonical
             # displacement (orthogonal or diagonal) and a sign for its orientation.
@@ -815,7 +816,7 @@ class IntersectionWorm(ReadWriteable, Generator):
             # clean-but-rejected shape, the head stays put and we fall through to the
             # tally below.
 
-            # Tally the head−tail displacement for the Intersection_Intersection correlator.
+            # Tally the head−tail displacement for the IntersectionTwoPoint histogram.
             # We tally on EVERY step, including these stay-puts.  A rejection is a genuine
             # self-loop of the chain, and self-loops leave detailed balance between distinct
             # states untouched (only clean, symmetric draws move between distinct states), so

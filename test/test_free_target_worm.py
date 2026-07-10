@@ -154,7 +154,7 @@ def test_step_reference_emits_valid_configs_with_populated_origin():
     for _ in range(10):
         cfg = w.step_reference(cfg)
         assert np.abs(charge(cfg['n'])).max() == 0          # constraint preserved
-        theta = cfg['Intersection_Intersection']
+        theta = cfg['IntersectionTwoPoint']
         assert theta[L.origin] >= 1                          # pre-populated pivot dwell
         assert cfg['Worm_Length'] == theta.sum()
         assert cfg['Worm_Length'] >= 1
@@ -224,8 +224,8 @@ def test_step_matches_reference_bit_for_bit():
         ra = a.step(cfg)
         rb = b.step_reference(cfg)
         assert np.array_equal(np.asarray(ra['n']), np.asarray(rb['n']))
-        assert np.array_equal(ra['Intersection_Intersection'],
-                              rb['Intersection_Intersection'])
+        assert np.array_equal(ra['IntersectionTwoPoint'],
+                              rb['IntersectionTwoPoint'])
         assert ra['Worm_Length'] == rb['Worm_Length']
         cfg = rb
 
@@ -271,7 +271,7 @@ def test_runs_in_ensemble_and_normalizes():
     e = supervillain.Ensemble(S).generate(60, w, start='cold')
     q2 = np.asarray(e.TopologicalChargeDensitySquared)
     assert np.abs(q2).max() == 0                            # every emitted config valid
-    theta = np.asarray(e.Intersection_Intersection)
+    theta = np.asarray(e.IntersectionTwoPoint)
     origins = theta[(slice(None),) + L.origin]
     assert (origins >= 1).all()                             # origin >= 1 per worm, by construction
     mean = theta.mean(axis=0)
@@ -334,7 +334,7 @@ def test_acceptance_boundary_matches_hastings_ratio():
         return w.step_reference(cold)
 
     accepted = run(A - 1e-9)                            # just below: mover applies,
-    theta = accepted['Intersection_Intersection']       # reverse brings it home
+    theta = accepted['IntersectionTwoPoint']       # reverse brings it home
     disp = tuple((target[m] - tail[m]) % L.N for m in range(4))
     assert theta[disp] == 1 and theta[L.origin] == 1 and theta.sum() == 2
     assert np.array_equal(np.asarray(accepted['n']), n_arr)   # net change zero
@@ -342,7 +342,7 @@ def test_acceptance_boundary_matches_hastings_ratio():
     w.rng = _ScriptedRNG(integers_values=[list(tail), k], uniform_values=[A + 1e-9])
     rejected = w.step_reference(cold)                   # just above: zero-length worm
     assert np.array_equal(np.asarray(rejected['n']), n_arr)
-    assert rejected['Intersection_Intersection'].sum() == 1
+    assert rejected['IntersectionTwoPoint'].sum() == 1
     assert rejected['Worm_Length'] == 1
 
 
@@ -399,8 +399,8 @@ def test_modes_bit_for_bit():
             ra = a.step(cfg)
             rb = b.step_reference(cfg)
             assert np.array_equal(np.asarray(ra['n']), np.asarray(rb['n']))
-            assert np.array_equal(ra['Intersection_Intersection'],
-                                  rb['Intersection_Intersection'])
+            assert np.array_equal(ra['IntersectionTwoPoint'],
+                                  rb['IntersectionTwoPoint'])
             assert ra['Worm_Length'] == rb['Worm_Length']
             cfg = rb
 
@@ -469,7 +469,7 @@ def test_movers_only_acceptance_boundary():
     w.rng = _ScriptedRNG(integers_values=[list(tail), k, j],
                          uniform_values=[A - 1e-9, min(1.0, A_rev) - 1e-12])
     accepted = w.step_reference(cold)
-    theta = accepted['Intersection_Intersection']
+    theta = accepted['IntersectionTwoPoint']
     disp = tuple((target[m] - tail[m]) % L.N for m in range(4))
     assert theta[disp] == 1 and theta[L.origin] == 1 and theta.sum() == 2
     assert np.array_equal(np.asarray(accepted['n']), n_arr)
@@ -477,7 +477,7 @@ def test_movers_only_acceptance_boundary():
     w.rng = _ScriptedRNG(integers_values=[list(tail), k], uniform_values=[A + 1e-9])
     rejected = w.step_reference(cold)
     assert np.array_equal(np.asarray(rejected['n']), n_arr)
-    assert rejected['Intersection_Intersection'].sum() == 1
+    assert rejected['IntersectionTwoPoint'].sum() == 1
     assert rejected['Worm_Length'] == 1
 
 
