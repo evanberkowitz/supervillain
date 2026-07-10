@@ -43,10 +43,11 @@ Three measurements, on the same thermalized backgrounds:
      and is the one we print.
 
 Seeding.  --seed reproducibly drives the census heads (`census()`) and both worms' walks
-in `transport()`.  It does NOT reach the thermalizing Hammer: ConstrainedLinkUpdate,
-WrappingLoopUpdate, PlanarFluxUpdate, ScattershotUpdate, and DefectGas each construct
-their own unseeded `np.random.default_rng()` in `__init__`, so the thermalized background
-varies run to run even at fixed --seed.  This is an accepted limitation and is NOT fixed
+in `transport()`.  It does NOT reach the thermalizing Hammer: every generator in the
+Hammer roster -- ConstrainedLinkUpdate, WrappingLoopUpdate, PlanarFluxUpdate,
+ScattershotUpdate, DefectGas, and the composed Villain updates SiteUpdate, ExactUpdate,
+and CohomologyUpdate -- each construct their own unseeded `np.random.default_rng()` in
+`__init__`, so the thermalized background varies run to run even at fixed --seed.  This is an accepted limitation and is NOT fixed
 here: the qualitative jam signature (clean/drawn near zero at small kappa, unclean/drawn
 == 1.0000 for the multi-link families) is stable across every seed measured.
 
@@ -112,9 +113,19 @@ def census(S, e, burn, stride, n_heads, rng):
         for _ in range(n_heads):
             head = tuple(int(x) for x in rng.integers(0, N, size=4))
 
-            mov = free.classified_set_local(F, head, classes='movers')
+            # Single call with classes='all': the compiled kernel runs over the whole
+            # candidate family unconditionally regardless of the `classes` filter, so
+            # calling it twice (once per class) redoes the dominant work twice per head.
+            # Splitting locally is safe: mover-vs-idle is a function of (F, change) alone
+            # (idle emits target == head, mover emits target != head), so the same
+            # dedup key can never be an idle in one placement and a mover in another --
+            # sharing the dedup pool across both classes cannot make a key collide
+            # across classes.
+            allc = free.classified_set_local(F, head, classes='all')
+            mov = [(ch, t) for ch, t in allc if tuple(t) != head]
+            n_idles = len(allc) - len(mov)
             freemov.append(len(mov))
-            idles += len(free.classified_set_local(F, head, classes='idles'))
+            idles += n_idles
             movers += len(mov)
             for change, target in mov:
                 links[len([c for c in change.values() if c])] += 1
@@ -189,14 +200,21 @@ def report(kappa, args, rng):
                   f'{u_rate:>15.4f} {clean_rate:>13.4f}', flush=True)
 
         # SECONDARY: off-origin weight of the inline displacement histogram (the
-        # correlator itself).  For IntersectionWorm this is HIGH VARIANCE -- it does not
-        # auto-close and tallies head-tail dwell on every iteration including rejected
-        # stay-puts (worm.py:730), so one accepted mover pins the head off-origin for
-        # many subsequent stalls.
+        # correlator itself).  HIGH VARIANCE for both worms, but for different reasons.
+        # IntersectionWorm does not auto-close and tallies head-tail dwell on every
+        # iteration including rejected stay-puts (worm.py:730), so one accepted mover
+        # pins the head off-origin for many subsequent stalls.  FreeTargetWorm DOES
+        # auto-close, so it has no stay-put inflation; its variance instead comes from a
+        # rare long excursion dominating a small sample (a single excursion of length
+        # ~124 produced an off-origin dwell of 0.81 in one 30-worm run).
         frac = off / tot if tot else float('nan')
-        print(f'  {name:17s} transport (off-origin dwell; HIGH VARIANCE -- one accepted '
-              f'mover pins the head off-origin for many stalls) = {off:.0f} / {tot:.0f} '
-              f'= {frac:.5f}', flush=True)
+        if name == 'IntersectionWorm':
+            caveat = ('HIGH VARIANCE -- one accepted mover pins the head off-origin '
+                      'for many stalls')
+        else:
+            caveat = ('HIGH VARIANCE -- rare long excursions dominate a small sample')
+        print(f'  {name:17s} transport (off-origin dwell; {caveat}) = {off:.0f} / '
+              f'{tot:.0f} = {frac:.5f}', flush=True)
 
         # Worm lengths are meaningful ONLY for FreeTargetWorm, which auto-closes: length
         # == 1 means zero transport (the pre-populated pivot dwell alone).  IntersectionWorm
@@ -225,8 +243,10 @@ if __name__ == '__main__':
     p.add_argument('--worms', type=int, default=60, help='worms per transport measurement')
     p.add_argument('--seed', type=int, default=5,
                    help='seeds the census heads and both worms\' walks; does NOT reach the '
-                        'thermalizing Hammer (ConstrainedLinkUpdate, WrappingLoopUpdate, '
-                        'PlanarFluxUpdate, ScattershotUpdate, and DefectGas each construct '
+                        'thermalizing Hammer (every generator in the Hammer roster -- '
+                        'ConstrainedLinkUpdate, WrappingLoopUpdate, PlanarFluxUpdate, '
+                        'ScattershotUpdate, DefectGas, and the composed Villain updates '
+                        'SiteUpdate, ExactUpdate, and CohomologyUpdate -- each construct '
                         'their own unseeded np.random.default_rng() in __init__), so the '
                         'thermalized background varies run to run')
     args = p.parse_args()
