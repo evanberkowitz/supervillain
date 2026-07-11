@@ -346,7 +346,7 @@ def test_hammer_has_no_worm():
 
 
 def test_hammer_fugacity_none_autotunes():
-    # fugacity=None runs DefectGas.tune, which returns a fugacity in (0, 1].
+    # fugacity=None runs the DefectGasFugacityTuner, which returns a fugacity in (0, 1].
     S = _action()
     H = supervillain.generator.no_intersection.Hammer(S)
     assert 'DefectGas' in str(H)

@@ -59,3 +59,62 @@ def test_hammer_explicit_fugacity_is_cheap_sugar():
     H = gen.Hammer(S, fugacity=0.025)
     assert isinstance(H.generators[-1], DefectGas)
     assert H.generators[-1].fugacity == 0.025
+
+
+def test_tune_selection_logic_canned():
+    # Pin the ladder-walk logic itself with canned probes: dwell = vac/ticks per rung,
+    # no MCMC.  tune() must keep the FIRST rung whose second-half dwell beats target.
+    S = _action()
+    t = DefectGasFugacityTuner(S, rng=np.random.default_rng(1))
+    dwells = {0.1: 0.01, 0.05: 0.05, 0.02: 0.2, 0.01: 0.5}
+
+    def canned(fugacity, start, steps, emit_every, max_step_sweeps):
+        vac = np.full(steps, 100.0)
+        return vac, vac / dwells[fugacity]
+
+    t._probe = canned
+    assert t.tune(ladder=(0.1, 0.05, 0.02, 0.01), steps=40, target=0.15) == 0.02
+
+
+def test_tune_edge_selection_logic_canned():
+    # tune_edge must keep the LARGEST measurable stationary rung and stop past the edge.
+    S = _action()
+    t = DefectGasFugacityTuner(S, rng=np.random.default_rng(2))
+
+    def canned(fugacity, start, steps, emit_every, max_step_sweeps):
+        if fugacity > 0.05:
+            return None                      # condensed: past the edge
+        vac = np.full(steps, float(emit_every))
+        return vac, vac / 0.3                # healthy, stationary dwell
+    t._probe = canned
+    fugacity, emit_every = t.tune_edge(ladder=(0.002, 0.01, 0.05, 0.1), steps=40,
+                                       min_vacuum_ticks=100, max_probe_sweeps=800)
+    assert fugacity == 0.05
+    assert emit_every >= 1
+
+
+def test_tune_edge_empty_ladder_raises_runtime_error():
+    S = _action()
+    t = DefectGasFugacityTuner(S, rng=np.random.default_rng(3))
+    try:
+        t.tune_edge(ladder=())
+    except RuntimeError:
+        pass
+    else:
+        assert False, 'tune_edge(ladder=()) must raise RuntimeError'
+
+
+def test_tune_edge_non_divisible_quota():
+    # Ceil-division: a (min_vacuum_ticks, steps) pair that does NOT divide evenly must
+    # still be able to meet its own quota (regression: floor-division made 550/200
+    # deterministically fail every rung).
+    S = _action()
+    t = DefectGasFugacityTuner(S, rng=np.random.default_rng(4))
+
+    def canned(fugacity, start, steps, emit_every, max_step_sweeps):
+        vac = np.full(steps, float(emit_every))
+        return vac, vac / 0.3
+    t._probe = canned
+    fugacity, emit_every = t.tune_edge(ladder=(0.01,), steps=200,
+                                       min_vacuum_ticks=550, max_probe_sweeps=4000)
+    assert fugacity == 0.01

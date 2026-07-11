@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import logging
 from types import SimpleNamespace
 
 import numpy as np
@@ -14,6 +15,8 @@ from supervillain.generator.no_intersection.charge import charge
 from supervillain.generator.no_intersection import local_charge
 from supervillain.generator.no_intersection import defect_gas_kernel
 import supervillain.action
+
+logger = logging.getLogger(__name__)
 
 
 class DefectGas(ReadWriteable, Generator):
@@ -187,7 +190,7 @@ class DefectGas(ReadWriteable, Generator):
 
     def _tick(self, st):
         r"""One clock tick of the enlarged chain: a single-link Metropolis proposal
-        (with the $\phi$ sweep interleaved every $4 N^{4}$ ticks).  Returns
+        ($\phi$ frozen for the whole step).  Returns
         ``(vacuum, pair_displacement)`` classifying the sector the chain sits in at
         this tick --- the raw material of every estimate this class makes."""
         if st.i == st.n_links:
@@ -485,10 +488,14 @@ class DefectGasFugacityTuner:
 
     def __init__(self, S, companions=None, D_max=8, rng=None):
         self.S = S
-        self.companions = (tuple(companions) if companions is not None
-                           else (SiteUpdate(S),))
         self.D_max = D_max
         self.rng = rng if rng is not None else np.random.default_rng()
+        if companions is not None:
+            self.companions = tuple(companions)
+        else:
+            default = SiteUpdate(S)
+            default.rng = self.rng
+            self.companions = (default,)
 
     def _probe(self, fugacity, start, steps, emit_every, max_step_sweeps):
         # One rung: a throwaway Generator-route chain.  Returns the per-step
@@ -525,16 +532,24 @@ class DefectGasFugacityTuner:
         """
         V = self.S.Lattice.N ** 4
         fugacity = ladder[-1]
+        condensed = True
         for z in ladder:
             fugacity = z
             probe = self._probe(z, start, steps,
                                 emit_every=max(1, round(target * 4 * V)),
                                 max_step_sweeps=25)
             if probe is None:
+                condensed = True
                 continue                        # condensed: descend
             vac, ticks = (a[steps // 2:] for a in probe)
+            condensed = False
             if vac.sum() / max(1.0, ticks.sum()) > target:
                 break
+        if condensed:
+            logger.warning(
+                'tune: every ladder rung condensed; returning the smallest rung %g, '
+                'which itself condensed -- production will likely raise.  Investigate '
+                'D_trace / lower the ladder.', fugacity)
         return fugacity
 
     def tune_edge(self, start='cold',
@@ -550,8 +565,8 @@ class DefectGasFugacityTuner:
 
         A rung is accepted iff its probe completes (each completed step *is*
         ``emit_every`` vacuum ticks, so completing the tallied half collects
-        ``min_vacuum_ticks``) **and** the dwell is stationary across that half
-        (second quarter at least a quarter of the first: a collapsing dwell is
+        ``min_vacuum_ticks``) **and** the dwell is stationary across the tallied half
+        (its second half at least a quarter of its first: a collapsing dwell is
         condensation in progress).  An explicit ``floor`` may be imposed on top.
 
         Returns
@@ -560,12 +575,16 @@ class DefectGasFugacityTuner:
             The chosen $\zeta$ and a matched ``emit_every`` sized so one production
             step costs about ``step_sweeps`` sweeps at the measured dwell.
         """
+        if not ladder:
+            raise RuntimeError(
+                'tune_edge: an empty ladder has no rung to probe (all candidate '
+                'fugacities already condensed?).  Treat as signal and investigate D_trace.')
         n_links = 4 * self.S.Lattice.N ** 4
         best = None
         for z in ladder:
             probe = self._probe(
                 z, start, steps,
-                emit_every=max(1, min_vacuum_ticks // max(1, steps // 2)),
+                emit_every=max(1, -(-min_vacuum_ticks // max(1, steps // 2))),
                 max_step_sweeps=max(1, max_probe_sweeps // steps))
             if probe is None:
                 break                           # past the edge; dwell falls monotonically

@@ -52,7 +52,9 @@ def Hammer(S, fugacity=None):
         roster as its companions, which runs short Monte-Carlo probes down a ladder
         before sampling begins; pass an explicit value to skip that cost.  The
         emitted configurations satisfy the constraint for **any** fugacity
-        $\zeta \in (0, 1]$ --- it tunes only the variance.
+        $\zeta \in (0, 1]$ --- it tunes only the variance.  The tuned gas inherits the
+        tuner's default ``D_max = 8`` cap (an explicit ``fugacity`` leaves ``D_max``
+        uncapped as before).
 
     Returns
     -------
