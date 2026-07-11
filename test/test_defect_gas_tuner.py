@@ -49,3 +49,13 @@ def test_tune_edge_matched_pair():
                                        min_vacuum_ticks=100, max_probe_sweeps=800)
     assert fugacity in ladder
     assert emit_every >= 1
+
+
+def test_hammer_explicit_fugacity_is_cheap_sugar():
+    # The explicit-fugacity branch must not tune: construction is instant and the
+    # gas is last so emitted configurations are its vacuum ticks.
+    import supervillain.generator.no_intersection as gen
+    S = _action()
+    H = gen.Hammer(S, fugacity=0.025)
+    assert isinstance(H.generators[-1], DefectGas)
+    assert H.generators[-1].fugacity == 0.025

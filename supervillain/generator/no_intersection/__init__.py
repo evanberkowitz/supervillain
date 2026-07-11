@@ -47,18 +47,18 @@ def Hammer(S, fugacity=None):
     ----------
     S: a NoIntersections action
     fugacity: float or None
-        The per-defect fugacity handed to the :class:`DefectGas`.  ``None`` (the default)
-        calls :meth:`DefectGas.tune`, which runs short Monte-Carlo probes down a ladder;
-        pass an explicit value to skip that cost.  The emitted configurations satisfy the
-        constraint for **any** fugacity $\zeta \in (0, 1]$ --- it tunes only the variance.
+        The per-defect fugacity handed to the :class:`DefectGas`.  ``None`` (the
+        default) delegates to a :class:`DefectGasFugacityTuner` built with this
+        roster as its companions, which runs short Monte-Carlo probes down a ladder
+        before sampling begins; pass an explicit value to skip that cost.  The
+        emitted configurations satisfy the constraint for **any** fugacity
+        $\zeta \in (0, 1]$ --- it tunes only the variance.
 
     Returns
     -------
     An ergodic generator for updating No-Intersection configurations.
     '''
-    if fugacity is None:
-        fugacity = DefectGas.tune(S)
-    return _combining.Sequentially((
+    roster = (
         _villain.SiteUpdate(S),
         _villain.ExactUpdate(S),
         _villain.CohomologyUpdate(S),
@@ -66,5 +66,7 @@ def Hammer(S, fugacity=None):
         WrappingLoopUpdate(S),
         PlanarFluxUpdate(S),
         ScattershotUpdate(S),
-        DefectGas(S, fugacity),
-    ))
+    )
+    if fugacity is None:
+        return DefectGasFugacityTuner(S, companions=roster).generator()
+    return _combining.Sequentially((*roster, DefectGas(S, fugacity)))
