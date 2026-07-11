@@ -542,11 +542,117 @@ measurements:
    \left\langle \left|M\right|^4 \right\rangle
    = \underbrace{(2V^2 - V)}_{\text{vacuum patterns}}
    + \underbrace{4(V-1)\, V\, S_1}_{\text{single-pair patterns}}
-   + \underbrace{\frac{E\!\left[(4,2,2,1)\cdot \mathbf{1}_{D=4\ \text{classes}}\right]}{\zeta^4\, E\!\left[\mathbf{1}_{q \equiv 0}\right]}}_{\text{two-pair sectors}},
+   + \underbrace{\frac{\left\langle (4,2,2,1)\cdot \mathbf{1}_{D=4\ \text{classes}} \right\rangle_\Pi}{\zeta^4\, \left\langle \mathbf{1}_{q \equiv 0} \right\rangle_\Pi}}_{\text{two-pair sectors}},
 
 with $S_1 = \sum_{\Delta x \neq 0}\Theta_{\Delta x}$ and the classes
 $\{+1,+1,-1,-1\}$, $\{+2,-1,-1\}$, $\{+1,+1,-2\}$, $\{+2,-2\}$ entering with the
-ordered-insertion multiplicities $4, 2, 2, 1$.  The **Binder cumulant**
+ordered-insertion multiplicities $4, 2, 2, 1$.  Because $\Theta_0 = 1$ identically,
+$S_1 = \chi_\theta - 1$, and collecting the constants gives the equivalent form
+
+.. math ::
+
+   \left\langle \left|M\right|^4 \right\rangle
+   = 4V(V-1)\, \chi_\theta - \left(2V^2 - 3V\right) + \text{(two-pair sectors)},
+
+built from the same $\chi_\theta$ as the second moment.
+
+.. collapse:: Deriving the fourth moment, stratum by stratum.
+    :class: note
+
+    Expectations $\langle\cdots\rangle_\Pi$ in the enlarged ensemble are estimated by
+    tallying the chain after every proposal.  The chain sits in a specific defect
+    configuration $\rho$ with probability $Z[\rho]\, \zeta^{D(\rho)} / \Pi$, so dwell
+    ratios undo the fugacity price:
+
+    .. math ::
+
+        \frac{\left\langle \mathbf{1}_{q = \rho} \right\rangle_\Pi}{\left\langle \mathbf{1}_{q = 0} \right\rangle_\Pi}
+        = \zeta^{D(\rho)}\, \frac{Z[\rho]}{Z_0}
+        \qquad\Longrightarrow\qquad
+        \frac{Z[\rho]}{Z_0}
+        = \frac{\text{dwell in } \rho}{\zeta^{D(\rho)} \times \text{dwell in vacuum}},
+
+    generalizing :eq:`theta-defect-correlator` to any sector.  Exactly as :ref:`the
+    insertion shifts the worm's constraint <theta worm constraint>`, a product of
+    insertions moves the constraint to match, with charges *adding* at coincident
+    hypercubes:
+
+    .. math ::
+
+        \left\langle \prod_j e^{i \epsilon_j \theta_{x_j}} \right\rangle
+        = \frac{Z\left[q = \sum_j \epsilon_j \delta_{x_j}\right]}{Z_0},
+        \qquad \epsilon_j = \pm 1.
+
+    **Warm-up.**  In the second moment $\sum_{x,y} \langle e^{i\theta_x} e^{-i\theta_y}\rangle$
+    the $x = y$ terms cancel to the vacuum and contribute $1$ each --- they *are* the
+    origin bin $\Theta_0 = 1$ --- so the diagonal folds into the full susceptibility:
+    $\langle \left|M\right|^2 \rangle = V + \sum_{x \neq y} \Theta_{x-y} = V \sum_{\Delta x} \Theta_{\Delta x} = V \chi_\theta$.
+
+    **The fourth moment.**  Expanding $\left|M\right|^4$ gives $V^4$ ordered tuples
+    $(x_1, x_2; y_1, y_2)$ --- two $+$ insertions, two $-$ --- classified by the net
+    charge pattern after sitewise cancellation.
+
+    *Vacuum patterns* (each contributes $1$) need $\{x_1, x_2\} = \{y_1, y_2\}$ as
+    multisets: $V(V-1)$ ordered choices of distinct $(x_1, x_2)$ times $2$ orderings of
+    the matching $y$'s, plus $V$ quadruple coincidences ($+2 - 2$ on one hypercube is
+    the vacuum), totalling $2V^2 - V$.
+
+    *Single-pair patterns* (each contributes $\Theta_{u - v}$) net to $+1$ at $u$ and
+    $-1$ at $v \neq u$, with one $+/-$ pair cancelling at some hypercube $w$.  At fixed
+    $(u, v)$: for the $V - 2$ hypercubes $w \notin \{u, v\}$ there are $2 \times 2$
+    orderings; $w = u$ forces $x_1 = x_2 = u$ (net $+2 - 1 = +1$ there) leaving $2$; and
+    $w = v$ mirrors with $2$.  That is $4(V-2) + 2 + 2 = 4(V-1)$ tuples per $(u, v)$,
+    and $\sum_{u \neq v} \Theta_{u-v} = V(\chi_\theta - 1)$ gives the middle term.
+
+    *Two-pair patterns* are everything left --- the four neutral $D = 4$ classes.  The
+    multiplicity is the number of ordered assignments per placement; a $+2$ forces
+    $x_1 = x_2$ and eats a factor of $2$:
+
+    .. list-table::
+        :header-rows: 1
+
+        * - class
+          - net charges
+          - ordered assignments
+        * - $\{+1, +1, -1, -1\}$
+          - four distinct hypercubes
+          - $2 \times 2 = 4$
+        * - $\{+2, -1, -1\}$
+          - $x_1 = x_2$
+          - $1 \times 2 = 2$
+        * - $\{+1, +1, -2\}$
+          - $y_1 = y_2$
+          - $2 \times 1 = 2$
+        * - $\{+2, -2\}$
+          - both
+          - $1 \times 1 = 1$
+
+    The chain performs the placement sums itself --- ``Four_Defect`` tallies each
+    class's dwell over *all* placements --- which is why no explicit factors of $V$
+    multiply the two-pair term.
+
+    **Two checks.**  Freezing $\theta$ (every $Z$-ratio $\to 1$, so $M = V$ exactly and
+    $\chi_\theta = V$) must give $V^4$; with the class placement counts
+    $V(V\!-\!1)(V\!-\!2)(V\!-\!3)$, $V(V\!-\!1)(V\!-\!2)$ twice, and $V(V\!-\!1)$, the
+    strata sum to $16$ at $V = 2$ and $81$ at $V = 3$: every tuple counted exactly once.
+    In the symmetric phase $\chi_\theta \to 1$ and the two-pair sectors vanish, leaving
+    $\langle\left|M\right|^4\rangle \to 2V^2 - V$ and $U \to 2 - 1/V$, the complex-Gaussian value.
+
+    **Why the raw moment and not the fourth cumulant?**  Differentiating $\log Z$ four
+    times instead yields the *connected* moment
+    $\langle\left|M\right|^4\rangle_c = \langle\left|M\right|^4\rangle - 2\langle\left|M\right|^2\rangle^2$ (the
+    $\left|\langle M^2\rangle\right|^2$ pairing vanishes identically by neutrality,
+    like $\langle M \rangle$), and that subtraction would indeed cancel the pairing
+    content above: the coincidence strata explicitly (they are why the Gaussian limit is
+    $2 - 1/V$ rather than $2$), and the $\Theta\,\Theta$ bulk hiding inside the
+    two-pair sectors by cluster decomposition.  The Binder construction *normalizes by*
+    the disconnected part instead of subtracting it: cumulants are extensive, so
+    $\langle\left|M\right|^4\rangle_c / \langle\left|M\right|^2\rangle^2$ dies like $1/V$ in the symmetric
+    phase (the central limit theorem drives $U \to 2$) but tends to $-1$ under
+    $\theta$ order ($U \to 1$) --- and the ratio never manufactures the
+    one-part-in-$V$ cancellation that measuring the cumulant directly would require.
+
+The **Binder cumulant**
 $U = \langle\left|M\right|^4\rangle / \langle\left|M\right|^2\rangle^2$ then
 follows with no new normalization: $U \to 2 - 1/V$ exactly in the symmetric phase (the
 vacuum-pattern combinatorics reproduce the complex-Gaussian value --- a built-in check
