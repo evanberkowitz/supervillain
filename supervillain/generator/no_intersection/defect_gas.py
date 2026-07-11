@@ -70,12 +70,7 @@ class DefectGas(ReadWriteable, Generator):
     shrinks with volume and with $1/\kappa$.  Symptoms of a bad choice are loud: too
     large and $D$ pins at ``D_max`` with the vacuum never revisited (:meth:`step` then
     raises rather than hang), too small and pair excursions become needlessly rare.
-    The :meth:`tune` method automates the choice.
-
-    Besides the :class:`~supervillain.Ensemble` route, :meth:`run` +
-    :meth:`correlator` drive the same chain standalone (block-jackknife errors) ---
-    convenient for $\zeta$ scans and quick studies; ``defect_gas.py`` in the
-    companion supervillain-no-intersections repository is the command-line driver.
+    The :class:`DefectGasFugacityTuner` automates the choice.
 
     Parameters
     ----------
@@ -122,9 +117,6 @@ class DefectGas(ReadWriteable, Generator):
         self.emit_every = emit_every if emit_every is not None else 4 * self.N**4
         self.max_step_sweeps = max_step_sweeps
         self.rng = rng if rng is not None else np.random.default_rng()
-        # Tallies for the standalone run()/correlator() path (blocked for jackknife).
-        self.blocks = []            # (H_pair array, H_Z scalar) per block
-        self._new_block()
         self.D_trace = []           # per-sweep defect count (diagnostic)
         self.accepted = 0
         self.proposed = 0
@@ -137,7 +129,7 @@ class DefectGas(ReadWriteable, Generator):
 
     # ---------------------------------------------------------------- chain internals
 
-    def _init_state(self, phi, n, update_phi):
+    def _init_state(self, phi, n):
         # The whole state the moves need, maintained incrementally so a proposal costs
         # O(1): the field strength F = dn (the per-link charge stencils read it), the
         # charge density q = dn∧dn only through its NONZERO cells (the sparse `defects`
@@ -175,12 +167,9 @@ class DefectGas(ReadWriteable, Generator):
         # honest transport-censoring statements instead of silent zeros.
         st.tstate = np.zeros(3, dtype=np.int64)
         st.exc_hist = np.zeros(32, dtype=np.int64)
-        st.site_update = SiteUpdate(self.S)
-        st.site_update.rng = self.rng
         st.dphi = np.ascontiguousarray(d(Form(st.phi, degree=0, lattice=L)))
         st.dphi2 = st.dphi.reshape(4, -1)
         st.n_links = 4 * self.N**4
-        st.update_phi = update_phi
         self._draw_batch(st)
         return st
 
@@ -196,32 +185,17 @@ class DefectGas(ReadWriteable, Generator):
         st.us = rng.uniform(0, 1, size=st.n_links)
         st.i = 0
 
-    def _phi_sweep(self, st):
-        # One φ sweep at fixed n, then refresh dphi.  φ must fluctuate or the Villain
-        # weights are sampled at frozen dφ; SiteUpdate is exact for any n (it never
-        # touches the constraint), and dφ is fixed during a link sweep so the cached
-        # dphi array stays valid between calls.
-        L = self.L
-        cfg = st.site_update.step({'phi': Form(st.phi, degree=0, lattice=L),
-                                   'n': Form(st.n, degree=1, lattice=L)})
-        st.phi = np.asarray(cfg['phi']).astype(float)
-        st.dphi = np.ascontiguousarray(d(cfg['phi']))
-        st.dphi2 = st.dphi.reshape(4, -1)
-
     def _tick(self, st):
         r"""One clock tick of the enlarged chain: a single-link Metropolis proposal
         (with the $\phi$ sweep interleaved every $4 N^{4}$ ticks).  Returns
         ``(vacuum, pair_displacement)`` classifying the sector the chain sits in at
         this tick --- the raw material of every estimate this class makes."""
         if st.i == st.n_links:
-            # Sweep boundary.  In the standalone run() path we refresh φ here; in the
-            # step() path φ is FROZEN for the whole step -- the chain then preserves
-            # the conditional π_ζ(n | φ), whose vacuum trace preserves
+            # Sweep boundary.  φ is FROZEN for the whole step -- the chain then
+            # preserves the conditional π_ζ(n | φ), whose vacuum trace preserves
             # π(n | φ, q ≡ 0), so the step composes Gibbs-style with a φ-update
-            # (SiteUpdate) in a Sequentially, exactly like the other n-only worms.
+            # (SiteUpdate) in a Sequentially, exactly like the other n-only updates.
             self.D_trace.append(st.D)
-            if st.update_phi:
-                self._phi_sweep(st)
             self._draw_batch(st)
         i = st.i
         st.i += 1
@@ -383,7 +357,7 @@ class DefectGas(ReadWriteable, Generator):
         st = self._state
         if st is None or not (np.array_equal(st.n, n_in)
                               and np.array_equal(st.phi, phi_in)):
-            st = self._state = self._init_state(phi_in, n_in, update_phi=False)
+            st = self._state = self._init_state(phi_in, n_in)
         H_pair = np.zeros(V, dtype=np.int64)
         H_four = np.zeros(4, dtype=np.int64)
         # Per-step transport bookkeeping: the max separation resets each step; the
@@ -468,324 +442,16 @@ class DefectGas(ReadWriteable, Generator):
             return 0, 1
         return self._step_body(configuration, ticker)
 
-    # ---------------------------------------------------------------- standalone API
-
-    @classmethod
-    def tune(cls, S, D_max=None, rng=None, phi=None, n=None,
-             ladder=(0.1, 0.05, 0.02, 0.01, 0.005, 0.002),
-             sweeps=60, target=0.15):
-        r"""
-        :meth:`tune` automates the choice of fugacity $\zeta$.
-        ``D_max`` truncates the state space (proposals
-        beyond it are ordinary zero-weight rejections); it exists to keep a badly-tuned
-        chain out of the defect condensate, not for correctness.  Note that a *physical*
-        defect condensate --- $\theta$ long-range order, where pairs cost $O(1)$ at any
-        separation --- shows up as the tuned $\zeta$ acquiring a strong volume dependence
-        and the pair dwell spreading flat in $\Delta x$; that is a signal of interesting physics!
-
-        $\left\langle e^{i\theta} \right\rangle$ itself vanishes identically on the torus
-        (the total charge $Q = \sum_{x} q_{x}$ vanishes for every $n$, since
-        $q = d(n \wedge dn)$ is exact), so the large-$\Delta x$ plateau of $\Theta$ is the
-        only order-parameter diagnostic for the $\theta$ shift symmetry.
-
-
-        Pick $\zeta$ by short probes down a ladder, keeping the first value whose
-        vacuum dwell exceeds ``target`` (the pair sector then follows, being the
-        vacuum's nearest excursion).  Because the estimator is $\zeta$-independent,
-        tuning affects only the variance, never the answer.  Physics of the knob:
-        entropy pushes $D$ up, so the right $\zeta$ shrinks with volume and sheet
-        density; a $\zeta$ that must shrink like $1/V$ is itself a defect-condensation
-        (i.e.\ $\theta$ long-range order) diagnostic.
-
-        Parameters
-        ----------
-        S: a NoIntersections action
-        phi, n: arrays, optional
-            A thermalized starting configuration (cold if omitted).
-
-        Returns
-        -------
-        float
-            The chosen $\zeta$.
-        """
-        L = S.Lattice
-        if phi is None:
-            phi = np.zeros((1,) + tuple(L.dims))
-        if n is None:
-            n = np.zeros((L.D,) + L.dims, dtype=np.int64)
-        fugacity = ladder[-1]
-        for z in ladder:
-            probe = cls(S, fugacity=z, D_max=D_max,
-                        rng=rng if rng is not None else np.random.default_rng())
-            probe.run(phi, n, sweeps, tally=False)
-            probe.blocks = []
-            probe._new_block()
-            probe.run(phi, n, sweeps, tally=True)
-            probe.close_block()
-            vac = probe.blocks[0][1] / max(1, probe.proposed / 2)
-            fugacity = z
-            if vac > target:
-                break
-        return fugacity
-
-    @classmethod
-    def tune_edge(cls, S, D_max=32, rng=None, phi=None, n=None,
-                  ladder=(0.002, 0.003, 0.005, 0.008, 0.012, 0.02, 0.03, 0.05,
-                          0.06, 0.08, 0.1, 0.12, 0.15, 0.2, 0.3),
-                  min_vacuum_ticks=500, probe_sweeps=200, max_probe_sweeps=4000,
-                  step_sweeps=25, floor=None):
-        r"""
-        Ride the edge: pick the *largest* fugacity $\zeta$ at which the chain still
-        *demonstrably* returns to the vacuum, ascending the ladder until it does not.
-
-        Where :meth:`tune` optimizes the vacuum clock (dwell $> 15\%$: cheap steps,
-        best denominator statistics), this optimizes the *numerator's reach*: pair
-        creation and --- through the paid corridors of a dense sheet --- pair
-        *transport* both scale like $\zeta^{2}$, so far-separation dwell responds
-        $\sim \zeta^{4}$, and a conservatively small fugacity $\zeta$ silently censors exactly
-        the large-$\Delta x$ bins that diagnose $\theta$ order.
-
-        There is deliberately *no dwell percentage* here.  The vacuum sector is not
-        optional --- :meth:`step` can only emit at a vacuum tick --- but per tick the
-        chain costs the same at any dwell and the step path's denominator is exact
-        (``Vacuum_Ticks`` $\equiv$ ``emit_every``), so the only *hard* floor is
-        measurability: a rung is accepted iff its probe collects
-        ``min_vacuum_ticks`` vacuum ticks within ``max_probe_sweeps`` sweeps
-        (implicitly dwell $\gtrsim$ ``min_vacuum_ticks / (max_probe_sweeps
-        \cdot 4V)`` --- $\sim 10^{-5}$ at $N = 8$ with the defaults) **and** the
-        dwell is stationary across the probe (second half at least a quarter of the
-        first: a collapsing dwell is condensation in progress, not an equilibrium
-        rate).  An explicit ``floor`` may still be imposed on top.
-
-        Because a step still needs ``emit_every`` vacuum ticks, the emission cadence
-        shrinks with the dwell: the returned ``emit_every`` is sized so one
-        :meth:`step` costs about ``step_sweeps`` sweeps at the measured dwell.
-
-        If a chain run at the returned fugacity $\zeta$ later stops returning to the vacuum
-        (the :meth:`step` RuntimeError), that is *data* --- the documented
-        defect-condensation signature --- and the honest response is to record it and
-        start a fresh chain at a smaller $\zeta$, never to silently retry.
-
-        Parameters
-        ----------
-        S: a NoIntersections action
-        phi, n: arrays, optional
-            A thermalized *valid* starting configuration (cold if omitted).
-        min_vacuum_ticks: int
-            Vacuum ticks a probe must collect for the rung to count as measurable.
-        probe_sweeps: int
-            Equilibration sweeps at each rung, and the tallied chunk size.
-        max_probe_sweeps: int
-            Tallied-sweep budget per rung; exhausting it rejects the rung.
-        step_sweeps: int
-            Target sweeps per :meth:`step` at the chosen fugacity $\zeta$.
-        floor: float, optional
-            An explicit minimum dwell imposed on top of measurability.
-
-        Returns
-        -------
-        (float, int)
-            The chosen fugacity $\zeta$ and the matched ``emit_every``.
-        """
-        L = S.Lattice
-        if phi is None:
-            phi = np.zeros((1,) + tuple(L.dims))
-        if n is None:
-            n = np.zeros((L.D,) + L.dims, dtype=np.int64)
-        n_links = 4 * L.N**4
-        best = None
-        for z in ladder:
-            probe = cls(S, fugacity=z, D_max=D_max,
-                        rng=rng if rng is not None else np.random.default_rng())
-            # Equilibrate at THIS rung before believing anything: from a valid start
-            # the condensate takes time to build, and a probe that tallies the
-            # transient accepts rungs that later never come home.
-            probe.run(phi, n, 2 * probe_sweeps, tally=False)
-            probe.blocks = []
-            probe._new_block()
-            # Tally at least 4 chunks (so stationarity has something to compare) and
-            # keep going until the vacuum-tick quota is met or the budget dies.
-            chunks = []
-            tallied = 0
-            while tallied < max_probe_sweeps and (len(chunks) < 4
-                                                  or sum(chunks) < min_vacuum_ticks):
-                probe.run(phi, n, probe_sweeps, tally=True)
-                probe.close_block()
-                chunks.append(probe.blocks[-1][1])
-                tallied += probe_sweeps
-            H_Z = sum(chunks)
-            dwell = H_Z / (tallied * n_links)
-            half = len(chunks) // 2
-            stationary = sum(chunks[half:]) >= sum(chunks[:half]) / 4
-            if (H_Z >= min_vacuum_ticks and stationary
-                    and (floor is None or dwell > floor)):
-                best = (z, dwell)
-            else:
-                # Past the edge (unmeasurable, collapsing, or below the explicit
-                # floor); dwell falls monotonically with fugacity, so stop probing.
-                break
-        if best is None:
-            raise RuntimeError(
-                f'tune_edge: even the smallest ladder rung fugacity={ladder[0]} never '
-                f'demonstrated {min_vacuum_ticks} vacuum ticks in '
-                f'{max_probe_sweeps} sweeps; the chain cannot emit here (defect '
-                f'condensation?).  Treat as signal and investigate D_trace.')
-        fugacity, dwell = best
-        emit_every = max(1, int(round(dwell * n_links * step_sweeps)))
-        return fugacity, emit_every
-
-    def _new_block(self):
-        self._H_pair = np.zeros(self.L.dims)
-        self._H_Z = 0
-        self._H_four = np.zeros(4)
-
-    def close_block(self):
-        r"""End the current jackknife block and start a new one (:meth:`run` path)."""
-        self.blocks.append((self._H_pair, self._H_Z, self._H_four))
-        self._new_block()
-
-    def run(self, phi, n, sweeps, tally=True, progress=None, compiled=True):
-        r"""
-        Standalone driver: evolve ``sweeps`` sweeps --- each $4 N^{4}$ single-link
-        proposals plus one $\phi$ sweep --- from ``(phi, n)``, tallying the sector
-        dwell into the current jackknife block after every proposal unless ``tally``
-        is ``False`` (thermalization).
-
-        Parameters
-        ----------
-        phi: array
-            Site angles (any real values).
-        n: integer array
-            Link field; need **not** satisfy the constraint.
-        sweeps: int
-        tally: bool
-        progress: callable, optional
-            e.g. ``tqdm``.
-        compiled: bool
-            Use the compiled tick kernel (default); ``False`` runs the pure-python
-            :meth:`_tick` loop, which the kernel reproduces bit-for-bit.
-
-        Returns
-        -------
-        (phi, n)
-            The evolved configuration, suitable for chaining calls.
-        """
-        st = self._init_state(phi, n, update_phi=True)
-        iterator = range(sweeps)
-        if progress is not None:
-            iterator = progress(iterator)
-        if compiled:
-            V = self.N**4
-            for _ in iterator:
-                # Sweep boundary, in the same order the pure _tick performs it.
-                if st.i == st.n_links:
-                    self.D_trace.append(st.D)
-                    self._phi_sweep(st)
-                    self._draw_batch(st)
-                H_pair = np.zeros(V, dtype=np.int64)
-                H_four = np.zeros(4, dtype=np.int64)
-                vac = self._kernel_ticks(st, tally, -1, H_pair, H_four)
-                if tally:
-                    self._H_Z += vac
-                    self._H_pair += H_pair.reshape(tuple(self.L.dims))
-                    self._H_four += H_four
-        else:
-            for _ in iterator:
-                for _ in range(st.n_links):
-                    vac, disp, cls4 = self._tick(st)
-                    if tally:
-                        if vac:
-                            self._H_Z += 1
-                        elif disp is not None:
-                            self._H_pair[disp] += 1
-                        elif cls4 is not None:
-                            self._H_four[cls4] += 1
-        self._phi_sweep(st)
-        return st.phi, st.n
-
-    def correlator(self):
-        r"""
-        The block-jackknife mean and error of the absolutely-normalized correlator
-        $\Theta_{\Delta x} = H_{\text{pair}}(\Delta x) / (V \zeta^{2} H_{Z})$ over the
-        blocks accumulated by :meth:`run` (skipping leave-one-out terms whose vacuum
-        dwell vanishes --- only possible when the fugacity $\zeta$ is badly tuned).
-
-        Returns
-        -------
-        (Theta, dTheta)
-            Arrays of spatial shape ``L.dims``; recall $\Theta_{0} = 1$ by definition
-            and the $\Delta x = 0$ bin of $H_{\text{pair}}$ is empty by construction.
-        """
-        # The estimator: the sector-dwell ratio ⟨Π_p [q_p = δ_{px} - δ_{py}]⟩ over
-        # ⟨Π_p [q_p = 0]⟩ equals ζ² V Θ_Δx in the enlarged ensemble -- the pair sector
-        # carries the known fugacity price ζ² (divided back out here, which is why the
-        # answer cannot depend on ζ) and V translated copies contribute to each
-        # displacement bin.  Θ_0 = 1 identically: a coincident pair IS the vacuum, so
-        # no origin normalization is needed -- Θ comes out ABSOLUTE.
-        V = self.N**4
-        H_pair = np.stack([b[0] for b in self.blocks])
-        H_Z = np.array([b[1] for b in self.blocks], dtype=float)
-        if H_Z.sum() == 0:
-            nan = np.full(self.L.dims, np.nan)
-            return nan, nan
-        total = H_pair.sum(axis=0) / (V * self.fugacity**2 * H_Z.sum())
-        rows = [j for j in range(len(self.blocks)) if H_Z.sum() - H_Z[j] > 0]
-        jack = np.stack([
-            (H_pair.sum(axis=0) - H_pair[j]) / (V * self.fugacity**2 * (H_Z.sum() - H_Z[j]))
-            for j in rows])
-        err = np.sqrt((len(rows) - 1) * jack.var(axis=0)) if len(rows) > 1 \
-            else np.full(self.L.dims, np.nan)
-        return total, err
-
-    def binder(self):
-        r"""
-        The block-jackknife mean and error of the Binder ratio
-        $U = \left\langle\left|M\right|^{4}\right\rangle /
-        \left\langle\left|M\right|^{2}\right\rangle^{2}$ for the $\theta$-shift
-        order parameter $M = \sum_{x} e^{i\theta_{x}}$, over the blocks accumulated by
-        :meth:`run`.  See :class:`~supervillain.observable.ThetaBinderCumulant` for the
-        sector decomposition; $U \to 2$ (complex Gaussian) deep in the symmetric phase
-        and $U \to 1$ in a broken phase.
-        """
-        V = self.N**4
-        Hp = np.stack([b[0] for b in self.blocks])
-        HZ = np.array([b[1] for b in self.blocks], dtype=float)
-        H4 = np.stack([b[2] for b in self.blocks])
-        C = np.array([4., 2., 2., 1.])
-
-        def U(hp, hz, h4):
-            # <|M|^2> = V (1 + S1); <|M|^4> = (2V^2 - V) + 4(V-1) V S1 + sector term.
-            S1 = hp.sum() / (V * self.fugacity**2 * hz)
-            M2 = V * (1 + S1)
-            M4 = (2 * V**2 - V) + 4 * (V - 1) * V * S1 \
-                + (C * h4).sum() / (self.fugacity**4 * hz)
-            return M4 / M2**2
-
-        if HZ.sum() == 0:
-            return np.nan, np.nan
-        total = U(Hp.sum(axis=0), HZ.sum(), H4.sum(axis=0))
-        rows = [j for j in range(len(self.blocks)) if HZ.sum() - HZ[j] > 0]
-        jack = np.array([U(Hp.sum(axis=0) - Hp[j], HZ.sum() - HZ[j],
-                           H4.sum(axis=0) - H4[j]) for j in rows])
-        err = np.sqrt((len(rows) - 1) * jack.var()) if len(rows) > 1 else np.nan
-        return total, err
-
     def report(self):
-        r"""A short summary: acceptance, the pairs-in-flight trace, and (run-path) sector dwell."""
+        r"""A short summary: acceptance and the pairs-in-flight trace."""
         # D = Σ|q| is always EVEN (|q| ≡ q mod 2 per site and the total charge Q = Σq
-        # vanishes identically), so D/2 -- the number of ±pairs in flight, i.e. the
-        # number of worms the grand-canonical ensemble is running at once -- is the
-        # natural human-facing count.  The MEASURE stays in per-endpoint (per-insertion)
-        # convention: ζ per unit of |q|.
+        # vanishes identically), so D/2 -- the number of ±pairs in flight -- is the
+        # natural human-facing count.
         Dt = np.array(self.D_trace)
-        H_Z = sum(b[1] for b in self.blocks)
-        H_pair = sum(b[0].sum() for b in self.blocks)
-        lines = [f'proposals {self.proposed}  acceptance {self.accepted/max(1,self.proposed):.4f}',
-                 (f'pairs in flight D/2: mean {Dt.mean()/2:.2f}  max {int(Dt.max())//2}'
-                  if len(Dt) else 'no sweeps'),
-                 f'run-path sector dwell: vacuum {H_Z}  single-pair {int(H_pair)}  '
-                 f'other {max(0, self.proposed - int(H_Z) - int(H_pair))}']
-        return '\n'.join(lines)
+        return '\n'.join([
+            f'proposals {self.proposed}  acceptance {self.accepted/max(1,self.proposed):.4f}',
+            (f'pairs in flight D/2: mean {Dt.mean()/2:.2f}  max {int(Dt.max())//2}'
+             if len(Dt) else 'no sweeps')])
 
 
 class DefectGasFugacityTuner:

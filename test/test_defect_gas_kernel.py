@@ -2,8 +2,8 @@
 r"""
 The compiled DefectGas tick kernel must reproduce the pure-python reference chain
 bit-for-bit: same proposals, same accepts, same fields, same sector tallies.  These
-tests drive the two paths from identical seeds and demand exact equality, through both
-the standalone run() driver and the Generator step()/step_reference() API.
+tests drive the two paths from identical seeds and demand exact equality, through the
+Generator step()/step_reference() API.
 """
 
 import numpy as np
@@ -15,14 +15,6 @@ from supervillain.generator.no_intersection import DefectGas
 
 def _action(N=4, kappa=0.05):
     return supervillain.action.NoIntersections(Lattice(4, N), kappa=kappa)
-
-
-def _start(S, seed=5):
-    L = S.Lattice
-    rng = np.random.default_rng(seed)
-    phi = rng.uniform(-np.pi, np.pi, size=(1,) + tuple(L.dims))
-    n = np.zeros((4,) + tuple(L.dims), dtype=np.int64)
-    return phi, n
 
 
 def _cold(S):
@@ -38,62 +30,41 @@ def _twins(S, seed=17, **kwargs):
             DefectGas(S, rng=np.random.default_rng(seed), **kwargs))
 
 
-def _assert_blocks_equal(fast, slow):
-    assert len(fast.blocks) == len(slow.blocks)
-    for (hp_f, hz_f, h4_f), (hp_s, hz_s, h4_s) in zip(fast.blocks, slow.blocks):
-        assert np.array_equal(hp_f, hp_s)
-        assert hz_f == hz_s
-        assert np.array_equal(h4_f, h4_s)
-
-
-def test_run_matches_reference():
+def test_step_matches_reference_quartic_sector():
+    # A fugacity high enough that the D = 4 classes populate, so the kernel's
+    # nnz-based classification is exercised against the sorted-charge dict --- but
+    # low enough that the chain still comes home to emit.
     S = _action()
-    fast, slow = _twins(S, fugacity=0.2, D_max=8)
-    phi, n = _start(S)
+    fast, slow = _twins(S, seed=23, fugacity=0.2, D_max=8, emit_every=100)
+    phi, n = _cold(S)
+    a = {'phi': phi, 'n': n}
+    b = {'phi': phi, 'n': n}
 
-    pf, nf = fast.run(phi, n, sweeps=5)
-    ps, ns = slow.run(phi, n, sweeps=5, compiled=False)
-    fast.close_block()
-    slow.close_block()
-
-    assert np.array_equal(nf, ns)
-    assert np.array_equal(pf, ps)
+    four = 0.
+    for _ in range(3):
+        a = fast.step(a)
+        b = slow.step_reference(b)
+        assert np.array_equal(np.asarray(a['n']), np.asarray(b['n']))
+        assert np.array_equal(a['Theta_Theta'], b['Theta_Theta'])
+        assert np.array_equal(a['Four_Defect'], b['Four_Defect'])
+        four += a['Four_Defect'].sum()
     assert fast.proposed == slow.proposed
     assert fast.accepted == slow.accepted
-    assert fast.D_trace == slow.D_trace
-    _assert_blocks_equal(fast, slow)
-    # Not vacuous: the chain moved and visited both tallied sectors' feeders.
-    assert fast.accepted > 0
-    assert fast.blocks[0][1] > 0            # vacuum dwell
-    assert fast.blocks[0][0].sum() > 0      # single-pair dwell
+    assert four > 0                             # quartic sector actually visited
 
 
-def test_run_matches_reference_quartic_sector():
-    # A fugacity high enough that the D = 4 classes are actually populated, so the
-    # kernel's nnz-based classification is exercised against the sorted-charge dict.
+def test_step_matches_reference_uncapped():
     S = _action()
-    fast, slow = _twins(S, seed=23, fugacity=0.5, D_max=8)
-    phi, n = _start(S)
+    fast, slow = _twins(S, seed=29, fugacity=0.1, D_max=None, emit_every=300)
+    phi, n = _cold(S)
+    a = {'phi': phi, 'n': n}
+    b = {'phi': phi, 'n': n}
 
-    fast.run(phi, n, sweeps=4)
-    slow.run(phi, n, sweeps=4, compiled=False)
-    fast.close_block()
-    slow.close_block()
-
-    _assert_blocks_equal(fast, slow)
-    assert fast.blocks[0][2].sum() > 0      # four-defect dwell
-
-
-def test_run_matches_reference_uncapped():
-    S = _action()
-    fast, slow = _twins(S, seed=29, fugacity=0.1, D_max=None)
-    phi, n = _start(S)
-
-    pf, nf = fast.run(phi, n, sweeps=3)
-    ps, ns = slow.run(phi, n, sweeps=3, compiled=False)
-
-    assert np.array_equal(nf, ns)
-    assert np.array_equal(pf, ps)
+    for _ in range(2):
+        a = fast.step(a)
+        b = slow.step_reference(b)
+        assert np.array_equal(np.asarray(a['n']), np.asarray(b['n']))
+        assert np.array_equal(a['Theta_Theta'], b['Theta_Theta'])
     assert fast.proposed == slow.proposed
     assert fast.accepted == slow.accepted
 
