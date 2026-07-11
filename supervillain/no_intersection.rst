@@ -166,6 +166,7 @@ Following Prokof'ev and Svistunov :cite:`PhysRevLett.87.160601` we instead intro
 Consider the mixed regular+path integral $G$ with unspecified normalization $N$ (which cancels from everything of interest)
 
 .. math ::
+   :label: intersection G correlator
 
    G = \frac{1}{N} \sum\hspace{-1.33em}\int D\phi\; Dn\; dh\; dt\; e^{-S[\phi, n]} \prod_p [(dn \wedge dn)_p = \delta_{ph} - \delta_{pt}].
 
@@ -189,7 +190,6 @@ We accumulate the histogram as the worm evolves and save it inline with $\phi$ a
 .. autoclass:: supervillain.observable.IntersectionTwoPoint
    :members:
    :show-inheritance:
-
 
 The enlarged $G$ ensemble also has a precise topological meaning, which is the structural reason to hope a worm mixes where local updates struggle.
 Poincaré duality turns the flux $F = dn$ into a closed 2-dimensional *vortex sheet* on the dual lattice, and $q_x = (dn \wedge dn)_x$ into the signed density of the sheet's transverse self-intersection points: in 4D two 2-dimensional sheets generically meet at isolated points, and each crossing carries a sign from comparing orientations --- the same $\epsilon^{\mu\nu\rho\sigma}$ contraction that appears in $F \wedge F$.
@@ -435,6 +435,7 @@ The correlator is then read off by pure bookkeeping.
 Tally, after every proposal, which sector the chain sits in.  The two-point defect correlator is the ratio of the time spent in the single-pair sector to the time spent in the vacuum,
 
 .. math ::
+   :label: theta-defect-correlator
 
    \Theta_{x,y}
    = \frac{\left\langle \prod_p [q_p = \delta_{px} - \delta_{py}] \right\rangle_\Pi}
@@ -465,7 +466,6 @@ It walks the full immersed corridor, not the one-pair shortcut.
 The :class:`~supervillain.generator.no_intersection.DefectGas` is *not* a worm --- nothing walks, nothing is steered; defects appear, diffuse, and annihilate on their own schedule, and the physics is read off when the system revisits the vacuum sector, which is distributed exactly according to the expected constraint-satisfying Villain model.
 Importantly, a negative defect from one step may annihilate a positive defect created far away in another step rather than the positive defect it was originally created with.
 Exactly as for the walking worms, the invalid states live only *inside* a step; every emitted configuration satisfies $q \equiv 0$.
-The pair-sector dwell rides along as the inline observables ``Theta_Theta`` and ``Vacuum_Ticks``, from which $\Theta$ is the ratio of ensemble means.
 
 The fugacity $\zeta$ must be handled with care.
 Entropy pushes $D$ up --- each defect may live anywhere, and the denser the sheet the more charge a single link scatters --- so the well-tuned fugacity $\zeta$ shrinks with the volume and with $1/\kappa$, and a badly-large fugacity condenses the gas into a defect soup that never revisits the measured sectors: the sampling will hang.
@@ -475,6 +475,21 @@ A tuned fugacity that must fall like $1/V$, and a pair-sector dwell spreading fl
 .. autoclass:: supervillain.generator.no_intersection.DefectGas
    :members:
    :show-inheritance:
+
+We can build a derived quantity from the defect gas's dwell ratios to compute the intersection susceptibility $\chi_\theta$. The pair-sector dwell rides along as the :class:`~.DefectGas`'s inline observable ``Theta_Theta``, while the defect-free dwell is measured by the inline observable ``Vacuum_Ticks``, from which $\Theta$ :eq:`theta-defect-correlator` is the ratio of ensemble means.
+
+
+.. autoclass:: supervillain.observable.Intersection_Intersection
+   :members:
+   :show-inheritance:
+
+The intersection susceptibility is then the sum of the correlator over all separations.
+
+.. autoclass:: supervillain.observable.Intersection_Intersection_Normalized
+   :members:
+   :show-inheritance:
+
+
 
 Order diagnostics from sector dwell
 ===================================
@@ -492,9 +507,10 @@ The second moment is the **intersection susceptibility**,
 
    \left\langle \left|M\right|^2 \right\rangle = V \chi_\theta,
    \qquad
-   \chi_\theta = \sum_{\Delta x} \Theta_{\Delta x} = 1 + \sum_{\Delta x \neq 0} \Theta_{\Delta x},
+   \chi_\theta = \sum_{\Delta x} \Theta_{\Delta x},
 
-where the $1$ is the identically-unit origin.  Like every susceptibility it obeys the
+a plain sum over the absolutely-normalized correlator, origin included ($\Theta_0 = 1$
+identically).  Like every susceptibility it obeys the
 standard trichotomy: it goes to a *constant* in the thermodynamic limit when the
 $\theta$ correlations are short-ranged, grows like $L^{D - 2\Delta_\theta}$ at a
 critical point (only if $e^{i\theta}$ is light, $\Delta_\theta < D/2$), and grows like
@@ -543,14 +559,6 @@ other failure mode of this sampler.
    :show-inheritance:
 
 .. autoclass:: supervillain.observable.IntersectionSusceptibility
-   :members:
-   :show-inheritance:
-
-.. autoclass:: supervillain.observable.Intersection_Intersection
-   :members:
-   :show-inheritance:
-
-.. autoclass:: supervillain.observable.Intersection_Intersection_Normalized
    :members:
    :show-inheritance:
 

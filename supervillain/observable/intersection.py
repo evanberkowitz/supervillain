@@ -38,19 +38,29 @@ class Intersection_Intersection(DerivedQuantity):
     the two-point function of the operator $e^{i\theta}$ that inserts a unit of
     vortex-sheet self-intersection $q = (dn \wedge dn)$.
 
-    Measured by the :class:`~supervillain.generator.no_intersection.DefectGas` as the
-    ratio of sector dwells,
-    $\Theta_{\Delta x} = \overline{\texttt{Theta\_Theta}}_{\Delta x} /
-    \overline{\texttt{Vacuum\_Ticks}}$, and therefore **absolutely normalized**: no
-    origin-bin division is needed, and $\Theta$ is independent of the fugacity $\zeta$.
-
-    The origin bin is *written*, not divided out: $\Theta_0 = 1$ identically (a coincident
-    pair is the vacuum), so the gas never visits it and
-    :class:`~.Theta_Theta`'s origin bin is empty by construction.
     '''
 
     @staticmethod
     def NoIntersections(S, Theta_Theta, Vacuum_Ticks):
+        r'''
+        .. note ::
+        
+            While you can build this quantity from the :class:`~.IntersectionTwoPoint` correlator, it is much more efficiently measured by the :class:`~.DefectGas`.
+
+        Measured by the :class:`~supervillain.generator.no_intersection.DefectGas` as the
+        ratio of sector dwells,
+        
+        .. math ::
+
+            \Theta_{\Delta x} = \frac{\left\langle\texttt{Theta\_Theta}_{\Delta x}\right\rangle_{\Pi}}{\left\langle\texttt{Vacuum\_Ticks}\right\rangle_{\Pi}}.
+
+        and is therefore absolutely normalized: no
+        origin-bin division is needed, and $\Theta$ is independent of the fugacity $\zeta$.
+
+        The origin bin is *written*, not divided out: $\Theta_0 = 1$ identically (a coincident
+        pair is the vacuum), so the gas never visits it and
+        :class:`~.Theta_Theta`'s origin bin is empty by construction.
+        '''
         theta = np.array(Theta_Theta / Vacuum_Ticks)
         theta[S.Lattice.origin] = 1.0
         return theta
@@ -78,9 +88,20 @@ class Theta_Theta(Observable):
     $H_{\text{pair}}(\Delta x) / V \zeta^{2}$.  Its ensemble mean, divided by the mean
     of :class:`~.Vacuum_Ticks`, is the correlator
     $\Theta_{\Delta x} = \left\langle e^{i(\theta_x - \theta_y)} \right\rangle$
-    with **no origin normalization required** ($\Theta_0 = 1$ identically; the origin
-    bin of the histogram is empty by construction --- a coincident pair *is* the
-    vacuum).
+    with **no origin normalization required**.
+
+    .. note ::
+
+        The $\Delta x = 0$ bin of this histogram is exactly zero in every
+        configuration --- not because $\Theta_0$ vanishes, but because the chain
+        *cannot dwell* there: a coincident $\pm$ pair has $q \equiv 0$, so that
+        "sector" is the vacuum itself and its ticks are tallied by
+        :class:`~.Vacuum_Ticks` instead.  Physically $\Theta_{0} = 1$ identically
+        (coincident insertions are the identity), which is exactly what makes the
+        estimator absolutely normalized.  :class:`~.Intersection_Intersection`
+        writes that origin value outright, so read $\Theta$ (or sum it, as
+        :class:`~.IntersectionSusceptibility` does) from there rather than patching
+        the raw histogram.
 
     Produced inline by the :class:`~supervillain.generator.no_intersection.DefectGas`
     only; there is no ex-post-facto estimator.
@@ -141,13 +162,11 @@ class IntersectionSusceptibility(DerivedQuantity):
     .. math ::
 
         \texttt{IntersectionSusceptibility} = \chi_\theta = \int d^Dr\; \Theta(r)
-        = 1 + \sum_{\Delta x \neq 0} \Theta_{\Delta x},
+        = \sum_{\Delta x} \Theta_{\Delta x},
 
-    where the $1$ is the identically-unit origin ($\Theta_0 = 1$: coincident insertions
-    are the identity) and the rest comes from the
-    :class:`~supervillain.generator.no_intersection.DefectGas`'s sector-dwell estimator,
-    $\Theta_{\Delta x} = \overline{\texttt{Theta\_Theta}}_{\Delta x} /
-    \overline{\texttt{Vacuum\_Ticks}}$.
+    a plain sum over :class:`~.Intersection_Intersection_Normalized`, whose origin bin
+    carries the identically-unit contact term $\Theta_0 = 1$ (see :class:`~.Theta_Theta`
+    for why the raw histogram's origin is empty).  
 
     When the $\theta$ correlations are short-ranged, $\chi_\theta$ approaches a
     **constant** in the thermodynamic limit.  $\theta$ long-range order --- the defect
@@ -163,8 +182,8 @@ class IntersectionSusceptibility(DerivedQuantity):
     """
 
     @staticmethod
-    def default(S, Theta_Theta, Vacuum_Ticks):
-        return 1 + np.sum(Theta_Theta.real) / Vacuum_Ticks
+    def default(S, Intersection_Intersection_Normalized):
+        return np.sum(Intersection_Intersection_Normalized.real)
 
 
 class Four_Defect(Observable):

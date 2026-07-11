@@ -21,85 +21,55 @@ class DefectGas(ReadWriteable, Generator):
     with the inline estimator of the Lagrange-multiplier correlator
     $\left\langle e^{+i\theta_{x}} e^{-i\theta_{y}} \right\rangle$.
 
-    Where the clean-set worms (:class:`~.FreeTargetWorm` and friends) walk a
-    defect pair through the *valid* configurations and demand every step be an exact
-    unit-dipole transport --- steps that often do not exist at all on the dense sheets of
-    small $\kappa$ --- this sampler stops demanding cleanliness and instead *prices the
-    mess*.  The underlying chain samples the enlarged ensemble
+    The update starts from a constraint-satisfying defect-free configuration and
+    makes updates by sampling in the enlarged ensemble of configurations with any arbitrary number of defects, with each defect weighted by the fugacity $\zeta$,
 
     .. math ::
         \Pi = \sum\hspace{-1.33em}\int D\phi\; Dn\; e^{-S[\phi, n]}\, \zeta^{D(n)},
         \qquad D(n) = \sum_{x} \left|q_{x}(n)\right|,
         \quad q = dn \wedge dn,
 
-    with the fugacity $\zeta$ conjugate to each *insertion* of the charge operator $e^{\pm i\theta}$.
-    $D$ is always even ($\left|q\right| \equiv q \bmod 2$ sitewise and the total charge
-    vanishes identically), so $D/2$ counts the $\pm$ *pairs in flight* --- the number of
+    The number of defects $D$ is always even since $Q=\sum_h q_h = \sum_h dJ = 0$
+    on every configuration, so $D/2$ counts the $\pm$ pairs in flight --- the number of
     worms the grand-canonical ensemble runs at once.
+    Though, to be perfectly clear: there are no dedicated 'worms' which need to be advanced using any special worm moves.
+    We just update links at random and they do what they want: idling, building up flux, creating and annihilating defects, and transporting charge.
 
     Standard single-link updates $n\to n \pm 1$ are Metropolis tested with the 
     fugacity included in the weight and are accepted with probability $\min\!\left(1, e^{-\Delta S}\,
     \zeta^{\Delta D}\right)$.  Every link can always receive a proposal but a proposal with
     a messy $\Delta q$ is exponentially discounted by the fugacity $\zeta < 1$, and defect-annihilating moves
-    are correspondingly rewarded.  The higher-defect sectors are the corridors through
+    are correspondingly incentivized.  The higher-defect sectors are the corridors through
     jammed backgrounds that clean worms lack, so the sampler cannot jam; single-link
     moves connect every $n$ with nonzero acceptance, making ergodicity on the enlarged
     space manifest.
 
-    While generating, the :meth:`step` advances the enlarged chain until its
+    The :meth:`step` advances the enlarged chain until its
     ``emit_every``-th visit to the vacuum sector and emits that configuration.
     Restricted to the vacuum sector the enlarged weight is $e^{-S_{V}} \zeta^{0} = e^{-S_{V}}$,
     so the emitted ensemble is exactly the constrained theory.  Like the worms,
     invalid states live only *inside* a step, and every emitted configuration satisfies
     $q \equiv 0$ and therefore this generator can be combined with other constrained generators.
 
-    The correlator is read off by bookkeeping rather than steering.  Since inserting
-    $e^{+i\theta_{x}} e^{-i\theta_{y}}$ shifts the constraint to
-    $q = \delta_{x} - \delta_{y}$, tallying after every proposal which sector the
-    chain sits in gives
+    In a spirit similar to the worms, we can read off defect correlation functions by
+    tallying the state of the chain after every proposal.
+    Each positive defect amounts to an insertion of $e^{+i\theta}$ and each negative defect amounts to an insertion of $e^{-i\theta}$; for more details see :meth:`~.defect_gas.inline_observables`.
 
-    .. math ::
-        \Theta_{x,y}
-        = \frac{\left\langle \prod_{p} [q_{p} = \delta_{px} - \delta_{py}] \right\rangle_{\Pi}}
-               {\zeta^{2} \left\langle \prod_{p} [q_{p} = 0] \right\rangle_{\Pi}},
+    .. danger ::
 
-    with $[\cdots]$ the Iverson bracket: the ratio of the time spent in the exact
-    single-pair sector to the time spent in the vacuum, with the known price
-    $\zeta^{2}$ divided back out.  Per step the pair-sector dwell histogram (scaled by
-    that price, $H_{\text{pair}} / V \zeta^{2}$) and the vacuum dwell are emitted as
-    the inline observables ``Theta_Theta`` and ``Vacuum_Ticks``, so on an ensemble
-    ``e``
+        However, the fugacity $0 < \zeta < 1$ must be handled with care.
+        Too large and the defects will proliferate and never return to the vacuum sector.
+        Too small the the defects will become exceedingly rare and the samples will not explore the full grand-canonical ensemble.
 
-    .. math ::
-        \Theta_{\Delta x} = \frac{\overline{\texttt{Theta\_Theta}}_{\Delta x}}{\overline{\texttt{Vacuum\_Ticks}}}
-
-    (ratio of ensemble means; use :class:`~supervillain.analysis.Bootstrap` for
-    errors).  Two properties are worth internalizing:
-
-    * $\Theta_{0} = 1$ *identically* --- a coincident pair *is* the vacuum --- so
-      $\Theta$ is *absolutely normalized*; the $\Delta x = 0$ bin of ``Theta_Theta``
-      is empty by construction.
-    * $\Theta$ is *independent of* the fugacity $\zeta$ --- the price the sampler charged
-      the pair sector is divided back out --- so $\zeta$ tunes only the variance.
-      Running at two values of $\zeta$ and comparing is a sharp end-to-end exactness
-      test.
-
-    Tuning: entropy pushes $D$ upward (each defect may live anywhere, and the denser
+        In other words, the limit $\zeta\to 1$ is the unconstrained theory while $\zeta\to 0$ restricts to defect-free configurations.
+        
+    So, we need to think about how to tune the fugacity $\zeta$.
+    Entropy pushes $D$ upward (each defect may live anywhere, and the denser
     the sheet the larger a single link's $\left|\Delta D\right|$), so the right $\zeta$
     shrinks with volume and with $1/\kappa$.  Symptoms of a bad choice are loud: too
     large and $D$ pins at ``D_max`` with the vacuum never revisited (:meth:`step` then
     raises rather than hang), too small and pair excursions become needlessly rare.
-    :meth:`tune` automates the choice.  ``D_max`` truncates the state space (proposals
-    beyond it are ordinary zero-weight rejections); it exists to keep a badly-tuned
-    chain out of the defect condensate, not for correctness.  Note that a *physical*
-    defect condensate --- $\theta$ long-range order, where pairs cost $O(1)$ at any
-    separation --- shows up as the tuned $\zeta$ acquiring a strong volume dependence
-    and the pair dwell spreading flat in $\Delta x$; that is signal, not failure.
-
-    $\left\langle e^{i\theta} \right\rangle$ itself vanishes identically on the torus
-    (the total charge $Q = \sum_{x} q_{x}$ vanishes for every $n$, since
-    $q = d(n \wedge dn)$ is exact), so the large-$\Delta x$ plateau of $\Theta$ is the
-    only order-parameter diagnostic for the $\theta$ shift symmetry.
+    The :meth:`tune` method automates the choice.
 
     Besides the :class:`~supervillain.Ensemble` route, :meth:`run` +
     :meth:`correlator` drive the same chain standalone (block-jackknife errors) ---
@@ -342,8 +312,30 @@ class DefectGas(ReadWriteable, Generator):
     # ---------------------------------------------------------------- Generator API
 
     def inline_observables(self, steps):
-        r"""Storage for the inline ``Theta_Theta`` histogram, ``Vacuum_Ticks``, the
-        four-defect classes, and the transport diagnostics."""
+        r"""
+        We tally ``Vacuum_Ticks``, how often the chain visits the vacuum sector,
+
+        .. math ::
+
+            \texttt{Vacuum\_Ticks} = \sum_{\text{ticks}} \prod [q = 0],
+
+        and ``Theta_Theta``, the pair-sector dwell histogram (translation averaged,
+        scaled by its fugacity price $\zeta^2$),
+
+        .. math ::
+
+            \texttt{Theta\_Theta}_{\Delta h} = \frac{1}{V \zeta^2} \sum_{h}
+                \prod [q = \delta_{h+\Delta h} - \delta_{h}]
+
+        whose ratio give the :class:`~.Intersection_Intersection` correlator $\Theta$.
+
+        Per step these ride along with ``Four_Defect``, ``Pair_Excursions``,
+        ``Max_Pair_RSq``, and ``Excursion_Lengths``.  On an ensemble, the correlator
+        is the ratio of means ``Theta_Theta / Vacuum_Ticks`` (use
+        :class:`~supervillain.analysis.Bootstrap` for errors).
+
+        Returns initialized :class:`~supervillain.batch.Batch` storage for each.
+        """
         return {
             'Theta_Theta': Batch(steps, shape=self.L.dims),
             'Vacuum_Ticks': Batch(steps, shape=(), dtype=float),
@@ -475,6 +467,20 @@ class DefectGas(ReadWriteable, Generator):
              ladder=(0.1, 0.05, 0.02, 0.01, 0.005, 0.002),
              sweeps=60, target=0.15):
         r"""
+        :meth:`tune` automates the choice of fugacity $\zeta$.
+        ``D_max`` truncates the state space (proposals
+        beyond it are ordinary zero-weight rejections); it exists to keep a badly-tuned
+        chain out of the defect condensate, not for correctness.  Note that a *physical*
+        defect condensate --- $\theta$ long-range order, where pairs cost $O(1)$ at any
+        separation --- shows up as the tuned $\zeta$ acquiring a strong volume dependence
+        and the pair dwell spreading flat in $\Delta x$; that is a signal of interesting physics!
+
+        $\left\langle e^{i\theta} \right\rangle$ itself vanishes identically on the torus
+        (the total charge $Q = \sum_{x} q_{x}$ vanishes for every $n$, since
+        $q = d(n \wedge dn)$ is exact), so the large-$\Delta x$ plateau of $\Theta$ is the
+        only order-parameter diagnostic for the $\theta$ shift symmetry.
+
+
         Pick $\zeta$ by short probes down a ladder, keeping the first value whose
         vacuum dwell exceeds ``target`` (the pair sector then follows, being the
         vacuum's nearest excursion).  Because the estimator is $\zeta$-independent,
