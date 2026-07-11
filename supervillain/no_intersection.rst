@@ -443,6 +443,15 @@ Tally, after every proposal, which sector the chain sits in.  The two-point defe
 
 with $[\cdots]$ the Iverson bracket, and the factor of $\zeta^2$ dividing out the fugacity price of the insertion.
 
+.. autoclass:: supervillain.observable.Theta_Theta
+   :members:
+   :show-inheritance:
+
+.. autoclass:: supervillain.observable.Vacuum_Ticks
+   :members:
+   :show-inheritance:
+
+
 Two properties are worth internalizing.
 First, $\Theta_{x,x} = 1$ *identically* --- a coincident pair *is* the vacuum --- so this estimator is *absolutely normalized*: where the worm histogram must be normalized by its origin bin, the defect gas measures $\Theta$ outright.
 Second, $\Theta$ is *independent of* $\zeta$, because the intermediate sectors' weights cancel from the ratio entirely; $\zeta$ tunes only the variance.
@@ -475,6 +484,8 @@ A tuned fugacity that must fall like $1/V$, and a pair-sector dwell spreading fl
 .. autoclass:: supervillain.generator.no_intersection.DefectGas
    :members:
    :show-inheritance:
+
+Because it can be hard to guess a good fugacity in practice we provide a tuner that finds a good set of run parameters for the :class:`~supervillain.generator.no_intersection.DefectGas`.
 
 .. autoclass:: supervillain.generator.no_intersection.DefectGasFugacityTuner
    :members:
@@ -512,8 +523,7 @@ The second moment is the **intersection susceptibility**,
    \qquad
    \chi_\theta = \sum_{\Delta x} \Theta_{\Delta x},
 
-a plain sum over the absolutely-normalized correlator, origin included ($\Theta_0 = 1$
-identically).  Like every susceptibility it obeys the
+a plain sum over the absolutely-normalized correlator.  Like every susceptibility it obeys the
 standard trichotomy: it goes to a *constant* in the thermodynamic limit when the
 $\theta$ correlations are short-ranged, grows like $L^{D - 2\Delta_\theta}$ at a
 critical point (only if $e^{i\theta}$ is light, $\Delta_\theta < D/2$), and grows like
@@ -552,14 +562,6 @@ quartic-sector dwell scales like $\zeta^4$, so the Binder cumulant measurement w
 selects), and an under-visited quartic sector shows up as impossible values ($U < 1$
 violates Cauchy--Schwarz) with underestimated :class:`~.Bootstrap` errors --- loud, like every
 other failure mode of this sampler.
-
-.. autoclass:: supervillain.observable.Theta_Theta
-   :members:
-   :show-inheritance:
-
-.. autoclass:: supervillain.observable.Vacuum_Ticks
-   :members:
-   :show-inheritance:
 
 .. autoclass:: supervillain.observable.IntersectionSusceptibility
    :members:

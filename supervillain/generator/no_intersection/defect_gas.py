@@ -312,6 +312,20 @@ class DefectGas(ReadWriteable, Generator):
         Observable class), but a live defect-condensation early-warning and the
         quantity the :class:`DefectGasFugacityTuner` reads from its probes.
 
+        .. note ::
+
+            The $\Delta x = 0$ bin of the ``Theta_Theta`` histogram is exactly zero in every
+            configuration --- not because $\Theta_0$ vanishes, but because the chain
+            *cannot dwell* there: a coincident $\pm$ pair has $q \equiv 0$, so that
+            "sector" is the vacuum itself and its ticks are tallied by
+            :class:`~.Vacuum_Ticks` instead.  Physically $\Theta_{0} = 1$ identically
+            (coincident insertions are the identity), which is exactly what makes the
+            estimator absolutely normalized.  :class:`~.Intersection_Intersection`
+            writes that origin value outright, so read $\Theta$ (or sum it, as
+            :class:`~.IntersectionSusceptibility` does) from there rather than patching
+            the raw histogram.
+
+
         Per step these ride along with ``Four_Defect``, ``Pair_Excursions``,
         ``Max_Pair_RSq``, and ``Excursion_Lengths``.  On an ensemble, the correlator
         is the ratio of means ``Theta_Theta / Vacuum_Ticks`` (use
@@ -476,8 +490,8 @@ class DefectGasFugacityTuner:
     ----------
     S: a NoIntersections action
     companions: iterable of generators, optional
-        Interleaved with the probe gas (and installed in the chain
-        :meth:`generator` returns).  Defaults to a single
+        Interleaved with the probe gas (and in the 
+        :meth:`generator`).  Defaults to a single
         :class:`~supervillain.generator.villain.SiteUpdate` --- $\phi$ must fluctuate
         or the Villain weights are sampled at frozen $d\phi$.  For honest dwell,
         pass the companions production will run.

@@ -87,24 +87,14 @@ class Theta_Theta(Observable):
     dwell histogram scaled by its known fugacity price,
     $H_{\text{pair}}(\Delta x) / V \zeta^{2}$.  Its ensemble mean, divided by the mean
     of :class:`~.Vacuum_Ticks`, is the correlator
-    $\Theta_{\Delta x} = \left\langle e^{i(\theta_x - \theta_y)} \right\rangle$
-    with **no origin normalization required**.
-
-    .. note ::
-
-        The $\Delta x = 0$ bin of this histogram is exactly zero in every
-        configuration --- not because $\Theta_0$ vanishes, but because the chain
-        *cannot dwell* there: a coincident $\pm$ pair has $q \equiv 0$, so that
-        "sector" is the vacuum itself and its ticks are tallied by
-        :class:`~.Vacuum_Ticks` instead.  Physically $\Theta_{0} = 1$ identically
-        (coincident insertions are the identity), which is exactly what makes the
-        estimator absolutely normalized.  :class:`~.Intersection_Intersection`
-        writes that origin value outright, so read $\Theta$ (or sum it, as
-        :class:`~.IntersectionSusceptibility` does) from there rather than patching
-        the raw histogram.
+    $\Theta_{\Delta x} = \left\langle e^{i(\theta_x - \theta_y)} \right\rangle$.
 
     Produced inline by the :class:`~supervillain.generator.no_intersection.DefectGas`
     only; there is no ex-post-facto estimator.
+
+    .. seealso ::
+
+        The inline :class:`~supervillain.generator.no_intersection.DefectGas` observable is :meth:`~supervillain.generator.no_intersection.DefectGas.inline_observables`.
     """
 
 
