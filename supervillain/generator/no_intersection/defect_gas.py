@@ -467,9 +467,9 @@ class DefectGasFugacityTuner:
     chain stops returning to the vacuum (the :meth:`DefectGas.step` ``RuntimeError``)
     is rejected --- that is the defect-condensation signature, not an error.
 
-    A tuner is **not** a generator: it has no ``step`` and never rides into an
+    A tuner is not a generator: it has no ``step`` and never rides into an
     ensemble.  It runs experiments to decide *which* generator to build;
-    :meth:`generator` returns the production-ready chain with $\zeta$ and
+    :meth:`generator` returns the production-ready chain with fugacity $\zeta$ and
     ``emit_every`` matched by construction.
 
     Parameters
@@ -525,6 +525,22 @@ class DefectGasFugacityTuner:
         ``emit_every`` (a healthy step then costs about a sweep); the first half is
         per-rung equilibration and the dwell is read off the second half.
 
+        Parameters
+        ----------
+        start: 'cold', or a configuration as a dictionary
+            Where each rung's probe chain starts; anything
+            :meth:`~supervillain.Ensemble.generate` accepts.  Probes from a
+            thermalized valid configuration measure the equilibrium dwell; a fresh
+            start's early dwell is optimistic.
+        ladder: iterable of floats
+            Candidate fugacities in descending order; the first rung whose dwell
+            exceeds ``target`` wins.
+        steps: int
+            Configurations per probe; the first half is per-rung equilibration and
+            the dwell is read off the second half.
+        target: float
+            The vacuum-dwell fraction a rung must exceed to be kept.
+
         Returns
         -------
         float
@@ -569,6 +585,29 @@ class DefectGasFugacityTuner:
         (its second half at least a quarter of its first: a collapsing dwell is
         condensation in progress).  An explicit ``floor`` may be imposed on top.
 
+        Parameters
+        ----------
+        start: 'cold', or a configuration as a dictionary
+            Where each rung's probe chain starts; anything
+            :meth:`~supervillain.Ensemble.generate` accepts.
+        ladder: iterable of floats
+            Candidate fugacities in ascending order; the largest measurable,
+            stationary rung wins and the first failing rung stops the ascent.
+        steps: int
+            Configurations per probe; the first half is per-rung equilibration and
+            the tallied second half must collect ``min_vacuum_ticks``.
+        min_vacuum_ticks: int
+            Vacuum ticks the tallied half must collect for the rung to count as
+            measurable; sets each probe step's ``emit_every``.
+        max_probe_sweeps: int
+            Sweep budget per rung, divided across its ``steps`` as each probe step's
+            horizon; a rung that exhausts a step's share is rejected as condensed.
+        step_sweeps: int
+            Target sweeps per production step; sizes the returned ``emit_every``
+            from the measured dwell.
+        floor: float, optional
+            An explicit minimum dwell imposed on top of measurability.
+
         Returns
         -------
         (float, int)
@@ -611,8 +650,25 @@ class DefectGasFugacityTuner:
         The normal way to consume a tune: probe from ``start`` (with :meth:`tune`, or
         :meth:`tune_edge` when ``edge``; ``kwargs`` forward), then return the
         production-ready ``Sequentially((*companions, DefectGas(...)))`` with $\zeta$ and
-        ``emit_every`` **matched by construction**.  The chain carries ``fugacity``
+        ``emit_every`` matched by construction.  The chain carries ``fugacity``
         and ``emit_every`` as plain metadata for introspection.
+
+        Parameters
+        ----------
+        start: 'cold', or a configuration as a dictionary
+            Where the tuning probes start; anything
+            :meth:`~supervillain.Ensemble.generate` accepts.
+        edge: bool
+            Tune with :meth:`tune_edge` (largest measurable $\zeta$, matched
+            ``emit_every``) instead of :meth:`tune` (dwell target, default
+            ``emit_every``).
+        kwargs:
+            Forwarded to :meth:`tune` or :meth:`tune_edge`.
+
+        Returns
+        -------
+        :class:`~supervillain.generator.combining.Sequentially`
+            The production-ready chain, its tuned :class:`DefectGas` last.
         """
         if edge:
             fugacity, emit_every = self.tune_edge(start=start, **kwargs)
