@@ -2,7 +2,7 @@
 
 from .worm import IntersectionWorm
 from .free_target_worm import FreeTargetWorm
-from .defect_gas import DefectGas
+from .defect_gas import DefectGas, DefectGasFugacityTuner
 from .link import ConstrainedLinkUpdate
 from .wrapping import WrappingLoopUpdate
 from .planar import PlanarFluxUpdate

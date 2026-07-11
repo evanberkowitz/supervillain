@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import numpy as np
 
 from supervillain.generator import Generator
+from supervillain.generator.combining import Sequentially
 from supervillain.h5 import ReadWriteable
 from supervillain.batch import Batch
 from supervillain.lattice import Form, d
@@ -398,7 +399,7 @@ class DefectGas(ReadWriteable, Generator):
                 raise RuntimeError(
                     f'no {self.emit_every} vacuum ticks in {self.max_step_sweeps} sweeps: '
                     f'fugacity={self.fugacity} is likely too large for this volume/kappa (defect '
-                    f'condensation).  Retune (DefectGas.tune), lower fugacity, or note that '
+                    f'condensation).  Retune (DefectGasFugacityTuner), lower fugacity, or note that '
                     f'a genuinely condensed theta phase requires fugacity ~ 1/V.')
             v, t = ticker(st, self.emit_every - vacuum, H_pair, H_four)
             vacuum += v
@@ -785,3 +786,157 @@ class DefectGas(ReadWriteable, Generator):
                  f'run-path sector dwell: vacuum {H_Z}  single-pair {int(H_pair)}  '
                  f'other {max(0, self.proposed - int(H_Z) - int(H_pair))}']
         return '\n'.join(lines)
+
+
+class DefectGasFugacityTuner:
+    r"""
+    Picks the :class:`DefectGas` fugacity $\zeta$ by short Monte-Carlo probes down (or
+    up) a ladder, driving each probe through the ordinary
+    :class:`~supervillain.Ensemble` route: every rung runs a throwaway
+    ``Sequentially((*companions, DefectGas(S, fugacity)))`` chain and reads the vacuum
+    dwell from the emitted inline quantities as ``Vacuum_Ticks / Ticks``.  A rung whose
+    chain stops returning to the vacuum (the :meth:`DefectGas.step` ``RuntimeError``)
+    is rejected --- that is the defect-condensation signature, not an error.
+
+    A tuner is **not** a generator: it has no ``step`` and never rides into an
+    ensemble.  It runs experiments to decide *which* generator to build;
+    :meth:`generator` returns the production-ready chain with $\zeta$ and
+    ``emit_every`` matched by construction.
+
+    Parameters
+    ----------
+    S: a NoIntersections action
+    companions: iterable of generators, optional
+        Interleaved with the probe gas (and installed in the chain
+        :meth:`generator` returns).  Defaults to a single
+        :class:`~supervillain.generator.villain.SiteUpdate` --- $\phi$ must fluctuate
+        or the Villain weights are sampled at frozen $d\phi$.  For honest dwell,
+        pass the companions production will run.
+    D_max: int or None
+        Handed to every probe (and production) :class:`DefectGas`.
+    rng: numpy Generator, optional
+    """
+
+    def __init__(self, S, companions=None, D_max=8, rng=None):
+        self.S = S
+        self.companions = (tuple(companions) if companions is not None
+                           else (SiteUpdate(S),))
+        self.D_max = D_max
+        self.rng = rng if rng is not None else np.random.default_rng()
+
+    def _probe(self, fugacity, start, steps, emit_every, max_step_sweeps):
+        # One rung: a throwaway Generator-route chain.  Returns the per-step
+        # (Vacuum_Ticks, Ticks) arrays, or None if the chain condensed (the step
+        # RuntimeError) -- an unhealthy rung, not an error.
+        import supervillain.ensemble
+        gas = DefectGas(self.S, fugacity, D_max=self.D_max, emit_every=emit_every,
+                        max_step_sweeps=max_step_sweeps, rng=self.rng)
+        chain = Sequentially((*self.companions, gas))
+        try:
+            e = supervillain.ensemble.Ensemble(self.S).generate(steps, chain,
+                                                                start=start)
+        except RuntimeError:
+            return None
+        return np.asarray(e.Vacuum_Ticks), np.asarray(e.Ticks)
+
+    def tune(self, start='cold', ladder=(0.1, 0.05, 0.02, 0.01, 0.005, 0.002),
+             steps=120, target=0.15):
+        r"""
+        Descend the ladder and keep the first fugacity $\zeta$ whose vacuum dwell exceeds
+        ``target`` (falling back to the smallest rung if none does).  Because the
+        estimator is $\zeta$-independent, tuning affects only the variance, never the
+        answer.  Entropy pushes the defect count up, so the right $\zeta$ shrinks with
+        volume and with $1/\kappa$.
+
+        Each rung probes ``steps`` configurations from ``start`` with a small
+        ``emit_every`` (a healthy step then costs about a sweep); the first half is
+        per-rung equilibration and the dwell is read off the second half.
+
+        Returns
+        -------
+        float
+            The chosen $\zeta$.
+        """
+        V = self.S.Lattice.N ** 4
+        fugacity = ladder[-1]
+        for z in ladder:
+            fugacity = z
+            probe = self._probe(z, start, steps,
+                                emit_every=max(1, round(target * 4 * V)),
+                                max_step_sweeps=25)
+            if probe is None:
+                continue                        # condensed: descend
+            vac, ticks = (a[steps // 2:] for a in probe)
+            if vac.sum() / max(1.0, ticks.sum()) > target:
+                break
+        return fugacity
+
+    def tune_edge(self, start='cold',
+                  ladder=(0.002, 0.003, 0.005, 0.008, 0.012, 0.02, 0.03, 0.05,
+                          0.06, 0.08, 0.1, 0.12, 0.15, 0.2, 0.3),
+                  steps=200, min_vacuum_ticks=500, max_probe_sweeps=4000,
+                  step_sweeps=25, floor=None):
+        r"""
+        Ride the edge: ascend the ladder and keep the *largest* fugacity $\zeta$ at which
+        the chain still demonstrably returns to the vacuum --- pair transport scales
+        like $\zeta^{2}$, so a conservatively small $\zeta$ silently censors exactly the
+        large-separation bins that diagnose $\theta$ order.
+
+        A rung is accepted iff its probe completes (each completed step *is*
+        ``emit_every`` vacuum ticks, so completing the tallied half collects
+        ``min_vacuum_ticks``) **and** the dwell is stationary across that half
+        (second quarter at least a quarter of the first: a collapsing dwell is
+        condensation in progress).  An explicit ``floor`` may be imposed on top.
+
+        Returns
+        -------
+        (float, int)
+            The chosen $\zeta$ and a matched ``emit_every`` sized so one production
+            step costs about ``step_sweeps`` sweeps at the measured dwell.
+        """
+        n_links = 4 * self.S.Lattice.N ** 4
+        best = None
+        for z in ladder:
+            probe = self._probe(
+                z, start, steps,
+                emit_every=max(1, min_vacuum_ticks // max(1, steps // 2)),
+                max_step_sweeps=max(1, max_probe_sweeps // steps))
+            if probe is None:
+                break                           # past the edge; dwell falls monotonically
+            vac, ticks = (a[steps // 2:] for a in probe)
+            half = len(vac) // 2
+            dwell = vac.sum() / max(1.0, ticks.sum())
+            d1 = vac[:half].sum() / max(1.0, ticks[:half].sum())
+            d2 = vac[half:].sum() / max(1.0, ticks[half:].sum())
+            if (vac.sum() >= min_vacuum_ticks and d2 >= d1 / 4
+                    and (floor is None or dwell > floor)):
+                best = (z, dwell)
+            else:
+                break
+        if best is None:
+            raise RuntimeError(
+                f'tune_edge: even the smallest ladder rung fugacity={ladder[0]} never '
+                f'completed its probe; the chain cannot emit here (defect '
+                f'condensation?).  Treat as signal and investigate D_trace.')
+        fugacity, dwell = best
+        return fugacity, max(1, int(round(dwell * n_links * step_sweeps)))
+
+    def generator(self, start='cold', edge=False, **kwargs):
+        r"""
+        The normal way to consume a tune: probe from ``start`` (with :meth:`tune`, or
+        :meth:`tune_edge` when ``edge``; ``kwargs`` forward), then return the
+        production-ready ``Sequentially((*companions, DefectGas(...)))`` with $\zeta$ and
+        ``emit_every`` **matched by construction**.  The chain carries ``fugacity``
+        and ``emit_every`` as plain metadata for introspection.
+        """
+        if edge:
+            fugacity, emit_every = self.tune_edge(start=start, **kwargs)
+        else:
+            fugacity = self.tune(start=start, **kwargs)
+            emit_every = None
+        gas = DefectGas(self.S, fugacity, D_max=self.D_max, emit_every=emit_every,
+                        rng=self.rng)
+        chain = Sequentially((*self.companions, gas))
+        chain.fugacity = gas.fugacity
+        chain.emit_every = gas.emit_every
+        return chain
