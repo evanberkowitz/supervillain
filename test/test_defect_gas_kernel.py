@@ -117,9 +117,12 @@ def test_step_matches_reference():
         assert cfg_f['Pair_Excursions'] == cfg_s['Pair_Excursions']
         assert cfg_f['Max_Pair_RSq'] == cfg_s['Max_Pair_RSq']
         assert np.array_equal(cfg_f['Excursion_Lengths'], cfg_s['Excursion_Lengths'])
+        assert cfg_f['Ticks'] == cfg_s['Ticks']
+        assert cfg_f['Ticks'] >= cfg_f['Vacuum_Ticks'] > 0
         excursions += cfg_f['Pair_Excursions']
         max_rsq = max(max_rsq, cfg_f['Max_Pair_RSq'])
 
+    assert 'Ticks' in fast.inline_observables(1)
     assert fast.proposed == slow.proposed
     assert fast.accepted == slow.accepted
     assert fast.D_trace == slow.D_trace

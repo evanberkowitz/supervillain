@@ -329,6 +329,11 @@ class DefectGas(ReadWriteable, Generator):
 
         whose ratio give the :class:`~.Intersection_Intersection` correlator $\Theta$.
 
+        ``Ticks`` counts every proposal the step consumed, so the step's vacuum
+        dwell is ``Vacuum_Ticks / Ticks`` --- generator bookkeeping (it gets no
+        Observable class), but a live defect-condensation early-warning and the
+        quantity the :class:`DefectGasFugacityTuner` reads from its probes.
+
         Per step these ride along with ``Four_Defect``, ``Pair_Excursions``,
         ``Max_Pair_RSq``, and ``Excursion_Lengths``.  On an ensemble, the correlator
         is the ratio of means ``Theta_Theta / Vacuum_Ticks`` (use
@@ -339,6 +344,7 @@ class DefectGas(ReadWriteable, Generator):
         return {
             'Theta_Theta': Batch(steps, shape=self.L.dims),
             'Vacuum_Ticks': Batch(steps, shape=(), dtype=float),
+            'Ticks': Batch(steps, shape=(), dtype=float),
             'Four_Defect': Batch(steps, shape=(4,), dtype=float),
             'Pair_Excursions': Batch(steps, shape=(), dtype=float),
             'Max_Pair_RSq': Batch(steps, shape=(), dtype=float),
@@ -404,6 +410,7 @@ class DefectGas(ReadWriteable, Generator):
             'n': Form(st.n.copy(), degree=1, lattice=L),
             'Theta_Theta': H_pair.reshape(tuple(L.dims)) / (V * self.fugacity**2),
             'Vacuum_Ticks': float(vacuum),
+            'Ticks': float(ticks),
             'Four_Defect': H_four / self.fugacity**4,
             'Pair_Excursions': float(st.tstate[1] - exc0),
             'Max_Pair_RSq': float(st.tstate[2]),
