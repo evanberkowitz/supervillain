@@ -476,6 +476,9 @@ A tuned fugacity that must fall like $1/V$, and a pair-sector dwell spreading fl
    :members:
    :show-inheritance:
 
+.. autoclass:: supervillain.generator.no_intersection.DefectGasFugacityTuner
+   :members:
+
 We can build a derived quantity from the defect gas's dwell ratios to compute the intersection susceptibility $\chi_\theta$. The pair-sector dwell rides along as the :class:`~.DefectGas`'s inline observable ``Theta_Theta``, while the defect-free dwell is measured by the inline observable ``Vacuum_Ticks``, from which $\Theta$ :eq:`theta-defect-correlator` is the ratio of ensemble means.
 
 
@@ -545,9 +548,9 @@ scaling dimensions are unknown.
 Two practical notes.  All fugacity prices divide out, so $U$ is $\zeta$-independent ---
 the same free exactness test as for $\Theta$ --- but the *statistics* are not: the
 quartic-sector dwell scales like $\zeta^4$, so the Binder cumulant measurement wants the
-*largest healthy* fugacity (exactly what :meth:`~supervillain.generator.no_intersection.DefectGas.tune`
+*largest healthy* fugacity (exactly what :meth:`~supervillain.generator.no_intersection.DefectGasFugacityTuner.tune_edge`
 selects), and an under-visited quartic sector shows up as impossible values ($U < 1$
-violates Cauchy--Schwarz) with underestimated jackknife errors --- loud, like every
+violates Cauchy--Schwarz) with underestimated :class:`~.Bootstrap` errors --- loud, like every
 other failure mode of this sampler.
 
 .. autoclass:: supervillain.observable.Theta_Theta
