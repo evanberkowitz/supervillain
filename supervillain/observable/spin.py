@@ -1,5 +1,5 @@
 import numpy as np
-from supervillain.observable import Scalar, Observable, DerivedQuantity
+from supervillain.observable import Scalar, Observable, DerivedQuantity, OnlyVillain
 import supervillain.action
 
 class Spin_Spin(Observable):
@@ -302,6 +302,68 @@ class SpinSusceptibilityScaled(SpinSusceptibility):
         L = S.Lattice
         # NOTE: implicitly assumes that the lattice is square!
         return SpinSusceptibility / L.N**(L.D-2*Spin_Spin.CriticalScalingDimension(S))
+
+class SpinMagnetizationSquared(OnlyVillain, Scalar, Observable):
+    r'''
+    The squared modulus of the volume-averaged spin,
+
+    .. math::
+        \texttt{SpinMagnetizationSquared} = |m|^2
+        \qquad
+        m = \frac{1}{\Lambda} \sum_x e^{i\phi_x},
+
+    measured configuration by configuration.  The global $O(2)$ symmetry
+    $\phi \rightarrow \phi + c$ guarantees $\langle m \rangle = 0$ on the torus, so no
+    disconnected subtraction arises; $\Lambda \left\langle \left|m\right|^2 \right\rangle$ is the (finite-volume)
+    spin susceptibility, equal in expectation to the :class:`~.SpinSusceptibility`
+    computed from the :class:`~.Spin_Spin` correlator.
+
+    Only implemented in the :class:`~.Villain` formulation, where $\phi$ is part of the field content.
+    '''
+
+    @staticmethod
+    def Villain(S, phi):
+        m = np.exp(1.j * phi[0]).mean()
+        return np.abs(m)**2
+
+class SpinMagnetizationQuartic(OnlyVillain, Scalar, Observable):
+    r'''
+    The fourth power of the modulus of the volume-averaged spin,
+
+    .. math::
+        \texttt{SpinMagnetizationQuartic} = |m|^4
+        \qquad
+        m = \frac{1}{\Lambda} \sum_x e^{i\phi_x},
+
+    measured configuration by configuration; the quartic moment needed for the
+    :class:`~.SpinBinderCumulant`.
+
+    Only implemented in the :class:`~.Villain` formulation, where $\phi$ is part of the field content.
+    '''
+
+    @staticmethod
+    def Villain(S, phi):
+        m = np.exp(1.j * phi[0]).mean()
+        return np.abs(m)**4
+
+class SpinBinderCumulant(DerivedQuantity):
+    r'''
+    The Binder ratio of the spin order parameter $m = \frac{1}{\Lambda}\sum_x e^{i\phi_x}$,
+
+    .. math::
+        \texttt{SpinBinderCumulant} = U =
+        \frac{\left\langle |m|^4 \right\rangle}{\left\langle |m|^2 \right\rangle^2},
+
+    the same convention as the :class:`~.ThetaBinderCumulant`: a dimensionless,
+    exponent-free diagnostic with $U \to 2$ (complex Gaussian) deep in the symmetric
+    phase and $U \to 1$ in the spin-ordered phase, so that curves of $U(\kappa; L)$ at
+    different volumes cross at a critical point without knowledge of any scaling
+    dimension.
+    '''
+
+    @staticmethod
+    def default(S, SpinMagnetizationSquared, SpinMagnetizationQuartic):
+        return SpinMagnetizationQuartic / SpinMagnetizationSquared**2
 
 class SpinCriticalMoment(DerivedQuantity):
     r'''

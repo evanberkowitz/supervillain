@@ -152,6 +152,18 @@ Spin Correlations
    :members:
    :show-inheritance:
 
+.. autoclass :: supervillain.observable.SpinMagnetizationSquared
+   :members:
+   :show-inheritance:
+
+.. autoclass :: supervillain.observable.SpinMagnetizationQuartic
+   :members:
+   :show-inheritance:
+
+.. autoclass :: supervillain.observable.SpinBinderCumulant
+   :members:
+   :show-inheritance:
+
 ===================
 Vortex Correlations
 ===================
