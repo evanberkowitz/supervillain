@@ -188,8 +188,9 @@ class FourDefectDistribution(Observable):
 
 class FourDefects(Observable):
     r"""
-    The two-pair-sector dwell weighted by the ordered-assignment multiplicities of the
-    four $D = 4$ classes,
+    Tallies the two-pair sector dwell weighted by the ordered-assignment multiplicities
+    of the four $D = 4$ classes in ``FourDefectDistribution`` that is produced as one of the :class:`~.DefectGas`
+    :meth:`~supervillain.generator.no_intersection.DefectGas.inline_observables`,
 
     .. math ::
 

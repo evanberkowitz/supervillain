@@ -57,13 +57,13 @@ class DefectGas(ReadWriteable, Generator):
 
     In a spirit similar to the worms, we can read off defect correlation functions by
     tallying the state of the chain after every proposal.
-    Each positive defect amounts to an insertion of $e^{+i\theta}$ and each negative defect amounts to an insertion of $e^{-i\theta}$; for more details see :meth:`~.defect_gas.inline_observables`.
+    Each positive defect amounts to an insertion of $e^{+i\theta}$ and each negative defect amounts to an insertion of $e^{-i\theta}$; for more details see :meth:`~supervillain.generator.no_intersection.DefectGas.inline_observables`.
 
     .. danger ::
 
         However, the fugacity $0 < \zeta < 1$ must be handled with care.
         Too large and the defects will proliferate and never return to the vacuum sector.
-        Too small the the defects will become exceedingly rare and the samples will not explore the full grand-canonical ensemble.
+        Too small and the defects will become exceedingly rare and the samples will not explore the full grand-canonical ensemble.
 
         In other words, the limit $\zeta\to 1$ is the unconstrained theory while $\zeta\to 0$ restricts to defect-free configurations.
         
@@ -308,16 +308,17 @@ class DefectGas(ReadWriteable, Generator):
         whose ratio give the :class:`~.Intersection_Intersection` correlator $\Theta$.
 
         ``Ticks`` counts the total number of proposals the step consumed, so the step's vacuum
-        dwell is ``Vacuum_Ticks / Ticks`` 
+        dwell is ``Vacuum_Ticks / Ticks``.
 
-        ``FourDefectDistribution`` is the :class:`~supervillain.generator.no_intersection.DefectGas`'s per-step dwell in
-        the four $D = 4$ sector classes, scaled by the known fugacity price $1/\zeta^{4}$
-        index 0 counts $\{+1,+1,-1,-1\}$ (four distinct hypercubes), 1 counts $\{+2,-1,-1\}$, 2 counts $\{+1,+1,-2\}$, and 3 counts $\{+2,-2\}$.
+        The ``FourDefectDistribution`` (see :class:`~.FourDefects` and its derivation) is the :class:`~supervillain.generator.no_intersection.DefectGas`'s per-step dwell in
+        the four $D = 4$ sector classes, scaled by the known fugacity price $1/\zeta^{4}$.
+        Index 0 counts all the charges being on four distinct hypercubes,
+        index 1 counts there being a $+2$ charge and two distinct $-1$ charges,
+        index 2 counts there being two distinct $+1$ charges and a $-2$ charge, and
+        index 3 counts there being both a $+2$ and a $-2$ charge.
 
         Physical observables probably should consume the
-        multiplicity-weighted combination :class:`~.FourDefects` instead.
-
- 
+        multiplicity-weighted combination :class:`~.FourDefects`.
 
         .. note ::
 
@@ -332,11 +333,10 @@ class DefectGas(ReadWriteable, Generator):
             :class:`~.IntersectionSusceptibility` does) from there rather than patching
             the raw histogram.
 
-
         Per step these ride along with ``Pair_Excursions``,
         ``Max_Pair_RSq``, and ``Excursion_Lengths``.
 
-        Returns initialized :class:`~supervillain.batch.Batch` storage for each.
+        Returns initialized :class:`~supervillain.batch.Batch` storage for each; counters are integers but ``Theta_Theta`` and ``FourDefectDistribution`` are floats because they are scaled by powers of the fugacity.
         """
         return {
             'Theta_Theta': Batch(steps, shape=self.L.dims),
