@@ -79,6 +79,27 @@ class Intersection_Intersection_Normalized(DerivedQuantity):
     def default(S, Intersection_Intersection):
         return Intersection_Intersection / Intersection_Intersection[S.Lattice.origin]
 
+class IntersectionSusceptibility(DerivedQuantity):
+    r"""
+    The *intersection susceptibility* is the spacetime integral of the
+    absolutely-normalized intersection correlator,
+
+    .. math ::
+
+        \texttt{IntersectionSusceptibility} = \chi_\theta = \int d^Dr\; \Theta(r)
+        = \sum_{\Delta x} \Theta_{\Delta x},
+
+    a plain sum over :class:`~.Intersection_Intersection_Normalized`.  
+
+    When the $\theta$ correlations are short-ranged, $\chi_\theta$ approaches a
+    constant in the thermodynamic limit.  If there is $\theta$ long-range order
+    it instead grows with the volume.
+    """
+
+    @staticmethod
+    def default(S, Intersection_Intersection_Normalized):
+        return np.sum(Intersection_Intersection_Normalized.real)
+
 
 class Theta_Theta(Observable):
     r"""
@@ -94,7 +115,7 @@ class Theta_Theta(Observable):
 
     .. seealso ::
 
-        The inline :class:`~supervillain.generator.no_intersection.DefectGas` observable is :meth:`~supervillain.generator.no_intersection.DefectGas.inline_observables`.
+        This is one of the :class:`~.DefectGas` :meth:`~supervillain.generator.no_intersection.DefectGas.inline_observables`.
     """
 
 
@@ -104,7 +125,9 @@ class Vacuum_Ticks(Observable):
     per step: how many of the step's Monte-Carlo clock ticks sat at $q \equiv 0$.  The
     denominator of the sector-dwell estimator (see :class:`~.Theta_Theta`).
 
-    Produced inline by the :class:`~supervillain.generator.no_intersection.DefectGas` only.
+    .. seealso ::
+
+        This is one of the :class:`~.DefectGas` :meth:`~supervillain.generator.no_intersection.DefectGas.inline_observables`.
     """
 
 
@@ -144,49 +167,43 @@ class Excursion_Lengths(Observable):
     """
 
 
-class IntersectionSusceptibility(DerivedQuantity):
-    r"""
-    The *intersection susceptibility* is the spacetime integral of the
-    absolutely-normalized intersection correlator,
 
-    .. math ::
-
-        \texttt{IntersectionSusceptibility} = \chi_\theta = \int d^Dr\; \Theta(r)
-        = \sum_{\Delta x} \Theta_{\Delta x},
-
-    a plain sum over :class:`~.Intersection_Intersection_Normalized`, whose origin bin
-    carries the identically-unit contact term $\Theta_0 = 1$ (see :class:`~.Theta_Theta`
-    for why the raw histogram's origin is empty).  
-
-    When the $\theta$ correlations are short-ranged, $\chi_\theta$ approaches a
-    **constant** in the thermodynamic limit.  $\theta$ long-range order --- the defect
-    condensate conjugate to the no-intersection constraint, one way the mixed anomaly
-    could be matched --- instead makes it **grow with the volume**,
-    $\chi_\theta \sim \left|\left\langle e^{i\theta} \right\rangle\right|^2 V$,
-    so the volume dependence of $\chi_\theta$ is a clean order-parameter diagnostic
-    even though $\left\langle e^{i\theta} \right\rangle$ itself vanishes identically
-    on the torus.
-
-    Requires the inline observables of the
-    :class:`~supervillain.generator.no_intersection.DefectGas`.
-    """
-
-    @staticmethod
-    def default(S, Intersection_Intersection_Normalized):
-        return np.sum(Intersection_Intersection_Normalized.real)
-
-
-class Four_Defect(Observable):
+class FourDefectDistribution(Observable):
     r"""
     The :class:`~supervillain.generator.no_intersection.DefectGas`'s per-step dwell in
-    the four $D = 4$ sector classes, scaled by the known fugacity price $1/\zeta^{4}$:
+    the four $D = 4$ sector classes, scaled by the known fugacity price $1/\zeta^{4}$
+    (only the generator knows $\zeta$, so the price must be divided out at emission):
     index 0 counts $\{+1,+1,-1,-1\}$ (four distinct hypercubes), 1 counts
-    $\{+2,-1,-1\}$, 2 counts $\{+1,+1,-2\}$, and 3 counts $\{+2,-2\}$.  The raw
-    material of the fourth moment of the $\theta$-shift order parameter (see
-    :class:`~.ThetaBinderCumulant`).
+    $\{+2,-1,-1\}$, 2 counts $\{+1,+1,-2\}$, and 3 counts $\{+2,-2\}$.
+
+    The class-resolved bins are what is stored because inline quantities cannot be
+    re-measured from stored configurations, and because a class whose bin is
+    identically zero across an ensemble was never *visited* --- a censored stratum,
+    not a measurement of zero.  Physics quantities should consume the
+    multiplicity-weighted combination :class:`~.FourDefects` instead.
 
     Produced inline by the :class:`~supervillain.generator.no_intersection.DefectGas` only.
     """
+
+
+class FourDefects(Observable):
+    r"""
+    The two-pair-sector dwell weighted by the ordered-assignment multiplicities of the
+    four $D = 4$ classes,
+
+    .. math ::
+
+        \texttt{FourDefects} = (4, 2, 2, 1) \cdot \texttt{FourDefectDistribution},
+
+    so that its ensemble mean divided by that of :class:`~.Vacuum_Ticks` is the
+    two-pair-sector contribution to the fourth moment
+    $\left\langle \left|M\right|^{4} \right\rangle$ of the $\theta$-shift order
+    parameter (see :class:`~.ThetaBinderCumulant`).
+    """
+
+    @staticmethod
+    def default(S, FourDefectDistribution):
+        return np.array([4., 2., 2., 1.]) @ FourDefectDistribution.real
 
 
 class ThetaBinderCumulant(DerivedQuantity):
@@ -205,45 +222,12 @@ class ThetaBinderCumulant(DerivedQuantity):
     at different volumes cross at a critical point without knowledge of any scaling
     dimension.
 
-    Both moments reduce to sector dwell.  With $\Theta(0) = 1$ identically and
-    $S_{1} = \sum_{r \neq 0} \Theta(r) =
-    \overline{\texttt{Theta\_Theta}}\,\Sigma / \overline{\texttt{Vacuum\_Ticks}}$,
-
-    .. math ::
-
-        \left\langle \left|M\right|^{2} \right\rangle = V (1 + S_{1}).
-
-    For the fourth moment, classify the ordered insertion 4-tuples
-    $(x_{1}, x_{2}; y_{1}, y_{2})$ by their net charge pattern: vacuum patterns
-    contribute the contact combinatorics $2V^{2} - V$; single-pair patterns contribute
-    $4(V-1)\, V\, S_{1}$ (a multiset count: $\{x_{1}, x_{2}, b\} = \{y_{1}, y_{2}, a\}$
-    has $4(V-1)$ ordered solutions per $(a, b)$); and the genuine two-pair sectors enter
-    with ordered multiplicities $4, 2, 2, 1$ for the classes
-    $\{+1,+1,-1,-1\}$, $\{+2,-1,-1\}$, $\{+1,+1,-2\}$, $\{+2,-2\}$ counted by
-    :class:`~.Four_Defect`:
-
-    .. math ::
-
-        \left\langle \left|M\right|^{4} \right\rangle
-        = (2V^{2} - V) + 4(V-1)\, V\, S_{1}
-        + \frac{\overline{(4, 2, 2, 1) \cdot \texttt{Four\_Defect}}}
-               {\overline{\texttt{Vacuum\_Ticks}}}.
-
-    Checks: at $V = 1$ the formula returns $1$ exactly; deep in the symmetric phase the
-    contact term alone gives $U = 2 - 1/V$; and $U$ is independent of the fugacity $\zeta$ (all
-    fugacity prices are divided back out), so runs at two fugacities test the
-    implementation end to end.  Note $\langle M \rangle = \langle M^{2} \rangle = 0$
-    exactly on the torus (charge neutrality), so no disconnected subtractions arise.
-
-    Requires the inline observables of the
-    :class:`~supervillain.generator.no_intersection.DefectGas`.
-    """
+   """
 
     @staticmethod
-    def default(S, Theta_Theta, Vacuum_Ticks, Four_Defect):
+    def default(S, Theta_Theta, Vacuum_Ticks, FourDefects):
         V = int(np.prod(S.Lattice.dims))
         S1 = np.sum(Theta_Theta.real) / Vacuum_Ticks
         M2 = V * (1 + S1)
-        M4 = (2 * V**2 - V) + 4 * (V - 1) * V * S1 \
-            + np.sum(np.array([4., 2., 2., 1.]) * Four_Defect.real) / Vacuum_Ticks
+        M4 = (2 * V**2 - V) + 4 * (V - 1) * V * S1 + FourDefects / Vacuum_Ticks
         return M4 / M2**2

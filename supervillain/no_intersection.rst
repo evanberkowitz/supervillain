@@ -144,6 +144,7 @@ and that we may directly path-integrate out the Lagrange multiplier $\theta$ in 
 The two-point function of the charge-insertion operator $e^{i\theta}$ 
 
 .. math ::
+   :label: defect correlator
 
    \Theta_{x,y} = \left\langle e^{i(\theta_x - \theta_y)} \right\rangle
 
@@ -176,7 +177,7 @@ To insert a worm we drop the head and tail on the same randomly-chosen hypercube
 Moving the head then means changing $q$ on both the departure and destination cells---restoring the constraint at the former and breaking it at the latter---which, as described above, requires a coordinated three-link change of $n$ that extends the dragged sheet of $F = dn$.
 Each such move changes the Villain action and so is Metropolis-tested; when the head returns to the tail we may emit the configuration back into the $Z$ chain.
 
-Notice that
+Notice that the defect correlator :eq:`defect correlator` is equal to
 
 .. math ::
    :name: theta worm histogram
@@ -432,7 +433,7 @@ Ergodicity, which every constrained move set above had to argue for case by case
 What does this buy us physically?  Recall :ref:`the worm's shifted constraint <theta worm constraint>`: inserting $e^{i(\theta_x - \theta_y)}$ demands $q = \delta_x - \delta_y$.
 The worm's $G$ ensemble is the *two*-defect sector of $\Pi$, carrying weight $\zeta^2$ --- one factor of the fugacity $\zeta$ per insertion of the charge operator $e^{\pm i\theta}$, which is exactly the sense in which $\Pi$ is the *grand-canonical* worm ensemble: it sums over any number of worms in flight, with fugacity $\zeta$ per endpoint.
 The correlator is then read off by pure bookkeeping.
-Tally, after every proposal, which sector the chain sits in.  The two-point defect correlator is the ratio of the time spent in the single-pair sector to the time spent in the vacuum,
+Tally, after every proposal, which sector the chain sits in.  The two-point defect correlator :eq:`defect correlator` is the ratio of the time spent in the single-pair sector to the time spent in the vacuum,
 
 .. math ::
    :label: theta-defect-correlator
@@ -503,34 +504,153 @@ The intersection susceptibility is then the sum of the correlator over all separ
    :members:
    :show-inheritance:
 
+.. autoclass:: supervillain.observable.IntersectionSusceptibility
+   :members:
+   :show-inheritance:
 
 
-Order diagnostics from sector dwell
-===================================
+Beyond the $\Theta$ correlator, the defect gas can yield quantities with some
+simple bookkeeping.  If we are interested in studying a transition that involves
+$U(1)_\theta$ symmetry breaking we might be interested in the Binder cumulant,
+which is the fourth moment of the order parameter divided by the square of the second moment.
 
-Because the defect gas measures $\Theta$ with *absolute* normalization, quantities
-that were previously out of reach become simple bookkeeping.  The order parameter of the
-$\theta$-shift symmetry is $M = \sum_x e^{i\theta_x}$, and on the torus
-$\langle M \rangle = \langle M^2 \rangle = 0$ *exactly* (total charge vanishes for
-every configuration), so its even moments carry all the information and never need
-disconnected subtractions.
+.. autoclass:: supervillain.observable.ThetaBinderCumulant
+   :members:
+   :show-inheritance:
 
-The second moment is the **intersection susceptibility**,
+Both moments reduce to sector dwell.  We've already seen how to get the two-point function by tallying the time the defect gas spends in the single-pair sector. 
+
+For the fourth moment
+
+.. math::
+   :label: fourth moment theta
+
+   |M|^4 = \sum_{x_1x_2y_1y_2} e^{i(\theta_{x_1} + \theta_{x_2} - \theta_{y_1} - \theta_{y_2})}
+
+and we need to understand what this looks like in the defect gas.
+Despite obviously including 4 insertions, if those insertions coincide at a single hypercube the charge can cancel and we need to account for some time spent in sectors with less charge.
+
+We can evaluate $\langle \left|M\right|^4 \rangle_Z$ by counting the time the defect gas spends in each sector and dividing out the fugacity $\zeta$ of the insertions.  
+But unlike the second moment, there are complications because of the possibility of cancellations and double-counting.
+These are akin to the :class:`~.Theta_Theta` observable not explicitly having its origin bin as 1.
+
+
+.. math::
+
+   \langle |M|^4 \rangle_Z = \frac{\sum_{x_1x_2y_1y_2} \left\langle \prod_h [q_h = \delta_{x_1h} + \delta_{x_2h} - \delta_{y_1h} - \delta_{y_2h}] \right\rangle_\Pi}{\zeta^4 \left\langle \prod_h [q_h = 0] \right\rangle_\Pi},
+
+.. collapse:: We can understand and count the four-point sectors.
+   :class: note
+
+   Let's imagine expanding the sum :eq:`fourth moment theta`.
+   Depending the values of $x_1, x_2, y_1, y_2$ we may have some charge cancellation.
+
+   First, if $x_1 = y_1$ and $x_2 = y_2$ we have no net charge.
+   But also, if $x_1 = y_2$ and $x_2 = y_1$ we have no net charge.
+   Therefore $|M|^4$ contains a $2V^2$ term.
+   But this overcounts the case where all four insertions coincide at a single hypercube, so that we should subtract $V$.
+
+   Next let's count the 1-pair sector.
+   There are
+   $V(V-1)$ ways to pick $x_1 \neq x_2 = y_1 = y_2$,
+   $V(V-1)$ ways to pick $x_2 \neq x_1 = y_1 = y_2$,
+   $V(V-1)$ ways to pick $y_1 \neq x_1 = x_2 = y_2$, and
+   $V(V-1)$ ways to pick $y_2 \neq x_1 = x_2 = y_1$.
+   This gives $4V(V-1)$ ways to create the same arrangement of one pair of charges in the sum.
+
+   Two-pair patterns are everything left in the sum :eq:`fourth moment theta`.  The
+   multiplicity is the number of ordered assignments for a charge placement; a $+2$ forces
+   $x_1 = x_2$ and eats a factor of $2$, for example
+
+    .. list-table::
+        :header-rows: 1
+
+        * - class
+          - net charges
+          - ordered assignments
+        * - $\{+1, +1, -1, -1\}$
+          - four distinct hypercubes
+          - $2 \times 2 = 4$
+        * - $\{+2, -1, -1\}$
+          - $x_1 = x_2$
+          - $1 \times 2 = 2$
+        * - $\{+1, +1, -2\}$
+          - $y_1 = y_2$
+          - $2 \times 1 = 2$
+        * - $\{+2, -2\}$
+          - both $x_1 = x_2$ and $y_1 = y_2$
+          - $1 \times 1 = 1$
+
+The punchline is that we can express the fourth moment as a set of tallied histograms normalized by the fugacity $\zeta$ of the insertions and by the vacuum tally.
 
 .. math ::
 
-   \left\langle \left|M\right|^2 \right\rangle = V \chi_\theta,
+   \begin{aligned}
+      \langle |M|^4 \rangle_Z
+      =&
+      (2V^2 - V)
+      \nonumber\\
+      &+ 4(V-1) V \sum_{x\neq y} \frac{\left\langle \prod_h [q_h = \delta_{xh} - \delta_{yh}] \right\rangle_\Pi}{\zeta^2 \left\langle \prod_h [q_h = 0] \right\rangle_\Pi}
+      \nonumber\\
+      &+ \Bigg(
+         4 \sum_{x_1, x_2, y_1, y_2 \text{ all different}}
+         + 2 \sum_{x_1=x_2, y_1\neq y_2}
+         + 2 \sum_{x_1\neq x_2, y_1=y_2}
+         + 1 \sum_{x_1=x_2, y_1=y_2}
+         \Bigg)\Bigg[
+      \nonumber\\
+      &\quad\quad\quad \frac{\left\langle \prod_h [q_h = \delta_{x_1h} + \delta_{x_2h} - \delta_{y_1h} - \delta_{y_2h}] \right\rangle_\Pi}{\zeta^4 \left\langle \prod_h [q_h = 0] \right\rangle_\Pi} \Bigg]
+   \end{aligned}
+
+For the fourth moment, classify the ordered insertion 4-tuples
+$(x_{1}, x_{2}; y_{1}, y_{2})$ by their net charge pattern: vacuum patterns
+contribute the contact combinatorics $2V^{2} - V$; single-pair patterns contribute
+$4(V-1)\, V\, S_{1}$ (a multiset count: $\{x_{1}, x_{2}, b\} = \{y_{1}, y_{2}, a\}$
+has $4(V-1)$ ordered solutions per $(a, b)$); and the genuine two-pair sectors enter
+with ordered multiplicities $4, 2, 2, 1$ for the classes
+$\{+1,+1,-1,-1\}$, $\{+2,-1,-1\}$, $\{+1,+1,-2\}$, $\{+2,-2\}$ counted class by
+class by :class:`~.FourDefectDistribution` and combined with those multiplicities
+by :class:`~.FourDefects`:
+
+.. math ::
+
+   \left\langle \left|M\right|^{4} \right\rangle
+   = (2V^{2} - V) + 4(V-1)\, V\, S_{1}
+   + \frac{\overline{\texttt{FourDefects}}}
+         {\overline{\texttt{Vacuum\_Ticks}}}.
+
+Checks: at $V = 1$ the formula returns $1$ exactly; deep in the symmetric phase the
+contact term alone gives $U = 2 - 1/V$; and $U$ is independent of the fugacity $\zeta$ (all
+fugacity prices are divided back out), so runs at two fugacities test the
+implementation end to end.  Note $\langle M \rangle = \langle M^{2} \rangle = 0$
+exactly on the torus (charge neutrality), so no disconnected subtractions arise.
+
+The Binder cumulant
+$U = \langle\left|M\right|^4\rangle / \langle\left|M\right|^2\rangle^2$ then
+follows with no new normalization: $U \to 2 - 1/V$ exactly in the symmetric phase (the
+vacuum-pattern combinatorics reproduce the complex-Gaussian value --- a built-in check
+the implementation passes to six digits), $U \to 1$ in a $\theta$-ordered phase, and
+curves of $U(\kappa; L)$ at different volumes *cross at a critical point without
+knowledge of any scaling dimension* --- the exponent-free tool for a model whose
+scaling dimensions are unknown.
+
+
+The second moment is the given by the :class:`~.IntersectionSusceptibility` observable,
+
+.. math ::
+
+   \left\langle \left|M\right|^2 \right\rangle = \left\langle \left|\sum_h e^{i\theta_h}\right|^2 \right\rangle = V \chi_\theta,
    \qquad
-   \chi_\theta = \sum_{\Delta x} \Theta_{\Delta x},
+   \chi_\theta = \sum_{\Delta x} \Theta_{\Delta x}.
 
-a plain sum over the absolutely-normalized correlator.  Like every susceptibility it obeys the
-standard trichotomy: it goes to a *constant* in the thermodynamic limit when the
+Like every susceptibility it obeys the standard trichotomy:
+it goes to a *constant* in the thermodynamic limit when the
 $\theta$ correlations are short-ranged, grows like $L^{D - 2\Delta_\theta}$ at a
-critical point (only if $e^{i\theta}$ is light, $\Delta_\theta < D/2$), and grows like
-$\left|\langle e^{i\theta}\rangle\right|^2 V$ if the defects condense --- so its
-*volume trend*, not its value, is the order diagnostic.
+critical point, and grows like $\left|\langle e^{i\theta}\rangle\right|^2 V$
+if the defects condense --- so its behavior as the volume gets large reveals the ordering.
 
-The fourth moment needs the $D = 4$ sectors, and this is where the gas's bookkeeping
+The fourth moment requires two defect pairs, and this is where the :class:`~.DefectGas`'s
+grand-canonical formulation really shines.
 shines: classify each ordered insertion 4-tuple $(x_1, x_2; y_1, y_2)$ of
 $\left|M\right|^4$ by its *net* charge pattern.  Vacuum patterns contribute pure
 combinatorics; single-pair patterns reduce to $\Theta$; and only the genuine two-pair
@@ -627,9 +747,9 @@ built from the same $\chi_\theta$ as the second moment.
           - both
           - $1 \times 1 = 1$
 
-    The chain performs the placement sums itself --- ``Four_Defect`` tallies each
-    class's dwell over *all* placements --- which is why no explicit factors of $V$
-    multiply the two-pair term.
+    The chain performs the placement sums itself --- ``FourDefectDistribution``
+    tallies each class's dwell over *all* placements --- which is why no explicit
+    factors of $V$ multiply the two-pair term.
 
     **Two checks.**  Freezing $\theta$ (every $Z$-ratio $\to 1$, so $M = V$ exactly and
     $\chi_\theta = V$) must give $V^4$; with the class placement counts
@@ -652,15 +772,6 @@ built from the same $\chi_\theta$ as the second moment.
     $\theta$ order ($U \to 1$) --- and the ratio never manufactures the
     one-part-in-$V$ cancellation that measuring the cumulant directly would require.
 
-The **Binder cumulant**
-$U = \langle\left|M\right|^4\rangle / \langle\left|M\right|^2\rangle^2$ then
-follows with no new normalization: $U \to 2 - 1/V$ exactly in the symmetric phase (the
-vacuum-pattern combinatorics reproduce the complex-Gaussian value --- a built-in check
-the implementation passes to six digits), $U \to 1$ in a $\theta$-ordered phase, and
-curves of $U(\kappa; L)$ at different volumes *cross at a critical point without
-knowledge of any scaling dimension* --- the exponent-free tool for a model whose
-scaling dimensions are unknown.
-
 Two practical notes.  All fugacity prices divide out, so $U$ is $\zeta$-independent ---
 the same free exactness test as for $\Theta$ --- but the *statistics* are not: the
 quartic-sector dwell scales like $\zeta^4$, so the Binder cumulant measurement wants the
@@ -669,15 +780,11 @@ selects), and an under-visited quartic sector shows up as impossible values ($U 
 violates Cauchy--Schwarz) with underestimated :class:`~.Bootstrap` errors --- loud, like every
 other failure mode of this sampler.
 
-.. autoclass:: supervillain.observable.IntersectionSusceptibility
+.. autoclass:: supervillain.observable.FourDefectDistribution
    :members:
    :show-inheritance:
 
-.. autoclass:: supervillain.observable.Four_Defect
-   :members:
-   :show-inheritance:
-
-.. autoclass:: supervillain.observable.ThetaBinderCumulant
+.. autoclass:: supervillain.observable.FourDefects
    :members:
    :show-inheritance:
 

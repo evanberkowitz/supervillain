@@ -326,7 +326,7 @@ class DefectGas(ReadWriteable, Generator):
             the raw histogram.
 
 
-        Per step these ride along with ``Four_Defect``, ``Pair_Excursions``,
+        Per step these ride along with ``FourDefectDistribution``, ``Pair_Excursions``,
         ``Max_Pair_RSq``, and ``Excursion_Lengths``.  On an ensemble, the correlator
         is the ratio of means ``Theta_Theta / Vacuum_Ticks`` (use
         :class:`~supervillain.analysis.Bootstrap` for errors).
@@ -337,7 +337,7 @@ class DefectGas(ReadWriteable, Generator):
             'Theta_Theta': Batch(steps, shape=self.L.dims),
             'Vacuum_Ticks': Batch(steps, shape=(), dtype=float),
             'Ticks': Batch(steps, shape=(), dtype=float),
-            'Four_Defect': Batch(steps, shape=(4,), dtype=float),
+            'FourDefectDistribution': Batch(steps, shape=(4,), dtype=float),
             'Pair_Excursions': Batch(steps, shape=(), dtype=float),
             'Max_Pair_RSq': Batch(steps, shape=(), dtype=float),
             'Excursion_Lengths': Batch(steps, shape=(32,), dtype=float),
@@ -403,7 +403,7 @@ class DefectGas(ReadWriteable, Generator):
             'Theta_Theta': H_pair.reshape(tuple(L.dims)) / (V * self.fugacity**2),
             'Vacuum_Ticks': float(vacuum),
             'Ticks': float(ticks),
-            'Four_Defect': H_four / self.fugacity**4,
+            'FourDefectDistribution': H_four / self.fugacity**4,
             'Pair_Excursions': float(st.tstate[1] - exc0),
             'Max_Pair_RSq': float(st.tstate[2]),
             'Excursion_Lengths': (st.exc_hist - hist0).astype(float),

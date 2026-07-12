@@ -46,8 +46,8 @@ def test_step_matches_reference_quartic_sector():
         b = slow.step_reference(b)
         assert np.array_equal(np.asarray(a['n']), np.asarray(b['n']))
         assert np.array_equal(a['Theta_Theta'], b['Theta_Theta'])
-        assert np.array_equal(a['Four_Defect'], b['Four_Defect'])
-        four += a['Four_Defect'].sum()
+        assert np.array_equal(a['FourDefectDistribution'], b['FourDefectDistribution'])
+        four += a['FourDefectDistribution'].sum()
     assert fast.proposed == slow.proposed
     assert fast.accepted == slow.accepted
     assert four > 0                             # quartic sector actually visited
@@ -84,7 +84,7 @@ def test_step_matches_reference():
         assert np.array_equal(np.asarray(cfg_f['n']), np.asarray(cfg_s['n']))
         assert np.array_equal(cfg_f['Theta_Theta'], cfg_s['Theta_Theta'])
         assert cfg_f['Vacuum_Ticks'] == cfg_s['Vacuum_Ticks']
-        assert np.array_equal(cfg_f['Four_Defect'], cfg_s['Four_Defect'])
+        assert np.array_equal(cfg_f['FourDefectDistribution'], cfg_s['FourDefectDistribution'])
         assert cfg_f['Pair_Excursions'] == cfg_s['Pair_Excursions']
         assert cfg_f['Max_Pair_RSq'] == cfg_s['Max_Pair_RSq']
         assert np.array_equal(cfg_f['Excursion_Lengths'], cfg_s['Excursion_Lengths'])
@@ -116,7 +116,7 @@ def test_paths_interleave():
         b = pure.step_reference(b)
         assert np.array_equal(np.asarray(a['n']), np.asarray(b['n']))
         assert np.array_equal(a['Theta_Theta'], b['Theta_Theta'])
-        assert np.array_equal(a['Four_Defect'], b['Four_Defect'])
+        assert np.array_equal(a['FourDefectDistribution'], b['FourDefectDistribution'])
 
     assert mixed.proposed == pure.proposed
     assert mixed.accepted == pure.accepted
