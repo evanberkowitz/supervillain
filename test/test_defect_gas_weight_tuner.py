@@ -88,3 +88,34 @@ def test_generator_produces():
     vac, ticks = np.asarray(e.Vacuum_Ticks), np.asarray(e.Ticks)
     assert np.all(vac > 0) and np.all(ticks >= vac)
     assert np.asarray(e.SectorTicks).sum() == ticks.sum()
+
+
+def test_w_independence():
+    # The estimator is w-independent: tables differing 2x in the PAIR sector (the
+    # exactness-critical rung -- Theta_Theta divides its tallies by w[1]) must agree
+    # on the near correlator.  kappa = 0.2 and light deep sectors keep the vacuum
+    # stable over the whole run (at kappa = 0.05 every table eventually nucleates
+    # out of the metastable vacuum -- the physics this machinery exists for).
+    # Ratio-of-sums with blocked jackknife errors; statistical but seeded, 5 sigma.
+    import supervillain.generator.villain as villain
+
+    S = _action(kappa=0.2)
+    tables = ([1.0, 0.09, 8e-4, 8e-6, 8e-8],
+              [1.0, 0.045, 8e-4, 8e-6, 8e-8])
+    results = []
+    for seed, w in enumerate(tables):
+        gas = DefectGas(S, weights=w, emit_every=200,
+                        rng=np.random.default_rng(100 + seed))
+        chain = Sequentially((villain.SiteUpdate(S), gas))
+        e = supervillain.Ensemble(S).generate(400, chain)
+        T = np.asarray(e.Theta_Theta).real[:, 1, 0, 0, 0]
+        V = np.asarray(e.Vacuum_Ticks).astype(float)
+        B = 20
+        n = len(T) // B
+        Tb = T[:B * n].reshape(B, n).sum(axis=1)
+        Vb = V[:B * n].reshape(B, n).sum(axis=1)
+        jk = np.array([(Tb.sum() - Tb[b]) / (Vb.sum() - Vb[b]) for b in range(B)])
+        results.append((Tb.sum() / Vb.sum(), np.sqrt((B - 1) * jk.var())))
+    (m1, e1), (m2, e2) = results
+    assert m1 > 0 and m2 > 0                          # actual signal, not 0 == 0
+    assert abs(m1 - m2) < 5 * np.hypot(e1, e2)
