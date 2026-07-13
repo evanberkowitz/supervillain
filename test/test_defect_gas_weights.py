@@ -131,3 +131,46 @@ def test_step_matches_reference_nongeometric_table():
     assert fast.accepted == slow.accepted
     assert fast.D_trace == slow.D_trace
     assert four > 0                     # the fat table populates the quartic sector
+
+
+def test_sector_ticks_and_round_trips():
+    # Every tick lands in exactly one sector; vacuum is sector 0; a round trip is a
+    # vacuum return after touching the top sector.  Both paths agree exactly.
+    S = _action()
+    w = (1.0, 0.04, 2.4e-3)                   # D_max = 4: a reachable top sector
+    fast, slow = _twins(S, seed=5, weights=w, emit_every=300)
+    phi, n = _cold(S)
+    a = {'phi': phi, 'n': n}
+    b = {'phi': phi, 'n': n}
+    trips = 0
+    for _ in range(3):
+        a = fast.step(a)
+        b = slow.step_reference(b)
+        assert np.array_equal(a['SectorTicks'], b['SectorTicks'])
+        assert a['RoundTrips'] == b['RoundTrips']
+        assert a['SectorTicks'].sum() == a['Ticks']
+        assert a['SectorTicks'][0] == a['Vacuum_Ticks']
+        trips += a['RoundTrips']
+    assert trips > 0                          # the chain shuttles to the top and back
+
+
+def test_uncapped_emits_no_sector_ticks():
+    S = _action()
+    g = DefectGas(S, fugacity=0.1, emit_every=100, rng=np.random.default_rng(43))
+    assert 'SectorTicks' not in g.inline_observables(2)
+    assert 'RoundTrips' not in g.inline_observables(2)
+    phi, n = _cold(S)
+    out = g.step({'phi': phi, 'n': n})
+    assert 'SectorTicks' not in out and 'RoundTrips' not in out
+
+
+def test_capped_geometric_emits_sector_ticks():
+    S = _action()
+    g = DefectGas(S, fugacity=0.1, D_max=8, emit_every=100,
+                  rng=np.random.default_rng(47))
+    obs = g.inline_observables(2)
+    assert 'SectorTicks' in obs and 'RoundTrips' in obs
+    phi, n = _cold(S)
+    out = g.step({'phi': phi, 'n': n})
+    assert out['SectorTicks'].shape == (5,)
+    assert out['SectorTicks'].sum() == out['Ticks']

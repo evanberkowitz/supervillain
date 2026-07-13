@@ -62,7 +62,7 @@ def tick_batch(F2, n2, dphi2, q, nzc, D, nnz,
                st_o, st_p, st_s, st_k, st_ptr,
                df_off, df_plane, df_val, df_ptr,
                H_pair, H_four, tally, vac_stop,
-               tstate, exc_hist):
+               tstate, exc_hist, t_sector):
     r"""
     Run the pre-drawn proposal batch from index ``i0`` to its end --- or until
     ``vac_stop`` vacuum ticks have been seen, if ``vac_stop > 0`` --- mutating the chain
@@ -86,7 +86,9 @@ def tick_batch(F2, n2, dphi2, q, nzc, D, nnz,
 
     Transport instrumentation (mutated in place, always on): ``tstate`` is
     ``[current excursion length in ticks, completed excursion count, max single-pair
-    min-image separation squared]``; ``exc_hist[b]`` counts completed excursions whose
+    min-image separation squared, touched-top-sector flag, round trips]`` (a round
+    trip is a vacuum return after visiting ``D == D_max`` since the previous vacuum
+    tick); ``exc_hist[b]`` counts completed excursions whose
     length had bit-length $b$ (power-of-two bins, top bin saturating).  An *excursion*
     is a maximal stretch of nonvacuum ticks; a zero-count far bin plus a small
     ``tstate[2]`` shows the run was transport-censored there, not that the dwell is
@@ -182,6 +184,9 @@ def tick_batch(F2, n2, dphi2, q, nzc, D, nnz,
                 acc += 1
         i += 1
         # ---- classify the sector at this tick (accepted or not), as in step_reference.
+        if t_sector.size > 0:
+            # Per-tick sector histogram (empty t_sector: not tallied).
+            t_sector[D // 2] += 1
         if D == 0:
             if tstate[0] > 0:
                 # Close the excursion: power-of-two length bin, top bin saturating.
@@ -195,11 +200,17 @@ def tick_batch(F2, n2, dphi2, q, nzc, D, nnz,
                 exc_hist[b] += 1
                 tstate[1] += 1
                 tstate[0] = 0
+            if tstate[3] == 1:
+                # A vacuum return after touching the top sector: one round trip.
+                tstate[4] += 1
+                tstate[3] = 0
             vac += 1
             if vac_stop > 0 and vac == vac_stop:
                 break
         else:
             tstate[0] += 1
+            if D_max >= 0 and D == D_max:
+                tstate[3] = 1
             if D == 2 and nnz == 2:
                 v1 = q[nzc[0]]
                 v2 = q[nzc[1]]

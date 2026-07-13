@@ -198,10 +198,11 @@ class DefectGas(ReadWriteable, Generator):
         st.nzc[:len(nz)] = nz
         st.nnz = int(len(nz))
         # Transport instrumentation, shared by both paths: [current excursion length,
-        # completed excursions, max single-pair min-image separation squared] and the
-        # power-of-two excursion-length histogram.  These turn empty far bins into
-        # honest transport-censoring statements instead of silent zeros.
-        st.tstate = np.zeros(3, dtype=np.int64)
+        # completed excursions, max single-pair min-image separation squared,
+        # touched-top-sector flag, round trips] and the power-of-two excursion-length
+        # histogram.  These turn empty far bins into honest transport-censoring
+        # statements instead of silent zeros.
+        st.tstate = np.zeros(5, dtype=np.int64)
         st.exc_hist = np.zeros(32, dtype=np.int64)
         st.dphi = np.ascontiguousarray(d(Form(st.phi, degree=0, lattice=L)))
         st.dphi2 = st.dphi.reshape(4, -1)
@@ -298,8 +299,14 @@ class DefectGas(ReadWriteable, Generator):
                 st.exc_hist[min(31, int(st.tstate[0]).bit_length())] += 1
                 st.tstate[1] += 1
                 st.tstate[0] = 0
+            if st.tstate[3] == 1:
+                # A vacuum return after touching the top sector: one round trip.
+                st.tstate[4] += 1
+                st.tstate[3] = 0
             return True, None, None
         st.tstate[0] += 1
+        if self.D_max is not None and st.D == self.D_max:
+            st.tstate[3] = 1
         if st.D == 2 and len(st.defects) == 2:
             # Exactly the worm's G-sector: a single ±1 pair.  (D == 2 alone is not
             # enough -- one cell with |q| = 2 also has D = 2.)
@@ -375,7 +382,7 @@ class DefectGas(ReadWriteable, Generator):
 
         Returns initialized :class:`~supervillain.batch.Batch` storage for each; counters are integers but ``Theta_Theta`` and ``FourDefectDistribution`` are floats because they are scaled by powers of the fugacity.
         """
-        return {
+        obs = {
             'Theta_Theta': Batch(steps, shape=self.L.dims),
             'Vacuum_Ticks': Batch(steps, shape=(), dtype=np.int64),
             'Ticks': Batch(steps, shape=(), dtype=np.int64),
@@ -384,8 +391,16 @@ class DefectGas(ReadWriteable, Generator):
             'Max_Pair_RSq': Batch(steps, shape=(), dtype=np.int64),
             'Excursion_Lengths': Batch(steps, shape=(32,), dtype=np.int64),
         }
+        if self.D_max is not None:
+            # Generator bookkeeping like Ticks: SectorTicks is the per-sector tick
+            # histogram (the weight tuner's input and the flat-histogram health
+            # check) and RoundTrips counts vacuum returns that touched the top
+            # sector since the previous vacuum tick.  No Observable class for either.
+            obs['SectorTicks'] = Batch(steps, shape=(self.D_max // 2 + 1,), dtype=np.int64)
+            obs['RoundTrips'] = Batch(steps, shape=(), dtype=np.int64)
+        return obs
 
-    def _kernel_ticks(self, st, tally, vac_stop, H_pair, H_four):
+    def _kernel_ticks(self, st, tally, vac_stop, H_pair, H_four, t_sector):
         # One compiled pass over the remainder of the current proposal batch (stopping
         # early at vac_stop vacuum ticks when positive); mutates the dense chain state
         # in place and returns the number of vacuum ticks seen.
@@ -396,7 +411,7 @@ class DefectGas(ReadWriteable, Generator):
             self.kappa, 0.0 if self.fugacity is None else self.fugacity, self.w,
             -1 if self.D_max is None else int(self.D_max), self.N,
             *defect_gas_kernel.stencil_pack(),
-            H_pair, H_four, tally, vac_stop, st.tstate, st.exc_hist)
+            H_pair, H_four, tally, vac_stop, st.tstate, st.exc_hist, t_sector)
         st.i = int(i)
         st.D = int(D)
         st.nnz = int(nnz)
@@ -419,6 +434,11 @@ class DefectGas(ReadWriteable, Generator):
             st = self._state = self._init_state(phi_in, n_in)
         H_pair = np.zeros(V, dtype=np.int64)
         H_four = np.zeros(4, dtype=np.int64)
+        # Per-tick sector histogram and round trips, emitted whenever the chain is
+        # capped (an empty t_sector switches the tally off in the tick loops).
+        K1 = 0 if self.D_max is None else self.D_max // 2 + 1
+        t_sector = np.zeros(K1, dtype=np.int64)
+        rt0 = int(st.tstate[4])
         # Per-step transport bookkeeping: the max separation resets each step; the
         # excursion count and length histogram are emitted as this step's increments.
         st.tstate[2] = 0
@@ -435,13 +455,13 @@ class DefectGas(ReadWriteable, Generator):
                     f'condensation).  Retune (DefectGasFugacityTuner or DefectGasWeightTuner), '
                     f'lighten the pricing, or note that a genuinely condensed theta phase '
                     f'requires per-pair weight ~ 1/V.')
-            v, t = ticker(st, self.emit_every - vacuum, H_pair, H_four)
+            v, t = ticker(st, self.emit_every - vacuum, H_pair, H_four, t_sector)
             vacuum += v
             ticks += t
         # Emit AT a vacuum tick: st.n is exactly valid here.
         # φ was frozen for the whole step, so it passes through unchanged; only n is
         # re-emitted (a copy, so the chain's working array stays private).
-        return configuration | {
+        out = configuration | {
             'n': Form(st.n.copy(), degree=1, lattice=L),
             'Theta_Theta': H_pair.reshape(tuple(L.dims)) / (V * self._w1),
             'Vacuum_Ticks': int(vacuum),
@@ -451,6 +471,10 @@ class DefectGas(ReadWriteable, Generator):
             'Max_Pair_RSq': int(st.tstate[2]),
             'Excursion_Lengths': st.exc_hist - hist0,
         }
+        if K1:
+            out['SectorTicks'] = t_sector
+            out['RoundTrips'] = int(st.tstate[4]) - rt0
+        return out
 
     def step(self, configuration):
         r"""
@@ -466,12 +490,12 @@ class DefectGas(ReadWriteable, Generator):
         consuming the same pre-drawn proposals as the pure-python
         :meth:`step_reference`, which it reproduces bit-for-bit.
         """
-        def ticker(st, vac_stop, H_pair, H_four):
+        def ticker(st, vac_stop, H_pair, H_four, t_sector):
             if st.i == st.n_links:
                 self.D_trace.append(st.D)
                 self._draw_batch(st)
             i0 = st.i
-            vac = self._kernel_ticks(st, True, vac_stop, H_pair, H_four)
+            vac = self._kernel_ticks(st, True, vac_stop, H_pair, H_four, t_sector)
             return vac, st.i - i0
         out = self._step_body(configuration, ticker)
         # Mirror the dense charge state back into the sparse dict so step_reference
@@ -490,8 +514,10 @@ class DefectGas(ReadWriteable, Generator):
         :meth:`step` is validated against --- same proposals, same accept test, same
         tallies, bit-for-bit.
         """
-        def ticker(st, vac_stop, H_pair, H_four):
+        def ticker(st, vac_stop, H_pair, H_four, t_sector):
             vac, disp, cls4 = self._tick(st)
+            if t_sector.size > 0:
+                t_sector[st.D // 2] += 1
             if vac:
                 return 1, 1
             if disp is not None:
