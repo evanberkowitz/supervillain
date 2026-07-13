@@ -58,7 +58,7 @@ def stencil_pack():
 @njit(cache=True)
 def tick_batch(F2, n2, dphi2, q, nzc, D, nnz,
                mus, sites, cs, us, i0,
-               kappa, fugacity, D_max, N,
+               kappa, fugacity, w, D_max, N,
                st_o, st_p, st_s, st_k, st_ptr,
                df_off, df_plane, df_val, df_ptr,
                H_pair, H_four, tally, vac_stop,
@@ -73,7 +73,8 @@ def tick_batch(F2, n2, dphi2, q, nzc, D, nnz,
     the raveled cells where ``q`` is nonzero (order arbitrary); ``dphi2`` is $d\phi$ as
     ``(4, N**4)``, read only.  ``D`` and ``nnz`` ride in and out as return values since
     scalars cannot be mutated.  The proposal arrays ``mus, sites, cs, us`` and the
-    accept test ``u < e^{-\Delta S} \zeta^{\Delta D}`` match
+    accept test --- ``u < e^{-\Delta S} \zeta^{\Delta D}``, or with a nonempty sector
+    table ``w`` instead ``u < e^{-\Delta S}\, w[(D+\Delta D)/2]/w[D/2]`` --- match
     :meth:`~.DefectGas.step_reference` exactly.
 
     Tallies: each tick lands in a sector --- vacuum ($D = 0$, counted toward the return
@@ -145,7 +146,14 @@ def tick_batch(F2, n2, dphi2, q, nzc, D, nnz,
             srav = ((x0 * N + x1) * N + x2) * N + x3
             A = dphi2[mu, srav] - 2 * np.pi * n2[mu, srav]
             dS = (kappa / 2) * ((A - 2 * np.pi * c) ** 2 - A ** 2)
-            if us[i] < np.exp(-dS) * fugacity ** np.float64(dD):
+            # Price the sector change: the table w[k], k = D/2, when present (its
+            # emptiness selects the geometric path, kept expression-identical so the
+            # fugacity chain reproduces bit-for-bit).
+            if w.size > 0:
+                ratio = w[(D + dD) // 2] / w[D // 2]
+            else:
+                ratio = fugacity ** np.float64(dD)
+            if us[i] < np.exp(-dS) * ratio:
                 n2[mu, srav] += c
                 for t in range(df_ptr[mu], df_ptr[mu + 1]):
                     w0 = (x0 + df_off[t, 0] + N) % N

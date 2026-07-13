@@ -258,7 +258,11 @@ class DefectGas(ReadWriteable, Generator):
             link = (mu,) + site
             A = st.dphi[link] - 2 * np.pi * st.n[link]
             dS = (self.kappa / 2) * ((A - 2 * np.pi * c)**2 - A**2)
-            if st.us[i] < np.exp(-dS) * self.fugacity**dD:
+            if self.w.size > 0:
+                ratio = self.w[(st.D + dD) // 2] / self.w[st.D // 2]
+            else:
+                ratio = self.fugacity**dD
+            if st.us[i] < np.exp(-dS) * ratio:
                 st.n[link] += c
                 local_charge.apply_link_to_F(st.F, mu, site, c, self.N)
                 N = self.N
@@ -389,7 +393,7 @@ class DefectGas(ReadWriteable, Generator):
         i, D, nnz, acc, vac = defect_gas_kernel.tick_batch(
             st.F2, st.n2, st.dphi2, st.q, st.nzc, st.D, st.nnz,
             st.mus, st.sites, st.cs, st.us, i0,
-            self.kappa, self.fugacity,
+            self.kappa, 0.0 if self.fugacity is None else self.fugacity, self.w,
             -1 if self.D_max is None else int(self.D_max), self.N,
             *defect_gas_kernel.stencil_pack(),
             H_pair, H_four, tally, vac_stop, st.tstate, st.exc_hist)
@@ -427,9 +431,10 @@ class DefectGas(ReadWriteable, Generator):
             if ticks >= cap:
                 raise RuntimeError(
                     f'no {self.emit_every} vacuum ticks in {self.max_step_sweeps} sweeps: '
-                    f'fugacity={self.fugacity} is likely too large for this volume/kappa (defect '
-                    f'condensation).  Retune (DefectGasFugacityTuner), lower fugacity, or note that '
-                    f'a genuinely condensed theta phase requires fugacity ~ 1/V.')
+                    f'{self} is likely too heavy for this volume/kappa (defect '
+                    f'condensation).  Retune (DefectGasFugacityTuner or DefectGasWeightTuner), '
+                    f'lighten the pricing, or note that a genuinely condensed theta phase '
+                    f'requires per-pair weight ~ 1/V.')
             v, t = ticker(st, self.emit_every - vacuum, H_pair, H_four)
             vacuum += v
             ticks += t
@@ -438,10 +443,10 @@ class DefectGas(ReadWriteable, Generator):
         # re-emitted (a copy, so the chain's working array stays private).
         return configuration | {
             'n': Form(st.n.copy(), degree=1, lattice=L),
-            'Theta_Theta': H_pair.reshape(tuple(L.dims)) / (V * self.fugacity**2),
+            'Theta_Theta': H_pair.reshape(tuple(L.dims)) / (V * self._w1),
             'Vacuum_Ticks': int(vacuum),
             'Ticks': int(ticks),
-            'FourDefectDistribution': H_four / self.fugacity**4,
+            'FourDefectDistribution': H_four / self._w4,
             'Pair_Excursions': int(st.tstate[1] - exc0),
             'Max_Pair_RSq': int(st.tstate[2]),
             'Excursion_Lengths': st.exc_hist - hist0,

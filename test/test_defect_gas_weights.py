@@ -80,3 +80,54 @@ def test_geometric_path_unchanged():
     g = DefectGas(S, fugacity=0.1)
     assert g.fugacity == 0.1 and g.w.size == 0 and g.D_max is None
     assert g._w1 == 0.1**2 and g._w4 == 0.1**4
+
+
+def test_geometric_table_equivalence():
+    # A geometric table must reproduce the fugacity path decision-for-decision:
+    # same accepted moves, same fields, same tallies, on a shared proposal stream.
+    S = _action()
+    z, K = 0.1, 4
+    geo = DefectGas(S, fugacity=z, D_max=2 * K, emit_every=300,
+                    rng=np.random.default_rng(31))
+    tab = DefectGas(S, weights=[z**(2 * k) for k in range(K + 1)], emit_every=300,
+                    rng=np.random.default_rng(31))
+    phi, n = _cold(S)
+    a = {'phi': phi, 'n': n}
+    b = {'phi': phi, 'n': n}
+    for _ in range(3):
+        a = geo.step(a)
+        b = tab.step(b)
+        assert np.array_equal(np.asarray(a['n']), np.asarray(b['n']))
+        assert a['Vacuum_Ticks'] == b['Vacuum_Ticks']
+        assert a['Ticks'] == b['Ticks']
+        assert np.allclose(a['Theta_Theta'], b['Theta_Theta'])
+    assert geo.proposed == tab.proposed
+    assert geo.accepted == tab.accepted
+
+
+def test_step_matches_reference_nongeometric_table():
+    # The compiled kernel and the pure-python reference must agree bit-for-bit on a
+    # deliberately NON-geometric table (not expressible as any zeta^D).
+    S = _action()
+    # A perturbed-geometric table (rung ratios .04/.06/.021/.08): non-geometric but
+    # light enough that the N=4 kappa=0.05 chain still comes home; this seed visits
+    # the quartic sector.  (Fatter tables condense here -- the cliff is real.)
+    w = (1.0, 0.04, 2.4e-3, 5e-5, 4e-6)
+    fast, slow = _twins(S, seed=5, weights=w, emit_every=100)
+    phi, n = _cold(S)
+    a = {'phi': phi, 'n': n}
+    b = {'phi': phi, 'n': n}
+    four = 0.
+    for _ in range(3):
+        a = fast.step(a)
+        b = slow.step_reference(b)
+        assert np.array_equal(np.asarray(a['n']), np.asarray(b['n']))
+        assert np.array_equal(a['Theta_Theta'], b['Theta_Theta'])
+        assert np.array_equal(a['FourDefectDistribution'], b['FourDefectDistribution'])
+        assert a['Vacuum_Ticks'] == b['Vacuum_Ticks']
+        assert a['Ticks'] == b['Ticks']
+        four += a['FourDefectDistribution'].sum()
+    assert fast.proposed == slow.proposed
+    assert fast.accepted == slow.accepted
+    assert fast.D_trace == slow.D_trace
+    assert four > 0                     # the fat table populates the quartic sector
