@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import numpy as np
-import h5py as h5
 from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 import matplotlib.pyplot as plt
