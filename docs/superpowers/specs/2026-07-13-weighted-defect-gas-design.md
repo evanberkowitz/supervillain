@@ -54,6 +54,21 @@ fraction (98.75% → 92%) but not the information content (far bins zero
 throughout), confirming that `emit_every` repackages statistics and cannot
 create them.
 
+**Post-implementation smoke (same day, `weighted_gas_production.py`).**  At the
+same $N=6$, $\kappa=0.05$: the recursion converged in 3 iterations / 11 s
+(w = [1, 2.3e-4, 1.7e-7, 9.3e-11, 5.8e-14] --- the per-pair scale right at the
+predicted $\sim 1/V$), and 2000 production configurations ran **without
+condensation** (sector histogram flat within 1.7, vacuum dwell 27%, 206 round
+trips) where every geometric fugacity eventually dies.  Per-tick efficiency vs
+the best geometric run (`long-z0.01-D8`, 3.3$\times$ more ticks): identical
+$\Theta(1,0,0,0)$ (0.0299(30) vs 0.0307(39) --- $w$-independence live at
+production scale) with $\sim 5\times$ the efficiency at $r=1$ and $\sim
+30\times$ at $r=2$; $r \ge 3$ needs the longer production campaign this smoke
+is not.  Getting here surfaced three tuner requirements now baked into the
+design and tests: freeze only *probed* tables, clip per-iteration updates, and
+lengthen probes / size the production step horizon from the measured
+round-trip (mixing) time.
+
 The fix is standard multicanonical machinery specialized to a tiny sector
 space: replace $\zeta^{D}$ by a learned table $w[k]$, $k = 0 \ldots K$, chosen
 so the sector-tick histogram is flat.  Flat occupancy pays $1/(K{+}1)$ vacuum
