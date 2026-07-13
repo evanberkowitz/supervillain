@@ -53,18 +53,45 @@ def test_recursion_update_and_convergence_canned():
     assert emit_every == max(1, round((400 / 900) * 4 * V * 25))
 
 
-def test_no_convergence_warns_and_returns(caplog):
+def test_no_convergence_warns_and_returns_best_probed(caplog):
     S = _action()
     t = DefectGasWeightTuner(S, D_max=4, rng=np.random.default_rng(6))
+    calls = []
 
     def probe(w, cfg, probe_sweeps, companion_every):
+        calls.append(w.copy())
         t_ = np.array([1000, 1, 0])              # never flattens, never converges
         return t_, t_ // 2, t_ - t_ // 2, 0, cfg
 
     t._probe = probe
     w, emit_every = t.tune(probe_sweeps=100, max_iterations=3)
     assert len(w) == 3 and w[0] == 1.0 and emit_every >= 1
+    # The frozen table must be one that was actually PROBED -- freezing the
+    # post-update table hands production an unmeasured chain.  All probes score
+    # equally here, so the first (the warm start) is kept.
+    assert np.allclose(w, calls[0])
     assert any('no convergence' in r.message for r in caplog.records)
+
+
+def test_update_clipped_and_probes_lengthen():
+    # A sector visited by a handful of ticks must not receive an enormous noisy
+    # boost (clip at max_update per iteration), and zero-round-trip probes signal
+    # that the sectors mix slower than the probe: lengthen before re-measuring.
+    S = _action()
+    t = DefectGasWeightTuner(S, D_max=4, rng=np.random.default_rng(8))
+    seen = []
+
+    def probe(w, cfg, probe_sweeps, companion_every):
+        seen.append((w.copy(), probe_sweeps))
+        t_ = np.array([10_000_000, 100, 0])      # naive boost for k=1 would be ~5e4
+        return t_, t_ // 2, t_ - t_ // 2, 0, cfg
+
+    t._probe = probe
+    t.tune(probe_sweeps=100, max_iterations=3)
+    (w0, s0), (w1, s1), (w2, s2) = seen
+    ratio = w1 / w0                              # per-sector update, post-renormalization
+    assert np.max(ratio) / np.min(ratio) <= 100 + 1e-9   # each raw factor in [1/10, 10]
+    assert (s0, s1, s2) == (100, 200, 400)
 
 
 def test_tune_real_tiny():

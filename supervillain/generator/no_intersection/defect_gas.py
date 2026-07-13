@@ -888,7 +888,7 @@ class DefectGasWeightTuner:
 
     def tune(self, start='cold', probe_sweeps=2000, companion_every=25,
              max_iterations=12, damping=0.5, flat=3.0, min_round_trips=5,
-             step_sweeps=25, u=None):
+             step_sweeps=25, u=None, max_update=10.0, max_probe_growth=8):
         r"""
         Run the recursion from the Poisson-envelope warm start $w_k = k!\, u^k$
         (default $u = 1/V$; the dilute-gas entropy is roughly $\lambda^k/k!$ for $k$
@@ -897,14 +897,21 @@ class DefectGasWeightTuner:
         production step costs about ``step_sweeps`` sweeps at the measured vacuum
         dwell.
 
-        Each iteration probes ``probe_sweeps`` sweeps and multiplies every *visited*
-        sector's weight by $(\bar t / t_k)^\alpha$ ($\alpha = 1$ first, ``damping``
-        after; unvisited sectors are left alone --- extrapolating boosts into
-        unmeasured territory is how multicanonical recursions blow up).  Converged
-        when every sector was visited, $\max_k t_k \le$ ``flat`` $\times \min_k t_k$,
-        the probe completed ``min_round_trips`` round trips, and the histogram is
-        half-vs-half stationary.  On iteration-cap expiry: warn and freeze anyway
-        --- production ``SectorTicks`` is the check that catches a bad freeze.
+        Each iteration probes and multiplies every *visited* sector's weight by
+        $(\bar t / t_k)^\alpha$ ($\alpha = 1$ first, ``damping`` after), clipped to
+        $[1/\texttt{max\_update}, \texttt{max\_update}]$ --- a sector visited by a
+        handful of ticks must not receive an enormous noisy boost.  Unvisited
+        sectors are left alone: extrapolating into unmeasured territory is how
+        multicanonical recursions blow up.  A probe with fewer than
+        ``min_round_trips`` round trips signals that the sectors mix slower than
+        the probe measures, so the next probe doubles in length (up to
+        ``max_probe_growth`` $\times$ ``probe_sweeps``).  Converged when every
+        sector was visited, $\max_k t_k \le$ ``flat`` $\times \min_k t_k$, the
+        probe completed ``min_round_trips`` round trips, and the histogram is
+        half-vs-half stationary.  On iteration-cap expiry: warn and freeze the
+        best *probed* table (most round trips, then flattest) --- never the
+        unmeasured post-update one --- and production ``SectorTicks`` is the
+        check that catches a bad freeze.
 
         Parameters
         ----------
@@ -925,6 +932,10 @@ class DefectGasWeightTuner:
             Target sweeps per production step; sizes the returned ``emit_every``.
         u: float, optional
             The warm start's per-pair weight scale; defaults to $1/V$.
+        max_update: float
+            Per-iteration clip on each sector's update factor.
+        max_probe_growth: int
+            Cap on the adaptive probe lengthening, in units of ``probe_sweeps``.
 
         Returns
         -------
@@ -937,24 +948,34 @@ class DefectGasWeightTuner:
         w = np.array([math.factorial(k) * u0**k for k in range(K + 1)])
         w /= w[0]
         cfg = self._start(start)
-        t = np.zeros(K + 1, dtype=np.int64)
-        trips = 0
+        sweeps = probe_sweeps
+        best = None               # (trips, -flatness, w, t) of the best PROBED table
         for iteration in range(max_iterations):
-            t, t1, t2, trips, cfg = self._probe(w, cfg, probe_sweeps, companion_every)
+            t, t1, t2, trips, cfg = self._probe(w, cfg, sweeps, companion_every)
+            flatness = t.max() / max(1, t.min())
+            if best is None or (trips, -flatness) > best[:2]:
+                best = (trips, -flatness, w.copy(), t.copy())
             visited = t > 0
             big = (t1 + t2) >= 10     # stationarity is meaningless on a handful of ticks
             stationary = bool(np.all((t2[big] <= 2 * t1[big]) & (t1[big] <= 2 * t2[big])))
-            if (visited.all() and t.max() <= flat * t.min()
+            if (visited.all() and flatness <= flat
                     and trips >= min_round_trips and stationary):
                 break
+            if trips < min_round_trips:
+                # Too few round trips to trust the histogram's shape: the sectors mix
+                # slower than the probe measures -- lengthen before re-measuring.
+                sweeps = min(2 * sweeps, max_probe_growth * probe_sweeps)
             alpha = 1.0 if iteration == 0 else damping
-            tbar = t[visited].mean()
-            w[visited] *= (tbar / t[visited]) ** alpha
+            factor = np.ones_like(w)
+            factor[visited] = (t[visited].mean() / t[visited]) ** alpha
+            np.clip(factor, 1.0 / max_update, max_update, out=factor)
+            w = w * factor
             w /= w[0]
         else:
+            trips, _, w, t = best
             logger.warning(
-                'tune: no convergence in %d iterations (sector ticks %s, %d round '
-                'trips); freezing the current table anyway -- watch SectorTicks in '
+                'tune: no convergence in %d iterations; freezing the best probed '
+                'table (sector ticks %s, %d round trips) -- watch SectorTicks in '
                 'production.', max_iterations, t.tolist(), trips)
         dwell = t[0] / max(1, t.sum())
         emit_every = max(1, int(round(dwell * 4 * V * step_sweeps)))
