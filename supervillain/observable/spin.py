@@ -352,18 +352,21 @@ class SpinBinderCumulant(DerivedQuantity):
 
     .. math::
         \texttt{SpinBinderCumulant} = U =
-        \frac{\left\langle |m|^4 \right\rangle}{\left\langle |m|^2 \right\rangle^2},
+        1 - \frac{\left\langle |m|^4 \right\rangle}{2 \left\langle |m|^2 \right\rangle^2},
 
     the same convention as the :class:`~.ThetaBinderCumulant`: a dimensionless,
-    exponent-free diagnostic with $U \to 2$ (complex Gaussian) deep in the symmetric
-    phase and $U \to 1$ in the spin-ordered phase, so that curves of $U(\kappa; L)$ at
-    different volumes cross at a critical point without knowledge of any scaling
-    dimension.
+    exponent-free diagnostic with $U \to 0$ (complex Gaussian) deep in the symmetric
+    phase and $U \to 1/2$ in the spin-ordered phase, so that curves of $U(\kappa; L)$
+    at different volumes cross at a critical point without knowledge of any scaling
+    dimension.  (Same 2026-07-13 convention change as the
+    :class:`~.ThetaBinderCumulant`: previously $\langle|m|^4\rangle /
+    \langle|m|^2\rangle^2$; convert stored values as $U_{\text{new}} = 1 -
+    U_{\text{old}}/2$.)
     '''
 
     @staticmethod
     def default(S, SpinMagnetizationSquared, SpinMagnetizationQuartic):
-        return SpinMagnetizationQuartic / SpinMagnetizationSquared**2
+        return 1 - SpinMagnetizationQuartic / (2 * SpinMagnetizationSquared**2)
 
 class SpinCriticalMoment(DerivedQuantity):
     r'''

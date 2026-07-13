@@ -215,13 +215,19 @@ class ThetaBinderCumulant(DerivedQuantity):
     .. math ::
 
         \texttt{ThetaBinderCumulant} = U =
-        \frac{\left\langle \left|M\right|^{4} \right\rangle}
-             {\left\langle \left|M\right|^{2} \right\rangle^{2}},
+        1 - \frac{\left\langle \left|M\right|^{4} \right\rangle}
+                 {2 \left\langle \left|M\right|^{2} \right\rangle^{2}},
 
-    a dimensionless, exponent-free diagnostic: $U \to 2$ (complex Gaussian) deep in the
-    symmetric phase, $U \to 1$ in a $\theta$-ordered phase, and curves of $U(\kappa; L)$
-    at different volumes cross at a critical point without knowledge of any scaling
-    dimension.
+    a dimensionless, exponent-free diagnostic: $U \to 0$ deep in the symmetric phase
+    (complex Gaussian; the finite-volume value is $1/2V$), $U \to 1/2$ in a
+    $\theta$-ordered phase, and curves of $U(\kappa; L)$ at different volumes cross at
+    a critical point without knowledge of any scaling dimension.
+
+    .. note ::
+
+        Before 2026-07-13 this quantity was $\langle|M|^4\rangle /
+        \langle|M|^2\rangle^2$ (symmetric $\to 2$, ordered $\to 1$); stored analyses
+        convert as $U_{\text{new}} = 1 - U_{\text{old}}/2$.
 
    """
 
@@ -231,4 +237,4 @@ class ThetaBinderCumulant(DerivedQuantity):
         S1 = np.sum(Theta_Theta.real) / Vacuum_Ticks
         M2 = V * (1 + S1)
         M4 = (2 * V**2 - V) + 4 * (V - 1) * V * S1 + FourDefects / Vacuum_Ticks
-        return M4 / M2**2
+        return 1 - M4 / (2 * M2**2)
