@@ -214,3 +214,23 @@ saves iterations):
 
 Consumer-side driver changes (flags to select the weight tuner, npz fields
 for the table) belong to the project repositories, not this library change.
+
+## Campaign postscript (2026-07-13, two-volume sweep)
+
+The weight tuner carried full kappa sweeps at N = 6 (twice) and N = 8 over the
+2026-07-08 campaign grid, cross-validating against that campaign wherever it
+was healthy (chi_theta agreement to four digits on the flanks) and resolving
+the window kappa in [0.04, 0.13] it could not: chi_theta and the Theta tails
+peak at kappa ~ 0.06 with the peak height volume-INDEPENDENT (4.72 at N=6 vs
+4.74 at N=8) while the low-kappa shoulder grows strongly with volume (at
+kappa = 0.04, fixed-separation Theta is up to ~14x larger at N=8, with the
+N=8 correlator plateauing over 4 <= dx <= 7 where N=6 still decays).  The
+Binder cumulant (post-change convention: 0 symmetric, 1/2 ordered) stays at 0
+across both volumes and the whole grid.
+
+Operationally: probes/production in kappa in [0.01, 0.05] at N=6 are
+survival coin flips (independent tunes reproduce the physics whenever both
+survive, but each run condensed at 2-3 rungs; kappa = 0.01 reproducibly
+tunes to a too-heavy table).  Production now auto-retries with a per-pair
+lightened table; annealed-warm-start retunes remain the plan for the four
+remaining holes (N=6: 0.01, 0.04, 0.05; N=8: 0.02).
