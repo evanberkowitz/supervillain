@@ -164,6 +164,37 @@ def test_uncapped_emits_no_sector_ticks():
     assert 'SectorTicks' not in out and 'RoundTrips' not in out
 
 
+def test_probe_sweeps_budget_and_continuity():
+    # A sweep-budgeted probe never waits for vacuum; the tick budget is exact from a
+    # fresh chain, and two 2-sweep blocks equal one 4-sweep block.
+    S = _action()
+    w = (1.0, 0.04, 2.4e-3, 5e-5, 4e-6)
+    one = DefectGas(S, weights=w, rng=np.random.default_rng(51))
+    two = DefectGas(S, weights=w, rng=np.random.default_rng(51))
+    phi, n = _cold(S)
+    cfg1, t1, r1 = one._probe_sweeps({'phi': phi, 'n': n}, 4)
+    cfg2, t2a, r2a = two._probe_sweeps({'phi': phi, 'n': n}, 2)
+    cfg2, t2b, r2b = two._probe_sweeps(cfg2, 2)
+    assert np.array_equal(np.asarray(cfg1['n']), np.asarray(cfg2['n']))
+    assert np.array_equal(t1, t2a + t2b)
+    assert r1 == r2a + r2b
+    assert t1.sum() == 4 * 4 * S.Lattice.N**4       # ticks == sweeps * links, exactly
+    assert one.proposed == two.proposed
+    assert one.accepted == two.accepted
+
+
+def test_probe_sweeps_requires_cap():
+    S = _action()
+    g = DefectGas(S, fugacity=0.1)                  # D_max None
+    phi, n = _cold(S)
+    try:
+        g._probe_sweeps({'phi': phi, 'n': n}, 1)
+    except ValueError:
+        pass
+    else:
+        assert False, 'uncapped _probe_sweeps must raise ValueError'
+
+
 def test_capped_geometric_emits_sector_ticks():
     S = _action()
     g = DefectGas(S, fugacity=0.1, D_max=8, emit_every=100,

@@ -498,13 +498,55 @@ class DefectGas(ReadWriteable, Generator):
             vac = self._kernel_ticks(st, True, vac_stop, H_pair, H_four, t_sector)
             return vac, st.i - i0
         out = self._step_body(configuration, ticker)
+        self._sync_defects()
+        return out
+
+    def _sync_defects(self):
         # Mirror the dense charge state back into the sparse dict so step_reference
         # can pick up where the kernel left off.
         st, dims = self._state, tuple(self.L.dims)
         st.defects = {
             tuple(int(x) for x in np.unravel_index(int(cell), dims)): int(st.q[cell])
             for cell in st.nzc[:st.nnz]}
-        return out
+
+    def _probe_sweeps(self, configuration, sweeps):
+        r"""
+        Advance the enlarged chain a fixed number of sweeps --- never waiting for the
+        vacuum, never emitting --- and return ``(configuration, SectorTicks,
+        RoundTrips)`` for the block.
+
+        Tuner plumbing, not Generator API: the returned ``n`` is the raw chain state,
+        generally invalid (mid-excursion), and must not enter an
+        :class:`~supervillain.Ensemble`.  Passing the returned configuration back in
+        (possibly with a companion-updated ``phi``) continues the chain exactly; the
+        tick budget is exact whenever the chain sits at a sweep boundary, which the
+        tuner's usage guarantees.
+        """
+        if self.D_max is None:
+            raise ValueError('_probe_sweeps needs a capped chain (finite D_max).')
+        n_in = np.asarray(configuration['n']).astype(np.int64)
+        phi_in = np.asarray(configuration['phi']).astype(float)
+        st = self._state
+        if st is None or not (np.array_equal(st.n, n_in)
+                              and np.array_equal(st.phi, phi_in)):
+            st = self._state = self._init_state(phi_in, n_in)
+        t_sector = np.zeros(self.D_max // 2 + 1, dtype=np.int64)
+        H_pair = np.zeros(self.N**4, dtype=np.int64)
+        H_four = np.zeros(4, dtype=np.int64)
+        rt0 = int(st.tstate[4])
+        remaining = sweeps * st.n_links
+        while remaining > 0:
+            if st.i == st.n_links:
+                self.D_trace.append(st.D)
+                self._draw_batch(st)
+            i0 = st.i
+            # vac_stop=0: run to the end of the proposal batch; tally=False skips the
+            # pair/four histograms (the sector histogram is always on).
+            self._kernel_ticks(st, False, 0, H_pair, H_four, t_sector)
+            remaining -= st.i - i0
+        self._sync_defects()
+        return ({'phi': st.phi, 'n': st.n.copy()},
+                t_sector, int(st.tstate[4]) - rt0)
 
     def step_reference(self, configuration):
         r"""
