@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import logging
+import math
 from types import SimpleNamespace
 
 import numpy as np
@@ -804,5 +805,177 @@ class DefectGasFugacityTuner:
                         rng=self.rng)
         chain = Sequentially((*self.companions, gas))
         chain.fugacity = gas.fugacity
+        chain.emit_every = gas.emit_every
+        return chain
+
+
+class DefectGasWeightTuner:
+    r"""
+    Learns a :class:`DefectGas` per-sector weight table $w_k$ by damped histogram
+    recursion: probe the chain, cut every visited sector's weight toward the mean
+    occupancy, repeat until the sector histogram is flat.  Flat occupancies pay only
+    $1/(K+1)$ vacuum dwell for full multi-pair traffic --- against the $e^{-\langle
+    D/2\rangle}$ any geometric fugacity pays --- and cannot condense: a sector that
+    hogs time gets its weight cut on the next iteration.
+
+    Probes are **sweep-budgeted** (:meth:`DefectGas._probe_sweeps`), never waiting
+    for vacuum returns, so a condensing table produces a lopsided histogram --- a
+    measurement the recursion corrects --- rather than a ``RuntimeError``.  Because
+    nucleation out of the metastable vacuum can be slow, convergence demands
+    flatness AND round trips AND half-vs-half stationarity, never flatness alone.
+
+    A tuner is not a generator: it runs experiments to decide which
+    :class:`DefectGas` to build, and :meth:`generator` returns the production-ready
+    chain with the frozen table and a matched ``emit_every``.
+
+    Parameters
+    ----------
+    S: a NoIntersections action
+    companions: iterable of generators, optional
+        Interleaved with the probe gas every ``companion_every`` sweeps (and ride in
+        the :meth:`generator` chain).  Defaults to a single
+        :class:`~supervillain.generator.villain.SiteUpdate`.  Companions must
+        tolerate mid-excursion (invalid) ``n``; pure $\phi$-updates do.
+    D_max: even int
+        The cap; the table has $K + 1 = $ ``D_max/2 + 1`` sectors.
+    rng: numpy Generator, optional
+    """
+
+    def __init__(self, S, companions=None, D_max=16, rng=None):
+        self.S = S
+        if D_max is None or D_max < 2 or D_max % 2:
+            raise ValueError(f'D_max must be a positive even integer; got {D_max}.')
+        self.D_max = int(D_max)
+        self.rng = rng if rng is not None else np.random.default_rng()
+        if companions is not None:
+            self.companions = tuple(companions)
+        else:
+            default = SiteUpdate(S)
+            default.rng = self.rng
+            self.companions = (default,)
+
+    def _start(self, start):
+        if isinstance(start, str) and start == 'cold':
+            L = self.S.Lattice
+            return {'phi': np.zeros((1,) + tuple(L.dims)),
+                    'n': np.zeros((4,) + tuple(L.dims), dtype=np.int64)}
+        return {'phi': start['phi'], 'n': start['n']}
+
+    def _probe(self, w, cfg, probe_sweeps, companion_every):
+        # One iteration's experiment: a fresh frozen-w gas driven sweep-budgeted with
+        # companions interleaved.  Returns the (total, first-half, second-half)
+        # sector histograms, the round trips, and the end configuration (raw,
+        # possibly invalid --- fine, the next probe continues it).
+        gas = DefectGas(self.S, weights=w, rng=self.rng)
+        K1 = self.D_max // 2 + 1
+        halves = [np.zeros(K1, dtype=np.int64), np.zeros(K1, dtype=np.int64)]
+        trips = 0
+        done = 0
+        while done < probe_sweeps:
+            block = min(companion_every, probe_sweeps - done)
+            cfg, t, r = gas._probe_sweeps(cfg, block)
+            halves[(2 * done) // probe_sweeps] += t
+            trips += r
+            done += block
+            L = self.S.Lattice
+            for companion in self.companions:
+                # Companions speak Forms; the probe chain speaks raw arrays.  Only
+                # phi is taken back --- the gas's n mid-excursion stays the chain's.
+                updated = companion.step({'phi': Form(cfg['phi'], degree=0, lattice=L),
+                                          'n': Form(cfg['n'], degree=1, lattice=L)})
+                cfg = {'phi': np.asarray(updated['phi']), 'n': cfg['n']}
+        return halves[0] + halves[1], halves[0], halves[1], trips, cfg
+
+    def tune(self, start='cold', probe_sweeps=2000, companion_every=25,
+             max_iterations=12, damping=0.5, flat=3.0, min_round_trips=5,
+             step_sweeps=25, u=None):
+        r"""
+        Run the recursion from the Poisson-envelope warm start $w_k = k!\, u^k$
+        (default $u = 1/V$; the dilute-gas entropy is roughly $\lambda^k/k!$ for $k$
+        pairs, so the factorial undoes the identical-pair suppression) and return
+        ``(w, emit_every)`` --- the frozen table and an ``emit_every`` sized so one
+        production step costs about ``step_sweeps`` sweeps at the measured vacuum
+        dwell.
+
+        Each iteration probes ``probe_sweeps`` sweeps and multiplies every *visited*
+        sector's weight by $(\bar t / t_k)^\alpha$ ($\alpha = 1$ first, ``damping``
+        after; unvisited sectors are left alone --- extrapolating boosts into
+        unmeasured territory is how multicanonical recursions blow up).  Converged
+        when every sector was visited, $\max_k t_k \le$ ``flat`` $\times \min_k t_k$,
+        the probe completed ``min_round_trips`` round trips, and the histogram is
+        half-vs-half stationary.  On iteration-cap expiry: warn and freeze anyway
+        --- production ``SectorTicks`` is the check that catches a bad freeze.
+
+        Parameters
+        ----------
+        start: 'cold', or a configuration as a dictionary
+            Where the first probe starts; later probes continue the enlarged chain.
+        probe_sweeps: int
+            Sweeps per iteration.
+        companion_every: int
+            Sweeps between companion interleavings.
+        max_iterations: int
+        damping: float
+            The update exponent $\alpha$ after the first iteration.
+        flat: float
+            Acceptable max/min sector-occupancy ratio.
+        min_round_trips: int
+            Vacuum--top--vacuum round trips the final probe must complete.
+        step_sweeps: int
+            Target sweeps per production step; sizes the returned ``emit_every``.
+        u: float, optional
+            The warm start's per-pair weight scale; defaults to $1/V$.
+
+        Returns
+        -------
+        (numpy array, int)
+            The frozen table $w$ and the matched ``emit_every``.
+        """
+        K = self.D_max // 2
+        V = self.S.Lattice.N ** 4
+        u0 = (1.0 / V) if u is None else float(u)
+        w = np.array([math.factorial(k) * u0**k for k in range(K + 1)])
+        w /= w[0]
+        cfg = self._start(start)
+        t = np.zeros(K + 1, dtype=np.int64)
+        trips = 0
+        for iteration in range(max_iterations):
+            t, t1, t2, trips, cfg = self._probe(w, cfg, probe_sweeps, companion_every)
+            visited = t > 0
+            big = (t1 + t2) >= 10     # stationarity is meaningless on a handful of ticks
+            stationary = bool(np.all((t2[big] <= 2 * t1[big]) & (t1[big] <= 2 * t2[big])))
+            if (visited.all() and t.max() <= flat * t.min()
+                    and trips >= min_round_trips and stationary):
+                break
+            alpha = 1.0 if iteration == 0 else damping
+            tbar = t[visited].mean()
+            w[visited] *= (tbar / t[visited]) ** alpha
+            w /= w[0]
+        else:
+            logger.warning(
+                'tune: no convergence in %d iterations (sector ticks %s, %d round '
+                'trips); freezing the current table anyway -- watch SectorTicks in '
+                'production.', max_iterations, t.tolist(), trips)
+        dwell = t[0] / max(1, t.sum())
+        emit_every = max(1, int(round(dwell * 4 * V * step_sweeps)))
+        return w, emit_every
+
+    def generator(self, start='cold', **kwargs):
+        r"""
+        The normal way to consume a tune: :meth:`tune` from ``start`` (``kwargs``
+        forward), then return the production-ready
+        ``Sequentially((*companions, DefectGas(weights=w, emit_every=matched)))``.
+        The chain carries ``weights`` and ``emit_every`` as plain metadata for
+        introspection.
+
+        Returns
+        -------
+        :class:`~supervillain.generator.combining.Sequentially`
+            The production-ready chain, its tuned :class:`DefectGas` last.
+        """
+        w, emit_every = self.tune(start=start, **kwargs)
+        gas = DefectGas(self.S, weights=w, emit_every=emit_every, rng=self.rng)
+        chain = Sequentially((*self.companions, gas))
+        chain.weights = gas.w
         chain.emit_every = gas.emit_every
         return chain
