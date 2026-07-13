@@ -79,10 +79,11 @@ class DefectGas(ReadWriteable, Generator):
     ----------
     S: a NoIntersections action
         Supplies $S_{V}$, $\kappa$, and the lattice.
-    fugacity: float
-        The per-defect fugacity $\zeta \in (0, 1]$.
+    fugacity: float, optional
+        The per-defect fugacity $\zeta \in (0, 1]$.  Exactly one of ``fugacity``
+        and ``weights`` is required.
     D_max: int or None
-        Hard cap on $D$; ``None`` uncaps.
+        Hard cap on $D$; ``None`` uncaps (geometric path only --- ``weights`` pins it).
     emit_every: int, optional
         Vacuum ticks per :meth:`step` emission; defaults to $4 N^{4}$ (about one
         sweep's worth of vacuum time).
@@ -90,6 +91,13 @@ class DefectGas(ReadWriteable, Generator):
         Safety horizon: :meth:`step` raises after this many sweeps without reaching
         ``emit_every`` vacuum ticks (the defect-condensation symptom).
     rng: numpy Generator, optional
+    weights: sequence of floats, optional
+        The per-sector weights $w_k$ for $k = D/2 = 0, \ldots, K$, an alternative to
+        the geometric ``fugacity`` ($w_k = \zeta^{2k}$).  Normalized so $w_0 = 1$;
+        the length pins ``D_max`` $= 2K$.  Chosen well (see
+        :class:`DefectGasWeightTuner`) the sector occupancies flatten, so the chain
+        shuttles freely between the vacuum and the multi-pair sectors instead of
+        paying $e^{-\langle D/2 \rangle}$ for them.
 
     .. warning ::
 
@@ -102,20 +110,43 @@ class DefectGas(ReadWriteable, Generator):
     # index 0: {+1,+1,-1,-1}, 1: {+2,-1,-1}, 2: {+1,+1,-2}, 3: {+2,-2}.
     _FOUR = {(-1, -1, 1, 1): 0, (-1, -1, 2): 1, (-2, 1, 1): 2, (-2, 2): 3}
 
-    def __init__(self, S, fugacity, D_max=None, emit_every=None, max_step_sweeps=500,
-                 rng=None):
+    def __init__(self, S, fugacity=None, D_max=None, emit_every=None, max_step_sweeps=500,
+                 rng=None, weights=None):
         if not isinstance(S, supervillain.action.NoIntersections):
             raise ValueError('DefectGas requires a NoIntersections action.')
         if S.Lattice.D != 4:
             raise ValueError('DefectGas is only implemented for D = 4.')
-        if not (0 < fugacity <= 1):
-            raise ValueError(f'fugacity must be in (0, 1]; got {fugacity}.')
+        if (fugacity is None) == (weights is None):
+            raise ValueError('exactly one of fugacity and weights is required.')
+        if weights is not None:
+            w = np.asarray(weights, dtype=np.float64)
+            if w.ndim != 1 or len(w) < 2:
+                raise ValueError(f'weights must be a 1D sequence of at least two sectors; got shape {w.shape}.')
+            if not np.all(w > 0):
+                raise ValueError('weights must be positive.')
+            w = w / w[0]
+            if D_max is None:
+                D_max = 2 * (len(w) - 1)
+            elif D_max != 2 * (len(w) - 1):
+                raise ValueError(f'weights of length {len(w)} pin D_max = {2 * (len(w) - 1)}; got D_max={D_max}.')
+        else:
+            if not (0 < fugacity <= 1):
+                raise ValueError(f'fugacity must be in (0, 1]; got {fugacity}.')
+            w = np.zeros(0, dtype=np.float64)   # empty table: the kernel's geometric path
 
         self.S = S
         self.L = S.Lattice
         self.N = self.L.N
         self.kappa = S.kappa
-        self.fugacity = float(fugacity)
+        self.fugacity = None if fugacity is None else float(fugacity)
+        self.w = w
+        # The tally prices unify the two paths: the D = 2 histogram is divided by _w1
+        # and the D = 4 classes by _w4 at emission.
+        if self.fugacity is not None:
+            self._w1, self._w4 = self.fugacity**2, self.fugacity**4
+        else:
+            self._w1 = float(w[1])
+            self._w4 = float(w[2]) if len(w) > 2 else 1.0
         self.D_max = D_max
         self.emit_every = emit_every if emit_every is not None else 4 * self.N**4
         self.max_step_sweeps = max_step_sweeps
@@ -128,7 +159,9 @@ class DefectGas(ReadWriteable, Generator):
         self._state = None
 
     def __str__(self):
-        return f'DefectGas(fugacity={self.fugacity}, D_max={self.D_max})'
+        if self.fugacity is not None:
+            return f'DefectGas(fugacity={self.fugacity}, D_max={self.D_max})'
+        return f'DefectGas(weights={np.array2string(self.w, precision=4)}, D_max={self.D_max})'
 
     # ---------------------------------------------------------------- chain internals
 
