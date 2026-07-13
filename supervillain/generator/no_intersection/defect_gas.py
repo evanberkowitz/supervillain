@@ -949,12 +949,12 @@ class DefectGasWeightTuner:
         w /= w[0]
         cfg = self._start(start)
         sweeps = probe_sweeps
-        best = None               # (trips, -flatness, w, t) of the best PROBED table
+        best = None       # (trips, -flatness, w, t, sweeps) of the best PROBED table
         for iteration in range(max_iterations):
             t, t1, t2, trips, cfg = self._probe(w, cfg, sweeps, companion_every)
             flatness = t.max() / max(1, t.min())
             if best is None or (trips, -flatness) > best[:2]:
-                best = (trips, -flatness, w.copy(), t.copy())
+                best = (trips, -flatness, w.copy(), t.copy(), sweeps)
             visited = t > 0
             big = (t1 + t2) >= 10     # stationarity is meaningless on a handful of ticks
             stationary = bool(np.all((t2[big] <= 2 * t1[big]) & (t1[big] <= 2 * t2[big])))
@@ -972,11 +972,15 @@ class DefectGasWeightTuner:
             w = w * factor
             w /= w[0]
         else:
-            trips, _, w, t = best
+            trips, _, w, t, sweeps = best
             logger.warning(
                 'tune: no convergence in %d iterations; freezing the best probed '
                 'table (sector ticks %s, %d round trips) -- watch SectorTicks in '
                 'production.', max_iterations, t.tolist(), trips)
+        # The measured round-trip timescale: vacuum ticks arrive in bursts spaced by
+        # roughly this many sweeps, so the production step horizon must accommodate
+        # it (consumed by generator()).
+        self.mixing_sweeps = sweeps / max(1, trips)
         dwell = t[0] / max(1, t.sum())
         emit_every = max(1, int(round(dwell * 4 * V * step_sweeps)))
         return w, emit_every
@@ -995,7 +999,11 @@ class DefectGasWeightTuner:
             The production-ready chain, its tuned :class:`DefectGas` last.
         """
         w, emit_every = self.tune(start=start, **kwargs)
-        gas = DefectGas(self.S, weights=w, emit_every=emit_every, rng=self.rng)
+        # Vacuum ticks arrive in bursts spaced by the sector-mixing time; the step
+        # horizon must be generous relative to it or healthy chains die by timeout.
+        horizon = max(500, int(round(20 * self.mixing_sweeps)))
+        gas = DefectGas(self.S, weights=w, emit_every=emit_every,
+                        max_step_sweeps=horizon, rng=self.rng)
         chain = Sequentially((*self.companions, gas))
         chain.weights = gas.w
         chain.emit_every = gas.emit_every

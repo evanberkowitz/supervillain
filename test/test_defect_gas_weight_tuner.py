@@ -51,6 +51,9 @@ def test_recursion_update_and_convergence_canned():
     assert np.allclose(w, updated)               # the frozen table is the probed one
     # emit_every from the FINAL probe's vacuum dwell: 400/900 of 4V, x25 sweeps.
     assert emit_every == max(1, round((400 / 900) * 4 * V * 25))
+    # The measured mixing timescale: the converging probe ran 200 sweeps (doubled
+    # once after the first probe's 3 < 5 round trips) and completed 8 trips.
+    assert t.mixing_sweeps == 200 / 8
 
 
 def test_no_convergence_warns_and_returns_best_probed(caplog):
