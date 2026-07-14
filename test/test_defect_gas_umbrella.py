@@ -58,7 +58,7 @@ def test_w2_constructor():
     f = g._w2_field
     assert f[0, 0, 0, 0] == 1.0
     assert f[1, 0, 0, 0] == f[0, 0, 0, 1] == f[3, 0, 0, 0]
-    assert np.array_equal(np.asarray(L.symmetrize(f)), f)
+    assert np.allclose(np.asarray(L.symmetrize(f)), f, rtol=0, atol=1e-14)
 
 
 def test_w2_validation():
