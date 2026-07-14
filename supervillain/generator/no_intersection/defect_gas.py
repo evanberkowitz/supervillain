@@ -80,6 +80,56 @@ def geo_weight_dict(defects, w2, lookup, N):
     return 1.0
 
 
+def cell_edge(cell, e, N):
+    r"""
+    Edge ``e`` $\in [0, 32)$ of the hypercube at raveled corner ``cell``:
+    direction $\mu = e / 8$; the bits of $e \bmod 8$ offset the three
+    non-$\mu$ coordinates by $+1$.  Returns ``(mu, site)``.  (Pure-python
+    mirror of the kernel's ``_cell_edge`` for the reference tick path.)
+    """
+    c = [0, 0, 0, 0]
+    r = cell
+    for k in (3, 2, 1, 0):
+        c[k] = r % N
+        r //= N
+    mu = e // 8
+    b = e % 8
+    j = 0
+    for nu in range(4):
+        if nu == mu:
+            continue
+        if (b >> j) & 1:
+            c[nu] = (c[nu] + 1) % N
+        j += 1
+    return mu, tuple(c)
+
+
+def link_charge_sum(mu, site, q, N, dq=None):
+    r"""
+    $s(\ell, q) = \sum |q_c|$ over the 8 hypercubes containing link
+    ``(mu, site)`` --- the corners ``site - b`` over the three non-$\mu$
+    directions --- against the dense raveled charge array ``q``, optionally
+    with the reference path's $\Delta q$ dict (4-tuple keys) applied.
+    (Pure-python mirror of the kernel's ``_link_charge_sum`` /
+    ``_link_charge_sum_delta``.)
+    """
+    s = 0
+    for b in range(8):
+        c = list(site)
+        j = 0
+        for nu in range(4):
+            if nu == mu:
+                continue
+            if (b >> j) & 1:
+                c[nu] = (c[nu] - 1) % N
+            j += 1
+        qq = int(q[((c[0] * N + c[1]) * N + c[2]) * N + c[3]])
+        if dq is not None:
+            qq += dq.get(tuple(c), 0)
+        s += abs(qq)
+    return s
+
+
 class DefectGas(ReadWriteable, Generator):
     r"""
     Grand-canonical defect sampler for the $q = dn \wedge dn = 0$ constraint in 4D,

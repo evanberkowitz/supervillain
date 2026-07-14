@@ -74,6 +74,98 @@ def _pair_rsq(a, b, N):
 
 
 @njit(cache=True)
+def _cell_edge(cell, e, N):
+    # Edge e in [0, 32) of the hypercube at raveled corner `cell`: direction
+    # mu = e // 8; bits of b = e % 8 offset the three non-mu coordinates by +1.
+    c3 = cell % N
+    r = cell // N
+    c2 = r % N
+    r //= N
+    c1 = r % N
+    c0 = r // N
+    mu = e // 8
+    b = e % 8
+    j = 0
+    for nu in range(4):
+        if nu == mu:
+            continue
+        if (b >> j) & 1:
+            if nu == 0:
+                c0 = (c0 + 1) % N
+            elif nu == 1:
+                c1 = (c1 + 1) % N
+            elif nu == 2:
+                c2 = (c2 + 1) % N
+            else:
+                c3 = (c3 + 1) % N
+        j += 1
+    return mu, c0, c1, c2, c3
+
+
+@njit(cache=True)
+def _link_charge_sum(mu, x0, x1, x2, x3, q, N):
+    # s(l, q): sum of |q| over the 8 hypercubes containing link (mu, x) --- the
+    # corners x - b over the three non-mu directions.
+    s = 0
+    for b in range(8):
+        c0 = x0
+        c1 = x1
+        c2 = x2
+        c3 = x3
+        j = 0
+        for nu in range(4):
+            if nu == mu:
+                continue
+            if (b >> j) & 1:
+                if nu == 0:
+                    c0 = (c0 - 1 + N) % N
+                elif nu == 1:
+                    c1 = (c1 - 1 + N) % N
+                elif nu == 2:
+                    c2 = (c2 - 1 + N) % N
+                else:
+                    c3 = (c3 - 1 + N) % N
+            j += 1
+        qq = q[((c0 * N + c1) * N + c2) * N + c3]
+        s += qq if qq >= 0 else -qq
+    return s
+
+
+@njit(cache=True)
+def _link_charge_sum_delta(mu, x0, x1, x2, x3, q, cells, vals, nc, N):
+    # s(l, q + Delta q): as _link_charge_sum but with the proposal's touched-cell
+    # deltas (cells[:nc], vals[:nc]) applied on the fly.
+    s = 0
+    for b in range(8):
+        c0 = x0
+        c1 = x1
+        c2 = x2
+        c3 = x3
+        j = 0
+        for nu in range(4):
+            if nu == mu:
+                continue
+            if (b >> j) & 1:
+                if nu == 0:
+                    c0 = (c0 - 1 + N) % N
+                elif nu == 1:
+                    c1 = (c1 - 1 + N) % N
+                elif nu == 2:
+                    c2 = (c2 - 1 + N) % N
+                else:
+                    c3 = (c3 - 1 + N) % N
+            j += 1
+        cell = ((c0 * N + c1) * N + c2) * N + c3
+        qq = q[cell]
+        for t in range(nc):
+            if cells[t] == cell:
+                qq += vals[t]
+                break
+        s += qq if qq >= 0 else -qq
+    return s
+
+
+@njit(cache=True)
 def _geo_weight(cells, charges, count, w2, rsq_shell, N):
     # W of a defect multiset: w2 at a two-cell +-1 pair, the averaged Wick sum
     # (half the sum of the two contraction products, so a trivial all-ones
