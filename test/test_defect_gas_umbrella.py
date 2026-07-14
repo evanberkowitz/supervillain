@@ -83,15 +83,12 @@ def test_no_w2_is_sentinel():
 
 def test_ones_table_matches_no_table():
     # w2 identically 1.0 must reproduce the no-umbrella chain decision-for-
-    # decision (the accept factor is exactly 1; emission divides by 1).
-    # D_max=2 (the D=2-only table): the D=4 Wick sum is un-normalized by design
-    # (it is NOT identically 1 at trivial w2 -- see the pair-separation-umbrella
-    # design spec) and is exercised only starting in Task 3, so this task's
-    # ones-table invariant is certified in the D=2 sector, same as the rest of
-    # Task 2.
+    # decision (the accept factor is exactly 1 in every sector; emission
+    # divides by 1): the D=4 branch's averaged Wick sum makes an all-ones w2
+    # neutral there too, so the full table is certified here.
     S = _action()
     _, values = pair_shells(4)
-    w = (1.0, 0.04)
+    w = (1.0, 0.04, 2.4e-3, 5e-5, 4e-6)
     off = DefectGas(S, weights=w, emit_every=100, rng=np.random.default_rng(5))
     on = DefectGas(S, weights=w, w2=np.ones(len(values)), emit_every=100,
                    rng=np.random.default_rng(5))
@@ -127,3 +124,33 @@ def test_step_matches_reference_umbrella_D2():
     assert fast.proposed == slow.proposed
     assert fast.accepted == slow.accepted
     assert fast.D_trace == slow.D_trace
+
+
+def test_step_matches_reference_umbrella_D4():
+    # Full table, D_max = 8: the Wick-sum weight and the inverse-weighted
+    # float H_four, bit-for-bit across paths, with the quartic sector visited.
+    # The outward geomspace(1, 10) push makes the fully-quartic class ({+1,+1,
+    # -1,-1}) a genuine trap under the averaged-Wick dynamics -- a step can
+    # take millions of ticks to next hit vacuum -- so max_step_sweeps needs
+    # real headroom over the DefectGas default (verified empirically: a step
+    # here can take ~4e6 ticks against the default 500*n_links = 512000 cap).
+    S = _action()
+    _, values = pair_shells(4)
+    w2 = np.geomspace(1.0, 10.0, len(values))
+    fast, slow = _twins(S, seed=5, weights=(1.0, 0.04, 2.4e-3, 5e-5, 4e-6),
+                        w2=w2, emit_every=100, max_step_sweeps=20000)
+    phi, n = _cold(S)
+    a = {'phi': phi, 'n': n}
+    b = {'phi': phi, 'n': n}
+    four = 0.
+    for _ in range(3):
+        a = fast.step(a)
+        b = slow.step_reference(b)
+        assert np.array_equal(np.asarray(a['n']), np.asarray(b['n']))
+        assert np.array_equal(a['Theta_Theta'], b['Theta_Theta'])
+        assert np.array_equal(a['FourDefectDistribution'],
+                              b['FourDefectDistribution'])
+        four += a['FourDefectDistribution'].sum()
+    assert fast.proposed == slow.proposed
+    assert fast.accepted == slow.accepted
+    assert four > 0

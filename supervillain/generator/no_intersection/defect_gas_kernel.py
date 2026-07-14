@@ -75,8 +75,10 @@ def _pair_rsq(a, b, N):
 
 @njit(cache=True)
 def _geo_weight(cells, charges, count, w2, rsq_shell, N):
-    # W of a defect multiset: w2 at a two-cell +-1 pair, the Wick sum at four
-    # unit cells, and 1.0 for everything else (or with the umbrella off).
+    # W of a defect multiset: w2 at a two-cell +-1 pair, the averaged Wick sum
+    # (half the sum of the two contraction products, so a trivial all-ones
+    # table is neutral there too) at four unit cells, and 1.0 for everything
+    # else (or with the umbrella off).
     if w2.size == 0:
         return 1.0
     if count == 2:
@@ -102,10 +104,10 @@ def _geo_weight(cells, charges, count, w2, rsq_shell, N):
                 nneg += 1
             else:
                 return 1.0
-        return (w2[rsq_shell[_pair_rsq(pos[0], neg[0], N)]]
-                * w2[rsq_shell[_pair_rsq(pos[1], neg[1], N)]]
-                + w2[rsq_shell[_pair_rsq(pos[0], neg[1], N)]]
-                * w2[rsq_shell[_pair_rsq(pos[1], neg[0], N)]])
+        return 0.5 * (w2[rsq_shell[_pair_rsq(pos[0], neg[0], N)]]
+                      * w2[rsq_shell[_pair_rsq(pos[1], neg[1], N)]]
+                      + w2[rsq_shell[_pair_rsq(pos[0], neg[1], N)]]
+                      * w2[rsq_shell[_pair_rsq(pos[1], neg[0], N)]])
     return 1.0
 
 
@@ -334,20 +336,29 @@ def tick_batch(F2, n2, dphi2, q, nzc, D, nnz,
             elif tally and D == 4:
                 # Neutrality (sum q = 0 identically) pins each nnz to one sorted-charge
                 # class: nnz=4 -> {+1,+1,-1,-1}; nnz=3 -> {+2,-1,-1} or {+1,+1,-2} by
-                # the doubled charge's sign; nnz=2 -> {+2,-2}.
+                # the doubled charge's sign; nnz=2 -> {+2,-2}.  Each class tallies the
+                # inverse of the state's umbrella weight (1.0 with the umbrella off).
+                inv = 1.0
+                if w2.size > 0:
+                    ccur = np.empty(8, dtype=np.int64)
+                    qcur = np.empty(8, dtype=np.int64)
+                    for b2 in range(nnz):
+                        ccur[b2] = nzc[b2]
+                        qcur[b2] = q[nzc[b2]]
+                    inv = 1.0 / _geo_weight(ccur, qcur, nnz, w2, rsq_shell, N)
                 if nnz == 4:
-                    H_four[0] += 1
+                    H_four[0] += inv
                 elif nnz == 3:
                     for b in range(3):
                         vv = q[nzc[b]]
                         if vv == 2:
-                            H_four[1] += 1
+                            H_four[1] += inv
                             break
                         if vv == -2:
-                            H_four[2] += 1
+                            H_four[2] += inv
                             break
                 elif nnz == 2:
                     v1 = q[nzc[0]]
                     if v1 == 2 or v1 == -2:
-                        H_four[3] += 1
+                        H_four[3] += inv
     return i, D, nnz, acc, vac

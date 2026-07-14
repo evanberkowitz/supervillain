@@ -58,8 +58,8 @@ def geo_weight_dict(defects, w2, lookup, N):
                       (a[k] - b[k] for k in range(4)))
             return w2[lookup[rsq]]
 
-        return _w(pos[0], neg[0]) * _w(pos[1], neg[1]) \
-             + _w(pos[0], neg[1]) * _w(pos[1], neg[0])
+        return 0.5 * (_w(pos[0], neg[0]) * _w(pos[1], neg[1])
+                     + _w(pos[0], neg[1]) * _w(pos[1], neg[0]))
     return 1.0
 
 
@@ -517,7 +517,7 @@ class DefectGas(ReadWriteable, Generator):
                               and np.array_equal(st.phi, phi_in)):
             st = self._state = self._init_state(phi_in, n_in)
         H_pair = np.zeros(V, dtype=np.int64)
-        H_four = np.zeros(4, dtype=np.int64)
+        H_four = np.zeros(4, dtype=np.float64)
         # Per-tick sector histogram and round trips, emitted whenever the chain is
         # capped (an empty t_sector switches the tally off in the tick loops).
         K1 = 0 if self.D_max is None else self.D_max // 2 + 1
@@ -618,7 +618,7 @@ class DefectGas(ReadWriteable, Generator):
             st = self._state = self._init_state(phi_in, n_in)
         t_sector = np.zeros(self.D_max // 2 + 1, dtype=np.int64)
         H_pair = np.zeros(self.N**4, dtype=np.int64)
-        H_four = np.zeros(4, dtype=np.int64)
+        H_four = np.zeros(4, dtype=np.float64)
         rt0 = int(st.tstate[4])
         remaining = sweeps * st.n_links
         while remaining > 0:
@@ -652,7 +652,8 @@ class DefectGas(ReadWriteable, Generator):
                 N = self.N
                 H_pair[((disp[0] * N + disp[1]) * N + disp[2]) * N + disp[3]] += 1
             elif cls4 is not None:
-                H_four[cls4] += 1
+                H_four[cls4] += 1.0 / geo_weight_dict(st.defects, self.w2,
+                                                      self._rsq_shell, self.N)
             return 0, 1
         return self._step_body(configuration, ticker)
 
