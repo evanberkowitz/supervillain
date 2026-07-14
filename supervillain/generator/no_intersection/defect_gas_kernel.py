@@ -56,9 +56,63 @@ def stencil_pack():
 
 
 @njit(cache=True)
+def _pair_rsq(a, b, N):
+    # Min-image separation squared between two raveled cells.
+    r = 0
+    for _ in range(4):
+        da = a % N
+        db = b % N
+        a //= N
+        b //= N
+        d = da - db
+        if d < 0:
+            d = -d
+        if N - d < d:
+            d = N - d
+        r += d * d
+    return r
+
+
+@njit(cache=True)
+def _geo_weight(cells, charges, count, w2, rsq_shell, N):
+    # W of a defect multiset: w2 at a two-cell +-1 pair, the Wick sum at four
+    # unit cells, and 1.0 for everything else (or with the umbrella off).
+    if w2.size == 0:
+        return 1.0
+    if count == 2:
+        if charges[0] * charges[1] == -1:
+            return w2[rsq_shell[_pair_rsq(cells[0], cells[1], N)]]
+        return 1.0
+    if count == 4:
+        pos = np.empty(2, dtype=np.int64)
+        neg = np.empty(2, dtype=np.int64)
+        npos = 0
+        nneg = 0
+        for i in range(4):
+            c = charges[i]
+            if c == 1:
+                if npos == 2:
+                    return 1.0
+                pos[npos] = cells[i]
+                npos += 1
+            elif c == -1:
+                if nneg == 2:
+                    return 1.0
+                neg[nneg] = cells[i]
+                nneg += 1
+            else:
+                return 1.0
+        return (w2[rsq_shell[_pair_rsq(pos[0], neg[0], N)]]
+                * w2[rsq_shell[_pair_rsq(pos[1], neg[1], N)]]
+                + w2[rsq_shell[_pair_rsq(pos[0], neg[1], N)]]
+                * w2[rsq_shell[_pair_rsq(pos[1], neg[0], N)]])
+    return 1.0
+
+
+@njit(cache=True)
 def tick_batch(F2, n2, dphi2, q, nzc, D, nnz,
                mus, sites, cs, us, i0,
-               kappa, fugacity, w, D_max, N,
+               kappa, fugacity, w, w2, rsq_shell, D_max, N,
                st_o, st_p, st_s, st_k, st_ptr,
                df_off, df_plane, df_val, df_ptr,
                H_pair, H_four, tally, vac_stop,
@@ -155,14 +209,63 @@ def tick_batch(F2, n2, dphi2, q, nzc, D, nnz,
                 ratio = w[(D + dD) // 2] / w[D // 2]
             else:
                 ratio = fugacity ** np.float64(dD)
+            if w2.size > 0:
+                newD = D + dD
+                if D == 2 or D == 4 or newD == 2 or newD == 4:
+                    # Current multiset from the tracked nonzeros.
+                    ccur = np.empty(8, dtype=np.int64)
+                    qcur = np.empty(8, dtype=np.int64)
+                    mcur = 0
+                    for b2 in range(nnz):
+                        if mcur == 8:
+                            mcur = 9
+                            break
+                        ccur[mcur] = nzc[b2]
+                        qcur[mcur] = q[nzc[b2]]
+                        mcur += 1
+                    # Candidate multiset: current cells with deltas applied,
+                    # plus touched cells that turn on.
+                    cnew = np.empty(16, dtype=np.int64)
+                    qnew = np.empty(16, dtype=np.int64)
+                    mnew = 0
+                    overflow = mcur == 9
+                    for b2 in range(nnz):
+                        cell = nzc[b2]
+                        qq = q[cell]
+                        for t in range(nc):
+                            if cells[t] == cell:
+                                qq += vals[t]
+                                break
+                        if qq != 0:
+                            if mnew == 16:
+                                overflow = True
+                                break
+                            cnew[mnew] = cell
+                            qnew[mnew] = qq
+                            mnew += 1
+                    if not overflow:
+                        for t in range(nc):
+                            if vals[t] == 0:
+                                continue
+                            if q[cells[t]] == 0:      # turns on
+                                if mnew == 16:
+                                    overflow = True
+                                    break
+                                cnew[mnew] = cells[t]
+                                qnew[mnew] = vals[t]
+                                mnew += 1
+                    if not overflow:
+                        Wcur = _geo_weight(ccur, qcur, mcur, w2, rsq_shell, N)
+                        Wnew = _geo_weight(cnew, qnew, mnew, w2, rsq_shell, N)
+                        ratio = ratio * (Wnew / Wcur)
             if us[i] < np.exp(-dS) * ratio:
                 n2[mu, srav] += c
                 for t in range(df_ptr[mu], df_ptr[mu + 1]):
-                    w0 = (x0 + df_off[t, 0] + N) % N
-                    w1 = (x1 + df_off[t, 1] + N) % N
-                    w2 = (x2 + df_off[t, 2] + N) % N
-                    w3 = (x3 + df_off[t, 3] + N) % N
-                    F2[df_plane[t], ((w0 * N + w1) * N + w2) * N + w3] += df_val[t] * c
+                    fp0 = (x0 + df_off[t, 0] + N) % N
+                    fp1 = (x1 + df_off[t, 1] + N) % N
+                    fp2 = (x2 + df_off[t, 2] + N) % N
+                    fp3 = (x3 + df_off[t, 3] + N) % N
+                    F2[df_plane[t], ((fp0 * N + fp1) * N + fp2) * N + fp3] += df_val[t] * c
                 # Dense q and the compact nonzero list, maintained incrementally.
                 for b in range(nc):
                     if vals[b] == 0:
@@ -230,11 +333,11 @@ def tick_batch(F2, n2, dphi2, q, nzc, D, nnz,
                     d2 = (p2 - m2 + N) % N
                     d3 = (p3 - m3 + N) % N
                     # Min-image separation squared: the transport ceiling.
-                    w0 = d0 if d0 <= N - d0 else N - d0
-                    w1 = d1 if d1 <= N - d1 else N - d1
-                    w2 = d2 if d2 <= N - d2 else N - d2
-                    w3 = d3 if d3 <= N - d3 else N - d3
-                    rsq = w0 * w0 + w1 * w1 + w2 * w2 + w3 * w3
+                    mw0 = d0 if d0 <= N - d0 else N - d0
+                    mw1 = d1 if d1 <= N - d1 else N - d1
+                    mw2 = d2 if d2 <= N - d2 else N - d2
+                    mw3 = d3 if d3 <= N - d3 else N - d3
+                    rsq = mw0 * mw0 + mw1 * mw1 + mw2 * mw2 + mw3 * mw3
                     if rsq > tstate[2]:
                         tstate[2] = rsq
                     if tally:

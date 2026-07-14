@@ -79,3 +79,51 @@ def test_no_w2_is_sentinel():
     S = _action()
     g = DefectGas(S, fugacity=0.1)
     assert g.w2.size == 0 and g._w2_field is None
+
+
+def test_ones_table_matches_no_table():
+    # w2 identically 1.0 must reproduce the no-umbrella chain decision-for-
+    # decision (the accept factor is exactly 1; emission divides by 1).
+    # D_max=2 (the D=2-only table): the D=4 Wick sum is un-normalized by design
+    # (it is NOT identically 1 at trivial w2 -- see the pair-separation-umbrella
+    # design spec) and is exercised only starting in Task 3, so this task's
+    # ones-table invariant is certified in the D=2 sector, same as the rest of
+    # Task 2.
+    S = _action()
+    _, values = pair_shells(4)
+    w = (1.0, 0.04)
+    off = DefectGas(S, weights=w, emit_every=100, rng=np.random.default_rng(5))
+    on = DefectGas(S, weights=w, w2=np.ones(len(values)), emit_every=100,
+                   rng=np.random.default_rng(5))
+    phi, n = _cold(S)
+    a = {'phi': phi, 'n': n}
+    b = {'phi': phi, 'n': n}
+    for _ in range(3):
+        a = off.step(a)
+        b = on.step(b)
+        assert np.array_equal(np.asarray(a['n']), np.asarray(b['n']))
+        assert np.array_equal(a['Theta_Theta'], b['Theta_Theta'])
+        assert a['Vacuum_Ticks'] == b['Vacuum_Ticks']
+    assert off.proposed == on.proposed and off.accepted == on.accepted
+
+
+def test_step_matches_reference_umbrella_D2():
+    # Nontrivial w2 with D_max = 2: only the single-pair sector exists, so this
+    # certifies the D=2 weight factors on both paths before the Wick sum enters.
+    S = _action()
+    _, values = pair_shells(4)
+    w2 = np.geomspace(1.0, 30.0, len(values))     # strong outward push
+    fast, slow = _twins(S, seed=5, weights=(1.0, 0.04), w2=w2, emit_every=100)
+    phi, n = _cold(S)
+    a = {'phi': phi, 'n': n}
+    b = {'phi': phi, 'n': n}
+    for _ in range(3):
+        a = fast.step(a)
+        b = slow.step_reference(b)
+        assert np.array_equal(np.asarray(a['n']), np.asarray(b['n']))
+        assert np.array_equal(a['Theta_Theta'], b['Theta_Theta'])
+        assert a['Vacuum_Ticks'] == b['Vacuum_Ticks']
+        assert a['Ticks'] == b['Ticks']
+    assert fast.proposed == slow.proposed
+    assert fast.accepted == slow.accepted
+    assert fast.D_trace == slow.D_trace

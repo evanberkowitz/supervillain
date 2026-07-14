@@ -35,6 +35,34 @@ def pair_shells(N):
     return lookup, values
 
 
+def geo_weight_dict(defects, w2, lookup, N):
+    r"""Python mirror of the kernel's ``_geo_weight`` on the sparse dict."""
+    if w2.size == 0:
+        return 1.0
+    items = list(defects.items())
+    if len(items) == 2:
+        (c1, v1), (c2, v2) = items
+        if v1 * v2 == -1:
+            rsq = sum(min(d % N, N - d % N)**2 for d in
+                      (c1[k] - c2[k] for k in range(4)))
+            return w2[lookup[rsq]]
+        return 1.0
+    if len(items) == 4:
+        pos = [c for c, v in items if v == 1]
+        neg = [c for c, v in items if v == -1]
+        if len(pos) != 2 or len(neg) != 2:
+            return 1.0
+
+        def _w(a, b):
+            rsq = sum(min(d % N, N - d % N)**2 for d in
+                      (a[k] - b[k] for k in range(4)))
+            return w2[lookup[rsq]]
+
+        return _w(pos[0], neg[0]) * _w(pos[1], neg[1]) \
+             + _w(pos[0], neg[1]) * _w(pos[1], neg[0])
+    return 1.0
+
+
 class DefectGas(ReadWriteable, Generator):
     r"""
     Grand-canonical defect sampler for the $q = dn \wedge dn = 0$ constraint in 4D,
@@ -303,6 +331,21 @@ class DefectGas(ReadWriteable, Generator):
                 ratio = self.w[(st.D + dD) // 2] / self.w[st.D // 2]
             else:
                 ratio = self.fugacity**dD
+            if self.w2.size > 0:
+                newD = st.D + dD
+                if st.D in (2, 4) or newD in (2, 4):
+                    trial = dict(st.defects)
+                    for cell, dv in dq.items():
+                        q1 = trial.get(cell, 0) + dv
+                        if q1:
+                            trial[cell] = q1
+                        else:
+                            trial.pop(cell, None)
+                    Wcur = geo_weight_dict(st.defects, self.w2,
+                                           self._rsq_shell, self.N)
+                    Wnew = geo_weight_dict(trial, self.w2,
+                                           self._rsq_shell, self.N)
+                    ratio = ratio * (Wnew / Wcur)
             if st.us[i] < np.exp(-dS) * ratio:
                 st.n[link] += c
                 local_charge.apply_link_to_F(st.F, mu, site, c, self.N)
@@ -449,6 +492,7 @@ class DefectGas(ReadWriteable, Generator):
             st.F2, st.n2, st.dphi2, st.q, st.nzc, st.D, st.nnz,
             st.mus, st.sites, st.cs, st.us, i0,
             self.kappa, 0.0 if self.fugacity is None else self.fugacity, self.w,
+            self.w2, self._rsq_shell,
             -1 if self.D_max is None else int(self.D_max), self.N,
             *defect_gas_kernel.stencil_pack(),
             H_pair, H_four, tally, vac_stop, st.tstate, st.exc_hist, t_sector)
@@ -503,7 +547,9 @@ class DefectGas(ReadWriteable, Generator):
         # re-emitted (a copy, so the chain's working array stays private).
         out = configuration | {
             'n': Form(st.n.copy(), degree=1, lattice=L),
-            'Theta_Theta': H_pair.reshape(tuple(L.dims)) / (V * self._w1),
+            'Theta_Theta': H_pair.reshape(tuple(L.dims))
+                           / (V * self._w1
+                              * (self._w2_field if self._w2_field is not None else 1.0)),
             'Vacuum_Ticks': int(vacuum),
             'Ticks': int(ticks),
             'FourDefectDistribution': H_four / self._w4,
