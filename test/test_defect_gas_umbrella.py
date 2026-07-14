@@ -154,3 +154,40 @@ def test_step_matches_reference_umbrella_D4():
     assert fast.proposed == slow.proposed
     assert fast.accepted == slow.accepted
     assert four > 0
+
+
+def test_w2_independence():
+    # The estimator is w2-independent: materially different shell tables must
+    # agree on the correlator AND the Binder.  kappa = 0.2 (stable vacuum),
+    # ratio-of-sums with blocked jackknife, 5 sigma.
+    import supervillain.generator.villain as villain
+    from supervillain.generator.combining import Sequentially
+
+    S = _action(kappa=0.2)
+    _, values = pair_shells(4)
+    w = (1.0, 0.09, 8e-4, 8e-6, 8e-8)
+    tables = (np.ones(len(values)),
+              np.geomspace(1.0, 20.0, len(values)))
+    results = []
+    for seed, w2 in enumerate(tables):
+        gas = DefectGas(S, weights=w, w2=w2, emit_every=200,
+                        rng=np.random.default_rng(300 + seed))
+        chain = Sequentially((villain.SiteUpdate(S), gas))
+        e = supervillain.Ensemble(S).generate(400, chain)
+        T = np.asarray(e.Theta_Theta).real[:, 1, 0, 0, 0]
+        V = np.asarray(e.Vacuum_Ticks).astype(float)
+        B = 20
+        n = len(T) // B
+        Tb = T[:B * n].reshape(B, n).sum(axis=1)
+        Vb = V[:B * n].reshape(B, n).sum(axis=1)
+        jk = np.array([(Tb.sum() - Tb[b]) / (Vb.sum() - Vb[b]) for b in range(B)])
+        from supervillain.analysis import Bootstrap
+        auto = e.autocorrelation_time(observables=('ActionDensity',))
+        b = Bootstrap(e.cut(10 * auto).every(max(1, auto)))
+        U = np.asarray(b.ThetaBinderCumulant).real
+        results.append((Tb.sum() / Vb.sum(), np.sqrt((B - 1) * jk.var()),
+                        float(U.mean()), float(U.std())))
+    (m1, e1, U1, dU1), (m2, e2, U2, dU2) = results
+    assert m1 > 0 and m2 > 0
+    assert abs(m1 - m2) < 5 * np.hypot(e1, e2)
+    assert abs(U1 - U2) < 5 * max(1e-6, np.hypot(dU1, dU2))
