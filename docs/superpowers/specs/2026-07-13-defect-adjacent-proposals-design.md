@@ -139,8 +139,25 @@ weighted-campaign-2026-07-13 points (uniform proposals, same seeds/grids).
   e.g. kappa=0.03: Theta(3,0,0,0) = 1.02(7)e-4 and Theta(antipode) =
   2.96(57)e-5 with the transport ceiling at the lattice maximum r^2 = 36;
   kappa=0.06 (the chi peak): Theta(antipode) = 8.2(9)e-4 at matched
-  configurations (a 9-sigma far-bin measurement).  N=8/N=12 tier timings
-  land with the overnight campaign and extend this table.
+  configurations (a 9-sigma far-bin measurement).
+
+* **Campaign complete (2026-07-14 overnight).**  38/39 points (N=6, N=8:
+  15/15 each with ZERO permanent failures; N=12: 8/9): five of the 07-13
+  campaign's six condensation holes filled, including N=12 kappa=0.02
+  (transport to the lattice-maximum r^2 = 144); only N=12 kappa=0.01
+  still condenses through all retries -- a stationary-metastability
+  limit, not a kinetics one, unchanged by targeting.  N=12 headline
+  (matched configurations and comparable wall clock): kappa=0.05 tuned
+  102s + produced 1642s vs 112s + 1055s uniform, with 472x the round
+  trips (225,754 vs 478), a 23x smaller chi error (2.700(5) vs
+  2.615(113)), and the FIRST measured N=12 tail, Theta(6,0,0,0) =
+  1.20(37)e-6 where the uniform run had exactly zero; kappa=0.03 chi
+  error shrank 38x (1.531(1) vs 1.595(38)); kappa=0.07 sharpened 14x
+  (4.299(21) vs 3.718(303)), tightening the volume-independence of the
+  chi peak.  Head-to-head error-ratio pages:
+  no-intersections/weighted-campaign-2026-07-14/gamma-vs-uniform.pdf
+  (sigma_uniform/sigma_gamma > 1 in essentially every measured bin;
+  2-5x at N=6/N=8, larger at N=12).
 
 ## Non-goals
 
