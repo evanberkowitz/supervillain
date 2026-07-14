@@ -213,22 +213,19 @@ def tick_batch(F2, n2, dphi2, q, nzc, D, nnz,
                 newD = D + dD
                 if D == 2 or D == 4 or newD == 2 or newD == 4:
                     # Current multiset from the tracked nonzeros.
-                    ccur = np.empty(8, dtype=np.int64)
-                    qcur = np.empty(8, dtype=np.int64)
+                    ccur = np.empty(nnz, dtype=np.int64)
+                    qcur = np.empty(nnz, dtype=np.int64)
                     mcur = 0
                     for b2 in range(nnz):
-                        if mcur == 8:
-                            mcur = 9
-                            break
                         ccur[mcur] = nzc[b2]
                         qcur[mcur] = q[nzc[b2]]
                         mcur += 1
                     # Candidate multiset: current cells with deltas applied,
-                    # plus touched cells that turn on.
-                    cnew = np.empty(16, dtype=np.int64)
-                    qnew = np.empty(16, dtype=np.int64)
+                    # plus touched cells that turn on.  The candidate can never
+                    # exceed the current nonzeros plus the touched cells.
+                    cnew = np.empty(nnz + nc, dtype=np.int64)
+                    qnew = np.empty(nnz + nc, dtype=np.int64)
                     mnew = 0
-                    overflow = mcur == 9
                     for b2 in range(nnz):
                         cell = nzc[b2]
                         qq = q[cell]
@@ -237,27 +234,19 @@ def tick_batch(F2, n2, dphi2, q, nzc, D, nnz,
                                 qq += vals[t]
                                 break
                         if qq != 0:
-                            if mnew == 16:
-                                overflow = True
-                                break
                             cnew[mnew] = cell
                             qnew[mnew] = qq
                             mnew += 1
-                    if not overflow:
-                        for t in range(nc):
-                            if vals[t] == 0:
-                                continue
-                            if q[cells[t]] == 0:      # turns on
-                                if mnew == 16:
-                                    overflow = True
-                                    break
-                                cnew[mnew] = cells[t]
-                                qnew[mnew] = vals[t]
-                                mnew += 1
-                    if not overflow:
-                        Wcur = _geo_weight(ccur, qcur, mcur, w2, rsq_shell, N)
-                        Wnew = _geo_weight(cnew, qnew, mnew, w2, rsq_shell, N)
-                        ratio = ratio * (Wnew / Wcur)
+                    for t in range(nc):
+                        if vals[t] == 0:
+                            continue
+                        if q[cells[t]] == 0:      # turns on
+                            cnew[mnew] = cells[t]
+                            qnew[mnew] = vals[t]
+                            mnew += 1
+                    Wcur = _geo_weight(ccur, qcur, mcur, w2, rsq_shell, N)
+                    Wnew = _geo_weight(cnew, qnew, mnew, w2, rsq_shell, N)
+                    ratio = ratio * (Wnew / Wcur)
             if us[i] < np.exp(-dS) * ratio:
                 n2[mu, srav] += c
                 for t in range(df_ptr[mu], df_ptr[mu + 1]):
