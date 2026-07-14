@@ -172,9 +172,9 @@ def test_probe_sweeps_budget_and_continuity():
     one = DefectGas(S, weights=w, rng=np.random.default_rng(51))
     two = DefectGas(S, weights=w, rng=np.random.default_rng(51))
     phi, n = _cold(S)
-    cfg1, t1, r1 = one._probe_sweeps({'phi': phi, 'n': n}, 4)
-    cfg2, t2a, r2a = two._probe_sweeps({'phi': phi, 'n': n}, 2)
-    cfg2, t2b, r2b = two._probe_sweeps(cfg2, 2)
+    cfg1, t1, r1, _ = one._probe_sweeps({'phi': phi, 'n': n}, 4)
+    cfg2, t2a, r2a, _ = two._probe_sweeps({'phi': phi, 'n': n}, 2)
+    cfg2, t2b, r2b, _ = two._probe_sweeps(cfg2, 2)
     assert np.array_equal(np.asarray(cfg1['n']), np.asarray(cfg2['n']))
     assert np.array_equal(t1, t2a + t2b)
     assert r1 == r2a + r2b

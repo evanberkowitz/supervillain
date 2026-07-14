@@ -595,11 +595,11 @@ class DefectGas(ReadWriteable, Generator):
             tuple(int(x) for x in np.unravel_index(int(cell), dims)): int(st.q[cell])
             for cell in st.nzc[:st.nnz]}
 
-    def _probe_sweeps(self, configuration, sweeps):
+    def _probe_sweeps(self, configuration, sweeps, tally=False):
         r"""
         Advance the enlarged chain a fixed number of sweeps --- never waiting for the
         vacuum, never emitting --- and return ``(configuration, SectorTicks,
-        RoundTrips)`` for the block.
+        RoundTrips, H_pair)`` for the block.
 
         Tuner plumbing, not Generator API: the returned ``n`` is the raw chain state,
         generally invalid (mid-excursion), and must not enter an
@@ -626,13 +626,13 @@ class DefectGas(ReadWriteable, Generator):
                 self.D_trace.append(st.D)
                 self._draw_batch(st)
             i0 = st.i
-            # vac_stop=0: run to the end of the proposal batch; tally=False skips the
+            # vac_stop=0: run to the end of the proposal batch; tally parameter skips the
             # pair/four histograms (the sector histogram is always on).
-            self._kernel_ticks(st, False, 0, H_pair, H_four, t_sector)
+            self._kernel_ticks(st, tally, 0, H_pair, H_four, t_sector)
             remaining -= st.i - i0
         self._sync_defects()
         return ({'phi': st.phi, 'n': st.n.copy()},
-                t_sector, int(st.tstate[4]) - rt0)
+                t_sector, int(st.tstate[4]) - rt0, H_pair)
 
     def step_reference(self, configuration):
         r"""
@@ -959,7 +959,7 @@ class DefectGasWeightTuner:
         done = 0
         while done < probe_sweeps:
             block = min(companion_every, probe_sweeps - done)
-            cfg, t, r = gas._probe_sweeps(cfg, block)
+            cfg, t, r, _ = gas._probe_sweeps(cfg, block)
             halves[(2 * done) // probe_sweeps] += t
             trips += r
             done += block
