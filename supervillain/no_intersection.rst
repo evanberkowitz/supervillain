@@ -491,6 +491,29 @@ Because it can be hard to guess a good fugacity in practice we provide a tuner t
 .. autoclass:: supervillain.generator.no_intersection.DefectGasFugacityTuner
    :members:
 
+At strongly decaying couplings, however, there may be *no* working fugacity at all.
+The geometric price is one knob controlling every sector at once: $\zeta^{D}$ fixes all the adjacent-sector dwell *ratios* simultaneously, while the sectors' entropies --- roughly $\lambda^{k}/k!$ for $k$ pairs free to roam the volume --- grow at different rates.
+A $\zeta$ small enough to keep the top sectors from condensing can squeeze the pair sector's dwell below anything measurable, and the window between *condensed* and *silent* can close entirely; at $N = 6$, $\kappa = 0.05$ we found it shut.
+
+The cure is to abandon the geometric form and price each sector on its own,
+
+.. math ::
+
+   \zeta^{D(n)} \longrightarrow w_{D(n)/2},
+   \qquad w_{0} = 1,
+
+a *multicanonical* weight table with one entry per pair sector up to the cap $K = $ ``D_max`` $/2$.
+The right target is **flat sector occupancy**: with every sector dwelling equally the vacuum is revisited a fraction $1/(K+1)$ of the time --- a fixed *polynomial* price for full multi-pair traffic, against the $e^{-\langle D/2 \rangle}$ suppression *some* sector must suffer under any geometric pricing.
+And, since the intermediate sectors' weights cancel from every published estimator exactly as $\zeta$ did, the table costs nothing in exactness: running twice with materially different tables and comparing is the same free end-to-end test as running at two fugacities.
+
+Flatness has a physical identity worth respecting: the flat table sits at the *sector-coexistence point* of the auxiliary ensemble, the same knife's edge on which the fugacity ladder kept slipping into metastability --- probe a candidate briefly and it looks healthy, run it longer and it condenses.
+The :class:`DefectGasWeightTuner` is built around that hazard.
+Its probes are *sweep-budgeted* rather than vacuum-anchored, so a condensing candidate produces a lopsided histogram --- a measurement the recursion corrects on the next iteration --- instead of a hang; sectors the probe never visited are left untouched, because extrapolating into unmeasured territory is how multicanonical recursions blow up; per-iteration updates are damped and clipped; and convergence demands visits everywhere, flatness, half-vs-half stationarity, *and* completed vacuum--top--vacuum round trips, never flatness alone.
+After the recursion freezes, the table is deliberately *lightened* ($w_{k} \to w_{k}/\texttt{lighten}^{k}$), stepping production off the coexistence point onto its vacuum side: slightly less multi-pair traffic, bought back many times over in stability.
+
+.. autoclass:: supervillain.generator.no_intersection.DefectGasWeightTuner
+   :members:
+
 We can build a derived quantity from the defect gas's dwell ratios to compute the intersection susceptibility $\chi_\theta$. The pair-sector dwell rides along as the :class:`~.DefectGas`'s inline observable ``Theta_Theta``, while the defect-free dwell is measured by the inline observable ``Vacuum_Ticks``, from which $\Theta$ :eq:`theta-defect-correlator` is the ratio of ensemble means.
 
 
@@ -512,7 +535,7 @@ The intersection susceptibility is then the sum of the correlator over all separ
 Beyond the $\Theta$ correlator, the defect gas can yield quantities with some
 simple bookkeeping.  If we are interested in studying a transition that involves
 $U(1)_\theta$ symmetry breaking we might be interested in the Binder cumulant,
-which is the fourth moment of the order parameter divided by the square of the second moment.
+built from the fourth moment of the order parameter and the square of the second moment.
 
 .. autoclass:: supervillain.observable.ThetaBinderCumulant
    :members:
@@ -657,13 +680,16 @@ automatically the $\Delta x \neq 0$ sum.
    :show-inheritance:
 
 
-Two practical notes.  All fugacities divide out, so the :class:`~.ThetaBinderCumulant` is $\zeta$-independent ---
-the same free exactness test as for $\Theta$ --- but the *statistics* are not: the
+Two practical notes.  All sector prices divide out, so the :class:`~.ThetaBinderCumulant` is independent of the fugacity or weight table ---
+the same free exactness test as for $\Theta$ --- but the *statistics* are not: under geometric pricing the
 quartic-sector dwell scales like $\zeta^4$, so the Binder cumulant measurement wants the
 largest healthy fugacity (exactly what :meth:`~supervillain.generator.no_intersection.DefectGasFugacityTuner.tune_edge`
-selects), and an under-visited quartic sector shows up as impossible values ($U < 1$
-violates Cauchy--Schwarz) with underestimated :class:`~.Bootstrap` errors --- loud, like every
-other failure mode of this sampler.
+selects) or, better, the :class:`DefectGasWeightTuner`'s flat table, which visits the
+quartic sector a fixed $1/(K+1)$ fraction of the time no matter how expensive $\zeta^{4}$
+would have made it.  An under-visited quartic sector shows up as impossible values ($U > 1/2$
+violates Cauchy--Schwarz) with
+underestimated :class:`~.Bootstrap` errors --- loud, like every other failure mode of
+this sampler.
 
 Irreducibility by construction
 ==============================
