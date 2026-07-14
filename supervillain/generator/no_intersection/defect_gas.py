@@ -325,6 +325,13 @@ class DefectGas(ReadWriteable, Generator):
         self.emit_every = emit_every if emit_every is not None else 4 * self.N**4
         self.max_step_sweeps = max_step_sweeps
         self.rng = rng if rng is not None else np.random.default_rng()
+        # The mixture/target/edge draws ride on an INDEPENDENT stream, spawned from
+        # the seed sequence (not the consumable output) of self.rng, so drawing them
+        # never perturbs the legacy mus/sites/cs/us sequence -- a gamma=1 chain (the
+        # mixture never fires, Hastings factor exactly 1) then tracks a gamma-less
+        # chain sweep after sweep, not just through the first batch.
+        self._aux_rng = (np.random.default_rng(self.rng.bit_generator.seed_seq.spawn(1)[0])
+                          if self.gamma.size > 0 else None)
         self.D_trace = []           # per-sweep defect count (diagnostic)
         self.accepted = 0
         self.proposed = 0
@@ -386,15 +393,28 @@ class DefectGas(ReadWriteable, Generator):
         return st
 
     def _draw_batch(self, st):
-        # Draw a sweep's worth of proposals up front (numpy batching); the proposal
-        # distribution -- uniform link, uniform c = ±1 -- is SYMMETRIC, so plain
-        # Metropolis needs no Hastings factor.  This is the whole move set: no
-        # templates, no clean sets, no directions.
+        # Draw a sweep's worth of proposals up front (numpy batching).  The legacy
+        # proposal -- uniform link, uniform c = ±1 -- is symmetric and needs no
+        # Hastings factor; with a gamma table the mixture component, target cell,
+        # and edge draws ride along and _tick applies the full MH ratio.  Legacy
+        # arrays are drawn first, in the historical order, from self.rng, so the
+        # gamma-less stream is bit-for-bit unchanged; the extra arrays are drawn
+        # from the independent _aux_rng (see __init__) so a gamma chain's legacy
+        # prefix never shifts relative to a gamma-less chain sweep after sweep.
         rng, N = self.rng, self.N
         st.mus = rng.integers(0, 4, size=st.n_links)
         st.sites = rng.integers(0, N, size=(st.n_links, 4))
         st.cs = rng.choice((-1, 1), size=st.n_links)
         st.us = rng.uniform(0, 1, size=st.n_links)
+        if self.gamma.size > 0:
+            aux = self._aux_rng
+            st.comps = aux.uniform(0, 1, size=st.n_links)
+            st.ucells = aux.uniform(0, 1, size=st.n_links)
+            st.uedges = aux.uniform(0, 1, size=st.n_links)
+        else:
+            st.comps = np.zeros(0)
+            st.ucells = np.zeros(0)
+            st.uedges = np.zeros(0)
         st.i = 0
 
     def _tick(self, st):
@@ -415,6 +435,20 @@ class DefectGas(ReadWriteable, Generator):
         site = (int(st.sites[i, 0]), int(st.sites[i, 1]),
                 int(st.sites[i, 2]), int(st.sites[i, 3]))
         c = int(st.cs[i])
+        targeted = self.gamma.size > 0
+        if targeted and st.D > 0 and st.comps[i] >= self.gamma[st.D // 2]:
+            # Adjacent draw: a defect cell with probability |q_c|/D, then one of
+            # its 32 edges uniformly.  (In vacuum there is nothing to target and
+            # the density below degenerates to pure uniform.)
+            target = st.ucells[i] * st.D
+            cum = 0.0
+            cell = int(st.nzc[0])
+            for b in range(st.nnz):
+                cum += abs(int(st.q[st.nzc[b]]))
+                if target < cum:
+                    cell = int(st.nzc[b])
+                    break
+            mu, site = cell_edge(cell, int(st.uedges[i] * 32), self.N)
         # The link's charge response on the CURRENT background, from the same local
         # stencils the clean worms use -- but here a messy Δq is not a rejection, it is
         # a price: ΔD counts how many units of |q| the move creates (+) or
@@ -453,6 +487,23 @@ class DefectGas(ReadWriteable, Generator):
                     Wnew = geo_weight_dict(trial, self.w2,
                                            self._rsq_shell, self.N)
                     ratio = ratio * (Wnew / Wcur)
+            if targeted:
+                nl = np.float64(st.n_links)
+                pu = 1.0 / nl
+                if st.D > 0:
+                    g = self.gamma[st.D // 2]
+                    s_fwd = link_charge_sum(mu, site, st.q, self.N)
+                    p_fwd = g * pu + (1.0 - g) * s_fwd / (32.0 * st.D)
+                else:
+                    p_fwd = pu
+                newD = st.D + dD
+                if newD > 0:
+                    g2 = self.gamma[newD // 2]
+                    s_rev = link_charge_sum(mu, site, st.q, self.N, dq=dq)
+                    p_rev = g2 * pu + (1.0 - g2) * s_rev / (32.0 * newD)
+                else:
+                    p_rev = pu
+                ratio = ratio * (p_rev / p_fwd)
             if st.us[i] < np.exp(-dS) * ratio:
                 st.n[link] += c
                 local_charge.apply_link_to_F(st.F, mu, site, c, self.N)

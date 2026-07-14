@@ -143,3 +143,36 @@ def test_delta_charge_sum():
             dq = {(0, 0, 0, 3): -1, (0, 2, 2, 0): 1}    # raveled 3 and 40 at N=4
             got_py = link_charge_sum(mu, site, q, N, dq=dq)
             assert got == expect == got_py
+
+
+def _drive_reference(gas, S, ticks=6000):
+    phi, n = _cold(S)
+    st = gas._init_state(phi, n)
+    for _ in range(ticks):
+        gas._tick(st)            # _tick redraws at sweep boundaries itself
+    return st
+
+
+def test_gamma_ones_matches_legacy_reference():
+    # With gamma present but all ones, the mixture never fires and the Hastings
+    # factor is exactly 1, and _draw_batch draws the legacy arrays FIRST -- so
+    # the decisions match the legacy chain tick for tick.
+    S = _action()
+    legacy = DefectGas(S, weights=W, rng=np.random.default_rng(11))
+    ones = DefectGas(S, weights=W, gamma=1.0, rng=np.random.default_rng(11))
+    st_a = _drive_reference(legacy, S)
+    st_b = _drive_reference(ones, S)
+    assert np.array_equal(st_a.n, st_b.n)
+    assert st_a.D == st_b.D
+    assert legacy.accepted == ones.accepted
+    assert legacy.proposed == ones.proposed
+
+
+def test_targeted_reference_walks_and_returns():
+    # gamma = 0.5: the chain must still visit the pair sector AND return to
+    # vacuum (detailed balance sanity: no drift into a stuck sector).
+    S = _action()
+    gas = DefectGas(S, weights=W, gamma=0.5, rng=np.random.default_rng(23))
+    st = _drive_reference(gas, S, ticks=20000)
+    assert gas.accepted > 0
+    assert st.tstate[1] > 0          # completed excursions: entered AND left
