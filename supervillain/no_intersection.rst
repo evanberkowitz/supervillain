@@ -739,7 +739,7 @@ The proposal density at link $\ell$,
 (the sum over the 8 hypercubes containing $\ell$; $\sum_\ell s = 32 D$ exactly) is asymmetric, so the accept test carries the full Metropolis--Hastings factor $p(\ell \mid n') / p(\ell \mid n)$ --- and then *every estimator is exactly unchanged*, with $\gamma$-independence joining fugacity-, $w$-, and $w_2$-independence in the family of free end-to-end exactness tests.
 
 Be clear about what targeting buys: for a reversible creation/annihilation pair the Hastings factor exactly cancels the proposal concentration, so net creation and annihilation *fluxes* are invariant.
-The gain is *in-sector transport* --- both endpoint states carry the adjacency term, the factor is $O(1)$, and the pair's $r$-space diffusion rate rises by $\sim (1 - \gamma)\, V/8\langle s \rangle$ --- exactly the kinetics the umbrella needs and the volume scaling that starves the far bins at large $N$.
+The gain is *in-sector transport* --- both endpoint states carry the adjacency term, the factor is $O(1)$, and the pair's $r$-space diffusion rate rises by $\sim (1 - \gamma)\, V/(8\langle s\rangle)$ --- exactly the kinetics the umbrella needs and the volume scaling that starves the far bins at large $N$.
 The :class:`DefectGasWeightTuner` uses the same $\gamma$ in its probes and in the production chain it builds, so all its measurements are self-consistent.
 
 Irreducibility by construction

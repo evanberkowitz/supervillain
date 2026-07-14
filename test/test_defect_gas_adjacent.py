@@ -6,6 +6,9 @@ gamma is a (K+1)-vector indexed by sector; the empty array is the legacy
 sentinel (bit-for-bit today's sampler, same RNG stream).
 """
 
+import tempfile
+
+import h5py as h5
 import numpy as np
 
 import supervillain
@@ -217,12 +220,13 @@ def test_kernel_reference_twins_gamma_vector():
     #
     # NOTE: seed=13 (as originally specified) makes the *reference* chain
     # itself condense (verified by driving step_reference alone, with no
-    # kernel involved at all) -- this weights/gamma combination is a rare
-    # metastable trap for a majority of seeds, a pre-existing property of the
-    # Task-3 mixture proposal, not a kernel bug.  Across 21 seeds sampled,
-    # every seed under which BOTH step and step_reference completed agreed
-    # bit-for-bit; only completion (condensation) varied by seed.  seed=1 is
-    # a confirmed-healthy seed that also reaches every sector, D=8 included.
+    # kernel involved at all) -- at this coupling and table, most seeds
+    # condense into the metastable defect-rich basin, a pre-existing property
+    # of the Task-3 mixture proposal, not a kernel bug.  Across 21 seeds
+    # sampled, every seed under which BOTH step and step_reference completed
+    # agreed bit-for-bit; only completion (condensation) varied by seed.
+    # seed=1 is a verified-healthy choice that visits every sector, D=8
+    # included.
     S = _action()
     w = (1.0, 0.04, 2.4e-3, 5e-5, 4e-6)
     out = _run_twins(S, seed=1, weights=w,
@@ -271,6 +275,27 @@ def test_tuner_forwards_gamma(monkeypatch):
     legacy._probe(np.array([1.0, 0.04, 2.4e-3]), {'phi': phi, 'n': n}, 2, 25)
     assert len(built) == 1 and built[0].size == 0
 
+    # _probe_umbrella builds its gas the same way; one shell entry per
+    # realized shell at N=4 (13 of them).
+    from supervillain.generator.no_intersection.defect_gas import shell_multiplicity
+    _, shells, _, _, _ = shell_multiplicity(S.Lattice.N)
+    built.clear()
+    tuner._probe_umbrella(np.array([1.0, 0.04, 2.4e-3]), np.ones(len(shells)),
+                         {'phi': phi, 'n': n}, 2, 25)
+    assert len(built) == 1 and np.all(built[0] == 0.5) and built[0].shape == (3,)
+
+    # generator() must also forward gamma to the production gas.  Canned
+    # tune() avoids running the real (slow) recursion; it still has to set
+    # mixing_sweeps, which generator() reads to size the step horizon.
+    def canned_tune(self, **kwargs):
+        self.mixing_sweeps = 25.0
+        return np.array([1.0, 0.04, 2.4e-3]), 100
+    monkeypatch.setattr(DefectGasWeightTuner, 'tune', canned_tune)
+    built.clear()
+    chain = tuner.generator()
+    assert len(built) == 1 and np.all(built[0] == 0.5) and built[0].shape == (3,)
+    assert np.all(chain.generators[-1].gamma == 0.5)
+
 
 def test_gamma_independence_theta_and_binder():
     # The physics is gamma-independent: Theta on a near bin and the Binder
@@ -306,3 +331,33 @@ def test_gamma_independence_theta_and_binder():
     assert m1 > 0 and m2 > 0
     assert abs(m1 - m2) < 5 * np.hypot(e1, e2)
     assert abs(U1 - U2) < 5 * max(1e-6, np.hypot(dU1, dU2))
+
+
+def test_h5_roundtrip_gamma_and_legacy():
+    # A gamma-bearing gas and a legacy (gamma=None) gas both round-trip through
+    # the ReadWriteable interface: the gamma table survives, and a restored
+    # gas steps a cold configuration identically to the original -- same rng
+    # state, same 'n' after one tick.
+    S = _action()
+    gamma_gas = DefectGas(S, weights=W, gamma=0.5, rng=np.random.default_rng(11))
+    legacy_gas = DefectGas(S, weights=W, rng=np.random.default_rng(12))
+
+    with tempfile.NamedTemporaryFile(suffix='.h5') as f:
+        with h5.File(f.name, 'w') as hf:
+            gamma_gas.to_h5(hf.create_group('gamma'))
+            legacy_gas.to_h5(hf.create_group('legacy'))
+            gamma_restored = DefectGas.from_h5(hf['gamma'])
+            legacy_restored = DefectGas.from_h5(hf['legacy'])
+
+    assert np.array_equal(gamma_restored.gamma, gamma_gas.gamma)
+    assert legacy_restored.gamma.size == 0 and gamma_gas.gamma.size > 0
+
+    phi, n = _cold(S)
+    a = gamma_gas.step({'phi': phi, 'n': n})
+    b = gamma_restored.step({'phi': phi, 'n': n})
+    assert np.array_equal(np.asarray(a['n']), np.asarray(b['n']))
+
+    phi, n = _cold(S)
+    c = legacy_gas.step({'phi': phi, 'n': n})
+    d = legacy_restored.step({'phi': phi, 'n': n})
+    assert np.array_equal(np.asarray(c['n']), np.asarray(d['n']))

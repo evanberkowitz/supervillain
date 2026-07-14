@@ -12,10 +12,12 @@ accepted flip touches $O(1)$ hypercubes), so $\Delta D$, the accept/reject, the 
 patch, and the sector classification are all $O(1)$ per proposal with no Python in the
 loop.
 
-The kernel consumes the *same* pre-drawn proposal arrays (link, shift, uniform) in the
-same order as the pure-Python :meth:`~.DefectGas.step_reference` tick loop and applies
-the same floating-point accept test, so the compiled chain reproduces the reference
-chain **bit-for-bit** (asserted in ``test_defect_gas_kernel.py``).
+The kernel consumes the *same* pre-drawn proposal arrays (link, shift, uniform, plus
+``comps``/``ucells``/``uedges`` -- the mixture-component, target-cell, and edge draws
+the defect-adjacent mixture proposal needs) in the same order as the pure-Python
+:meth:`~.DefectGas.step_reference` tick loop and applies the same floating-point accept
+test, so the compiled chain reproduces the reference chain **bit-for-bit** (asserted in
+``test_defect_gas_kernel.py``).
 
 Restricted to $D = 4$.
 """

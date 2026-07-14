@@ -83,7 +83,7 @@ def geo_weight_dict(defects, w2, lookup, N):
 def cell_edge(cell, e, N):
     r"""
     Edge ``e`` $\in [0, 32)$ of the hypercube at raveled corner ``cell``:
-    direction $\mu = e / 8$; the bits of $e \bmod 8$ offset the three
+    direction $\mu = \lfloor e / 8 \rfloor$; the bits of $e \bmod 8$ offset the three
     non-$\mu$ coordinates by $+1$.  Returns ``(mu, site)``.  (Pure-python
     mirror of the kernel's ``_cell_edge`` for the reference tick path.)
     """
