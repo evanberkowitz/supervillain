@@ -205,8 +205,8 @@ def _geo_weight(cells, charges, count, w2, rsq_shell, N):
 
 @njit(cache=True)
 def tick_batch(F2, n2, dphi2, q, nzc, D, nnz,
-               mus, sites, cs, us, i0,
-               kappa, fugacity, w, w2, rsq_shell, D_max, N,
+               mus, sites, cs, us, comps, ucells, uedges, i0,
+               kappa, fugacity, w, w2, rsq_shell, gamma, D_max, N,
                st_o, st_p, st_s, st_k, st_ptr,
                df_off, df_plane, df_val, df_ptr,
                H_pair, H_four, tally, vac_stop,
@@ -223,7 +223,9 @@ def tick_batch(F2, n2, dphi2, q, nzc, D, nnz,
     scalars cannot be mutated.  The proposal arrays ``mus, sites, cs, us`` and the
     accept test --- ``u < e^{-\Delta S} \zeta^{\Delta D}``, or with a nonempty sector
     table ``w`` instead ``u < e^{-\Delta S}\, w[(D+\Delta D)/2]/w[D/2]`` --- match
-    :meth:`~.DefectGas.step_reference` exactly.
+    :meth:`~.DefectGas.step_reference` exactly.  With a gamma table the accept test
+    carries the full Metropolis--Hastings factor p(l|n')/p(l|n) for the mixture
+    proposal (uniform with probability gamma_k, else charge-weighted defect-adjacent).
 
     Tallies: each tick lands in a sector --- vacuum ($D = 0$, counted toward the return
     value and ``vac_stop``), the single-pair sector (``H_pair`` at the raveled $+$-to-$-$
@@ -260,6 +262,21 @@ def tick_batch(F2, n2, dphi2, q, nzc, D, nnz,
         mu = mus[i]
         x0 = sites[i, 0]; x1 = sites[i, 1]; x2 = sites[i, 2]; x3 = sites[i, 3]
         c = cs[i]
+        if gamma.size > 0 and D > 0:
+            if comps[i] >= gamma[D // 2]:
+                # Adjacent draw: cell with probability |q_c|/D, then one of its
+                # 32 edges uniformly.
+                target = ucells[i] * D
+                cum = 0.0
+                cell = nzc[0]
+                for b in range(nnz):
+                    qq = q[nzc[b]]
+                    cum += qq if qq >= 0 else -qq
+                    if target < cum:
+                        cell = nzc[b]
+                        break
+                e = int(uedges[i] * 32)
+                mu, x0, x1, x2, x3 = _cell_edge(cell, e, N)
         # Delta q on the touched hypercubes, deduplicated into (cells, vals).
         nc = 0
         for t in range(st_ptr[mu], st_ptr[mu + 1]):
@@ -341,6 +358,24 @@ def tick_batch(F2, n2, dphi2, q, nzc, D, nnz,
                     Wcur = _geo_weight(ccur, qcur, mcur, w2, rsq_shell, N)
                     Wnew = _geo_weight(cnew, qnew, mnew, w2, rsq_shell, N)
                     ratio = ratio * (Wnew / Wcur)
+            if gamma.size > 0:
+                nl = np.float64(mus.shape[0])
+                pu = 1.0 / nl
+                if D > 0:
+                    g = gamma[D // 2]
+                    s_fwd = _link_charge_sum(mu, x0, x1, x2, x3, q, N)
+                    p_fwd = g * pu + (1.0 - g) * s_fwd / (32.0 * D)
+                else:
+                    p_fwd = pu
+                newD2 = D + dD
+                if newD2 > 0:
+                    g2 = gamma[newD2 // 2]
+                    s_rev = _link_charge_sum_delta(mu, x0, x1, x2, x3,
+                                                   q, cells, vals, nc, N)
+                    p_rev = g2 * pu + (1.0 - g2) * s_rev / (32.0 * newD2)
+                else:
+                    p_rev = pu
+                ratio = ratio * (p_rev / p_fwd)
             if us[i] < np.exp(-dS) * ratio:
                 n2[mu, srav] += c
                 for t in range(df_ptr[mu], df_ptr[mu + 1]):

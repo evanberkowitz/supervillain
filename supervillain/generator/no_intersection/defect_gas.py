@@ -648,9 +648,9 @@ class DefectGas(ReadWriteable, Generator):
         i0 = st.i
         i, D, nnz, acc, vac = defect_gas_kernel.tick_batch(
             st.F2, st.n2, st.dphi2, st.q, st.nzc, st.D, st.nnz,
-            st.mus, st.sites, st.cs, st.us, i0,
+            st.mus, st.sites, st.cs, st.us, st.comps, st.ucells, st.uedges, i0,
             self.kappa, 0.0 if self.fugacity is None else self.fugacity, self.w,
-            self.w2, self._rsq_shell,
+            self.w2, self._rsq_shell, self.gamma,
             -1 if self.D_max is None else int(self.D_max), self.N,
             *defect_gas_kernel.stencil_pack(),
             H_pair, H_four, tally, vac_stop, st.tstate, st.exc_hist, t_sector)
