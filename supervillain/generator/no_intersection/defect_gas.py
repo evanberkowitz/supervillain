@@ -198,9 +198,9 @@ class DefectGas(ReadWriteable, Generator):
         Supplies $S_{V}$, $\kappa$, and the lattice.
     fugacity: float, optional
         The per-defect fugacity $\zeta \in (0, 1]$.  Exactly one of ``fugacity``
-        and ``weights`` is required.
+        and ``sectorWeights`` is required.
     D_max: int or None
-        Hard cap on $D$; ``None`` uncaps (geometric path only --- ``weights`` pins it).
+        Hard cap on $D$; ``None`` uncaps (geometric path only --- ``sectorWeights`` pins it).
     emit_every: int, optional
         Vacuum ticks per :meth:`step` emission; defaults to $4 N^{4}$ (about one
         sweep's worth of vacuum time).
@@ -208,8 +208,8 @@ class DefectGas(ReadWriteable, Generator):
         Safety horizon: :meth:`step` raises after this many sweeps without reaching
         ``emit_every`` vacuum ticks (the defect-condensation symptom).
     rng: numpy Generator, optional
-    weights: sequence of floats, optional
-        The per-sector weights $w_k$ for $k = D/2 = 0, \ldots, K$, an alternative to
+    sectorWeights: sequence of floats, optional
+        The sector table $w_k$ for $k = D/2 = 0, \ldots, K$, an alternative to
         the geometric ``fugacity`` ($w_k = \zeta^{2k}$).  Normalized so $w_0 = 1$;
         the length pins ``D_max`` $= 2K$.  Chosen well (see
         :class:`DefectGasWeightTuner`) the sector occupancies flatten, so the chain
@@ -248,25 +248,25 @@ class DefectGas(ReadWriteable, Generator):
     _FOUR = {(-1, -1, 1, 1): 0, (-1, -1, 2): 1, (-2, 1, 1): 2, (-2, 2): 3}
 
     def __init__(self, S, fugacity=None, D_max=None, emit_every=None, max_step_sweeps=500,
-                 rng=None, weights=None, pairSeparationUmbrella=None,
+                 rng=None, sectorWeights=None, pairSeparationUmbrella=None,
                  uniformProposalFraction=None):
         if not isinstance(S, supervillain.action.NoIntersections):
             raise ValueError('DefectGas requires a NoIntersections action.')
         if S.Lattice.D != 4:
             raise ValueError('DefectGas is only implemented for D = 4.')
-        if (fugacity is None) == (weights is None):
-            raise ValueError('exactly one of fugacity and weights is required.')
-        if weights is not None:
-            w = np.asarray(weights, dtype=np.float64)
+        if (fugacity is None) == (sectorWeights is None):
+            raise ValueError('exactly one of fugacity and sectorWeights is required.')
+        if sectorWeights is not None:
+            w = np.asarray(sectorWeights, dtype=np.float64)
             if w.ndim != 1 or len(w) < 2:
-                raise ValueError(f'weights must be a 1D sequence of at least two sectors; got shape {w.shape}.')
+                raise ValueError(f'sectorWeights must be a 1D sequence of at least two sectors; got shape {w.shape}.')
             if not np.all(w > 0):
-                raise ValueError('weights must be positive.')
+                raise ValueError('sectorWeights must be positive.')
             w = w / w[0]
             if D_max is None:
                 D_max = 2 * (len(w) - 1)
             elif D_max != 2 * (len(w) - 1):
-                raise ValueError(f'weights of length {len(w)} pin D_max = {2 * (len(w) - 1)}; got D_max={D_max}.')
+                raise ValueError(f'sectorWeights of length {len(w)} pin D_max = {2 * (len(w) - 1)}; got D_max={D_max}.')
         else:
             if not (0 < fugacity <= 1):
                 raise ValueError(f'fugacity must be in (0, 1]; got {fugacity}.')
@@ -277,7 +277,7 @@ class DefectGas(ReadWriteable, Generator):
         self.N = self.L.N
         self.kappa = S.kappa
         self.fugacity = None if fugacity is None else float(fugacity)
-        self.w = w
+        self.sectorWeights = w
         # The tally prices unify the two paths: the D = 2 histogram is divided by _w1
         # and the D = 4 classes by _w4 at emission.
         if self.fugacity is not None:
@@ -314,7 +314,7 @@ class DefectGas(ReadWriteable, Generator):
             self.uniformProposalFraction = np.zeros(0, dtype=np.float64)
         else:
             if self.D_max is None:
-                raise ValueError('uniformProposalFraction requires a capped gas (weights or D_max).')
+                raise ValueError('uniformProposalFraction requires a capped gas (sectorWeights or D_max).')
             K1 = self.D_max // 2 + 1
             g = np.asarray(uniformProposalFraction, dtype=np.float64)
             if g.ndim == 0:
@@ -347,7 +347,7 @@ class DefectGas(ReadWriteable, Generator):
        f', uniformProposalFraction={np.array2string(self.uniformProposalFraction, precision=3)}')
         if self.fugacity is not None:
             return f'DefectGas(fugacity={self.fugacity}, D_max={self.D_max}{tag})'
-        return f'DefectGas(weights={np.array2string(self.w, precision=4)}, D_max={self.D_max}{tag})'
+        return f'DefectGas(sectorWeights={np.array2string(self.sectorWeights, precision=4)}, D_max={self.D_max}{tag})'
 
     # ---------------------------------------------------------------- chain internals
 
@@ -472,8 +472,8 @@ class DefectGas(ReadWriteable, Generator):
             link = (mu,) + site
             A = st.dphi[link] - 2 * np.pi * st.n[link]
             dS = (self.kappa / 2) * ((A - 2 * np.pi * c)**2 - A**2)
-            if self.w.size > 0:
-                ratio = self.w[(st.D + dD) // 2] / self.w[st.D // 2]
+            if self.sectorWeights.size > 0:
+                ratio = self.sectorWeights[(st.D + dD) // 2] / self.sectorWeights[st.D // 2]
             else:
                 ratio = self.fugacity**dD
             if self.pairSeparationUmbrella.size > 0:
@@ -653,7 +653,7 @@ class DefectGas(ReadWriteable, Generator):
         i, D, nnz, acc, vac = defect_gas_kernel.tick_batch(
             st.F2, st.n2, st.dphi2, st.q, st.nzc, st.D, st.nnz,
             st.mus, st.sites, st.cs, st.us, st.comps, st.ucells, st.uedges, i0,
-            self.kappa, 0.0 if self.fugacity is None else self.fugacity, self.w,
+            self.kappa, 0.0 if self.fugacity is None else self.fugacity, self.sectorWeights,
             self.pairSeparationUmbrella, self._rsq_shell, self.uniformProposalFraction,
             -1 if self.D_max is None else int(self.D_max), self.N,
             *defect_gas_kernel.stencil_pack(),
@@ -1122,7 +1122,7 @@ class DefectGasWeightTuner:
         # companions interleaved.  Returns the (total, first-half, second-half)
         # sector histograms, the round trips, and the end configuration (raw,
         # possibly invalid --- fine, the next probe continues it).
-        gas = DefectGas(self.S, weights=w, rng=self.rng,
+        gas = DefectGas(self.S, sectorWeights=w, rng=self.rng,
                         uniformProposalFraction=self.uniformProposalFraction)
         K1 = self.D_max // 2 + 1
         halves = [np.zeros(K1, dtype=np.int64), np.zeros(K1, dtype=np.int64)]
@@ -1260,7 +1260,7 @@ class DefectGasWeightTuner:
         (total, first half, second half), the round trips, and the end
         configuration.
         """
-        gas = DefectGas(self.S, weights=w, pairSeparationUmbrella=w2, rng=self.rng,
+        gas = DefectGas(self.S, sectorWeights=w, pairSeparationUmbrella=w2, rng=self.rng,
                         uniformProposalFraction=self.uniformProposalFraction)
         lookup, values, rsq, nz, mult = shell_multiplicity(self.S.Lattice.N)
         halves = [np.zeros(len(values)), np.zeros(len(values))]
@@ -1404,8 +1404,8 @@ class DefectGasWeightTuner:
         The normal way to consume a tune: :meth:`tune` from ``start`` (``kwargs``
         forward), optionally followed by :meth:`tune_umbrella` (``umbrella_kwargs``
         forward) with the sector table frozen, then return the production-ready
-        ``Sequentially((*companions, DefectGas(weights=w, pairSeparationUmbrella=w2,
-        emit_every=matched)))``.  The chain carries ``weights``, ``w2``, and
+        ``Sequentially((*companions, DefectGas(sectorWeights=w, pairSeparationUmbrella=w2,
+        emit_every=matched)))``.  The chain carries ``sectorWeights``, ``pairSeparationUmbrella``, and
         ``emit_every`` as plain metadata for introspection.
 
         Parameters
@@ -1433,12 +1433,12 @@ class DefectGasWeightTuner:
         # Vacuum ticks arrive in bursts spaced by the sector-mixing time; the step
         # horizon must be generous relative to it or healthy chains die by timeout.
         horizon = max(500, int(round(20 * self.mixing_sweeps)))
-        gas = DefectGas(self.S, weights=w, pairSeparationUmbrella=w2,
+        gas = DefectGas(self.S, sectorWeights=w, pairSeparationUmbrella=w2,
                         emit_every=emit_every, max_step_sweeps=horizon,
                         rng=self.rng,
                         uniformProposalFraction=self.uniformProposalFraction)
         chain = Sequentially((*self.companions, gas))
-        chain.weights = gas.w
+        chain.sectorWeights = gas.sectorWeights
         chain.pairSeparationUmbrella = gas.pairSeparationUmbrella
         chain.emit_every = gas.emit_every
         return chain

@@ -50,7 +50,7 @@ def test_w2_constructor():
     S = _action()
     _, values = pair_shells(4)
     w2 = np.linspace(1.0, 2.0, len(values))
-    g = DefectGas(S, weights=(1.0, 0.04, 2.4e-3, 5e-5, 4e-6), pairSeparationUmbrella=w2)
+    g = DefectGas(S, sectorWeights=(1.0, 0.04, 2.4e-3, 5e-5, 4e-6), pairSeparationUmbrella=w2)
     assert np.array_equal(g.pairSeparationUmbrella, w2)
     # The per-displacement field carries w2 by shell and 1.0 at the origin,
     # and is hypercubically symmetric by construction.
@@ -90,8 +90,8 @@ def test_ones_table_matches_no_table():
     S = _action()
     _, values = pair_shells(4)
     w = (1.0, 0.04, 2.4e-3, 5e-5, 4e-6)
-    off = DefectGas(S, weights=w, emit_every=100, rng=np.random.default_rng(5))
-    on = DefectGas(S, weights=w, pairSeparationUmbrella=np.ones(len(values)), emit_every=100,
+    off = DefectGas(S, sectorWeights=w, emit_every=100, rng=np.random.default_rng(5))
+    on = DefectGas(S, sectorWeights=w, pairSeparationUmbrella=np.ones(len(values)), emit_every=100,
                    rng=np.random.default_rng(5))
     phi, n = _cold(S)
     a = {'phi': phi, 'n': n}
@@ -111,7 +111,7 @@ def test_step_matches_reference_umbrella_D2():
     S = _action()
     _, values = pair_shells(4)
     w2 = np.geomspace(1.0, 30.0, len(values))     # strong outward push
-    fast, slow = _twins(S, seed=5, weights=(1.0, 0.04), pairSeparationUmbrella=w2, emit_every=100)
+    fast, slow = _twins(S, seed=5, sectorWeights=(1.0, 0.04), pairSeparationUmbrella=w2, emit_every=100)
     phi, n = _cold(S)
     a = {'phi': phi, 'n': n}
     b = {'phi': phi, 'n': n}
@@ -138,7 +138,7 @@ def test_step_matches_reference_umbrella_D4():
     S = _action()
     _, values = pair_shells(4)
     w2 = np.geomspace(1.0, 10.0, len(values))
-    fast, slow = _twins(S, seed=5, weights=(1.0, 0.04, 2.4e-3, 5e-5, 4e-6),
+    fast, slow = _twins(S, seed=5, sectorWeights=(1.0, 0.04, 2.4e-3, 5e-5, 4e-6),
                         pairSeparationUmbrella=w2, emit_every=100, max_step_sweeps=20000)
     phi, n = _cold(S)
     a = {'phi': phi, 'n': n}
@@ -171,7 +171,7 @@ def test_w2_independence():
               np.geomspace(1.0, 20.0, len(values)))
     results = []
     for seed, w2 in enumerate(tables):
-        gas = DefectGas(S, weights=w, pairSeparationUmbrella=w2, emit_every=200,
+        gas = DefectGas(S, sectorWeights=w, pairSeparationUmbrella=w2, emit_every=200,
                         rng=np.random.default_rng(300 + seed))
         chain = Sequentially((villain.SiteUpdate(S), gas))
         e = supervillain.Ensemble(S).generate(400, chain)

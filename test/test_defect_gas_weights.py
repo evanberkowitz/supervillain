@@ -30,7 +30,7 @@ def _twins(S, seed=17, **kwargs):
 
 def test_exactly_one_pricing():
     S = _action()
-    for kwargs in ({}, {'fugacity': 0.1, 'weights': (1.0, 0.01)}):
+    for kwargs in ({}, {'fugacity': 0.1, 'sectorWeights': (1.0, 0.01)}):
         try:
             DefectGas(S, **kwargs)
         except ValueError:
@@ -41,23 +41,23 @@ def test_exactly_one_pricing():
 
 def test_weights_normalized_and_pin_D_max():
     S = _action()
-    g = DefectGas(S, weights=(2.0, 1.0, 0.5))
+    g = DefectGas(S, sectorWeights=(2.0, 1.0, 0.5))
     assert g.fugacity is None
     assert g.D_max == 4
-    assert np.array_equal(g.w, [1.0, 0.5, 0.25])
+    assert np.array_equal(g.sectorWeights, [1.0, 0.5, 0.25])
     assert g._w1 == 0.5 and g._w4 == 0.25
 
 
 def test_weights_short_table_has_no_four_sector():
     S = _action()
-    g = DefectGas(S, weights=(1.0, 0.25))
+    g = DefectGas(S, sectorWeights=(1.0, 0.25))
     assert g.D_max == 2 and g._w4 == 1.0
 
 
 def test_weights_D_max_mismatch():
     S = _action()
     try:
-        DefectGas(S, weights=(1.0, 0.1, 0.01), D_max=8)
+        DefectGas(S, sectorWeights=(1.0, 0.1, 0.01), D_max=8)
     except ValueError:
         pass
     else:
@@ -68,11 +68,11 @@ def test_weights_must_be_positive():
     S = _action()
     for w in ((1.0, 0.0, 0.1), (1.0, -0.1, 0.1), (1.0,)):
         try:
-            DefectGas(S, weights=w)
+            DefectGas(S, sectorWeights=w)
         except ValueError:
             pass
         else:
-            assert False, f'weights={w} must raise ValueError'
+            assert False, f'sectorWeights={w} must raise ValueError'
 
 
 def test_geometric_path_unchanged():
@@ -89,7 +89,7 @@ def test_geometric_table_equivalence():
     z, K = 0.1, 4
     geo = DefectGas(S, fugacity=z, D_max=2 * K, emit_every=300,
                     rng=np.random.default_rng(31))
-    tab = DefectGas(S, weights=[z**(2 * k) for k in range(K + 1)], emit_every=300,
+    tab = DefectGas(S, sectorWeights=[z**(2 * k) for k in range(K + 1)], emit_every=300,
                     rng=np.random.default_rng(31))
     phi, n = _cold(S)
     a = {'phi': phi, 'n': n}
@@ -113,7 +113,7 @@ def test_step_matches_reference_nongeometric_table():
     # light enough that the N=4 kappa=0.05 chain still comes home; this seed visits
     # the quartic sector.  (Fatter tables condense here -- the cliff is real.)
     w = (1.0, 0.04, 2.4e-3, 5e-5, 4e-6)
-    fast, slow = _twins(S, seed=5, weights=w, emit_every=100)
+    fast, slow = _twins(S, seed=5, sectorWeights=w, emit_every=100)
     phi, n = _cold(S)
     a = {'phi': phi, 'n': n}
     b = {'phi': phi, 'n': n}
@@ -138,7 +138,7 @@ def test_sector_ticks_and_round_trips():
     # vacuum return after touching the top sector.  Both paths agree exactly.
     S = _action()
     w = (1.0, 0.04, 2.4e-3)                   # D_max = 4: a reachable top sector
-    fast, slow = _twins(S, seed=5, weights=w, emit_every=300)
+    fast, slow = _twins(S, seed=5, sectorWeights=w, emit_every=300)
     phi, n = _cold(S)
     a = {'phi': phi, 'n': n}
     b = {'phi': phi, 'n': n}
@@ -169,8 +169,8 @@ def test_probe_sweeps_budget_and_continuity():
     # fresh chain, and two 2-sweep blocks equal one 4-sweep block.
     S = _action()
     w = (1.0, 0.04, 2.4e-3, 5e-5, 4e-6)
-    one = DefectGas(S, weights=w, rng=np.random.default_rng(51))
-    two = DefectGas(S, weights=w, rng=np.random.default_rng(51))
+    one = DefectGas(S, sectorWeights=w, rng=np.random.default_rng(51))
+    two = DefectGas(S, sectorWeights=w, rng=np.random.default_rng(51))
     phi, n = _cold(S)
     cfg1, t1, r1, _ = one._probe_sweeps({'phi': phi, 'n': n}, 4)
     cfg2, t2a, r2a, _ = two._probe_sweeps({'phi': phi, 'n': n}, 2)

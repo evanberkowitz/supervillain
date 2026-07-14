@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 r"""
-The semantic renames: pairSeparationUmbrella (was w2) and
-uniformProposalFraction (was gamma).  The math-symbol spellings are GONE ---
+The semantic renames: sectorWeights (was weights, stored as w),
+pairSeparationUmbrella (was w2), and uniformProposalFraction (was gamma).  The math-symbol spellings are GONE ---
 stored h5 data was migrated (datasets/attrs linked to the new names) rather
 than shimmed, so the old keyword arguments must fail loudly, not silently
 vanish into **kwargs someday.
@@ -25,9 +25,10 @@ W = (1.0, 0.04, 2.4e-3)
 def test_old_spellings_are_gone():
     S = _action()
     _, values = pair_shells(S.Lattice.N)
-    for kwargs in ({'w2': np.ones(len(values))}, {'gamma': 0.5}):
+    for kwargs in ({'w2': np.ones(len(values))}, {'gamma': 0.5},
+                   {'weights': W}):
         try:
-            DefectGas(S, weights=W, **kwargs)
+            DefectGas(S, sectorWeights=W, **kwargs)
         except TypeError:
             pass
         else:
@@ -44,7 +45,7 @@ def test_semantic_names_carry_the_tables():
     S = _action()
     _, values = pair_shells(S.Lattice.N)
     w2 = np.linspace(1.0, 2.0, len(values))
-    g = DefectGas(S, weights=W, pairSeparationUmbrella=w2,
+    g = DefectGas(S, sectorWeights=W, pairSeparationUmbrella=w2,
                   uniformProposalFraction=0.5)
     assert np.array_equal(g.pairSeparationUmbrella, w2)
     assert g.uniformProposalFraction.shape == (3,)

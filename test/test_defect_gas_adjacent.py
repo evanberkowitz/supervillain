@@ -30,18 +30,18 @@ W = (1.0, 0.04, 2.4e-3)          # a known-healthy N=4 kappa=0.05 table, D_max=4
 
 
 def test_gamma_default_is_legacy():
-    g = DefectGas(_action(), weights=W)
+    g = DefectGas(_action(), sectorWeights=W)
     assert g.uniformProposalFraction.size == 0
 
 
 def test_gamma_scalar_broadcasts():
-    g = DefectGas(_action(), weights=W, uniformProposalFraction=0.5)
+    g = DefectGas(_action(), sectorWeights=W, uniformProposalFraction=0.5)
     assert g.uniformProposalFraction.shape == (3,)               # K+1 = D_max/2 + 1 = 3
     assert np.all(g.uniformProposalFraction == 0.5)
 
 
 def test_gamma_vector_accepted():
-    g = DefectGas(_action(), weights=W, uniformProposalFraction=(1.0, 0.5, 0.25))
+    g = DefectGas(_action(), sectorWeights=W, uniformProposalFraction=(1.0, 0.5, 0.25))
     assert np.array_equal(g.uniformProposalFraction, [1.0, 0.5, 0.25])
 
 
@@ -63,7 +63,7 @@ def test_gamma_validation():
     S = _action()
     for bad in (0.0, -0.5, 1.5, (0.5, 0.5), (1.0, 0.5, 0.0), (1.0, 0.5, 2.0)):
         try:
-            DefectGas(S, weights=W, uniformProposalFraction=bad)
+            DefectGas(S, sectorWeights=W, uniformProposalFraction=bad)
         except ValueError:
             pass
         else:
@@ -161,8 +161,8 @@ def test_gamma_ones_matches_legacy_reference():
     # factor is exactly 1, and _draw_batch draws the legacy arrays FIRST -- so
     # the decisions match the legacy chain tick for tick.
     S = _action()
-    legacy = DefectGas(S, weights=W, rng=np.random.default_rng(11))
-    ones = DefectGas(S, weights=W, uniformProposalFraction=1.0, rng=np.random.default_rng(11))
+    legacy = DefectGas(S, sectorWeights=W, rng=np.random.default_rng(11))
+    ones = DefectGas(S, sectorWeights=W, uniformProposalFraction=1.0, rng=np.random.default_rng(11))
     st_a = _drive_reference(legacy, S)
     st_b = _drive_reference(ones, S)
     assert np.array_equal(st_a.n, st_b.n)
@@ -175,7 +175,7 @@ def test_targeted_reference_walks_and_returns():
     # gamma = 0.5: the chain must still visit the pair sector AND return to
     # vacuum (detailed balance sanity: no drift into a stuck sector).
     S = _action()
-    gas = DefectGas(S, weights=W, uniformProposalFraction=0.5, rng=np.random.default_rng(23))
+    gas = DefectGas(S, sectorWeights=W, uniformProposalFraction=0.5, rng=np.random.default_rng(23))
     st = _drive_reference(gas, S, ticks=20000)
     assert gas.accepted > 0
     assert st.tstate[1] > 0          # completed excursions: entered AND left
@@ -210,7 +210,7 @@ def test_kernel_reference_twins_gamma_half():
     # reaches the quartic sector.
     S = _action()
     w = (1.0, 0.04, 2.4e-3, 5e-5, 4e-6)
-    out = _run_twins(S, seed=5, weights=w, uniformProposalFraction=0.5, emit_every=100)
+    out = _run_twins(S, seed=5, sectorWeights=w, uniformProposalFraction=0.5, emit_every=100)
     assert out['FourDefectDistribution'].sum() > 0
 
 
@@ -229,7 +229,7 @@ def test_kernel_reference_twins_gamma_vector():
     # included.
     S = _action()
     w = (1.0, 0.04, 2.4e-3, 5e-5, 4e-6)
-    out = _run_twins(S, seed=1, weights=w,
+    out = _run_twins(S, seed=1, sectorWeights=w,
                       uniformProposalFraction=(1.0, 0.6, 0.4, 0.3, 0.9), emit_every=100)
     assert out['SectorTicks'][-1] > 0
 
@@ -237,8 +237,8 @@ def test_kernel_reference_twins_gamma_vector():
 def test_kernel_gamma_ones_matches_legacy_kernel():
     # gamma of all ones through the KERNEL: decisions equal the legacy kernel's.
     S = _action()
-    legacy = DefectGas(S, weights=W, emit_every=300, rng=np.random.default_rng(31))
-    ones = DefectGas(S, weights=W, uniformProposalFraction=1.0, emit_every=300,
+    legacy = DefectGas(S, sectorWeights=W, emit_every=300, rng=np.random.default_rng(31))
+    ones = DefectGas(S, sectorWeights=W, uniformProposalFraction=1.0, emit_every=300,
                      rng=np.random.default_rng(31))
     phi, n = _cold(S)
     a = {'phi': phi, 'n': n}
@@ -311,7 +311,7 @@ def test_gamma_independence_theta_and_binder():
     w = (1.0, 0.04, 2.4e-3, 5e-5, 4e-6)
     results = []
     for seed, gamma in enumerate((None, 0.5)):
-        gas = DefectGas(S, weights=w, uniformProposalFraction=gamma, emit_every=200,
+        gas = DefectGas(S, sectorWeights=w, uniformProposalFraction=gamma, emit_every=200,
                         rng=np.random.default_rng(400 + seed))
         chain = Sequentially((villain.SiteUpdate(S), gas))
         e = supervillain.Ensemble(S).generate(400, chain)
@@ -339,8 +339,8 @@ def test_h5_roundtrip_gamma_and_legacy():
     # gas steps a cold configuration identically to the original -- same rng
     # state, same 'n' after one tick.
     S = _action()
-    gamma_gas = DefectGas(S, weights=W, uniformProposalFraction=0.5, rng=np.random.default_rng(11))
-    legacy_gas = DefectGas(S, weights=W, rng=np.random.default_rng(12))
+    gamma_gas = DefectGas(S, sectorWeights=W, uniformProposalFraction=0.5, rng=np.random.default_rng(11))
+    legacy_gas = DefectGas(S, sectorWeights=W, rng=np.random.default_rng(12))
 
     with tempfile.NamedTemporaryFile(suffix='.h5') as f:
         with h5.File(f.name, 'w') as hf:

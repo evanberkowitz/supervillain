@@ -113,7 +113,7 @@ def test_generator_produces():
     assert isinstance(chain, Sequentially)
     gas = chain.generators[-1]
     assert isinstance(gas, DefectGas)
-    assert np.array_equal(chain.weights, gas.w)
+    assert np.array_equal(chain.sectorWeights, gas.sectorWeights)
     assert chain.emit_every == gas.emit_every
     e = supervillain.Ensemble(S).generate(3, chain)
     vac, ticks = np.asarray(e.Vacuum_Ticks), np.asarray(e.Ticks)
@@ -135,7 +135,7 @@ def test_w_independence():
               [1.0, 0.045, 8e-4, 8e-6, 8e-8])
     results = []
     for seed, w in enumerate(tables):
-        gas = DefectGas(S, weights=w, emit_every=200,
+        gas = DefectGas(S, sectorWeights=w, emit_every=200,
                         rng=np.random.default_rng(100 + seed))
         chain = Sequentially((villain.SiteUpdate(S), gas))
         e = supervillain.Ensemble(S).generate(400, chain)
