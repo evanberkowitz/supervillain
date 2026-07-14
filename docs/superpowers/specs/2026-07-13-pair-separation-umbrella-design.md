@@ -110,6 +110,52 @@ tempering ladder from fracture.
 5. Tuner second stage converges on a small lattice; frozen w2 flattens the
    production r-histogram within a factor ~3.
 
+## Evidence (2026-07-13, post-implementation smokes)
+
+All runs N=6, D_max=8, 3000 configurations, three companions, against the
+weighted-campaign-2026-07-13 N6 points; comparison figure at
+no-intersections/weighted-campaign-2026-07-13/umbrella-vs-campaign.pdf.
+
+* **kappa=0.06 (the chi peak): exact, but a wash.**  Correlators agree with
+  the campaign within errors everywhere (validation 4 passed in production
+  conditions).  At matched configurations the umbrella LOSES (campaign
+  errors 3-5x smaller; each umbrella configuration is ~2.5x cheaper in
+  ticks, emit 25587 vs 64392 -- still a net loss).  At matched ticks (x4
+  configurations) the far bins are a wash (error ratios campaign/umbrella
+  0.85 axis, 0.96 antipode) and the Binder error is 2x WORSE.  Cause: at
+  the peak the natural far-shell dwell is only ~4x below flat, so there is
+  little for the umbrella to recover, while the w2 gradient taxes the
+  near-shell traffic that feeds everything else.
+
+* **kappa=0.02 (decaying phase), all-ones start: never learned.**
+  tune_umbrella froze the trivial table -- transport-limited: probes
+  visited 13/28 shells, production shell flatness 18085, far bins zero
+  (identical to campaign).  Two causes fixed in 77adb96: the best-probed
+  scoring led with round trips, which perversely always prefers the
+  least-umbrella'd probe (heavier w2 => fewer vacuum returns by
+  construction; now a boolean >= min_round_trips health tier), and the
+  warm start prescribed by this spec's Tuning paragraph was unimplemented
+  (w2_0 parameter added).
+
+* **kappa=0.02, 1/Theta-hat warm start, caps 1e5 and 30: flattens, then
+  condenses.**  With the warm start the recursion engages: at cap 30 the
+  probe shell dwell spans 26/28 shells within a factor ~38 (vs 18085
+  unumbrella'd) -- the stationary-distribution goal is met.  But both caps
+  gave 0 vacuum round trips and production condensation (the
+  max_step_sweeps guard caught both): flattening the pair sector in r
+  turns annihilation into a free diffusion back to adjacency, so the
+  sector residence time explodes and the w(D) recursion cannot rebalance
+  it (it crushed w[1] 15x at cap 1e5 -- not enough).
+
+**Verdict.**  Mechanics, exactness, and both tuner stages are certified.
+The physics payoff is bounded by kinetics, not by the weight: at the peak
+there is nothing to recover; in the decaying phase the umbrella delivers
+the right stationary distribution but return-to-vacuum transport is the
+binding constraint.  The defect-adjacent Hastings proposals (next spec,
+reusing this spec's positional plumbing) are the partner ingredient that
+turns the umbrella from certified-but-idle into a payoff; until they land,
+production should run with the umbrella off or gently capped.
+
 ## Non-goals
 
 Defect-adjacent proposals (separate spec; reuses this spec's positional
