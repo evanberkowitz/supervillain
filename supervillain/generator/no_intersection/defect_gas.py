@@ -974,7 +974,8 @@ class DefectGasWeightTuner:
 
     def tune(self, start='cold', probe_sweeps=2000, companion_every=25,
              max_iterations=12, damping=0.5, flat=3.0, min_round_trips=5,
-             step_sweeps=25, u=None, max_update=10.0, max_probe_growth=8):
+             step_sweeps=25, u=None, max_update=10.0, max_probe_growth=8,
+             lighten=1.5):
         r"""
         Run the recursion from the Poisson-envelope warm start $w_k = k!\, u^k$
         (default $u = 1/V$; the dilute-gas entropy is roughly $\lambda^k/k!$ for $k$
@@ -1022,6 +1023,12 @@ class DefectGasWeightTuner:
             Per-iteration clip on each sector's update factor.
         max_probe_growth: int
             Cap on the adaptive probe lengthening, in units of ``probe_sweeps``.
+        lighten: float
+            Light-by-policy factor applied to the frozen table after the
+            freeze: $w_k \to w_k / \texttt{lighten}^k$, so production sits
+            below sector coexistence rather than at it (the umbrella, when
+            used, carries the tail statistics that coexistence traffic used
+            to).  ``lighten=1.0`` disables it.
 
         Returns
         -------
@@ -1063,6 +1070,10 @@ class DefectGasWeightTuner:
                 'tune: no convergence in %d iterations; freezing the best probed '
                 'table (sector ticks %s, %d round trips) -- watch SectorTicks in '
                 'production.', max_iterations, t.tolist(), trips)
+        # Light-by-policy: sit below sector coexistence rather than at it; the
+        # umbrella carries the tail statistics that coexistence traffic used to.
+        w = w / lighten ** np.arange(K + 1)
+        w /= w[0]
         # The measured round-trip timescale: vacuum ticks arrive in bursts spaced by
         # roughly this many sweeps, so the production step horizon must accommodate
         # it (consumed by generator()).
@@ -1071,13 +1082,129 @@ class DefectGasWeightTuner:
         emit_every = max(1, int(round(dwell * 4 * V * step_sweeps)))
         return w, emit_every
 
-    def generator(self, start='cold', **kwargs):
+    def _probe_umbrella(self, w, w2, cfg, probe_sweeps, companion_every):
+        r"""
+        One umbrella-stage experiment: a frozen-``(w, w2)`` gas, sweep-budgeted,
+        companions interleaved, returning the per-bin SHELL dwell histogram
+        (total, first half, second half), the round trips, and the end
+        configuration.
+        """
+        gas = DefectGas(self.S, weights=w, w2=w2, rng=self.rng)
+        lookup, values = pair_shells(self.S.Lattice.N)
+        N = self.S.Lattice.N
+        d = np.minimum(np.arange(N), N - np.arange(N))**2
+        rsq = (d[:, None, None, None] + d[None, :, None, None]
+               + d[None, None, :, None] + d[None, None, None, :]).ravel()
+        mult = np.bincount(lookup[rsq[rsq > 0]], minlength=len(values))
+        halves = [np.zeros(len(values)), np.zeros(len(values))]
+        trips = 0
+        done = 0
+        while done < probe_sweeps:
+            block = min(companion_every, probe_sweeps - done)
+            cfg, _, r, H_pair = gas._probe_sweeps(cfg, block, tally=True)
+            shell = np.bincount(lookup[rsq[rsq > 0]],
+                                weights=H_pair[rsq > 0], minlength=len(values))
+            halves[(2 * done) // probe_sweeps] += shell / mult
+            trips += r
+            done += block
+            L = self.S.Lattice
+            for companion in self.companions:
+                updated = companion.step({'phi': Form(cfg['phi'], degree=0, lattice=L),
+                                          'n': Form(cfg['n'], degree=1, lattice=L)})
+                cfg = {'phi': np.asarray(updated['phi']), 'n': cfg['n']}
+        return halves[0] + halves[1], halves[0], halves[1], trips, cfg
+
+    def tune_umbrella(self, w, start='cold', probe_sweeps=4000,
+                      companion_every=25, max_iterations=10, damping=0.5,
+                      flat=3.0, max_update=10.0, max_probe_growth=4):
+        r"""
+        Second stage: with the sector table ``w`` frozen, learn the
+        pair-separation shell table w2 by the same damped, clipped histogram
+        recursion, driven by the per-bin shell dwell of the D = 2 sector.
+        Dwell-renormalized each iteration (total pair-sector weight fixed) so
+        w2 redistributes within the sector without touching sector traffic.
+        Returns the frozen w2 (best probed on cap expiry, with a warning).
+
+        Parameters
+        ----------
+        w: numpy array
+            The frozen sector table from :meth:`tune`.
+        start: 'cold', or a configuration as a dictionary
+            Where the first probe starts; later probes continue the enlarged chain.
+        probe_sweeps: int
+            Sweeps per iteration.
+        companion_every: int
+            Sweeps between companion interleavings.
+        max_iterations: int
+        damping: float
+            The update exponent applied after the first iteration.
+        flat: float
+            Acceptable max/min shell-occupancy ratio.
+        max_update: float
+            Per-iteration clip on each shell's update factor.
+        max_probe_growth: int
+            Cap on the adaptive probe lengthening, in units of ``probe_sweeps``.
+
+        Returns
+        -------
+        numpy array
+            The frozen shell table ``w2``.
+        """
+        _, values = pair_shells(self.S.Lattice.N)
+        w2 = np.ones(len(values))
+        cfg = self._start(start)
+        sweeps = probe_sweeps
+        best = None
+        for iteration in range(max_iterations):
+            h, h1, h2, trips, cfg = self._probe_umbrella(
+                w, w2, cfg, sweeps, companion_every)
+            visited = h > 0
+            flatness = (h[visited].max() / h[visited].min()) if visited.any() else np.inf
+            if best is None or (int(visited.sum()), -flatness) > best[:2]:
+                best = (int(visited.sum()), -flatness, w2.copy(), h.copy())
+            big = (h1 + h2) >= 10
+            stationary = bool(np.all((h2[big] <= 2 * h1[big])
+                                     & (h1[big] <= 2 * h2[big])))
+            if visited.all() and flatness <= flat and stationary:
+                break
+            if not visited.all() or not stationary:
+                sweeps = min(2 * sweeps, max_probe_growth * probe_sweeps)
+            alpha = 1.0 if iteration == 0 else damping
+            factor = np.ones_like(w2)
+            factor[visited] = (h[visited].mean() / h[visited]) ** alpha
+            np.clip(factor, 1.0 / max_update, max_update, out=factor)
+            w2new = w2 * factor
+            # Dwell renormalization: keep the total pair-sector weight fixed.
+            w2 = w2new * (h @ w2) / max(1e-300, h @ w2new)
+        else:
+            _, _, w2, h = best
+            logger.warning(
+                'tune_umbrella: no convergence in %d iterations (shell dwell '
+                '%s); freezing the best probed table.',
+                max_iterations, np.array2string(h, precision=2))
+        return w2
+
+    def generator(self, start='cold', umbrella=False, umbrella_kwargs=None, **kwargs):
         r"""
         The normal way to consume a tune: :meth:`tune` from ``start`` (``kwargs``
-        forward), then return the production-ready
-        ``Sequentially((*companions, DefectGas(weights=w, emit_every=matched)))``.
-        The chain carries ``weights`` and ``emit_every`` as plain metadata for
-        introspection.
+        forward), optionally followed by :meth:`tune_umbrella` (``umbrella_kwargs``
+        forward) with the sector table frozen, then return the production-ready
+        ``Sequentially((*companions, DefectGas(weights=w, w2=w2,
+        emit_every=matched)))``.  The chain carries ``weights``, ``w2``, and
+        ``emit_every`` as plain metadata for introspection.
+
+        Parameters
+        ----------
+        start: 'cold', or a configuration as a dictionary
+            Where the tuning probes start; anything
+            :meth:`~supervillain.Ensemble.generate` accepts.
+        umbrella: bool
+            Run the second stage (:meth:`tune_umbrella`) after :meth:`tune` and
+            hand the learned pair-separation shell table to production.
+        umbrella_kwargs: dict, optional
+            Forwarded to :meth:`tune_umbrella`.
+        kwargs:
+            Forwarded to :meth:`tune`.
 
         Returns
         -------
@@ -1085,12 +1212,16 @@ class DefectGasWeightTuner:
             The production-ready chain, its tuned :class:`DefectGas` last.
         """
         w, emit_every = self.tune(start=start, **kwargs)
+        w2 = None
+        if umbrella:
+            w2 = self.tune_umbrella(w, start=start, **(umbrella_kwargs or {}))
         # Vacuum ticks arrive in bursts spaced by the sector-mixing time; the step
         # horizon must be generous relative to it or healthy chains die by timeout.
         horizon = max(500, int(round(20 * self.mixing_sweeps)))
-        gas = DefectGas(self.S, weights=w, emit_every=emit_every,
+        gas = DefectGas(self.S, weights=w, w2=w2, emit_every=emit_every,
                         max_step_sweeps=horizon, rng=self.rng)
         chain = Sequentially((*self.companions, gas))
         chain.weights = gas.w
+        chain.w2 = gas.w2
         chain.emit_every = gas.emit_every
         return chain

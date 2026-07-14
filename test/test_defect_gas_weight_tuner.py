@@ -34,7 +34,7 @@ def test_recursion_update_and_convergence_canned():
         return t_, t_ // 2, t_ - t_ // 2, trips, cfg
 
     t._probe = probe
-    w, emit_every = t.tune(probe_sweeps=100)
+    w, emit_every = t.tune(probe_sweeps=100, lighten=1.0)
 
     assert len(calls) == 2                       # converged on the second probe
     warm, updated = calls
@@ -67,7 +67,7 @@ def test_no_convergence_warns_and_returns_best_probed(caplog):
         return t_, t_ // 2, t_ - t_ // 2, 0, cfg
 
     t._probe = probe
-    w, emit_every = t.tune(probe_sweeps=100, max_iterations=3)
+    w, emit_every = t.tune(probe_sweeps=100, max_iterations=3, lighten=1.0)
     assert len(w) == 3 and w[0] == 1.0 and emit_every >= 1
     # The frozen table must be one that was actually PROBED -- freezing the
     # post-update table hands production an unmeasured chain.  All probes score
@@ -149,3 +149,65 @@ def test_w_independence():
     (m1, e1), (m2, e2) = results
     assert m1 > 0 and m2 > 0                          # actual signal, not 0 == 0
     assert abs(m1 - m2) < 5 * np.hypot(e1, e2)
+
+
+def test_lighten_policy_canned():
+    # After freezing the probed table, light-by-policy divides w[k] by
+    # lighten^k so production sits below sector coexistence.
+    S = _action()
+    t = DefectGasWeightTuner(S, D_max=4, rng=np.random.default_rng(5))
+
+    def probe(w, cfg, probe_sweeps, companion_every):
+        t_ = np.array([400, 300, 200])
+        return t_, t_ // 2, t_ - t_ // 2, 8, cfg
+
+    t._probe = probe
+    w_ref, _ = t.tune(probe_sweeps=100, lighten=1.0)
+    t2 = DefectGasWeightTuner(S, D_max=4, rng=np.random.default_rng(5))
+    t2._probe = probe
+    w_light, _ = t2.tune(probe_sweeps=100)              # default lighten=1.5
+    assert np.allclose(w_light, w_ref / 1.5 ** np.arange(3))
+
+
+def test_tune_umbrella_canned():
+    import supervillain.generator.no_intersection.defect_gas as dg
+
+    S = _action()
+    _, values = dg.pair_shells(4)
+    t = DefectGasWeightTuner(S, D_max=4, rng=np.random.default_rng(6))
+    calls = []
+    # Shell dwell histograms (per-bin): first lopsided, then flat -> converge.
+    canned = [np.geomspace(1000.0, 1.0, len(values)),
+              np.full(len(values), 50.0)]
+
+    def uprobe(w, w2, cfg, probe_sweeps, companion_every):
+        calls.append(w2.copy())
+        h = canned[min(len(calls) - 1, 1)]
+        return h, h / 2, h - h / 2, 8, cfg
+
+    t._probe_umbrella = uprobe
+    w2 = t.tune_umbrella(np.array([1.0, 0.04, 2.4e-3]), probe_sweeps=100)
+    assert len(calls) == 2
+    # First update: visited shells scaled toward the mean, clipped at
+    # max_update, then dwell-renormalized; the frozen table is the probed one.
+    assert np.allclose(w2, calls[1])
+    assert w2.shape == values.shape and np.all(w2 > 0)
+
+
+def test_tune_umbrella_real_tiny():
+    S = _action()
+    t = DefectGasWeightTuner(S, D_max=8, rng=np.random.default_rng(7))
+    w, _ = t.tune(probe_sweeps=400, max_iterations=8, lighten=1.5)
+    w2 = t.tune_umbrella(w, probe_sweeps=400, max_iterations=6)
+    assert np.all(w2 > 0)
+
+
+def test_generator_with_umbrella():
+    S = _action()
+    t = DefectGasWeightTuner(S, D_max=8, rng=np.random.default_rng(11))
+    chain = t.generator(probe_sweeps=400, max_iterations=6, umbrella=True)
+    gas = chain.generators[-1]
+    assert gas.w2.size > 0
+    assert np.array_equal(chain.w2, gas.w2)
+    e = supervillain.Ensemble(S).generate(3, chain)
+    assert np.all(np.asarray(e.Vacuum_Ticks) > 0)
