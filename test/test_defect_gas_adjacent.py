@@ -31,23 +31,23 @@ W = (1.0, 0.04, 2.4e-3)          # a known-healthy N=4 kappa=0.05 table, D_max=4
 
 def test_gamma_default_is_legacy():
     g = DefectGas(_action(), weights=W)
-    assert g.gamma.size == 0
+    assert g.uniformProposalFraction.size == 0
 
 
 def test_gamma_scalar_broadcasts():
-    g = DefectGas(_action(), weights=W, gamma=0.5)
-    assert g.gamma.shape == (3,)               # K+1 = D_max/2 + 1 = 3
-    assert np.all(g.gamma == 0.5)
+    g = DefectGas(_action(), weights=W, uniformProposalFraction=0.5)
+    assert g.uniformProposalFraction.shape == (3,)               # K+1 = D_max/2 + 1 = 3
+    assert np.all(g.uniformProposalFraction == 0.5)
 
 
 def test_gamma_vector_accepted():
-    g = DefectGas(_action(), weights=W, gamma=(1.0, 0.5, 0.25))
-    assert np.array_equal(g.gamma, [1.0, 0.5, 0.25])
+    g = DefectGas(_action(), weights=W, uniformProposalFraction=(1.0, 0.5, 0.25))
+    assert np.array_equal(g.uniformProposalFraction, [1.0, 0.5, 0.25])
 
 
 def test_gamma_needs_cap():
     try:
-        DefectGas(_action(), fugacity=0.1, gamma=0.5)      # D_max None
+        DefectGas(_action(), fugacity=0.1, uniformProposalFraction=0.5)      # D_max None
     except ValueError:
         pass
     else:
@@ -55,19 +55,19 @@ def test_gamma_needs_cap():
 
 
 def test_gamma_works_with_capped_fugacity():
-    g = DefectGas(_action(), fugacity=0.1, D_max=4, gamma=0.5)
-    assert g.gamma.shape == (3,)
+    g = DefectGas(_action(), fugacity=0.1, D_max=4, uniformProposalFraction=0.5)
+    assert g.uniformProposalFraction.shape == (3,)
 
 
 def test_gamma_validation():
     S = _action()
     for bad in (0.0, -0.5, 1.5, (0.5, 0.5), (1.0, 0.5, 0.0), (1.0, 0.5, 2.0)):
         try:
-            DefectGas(S, weights=W, gamma=bad)
+            DefectGas(S, weights=W, uniformProposalFraction=bad)
         except ValueError:
             pass
         else:
-            assert False, f'gamma={bad} must raise ValueError'
+            assert False, f'uniformProposalFraction={bad} must raise ValueError'
 
 
 def test_adjacency_geometry_and_normalization():
@@ -162,7 +162,7 @@ def test_gamma_ones_matches_legacy_reference():
     # the decisions match the legacy chain tick for tick.
     S = _action()
     legacy = DefectGas(S, weights=W, rng=np.random.default_rng(11))
-    ones = DefectGas(S, weights=W, gamma=1.0, rng=np.random.default_rng(11))
+    ones = DefectGas(S, weights=W, uniformProposalFraction=1.0, rng=np.random.default_rng(11))
     st_a = _drive_reference(legacy, S)
     st_b = _drive_reference(ones, S)
     assert np.array_equal(st_a.n, st_b.n)
@@ -175,7 +175,7 @@ def test_targeted_reference_walks_and_returns():
     # gamma = 0.5: the chain must still visit the pair sector AND return to
     # vacuum (detailed balance sanity: no drift into a stuck sector).
     S = _action()
-    gas = DefectGas(S, weights=W, gamma=0.5, rng=np.random.default_rng(23))
+    gas = DefectGas(S, weights=W, uniformProposalFraction=0.5, rng=np.random.default_rng(23))
     st = _drive_reference(gas, S, ticks=20000)
     assert gas.accepted > 0
     assert st.tstate[1] > 0          # completed excursions: entered AND left
@@ -210,7 +210,7 @@ def test_kernel_reference_twins_gamma_half():
     # reaches the quartic sector.
     S = _action()
     w = (1.0, 0.04, 2.4e-3, 5e-5, 4e-6)
-    out = _run_twins(S, seed=5, weights=w, gamma=0.5, emit_every=100)
+    out = _run_twins(S, seed=5, weights=w, uniformProposalFraction=0.5, emit_every=100)
     assert out['FourDefectDistribution'].sum() > 0
 
 
@@ -230,7 +230,7 @@ def test_kernel_reference_twins_gamma_vector():
     S = _action()
     w = (1.0, 0.04, 2.4e-3, 5e-5, 4e-6)
     out = _run_twins(S, seed=1, weights=w,
-                      gamma=(1.0, 0.6, 0.4, 0.3, 0.9), emit_every=100)
+                      uniformProposalFraction=(1.0, 0.6, 0.4, 0.3, 0.9), emit_every=100)
     assert out['SectorTicks'][-1] > 0
 
 
@@ -238,7 +238,7 @@ def test_kernel_gamma_ones_matches_legacy_kernel():
     # gamma of all ones through the KERNEL: decisions equal the legacy kernel's.
     S = _action()
     legacy = DefectGas(S, weights=W, emit_every=300, rng=np.random.default_rng(31))
-    ones = DefectGas(S, weights=W, gamma=1.0, emit_every=300,
+    ones = DefectGas(S, weights=W, uniformProposalFraction=1.0, emit_every=300,
                      rng=np.random.default_rng(31))
     phi, n = _cold(S)
     a = {'phi': phi, 'n': n}
@@ -252,7 +252,7 @@ def test_kernel_gamma_ones_matches_legacy_kernel():
     assert legacy.accepted == ones.accepted
 
 
-def test_tuner_forwards_gamma(monkeypatch):
+def test_tuner_forwards_uniformProposalFraction(monkeypatch):
     # Every gas the tuner builds -- probe or production -- carries the tuner's
     # gamma, broadcast to the sector count.
     from supervillain.generator.no_intersection import DefectGasWeightTuner
@@ -262,7 +262,7 @@ def test_tuner_forwards_gamma(monkeypatch):
 
     def spy(self, *args, **kwargs):
         real_init(self, *args, **kwargs)
-        built.append(self.gamma.copy())
+        built.append(self.uniformProposalFraction.copy())
 
     monkeypatch.setattr(DefectGas, '__init__', spy)
     tuner = DefectGasWeightTuner(S, D_max=4, rng=np.random.default_rng(3))
@@ -271,7 +271,7 @@ def test_tuner_forwards_gamma(monkeypatch):
     assert len(built) == 1 and np.all(built[0] == 0.5) and built[0].shape == (3,)
 
     built.clear()
-    legacy = DefectGasWeightTuner(S, D_max=4, rng=np.random.default_rng(3), gamma=None)
+    legacy = DefectGasWeightTuner(S, D_max=4, rng=np.random.default_rng(3), uniformProposalFraction=None)
     legacy._probe(np.array([1.0, 0.04, 2.4e-3]), {'phi': phi, 'n': n}, 2, 25)
     assert len(built) == 1 and built[0].size == 0
 
@@ -294,12 +294,12 @@ def test_tuner_forwards_gamma(monkeypatch):
     built.clear()
     chain = tuner.generator()
     assert len(built) == 1 and np.all(built[0] == 0.5) and built[0].shape == (3,)
-    assert np.all(chain.generators[-1].gamma == 0.5)
+    assert np.all(chain.generators[-1].uniformProposalFraction == 0.5)
 
 
 def test_gamma_independence_theta_and_binder():
     # The physics is gamma-independent: Theta on a near bin and the Binder
-    # cumulant agree between gamma=None (legacy) and gamma=0.5 chains within
+    # cumulant agree between uniformProposalFraction=None (legacy) and uniformProposalFraction=0.5 chains within
     # combined bootstrap/jackknife tolerances.  Same idiom as
     # test_defect_gas_umbrella.py::test_w2_independence: kappa = 0.2 (stable
     # vacuum), ratio-of-sums with blocked jackknife, 5 sigma.
@@ -311,7 +311,7 @@ def test_gamma_independence_theta_and_binder():
     w = (1.0, 0.04, 2.4e-3, 5e-5, 4e-6)
     results = []
     for seed, gamma in enumerate((None, 0.5)):
-        gas = DefectGas(S, weights=w, gamma=gamma, emit_every=200,
+        gas = DefectGas(S, weights=w, uniformProposalFraction=gamma, emit_every=200,
                         rng=np.random.default_rng(400 + seed))
         chain = Sequentially((villain.SiteUpdate(S), gas))
         e = supervillain.Ensemble(S).generate(400, chain)
@@ -334,12 +334,12 @@ def test_gamma_independence_theta_and_binder():
 
 
 def test_h5_roundtrip_gamma_and_legacy():
-    # A gamma-bearing gas and a legacy (gamma=None) gas both round-trip through
+    # A gamma-bearing gas and a legacy (uniformProposalFraction=None) gas both round-trip through
     # the ReadWriteable interface: the gamma table survives, and a restored
     # gas steps a cold configuration identically to the original -- same rng
     # state, same 'n' after one tick.
     S = _action()
-    gamma_gas = DefectGas(S, weights=W, gamma=0.5, rng=np.random.default_rng(11))
+    gamma_gas = DefectGas(S, weights=W, uniformProposalFraction=0.5, rng=np.random.default_rng(11))
     legacy_gas = DefectGas(S, weights=W, rng=np.random.default_rng(12))
 
     with tempfile.NamedTemporaryFile(suffix='.h5') as f:
@@ -349,8 +349,8 @@ def test_h5_roundtrip_gamma_and_legacy():
             gamma_restored = DefectGas.from_h5(hf['gamma'])
             legacy_restored = DefectGas.from_h5(hf['legacy'])
 
-    assert np.array_equal(gamma_restored.gamma, gamma_gas.gamma)
-    assert legacy_restored.gamma.size == 0 and gamma_gas.gamma.size > 0
+    assert np.array_equal(gamma_restored.uniformProposalFraction, gamma_gas.uniformProposalFraction)
+    assert legacy_restored.uniformProposalFraction.size == 0 and gamma_gas.uniformProposalFraction.size > 0
 
     phi, n = _cold(S)
     a = gamma_gas.step({'phi': phi, 'n': n})

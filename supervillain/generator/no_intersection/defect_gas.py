@@ -186,6 +186,12 @@ class DefectGas(ReadWriteable, Generator):
     raises rather than hang), too small and pair excursions become needlessly rare.
     The :class:`DefectGasFugacityTuner` automates the choice.
 
+    .. warning ::
+
+        Restricted to $D = 4$.  As a :class:`~supervillain.generator.Generator` this
+        updates $n$ only, so it is not ergodic on its own; at least combine it with a
+        $\phi$-update such as :class:`~supervillain.generator.villain.SiteUpdate`.
+
     Parameters
     ----------
     S: a NoIntersections action
@@ -209,8 +215,8 @@ class DefectGas(ReadWriteable, Generator):
         :class:`DefectGasWeightTuner`) the sector occupancies flatten, so the chain
         shuttles freely between the vacuum and the multi-pair sectors instead of
         paying $e^{-\langle D/2 \rangle}$ for them.
-    w2: numpy array, optional
-        A pair-separation umbrella: one positive entry per distinct minimal-image
+    pairSeparationUmbrella: numpy array, optional
+        The umbrella table $w_2$: one positive entry per distinct minimal-image
         $r^{2}$ shell (see :func:`pair_shells`), multiplying the enlarged-ensemble
         weight by $w_{2}(\left|x - y\right|)$ in the single-pair sector and by the
         averaged Wick product $\frac{1}{2}[w_{2}(\left|x_{1}-y_{1}\right|)
@@ -221,8 +227,9 @@ class DefectGas(ReadWriteable, Generator):
         is $w_{2}$-independent.  Omitted means $W = 1$ identically (bit-for-bit the
         unumbrella'd sampler).  Composes with either pricing; learned by
         :meth:`DefectGasWeightTuner.tune_umbrella`.
-    gamma: float or sequence of floats, optional
-        Defect-adjacent proposal targeting: in sector $k = D/2$, a proposal is
+    uniformProposalFraction: float or sequence of floats, optional
+        The mixture table $\gamma$ of the defect-adjacent proposal targeting:
+        in sector $k = D/2$, a proposal is
         drawn uniformly with probability $\gamma_k$ and otherwise targeted at a
         live defect (a cell with probability $\propto \left|q_c\right|$, then one
         of its 32 edges uniformly), with the full Metropolis--Hastings ratio in
@@ -234,11 +241,6 @@ class DefectGas(ReadWriteable, Generator):
         which is what starves far $\Theta$ bins and umbrella round trips at
         large volume.
 
-    .. warning ::
-
-        Restricted to $D = 4$.  As a :class:`~supervillain.generator.Generator` this
-        updates $n$ only, so it is not ergodic on its own; at least combine it with a
-        $\phi$-update such as :class:`~supervillain.generator.villain.SiteUpdate`.
     """
 
     # D == 4 sector classes for the fourth moment, keyed by the sorted charge values:
@@ -246,7 +248,8 @@ class DefectGas(ReadWriteable, Generator):
     _FOUR = {(-1, -1, 1, 1): 0, (-1, -1, 2): 1, (-2, 1, 1): 2, (-2, 2): 3}
 
     def __init__(self, S, fugacity=None, D_max=None, emit_every=None, max_step_sweeps=500,
-                 rng=None, weights=None, w2=None, gamma=None):
+                 rng=None, weights=None, pairSeparationUmbrella=None,
+                 uniformProposalFraction=None):
         if not isinstance(S, supervillain.action.NoIntersections):
             raise ValueError('DefectGas requires a NoIntersections action.')
         if S.Lattice.D != 4:
@@ -285,19 +288,19 @@ class DefectGas(ReadWriteable, Generator):
         # The pair-separation umbrella: a per-shell table multiplying the
         # enlarged weight in the D = 2 and D = 4 unit-charge sectors (an empty
         # table means W = 1 identically and every prior path is bit-for-bit).
-        if w2 is None:
-            self.w2 = np.zeros(0, dtype=np.float64)
+        if pairSeparationUmbrella is None:
+            self.pairSeparationUmbrella = np.zeros(0, dtype=np.float64)
             self._rsq_shell = np.zeros(0, dtype=np.int64)
             self._w2_field = None
         else:
             lookup, values = pair_shells(self.N)
-            w2 = np.asarray(w2, dtype=np.float64)
+            w2 = np.asarray(pairSeparationUmbrella, dtype=np.float64)
             if w2.shape != values.shape:
-                raise ValueError(f'w2 must have one entry per realized shell '
+                raise ValueError(f'pairSeparationUmbrella must have one entry per realized shell '
                                  f'({len(values)} for N={self.N}); got {w2.shape}.')
             if not np.all(w2 > 0):
-                raise ValueError('w2 must be positive.')
-            self.w2 = w2
+                raise ValueError('pairSeparationUmbrella must be positive.')
+            self.pairSeparationUmbrella = w2
             self._rsq_shell = lookup
             d = np.minimum(np.arange(self.N), self.N - np.arange(self.N))**2
             rsq = (d[:, None, None, None] + d[None, :, None, None]
@@ -307,21 +310,21 @@ class DefectGas(ReadWriteable, Generator):
             field[nz] = w2[lookup[rsq[nz]]]
             self._w2_field = field
         self.D_max = D_max
-        if gamma is None:
-            self.gamma = np.zeros(0, dtype=np.float64)
+        if uniformProposalFraction is None:
+            self.uniformProposalFraction = np.zeros(0, dtype=np.float64)
         else:
             if self.D_max is None:
-                raise ValueError('gamma requires a capped gas (weights or D_max).')
+                raise ValueError('uniformProposalFraction requires a capped gas (weights or D_max).')
             K1 = self.D_max // 2 + 1
-            g = np.asarray(gamma, dtype=np.float64)
+            g = np.asarray(uniformProposalFraction, dtype=np.float64)
             if g.ndim == 0:
                 g = np.full(K1, float(g))
             if g.shape != (K1,):
-                raise ValueError(f'gamma must be a scalar or a vector of length '
+                raise ValueError(f'uniformProposalFraction must be a scalar or a vector of length '
                                  f'{K1} (one entry per sector); got shape {g.shape}.')
             if not np.all((g > 0) & (g <= 1)):
-                raise ValueError('gamma entries must be in (0, 1].')
-            self.gamma = g
+                raise ValueError('uniformProposalFraction entries must be in (0, 1].')
+            self.uniformProposalFraction = g
         self.emit_every = emit_every if emit_every is not None else 4 * self.N**4
         self.max_step_sweeps = max_step_sweeps
         self.rng = rng if rng is not None else np.random.default_rng()
@@ -331,7 +334,7 @@ class DefectGas(ReadWriteable, Generator):
         # mixture never fires, Hastings factor exactly 1) then tracks a gamma-less
         # chain sweep after sweep, not just through the first batch.
         self._aux_rng = (np.random.default_rng(self.rng.bit_generator.seed_seq.spawn(1)[0])
-                          if self.gamma.size > 0 else None)
+                          if self.uniformProposalFraction.size > 0 else None)
         self.D_trace = []           # per-sweep defect count (diagnostic)
         self.accepted = 0
         self.proposed = 0
@@ -340,7 +343,8 @@ class DefectGas(ReadWriteable, Generator):
         self._state = None
 
     def __str__(self):
-        tag = '' if self.gamma.size == 0 else f', gamma={np.array2string(self.gamma, precision=3)}'
+        tag = ('' if self.uniformProposalFraction.size == 0 else
+       f', uniformProposalFraction={np.array2string(self.uniformProposalFraction, precision=3)}')
         if self.fugacity is not None:
             return f'DefectGas(fugacity={self.fugacity}, D_max={self.D_max}{tag})'
         return f'DefectGas(weights={np.array2string(self.w, precision=4)}, D_max={self.D_max}{tag})'
@@ -406,7 +410,7 @@ class DefectGas(ReadWriteable, Generator):
         st.sites = rng.integers(0, N, size=(st.n_links, 4))
         st.cs = rng.choice((-1, 1), size=st.n_links)
         st.us = rng.uniform(0, 1, size=st.n_links)
-        if self.gamma.size > 0:
+        if self.uniformProposalFraction.size > 0:
             aux = self._aux_rng
             st.comps = aux.uniform(0, 1, size=st.n_links)
             st.ucells = aux.uniform(0, 1, size=st.n_links)
@@ -435,8 +439,8 @@ class DefectGas(ReadWriteable, Generator):
         site = (int(st.sites[i, 0]), int(st.sites[i, 1]),
                 int(st.sites[i, 2]), int(st.sites[i, 3]))
         c = int(st.cs[i])
-        targeted = self.gamma.size > 0
-        if targeted and st.D > 0 and st.comps[i] >= self.gamma[st.D // 2]:
+        targeted = self.uniformProposalFraction.size > 0
+        if targeted and st.D > 0 and st.comps[i] >= self.uniformProposalFraction[st.D // 2]:
             # Adjacent draw: a defect cell with probability |q_c|/D, then one of
             # its 32 edges uniformly.  (In vacuum there is nothing to target and
             # the density below degenerates to pure uniform.)
@@ -472,7 +476,7 @@ class DefectGas(ReadWriteable, Generator):
                 ratio = self.w[(st.D + dD) // 2] / self.w[st.D // 2]
             else:
                 ratio = self.fugacity**dD
-            if self.w2.size > 0:
+            if self.pairSeparationUmbrella.size > 0:
                 newD = st.D + dD
                 if st.D in (2, 4) or newD in (2, 4):
                     trial = dict(st.defects)
@@ -482,23 +486,23 @@ class DefectGas(ReadWriteable, Generator):
                             trial[cell] = q1
                         else:
                             trial.pop(cell, None)
-                    Wcur = geo_weight_dict(st.defects, self.w2,
+                    Wcur = geo_weight_dict(st.defects, self.pairSeparationUmbrella,
                                            self._rsq_shell, self.N)
-                    Wnew = geo_weight_dict(trial, self.w2,
+                    Wnew = geo_weight_dict(trial, self.pairSeparationUmbrella,
                                            self._rsq_shell, self.N)
                     ratio = ratio * (Wnew / Wcur)
             if targeted:
                 nl = np.float64(st.n_links)
                 pu = 1.0 / nl
                 if st.D > 0:
-                    g = self.gamma[st.D // 2]
+                    g = self.uniformProposalFraction[st.D // 2]
                     s_fwd = link_charge_sum(mu, site, st.q, self.N)
                     p_fwd = g * pu + (1.0 - g) * s_fwd / (32.0 * st.D)
                 else:
                     p_fwd = pu
                 newD = st.D + dD
                 if newD > 0:
-                    g2 = self.gamma[newD // 2]
+                    g2 = self.uniformProposalFraction[newD // 2]
                     s_rev = link_charge_sum(mu, site, st.q, self.N, dq=dq)
                     p_rev = g2 * pu + (1.0 - g2) * s_rev / (32.0 * newD)
                 else:
@@ -650,7 +654,7 @@ class DefectGas(ReadWriteable, Generator):
             st.F2, st.n2, st.dphi2, st.q, st.nzc, st.D, st.nnz,
             st.mus, st.sites, st.cs, st.us, st.comps, st.ucells, st.uedges, i0,
             self.kappa, 0.0 if self.fugacity is None else self.fugacity, self.w,
-            self.w2, self._rsq_shell, self.gamma,
+            self.pairSeparationUmbrella, self._rsq_shell, self.uniformProposalFraction,
             -1 if self.D_max is None else int(self.D_max), self.N,
             *defect_gas_kernel.stencil_pack(),
             H_pair, H_four, tally, vac_stop, st.tstate, st.exc_hist, t_sector)
@@ -810,7 +814,7 @@ class DefectGas(ReadWriteable, Generator):
                 N = self.N
                 H_pair[((disp[0] * N + disp[1]) * N + disp[2]) * N + disp[3]] += 1
             elif cls4 is not None:
-                H_four[cls4] += 1.0 / geo_weight_dict(st.defects, self.w2,
+                H_four[cls4] += 1.0 / geo_weight_dict(st.defects, self.pairSeparationUmbrella,
                                                       self._rsq_shell, self.N)
             return 0, 1
         return self._step_body(configuration, ticker)
@@ -1083,20 +1087,22 @@ class DefectGasWeightTuner:
     D_max: even int
         The cap; the table has $K + 1 = $ ``D_max/2 + 1`` sectors.
     rng: numpy Generator, optional
-    gamma: float, sequence of floats, or None
-        Defect-adjacent proposal targeting (see :class:`DefectGas`), used in
+    uniformProposalFraction: float, sequence of floats, or None
+        The mixture table $\gamma$ of the defect-adjacent proposal targeting
+        (see :class:`DefectGas`), used in
         every probe AND in the production gas :meth:`generator` builds, so the
         measured dwell, ``mixing_sweeps``, and ``emit_every`` are all
         self-consistent.  ``None`` restores the legacy uniform proposal.
     """
 
-    def __init__(self, S, companions=None, D_max=16, rng=None, gamma=0.5):
+    def __init__(self, S, companions=None, D_max=16, rng=None,
+                 uniformProposalFraction=0.5):
         self.S = S
         if D_max is None or D_max < 2 or D_max % 2:
             raise ValueError(f'D_max must be a positive even integer; got {D_max}.')
         self.D_max = int(D_max)
         self.rng = rng if rng is not None else np.random.default_rng()
-        self.gamma = gamma
+        self.uniformProposalFraction = uniformProposalFraction
         if companions is not None:
             self.companions = tuple(companions)
         else:
@@ -1116,7 +1122,8 @@ class DefectGasWeightTuner:
         # companions interleaved.  Returns the (total, first-half, second-half)
         # sector histograms, the round trips, and the end configuration (raw,
         # possibly invalid --- fine, the next probe continues it).
-        gas = DefectGas(self.S, weights=w, rng=self.rng, gamma=self.gamma)
+        gas = DefectGas(self.S, weights=w, rng=self.rng,
+                        uniformProposalFraction=self.uniformProposalFraction)
         K1 = self.D_max // 2 + 1
         halves = [np.zeros(K1, dtype=np.int64), np.zeros(K1, dtype=np.int64)]
         trips = 0
@@ -1253,7 +1260,8 @@ class DefectGasWeightTuner:
         (total, first half, second half), the round trips, and the end
         configuration.
         """
-        gas = DefectGas(self.S, weights=w, w2=w2, rng=self.rng, gamma=self.gamma)
+        gas = DefectGas(self.S, weights=w, pairSeparationUmbrella=w2, rng=self.rng,
+                        uniformProposalFraction=self.uniformProposalFraction)
         lookup, values, rsq, nz, mult = shell_multiplicity(self.S.Lattice.N)
         halves = [np.zeros(len(values)), np.zeros(len(values))]
         trips = 0
@@ -1276,7 +1284,7 @@ class DefectGasWeightTuner:
     def tune_umbrella(self, w, start='cold', probe_sweeps=4000,
                       companion_every=25, max_iterations=10, damping=0.5,
                       flat=3.0, min_round_trips=5, max_update=10.0,
-                      max_probe_growth=4, w2_0=None):
+                      max_probe_growth=4, warmStart=None):
         r"""
         Second stage: with the sector table ``w`` frozen, learn the
         pair-separation shell table w2 by the same damped, clipped histogram
@@ -1322,10 +1330,10 @@ class DefectGasWeightTuner:
             Per-iteration clip on each shell's update factor.
         max_probe_growth: int
             Cap on the adaptive probe lengthening, in units of ``probe_sweeps``.
-        w2_0: numpy array, optional
+        warmStart: numpy array, optional
             Warm start for the shell table; defaults to all-ones (bootstrap
             outward from the near shells).  The spec's intended use is
-            $w_{2,0} \sim 1/\hat\Theta$ per shell, taken from a prior
+            $w_2 \sim 1/\hat\Theta$ per shell, taken from a prior
             unumbrella'd run or a stored campaign correlator, so the
             recursion starts with far shells already lifted instead of
             waiting for the boost to propagate outward shell by shell --
@@ -1340,16 +1348,16 @@ class DefectGasWeightTuner:
             The frozen shell table ``w2``.
         """
         _, values, _, _, mult = shell_multiplicity(self.S.Lattice.N)
-        if w2_0 is None:
+        if warmStart is None:
             w2 = np.ones(len(values))
         else:
-            w2_0 = np.asarray(w2_0, dtype=np.float64)
-            if w2_0.shape != values.shape:
-                raise ValueError(f'w2_0 must have one entry per realized shell '
-                                 f'({len(values)} for N={self.S.Lattice.N}); got {w2_0.shape}.')
-            if not np.all(w2_0 > 0):
-                raise ValueError('w2_0 must be positive.')
-            w2 = w2_0.copy()
+            warmStart = np.asarray(warmStart, dtype=np.float64)
+            if warmStart.shape != values.shape:
+                raise ValueError(f'warmStart must have one entry per realized shell '
+                                 f'({len(values)} for N={self.S.Lattice.N}); got {warmStart.shape}.')
+            if not np.all(warmStart > 0):
+                raise ValueError('warmStart must be positive.')
+            w2 = warmStart.copy()
         cfg = self._start(start)
         sweeps = probe_sweeps
         best = None       # (healthy, visited, -flatness, trips, w2, h) of the best PROBED table
@@ -1396,7 +1404,7 @@ class DefectGasWeightTuner:
         The normal way to consume a tune: :meth:`tune` from ``start`` (``kwargs``
         forward), optionally followed by :meth:`tune_umbrella` (``umbrella_kwargs``
         forward) with the sector table frozen, then return the production-ready
-        ``Sequentially((*companions, DefectGas(weights=w, w2=w2,
+        ``Sequentially((*companions, DefectGas(weights=w, pairSeparationUmbrella=w2,
         emit_every=matched)))``.  The chain carries ``weights``, ``w2``, and
         ``emit_every`` as plain metadata for introspection.
 
@@ -1425,10 +1433,12 @@ class DefectGasWeightTuner:
         # Vacuum ticks arrive in bursts spaced by the sector-mixing time; the step
         # horizon must be generous relative to it or healthy chains die by timeout.
         horizon = max(500, int(round(20 * self.mixing_sweeps)))
-        gas = DefectGas(self.S, weights=w, w2=w2, emit_every=emit_every,
-                        max_step_sweeps=horizon, rng=self.rng, gamma=self.gamma)
+        gas = DefectGas(self.S, weights=w, pairSeparationUmbrella=w2,
+                        emit_every=emit_every, max_step_sweeps=horizon,
+                        rng=self.rng,
+                        uniformProposalFraction=self.uniformProposalFraction)
         chain = Sequentially((*self.companions, gas))
         chain.weights = gas.w
-        chain.w2 = gas.w2
+        chain.pairSeparationUmbrella = gas.pairSeparationUmbrella
         chain.emit_every = gas.emit_every
         return chain

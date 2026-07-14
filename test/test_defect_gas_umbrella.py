@@ -50,8 +50,8 @@ def test_w2_constructor():
     S = _action()
     _, values = pair_shells(4)
     w2 = np.linspace(1.0, 2.0, len(values))
-    g = DefectGas(S, weights=(1.0, 0.04, 2.4e-3, 5e-5, 4e-6), w2=w2)
-    assert np.array_equal(g.w2, w2)
+    g = DefectGas(S, weights=(1.0, 0.04, 2.4e-3, 5e-5, 4e-6), pairSeparationUmbrella=w2)
+    assert np.array_equal(g.pairSeparationUmbrella, w2)
     # The per-displacement field carries w2 by shell and 1.0 at the origin,
     # and is hypercubically symmetric by construction.
     L = Lattice(4, 4)
@@ -68,7 +68,7 @@ def test_w2_validation():
                 -np.ones(len(values)),             # not positive
                 np.zeros(len(values))):            # not positive
         try:
-            DefectGas(S, fugacity=0.1, w2=bad)
+            DefectGas(S, fugacity=0.1, pairSeparationUmbrella=bad)
         except ValueError:
             pass
         else:
@@ -78,7 +78,7 @@ def test_w2_validation():
 def test_no_w2_is_sentinel():
     S = _action()
     g = DefectGas(S, fugacity=0.1)
-    assert g.w2.size == 0 and g._w2_field is None
+    assert g.pairSeparationUmbrella.size == 0 and g._w2_field is None
     assert g._rsq_shell.size == 0
 
 
@@ -91,7 +91,7 @@ def test_ones_table_matches_no_table():
     _, values = pair_shells(4)
     w = (1.0, 0.04, 2.4e-3, 5e-5, 4e-6)
     off = DefectGas(S, weights=w, emit_every=100, rng=np.random.default_rng(5))
-    on = DefectGas(S, weights=w, w2=np.ones(len(values)), emit_every=100,
+    on = DefectGas(S, weights=w, pairSeparationUmbrella=np.ones(len(values)), emit_every=100,
                    rng=np.random.default_rng(5))
     phi, n = _cold(S)
     a = {'phi': phi, 'n': n}
@@ -111,7 +111,7 @@ def test_step_matches_reference_umbrella_D2():
     S = _action()
     _, values = pair_shells(4)
     w2 = np.geomspace(1.0, 30.0, len(values))     # strong outward push
-    fast, slow = _twins(S, seed=5, weights=(1.0, 0.04), w2=w2, emit_every=100)
+    fast, slow = _twins(S, seed=5, weights=(1.0, 0.04), pairSeparationUmbrella=w2, emit_every=100)
     phi, n = _cold(S)
     a = {'phi': phi, 'n': n}
     b = {'phi': phi, 'n': n}
@@ -139,7 +139,7 @@ def test_step_matches_reference_umbrella_D4():
     _, values = pair_shells(4)
     w2 = np.geomspace(1.0, 10.0, len(values))
     fast, slow = _twins(S, seed=5, weights=(1.0, 0.04, 2.4e-3, 5e-5, 4e-6),
-                        w2=w2, emit_every=100, max_step_sweeps=20000)
+                        pairSeparationUmbrella=w2, emit_every=100, max_step_sweeps=20000)
     phi, n = _cold(S)
     a = {'phi': phi, 'n': n}
     b = {'phi': phi, 'n': n}
@@ -171,7 +171,7 @@ def test_w2_independence():
               np.geomspace(1.0, 20.0, len(values)))
     results = []
     for seed, w2 in enumerate(tables):
-        gas = DefectGas(S, weights=w, w2=w2, emit_every=200,
+        gas = DefectGas(S, weights=w, pairSeparationUmbrella=w2, emit_every=200,
                         rng=np.random.default_rng(300 + seed))
         chain = Sequentially((villain.SiteUpdate(S), gas))
         e = supervillain.Ensemble(S).generate(400, chain)

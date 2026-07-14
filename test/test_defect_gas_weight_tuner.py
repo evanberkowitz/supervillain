@@ -274,18 +274,18 @@ def test_tune_umbrella_warm_start_canned():
 
     t._probe_umbrella = uprobe
     w2_0 = np.geomspace(5.0, 0.1, n)
-    t.tune_umbrella(np.array([1.0, 0.04, 2.4e-3]), probe_sweeps=100, w2_0=w2_0)
+    t.tune_umbrella(np.array([1.0, 0.04, 2.4e-3]), probe_sweeps=100, warmStart=w2_0)
     assert len(calls) == 1                        # converged on the very first probe
     assert np.array_equal(calls[0], w2_0)          # iteration 0 probed exactly w2_0
 
     with pytest.raises(ValueError):
         t.tune_umbrella(np.array([1.0, 0.04, 2.4e-3]), probe_sweeps=100,
-                        w2_0=np.ones(n - 1))               # wrong shape
+                        warmStart=np.ones(n - 1))               # wrong shape
     with pytest.raises(ValueError):
         bad = np.ones(n)
         bad[0] = -1.0
         t.tune_umbrella(np.array([1.0, 0.04, 2.4e-3]), probe_sweeps=100,
-                        w2_0=bad)                           # non-positive
+                        warmStart=bad)                           # non-positive
 
 
 def test_tune_umbrella_real_tiny(caplog):
@@ -304,7 +304,7 @@ def test_generator_with_umbrella():
     t = DefectGasWeightTuner(S, D_max=8, rng=np.random.default_rng(11))
     chain = t.generator(probe_sweeps=400, max_iterations=6, umbrella=True)
     gas = chain.generators[-1]
-    assert gas.w2.size > 0
-    assert np.array_equal(chain.w2, gas.w2)
+    assert gas.pairSeparationUmbrella.size > 0
+    assert np.array_equal(chain.pairSeparationUmbrella, gas.pairSeparationUmbrella)
     e = supervillain.Ensemble(S).generate(3, chain)
     assert np.all(np.asarray(e.Vacuum_Ticks) > 0)
