@@ -12,6 +12,8 @@ from supervillain.h5 import ReadWriteable
 from supervillain.batch import Batch
 from supervillain.lattice import Form, d
 from supervillain.generator.villain.site import SiteUpdate
+from supervillain.generator.villain.exact import ExactUpdate
+from supervillain.generator.villain.cohomology import CohomologyUpdate
 from supervillain.generator.no_intersection.charge import charge
 from supervillain.generator.no_intersection import local_charge
 from supervillain.generator.no_intersection import defect_gas_kernel
@@ -850,10 +852,13 @@ class DefectGasFugacityTuner:
     ----------
     S: a NoIntersections action
     companions: iterable of generators, optional
-        Interleaved with the probe gas (and in the 
-        :meth:`generator`).  Defaults to a single
-        :class:`~supervillain.generator.villain.SiteUpdate` --- $\phi$ must fluctuate
-        or the Villain weights are sampled at frozen $d\phi$.  For honest dwell,
+        Interleaved with the probe gas (and in the
+        :meth:`generator`).  Defaults to
+        :class:`~supervillain.generator.villain.SiteUpdate` ($\phi$ must
+        fluctuate or the Villain weights are sampled at frozen $d\phi$),
+        :class:`~supervillain.generator.villain.ExactUpdate`, and
+        :class:`~supervillain.generator.villain.CohomologyUpdate` (the two
+        $D$-neutral $n$ moves at fixed $dn$).  For honest dwell,
         pass the companions production will run.
     D_max: int or None
         Handed to every probe (and production) :class:`DefectGas`.
@@ -867,9 +872,15 @@ class DefectGasFugacityTuner:
         if companions is not None:
             self.companions = tuple(companions)
         else:
-            default = SiteUpdate(S)
-            default.rng = self.rng
-            self.companions = (default,)
+            # SiteUpdate moves phi; ExactUpdate stirs n at fixed dn (q exactly
+            # preserved); CohomologyUpdate shifts the winding holonomy no local
+            # move reaches (and with it the theta-current windings J_mu).  All
+            # three are D-neutral and tolerate the mid-excursion (invalid-n)
+            # states the probes hand them.
+            defaults = (SiteUpdate(S), ExactUpdate(S), CohomologyUpdate(S))
+            for generator in defaults:
+                generator.rng = self.rng
+            self.companions = defaults
 
     def _probe(self, fugacity, start, steps, emit_every, max_step_sweeps):
         # One rung: a throwaway Generator-route chain.  Returns the per-step
@@ -1081,9 +1092,14 @@ class DefectGasWeightTuner:
     S: a NoIntersections action
     companions: iterable of generators, optional
         Interleaved with the probe gas every ``companion_every`` sweeps (and ride in
-        the :meth:`generator` chain).  Defaults to a single
-        :class:`~supervillain.generator.villain.SiteUpdate`.  Companions must
-        tolerate mid-excursion (invalid) ``n``; pure $\phi$-updates do.
+        the :meth:`generator` chain).  Defaults to
+        :class:`~supervillain.generator.villain.SiteUpdate`,
+        :class:`~supervillain.generator.villain.ExactUpdate`, and
+        :class:`~supervillain.generator.villain.CohomologyUpdate` --- the
+        $\phi$ move plus the two $D$-neutral $n$ moves at fixed $dn$, the
+        latter reaching the winding holonomy (and with it the $\theta$-current
+        windings $J_\mu$) that no local move touches.  Companions must
+        tolerate mid-excursion (invalid) ``n``; all three do.
     D_max: even int
         The cap; the table has $K + 1 = $ ``D_max/2 + 1`` sectors.
     rng: numpy Generator, optional
@@ -1106,9 +1122,15 @@ class DefectGasWeightTuner:
         if companions is not None:
             self.companions = tuple(companions)
         else:
-            default = SiteUpdate(S)
-            default.rng = self.rng
-            self.companions = (default,)
+            # SiteUpdate moves phi; ExactUpdate stirs n at fixed dn (q exactly
+            # preserved); CohomologyUpdate shifts the winding holonomy no local
+            # move reaches (and with it the theta-current windings J_mu).  All
+            # three are D-neutral and tolerate the mid-excursion (invalid-n)
+            # states the probes hand them.
+            defaults = (SiteUpdate(S), ExactUpdate(S), CohomologyUpdate(S))
+            for generator in defaults:
+                generator.rng = self.rng
+            self.companions = defaults
 
     def _start(self, start):
         if isinstance(start, str) and start == 'cold':
