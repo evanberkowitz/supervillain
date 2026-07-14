@@ -1129,7 +1129,7 @@ class DefectGasWeightTuner:
     def tune_umbrella(self, w, start='cold', probe_sweeps=4000,
                       companion_every=25, max_iterations=10, damping=0.5,
                       flat=3.0, min_round_trips=5, max_update=10.0,
-                      max_probe_growth=4):
+                      max_probe_growth=4, w2_0=None):
         r"""
         Second stage: with the sector table ``w`` frozen, learn the
         pair-separation shell table w2 by the same damped, clipped histogram
@@ -1148,8 +1148,11 @@ class DefectGasWeightTuner:
         the umbrella must not silently trade transport for flatness).  A
         probe with too few round trips, or an unvisited shell, or a
         non-stationary histogram lengthens the next probe.  On iteration-cap
-        expiry: warn and freeze the best *probed* table, scored by (round
-        trips, shells visited, flatness) in that order.
+        expiry: warn and freeze the best *probed* table, scored by round-trip
+        health as a boolean TIER (converged or not), then shells visited,
+        then flatness -- health is a gate, not a magnitude, so a table with
+        more round trips but worse coverage/flatness must not beat a
+        healthy-and-flatter one just because it has even more trips.
 
         Parameters
         ----------
@@ -1172,6 +1175,17 @@ class DefectGasWeightTuner:
             Per-iteration clip on each shell's update factor.
         max_probe_growth: int
             Cap on the adaptive probe lengthening, in units of ``probe_sweeps``.
+        w2_0: numpy array, optional
+            Warm start for the shell table; defaults to all-ones (bootstrap
+            outward from the near shells).  The spec's intended use is
+            $w_{2,0} \sim 1/\hat\Theta$ per shell, taken from a prior
+            unumbrella'd run or a stored campaign correlator, so the
+            recursion starts with far shells already lifted instead of
+            waiting for the boost to propagate outward shell by shell --
+            exactly what an all-ones start cannot do within the iteration
+            cap when the decay is steep (unvisited shells never receive a
+            boost, by design, so they can only be reached by starting there).
+            Must have one positive entry per realized shell.
 
         Returns
         -------
@@ -1179,17 +1193,27 @@ class DefectGasWeightTuner:
             The frozen shell table ``w2``.
         """
         _, values, _, _, mult = shell_multiplicity(self.S.Lattice.N)
-        w2 = np.ones(len(values))
+        if w2_0 is None:
+            w2 = np.ones(len(values))
+        else:
+            w2_0 = np.asarray(w2_0, dtype=np.float64)
+            if w2_0.shape != values.shape:
+                raise ValueError(f'w2_0 must have one entry per realized shell '
+                                 f'({len(values)} for N={self.S.Lattice.N}); got {w2_0.shape}.')
+            if not np.all(w2_0 > 0):
+                raise ValueError('w2_0 must be positive.')
+            w2 = w2_0.copy()
         cfg = self._start(start)
         sweeps = probe_sweeps
-        best = None       # (trips, visited, -flatness) of the best PROBED table
+        best = None       # (healthy, visited, -flatness, trips, w2, h) of the best PROBED table
         for iteration in range(max_iterations):
             h, h1, h2, trips, cfg = self._probe_umbrella(
                 w, w2, cfg, sweeps, companion_every)
             visited = h > 0
             flatness = (h[visited].max() / h[visited].min()) if visited.any() else np.inf
-            if best is None or (trips, int(visited.sum()), -flatness) > best[:3]:
-                best = (trips, int(visited.sum()), -flatness, w2.copy(), h.copy())
+            score = (int(trips >= min_round_trips), int(visited.sum()), -flatness)
+            if best is None or score > best[:3]:
+                best = (*score, trips, w2.copy(), h.copy())
             big = (h1 + h2) >= 10
             stationary = bool(np.all((h2[big] <= 2 * h1[big])
                                      & (h1[big] <= 2 * h2[big])))
@@ -1213,7 +1237,7 @@ class DefectGasWeightTuner:
                 w2new = w2 * factor
                 w2 = w2new * max(1e-300, sector @ w2) / max(1e-300, sector @ w2new)
         else:
-            trips, _, _, w2, h = best
+            _, _, _, trips, w2, h = best
             logger.warning(
                 'tune_umbrella: no convergence in %d iterations (shell dwell '
                 '%s, %d round trips); freezing the best probed table.',

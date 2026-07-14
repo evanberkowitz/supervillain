@@ -7,6 +7,7 @@ stationarity.  Small probes at N=4 keep these tests quick.
 """
 
 import numpy as np
+import pytest
 
 import supervillain
 from supervillain.lattice import Lattice
@@ -192,6 +193,99 @@ def test_tune_umbrella_canned():
     # max_update, then dwell-renormalized; the frozen table is the probed one.
     assert np.allclose(w2, calls[1])
     assert w2.shape == values.shape and np.all(w2 > 0)
+
+
+def test_tune_umbrella_scoring_health_tier_canned():
+    # Round-trip health must be a boolean TIER, not a magnitude: a probe with
+    # MORE round trips but worse coverage/flatness must not beat a probe that
+    # clears min_round_trips and is flatter/fully-visited.  None of the three
+    # canned probes converge (each fails a different convergence condition),
+    # so tune_umbrella freezes the best-SCORED probed table on cap expiry.
+    import supervillain.generator.no_intersection.defect_gas as dg
+
+    S = _action()
+    _, values = dg.pair_shells(4)
+    n = len(values)
+    t = DefectGasWeightTuner(S, D_max=4, rng=np.random.default_rng(6))
+    calls = []
+    # probe 0: huge round trips (100), but one shell is unvisited and the
+    #          visited shells are wildly lopsided -- under the OLD scoring
+    #          (trips, visited, -flatness) the raw trip count alone would
+    #          make this win outright.
+    h0 = np.geomspace(1000.0, 1.0, n)
+    h0[n // 2] = 0.0                              # leave one shell unvisited
+    # probe 1: healthy trips (5, >= min_round_trips), every shell visited,
+    #          flattest of the three (within 2x) -- fails convergence only on
+    #          stationarity (the two halves are deliberately uneven).  Under
+    #          the NEW health-tier scoring this is the winner.
+    h1 = np.linspace(20.0, 40.0, n)
+    h1_1, h1_2 = 0.1 * h1, 0.9 * h1               # uneven halves: non-stationary
+    # probe 2: healthy trips, every shell visited, stationary halves, but
+    #          flatness (20x) exceeds the convergence threshold (flat=3.0).
+    h2 = np.geomspace(100.0, 5.0, n)
+    h2_1, h2_2 = h2 / 2, h2 / 2
+
+    canned = [
+        (h0, h0 / 2, h0 / 2, 100),
+        (h1, h1_1, h1_2, 5),
+        (h2, h2_1, h2_2, 5),
+    ]
+
+    def uprobe(w, w2, cfg, probe_sweeps, companion_every):
+        calls.append(w2.copy())
+        h, ha, hb, trips = canned[min(len(calls) - 1, 2)]
+        return h, ha, hb, trips, cfg
+
+    t._probe_umbrella = uprobe
+    w2 = t.tune_umbrella(np.array([1.0, 0.04, 2.4e-3]), probe_sweeps=100,
+                         max_iterations=3, min_round_trips=5)
+    assert len(calls) == 3      # none converged: all three iterations ran
+
+    # Honestly recompute the expected winner from the implemented scoring
+    # (int(trips >= min_round_trips), shells visited, -flatness), and confirm
+    # the frozen table is the w2 that probe actually saw (best is scored on
+    # the w2 IN FLIGHT when it was probed, not a post-update table).
+    best = None
+    for idx, (h, ha, hb, trips) in enumerate(canned):
+        visited = h > 0
+        flatness = (h[visited].max() / h[visited].min()) if visited.any() else np.inf
+        score = (int(trips >= 5), int(visited.sum()), -flatness)
+        if best is None or score > best[0]:
+            best = (score, idx)
+    _, winner = best
+    assert winner == 1                                # the healthy-flattest probe, not the max-trips one (0)
+    assert np.allclose(w2, calls[winner])
+    assert w2.shape == (n,) and np.all(w2 > 0)
+
+
+def test_tune_umbrella_warm_start_canned():
+    import supervillain.generator.no_intersection.defect_gas as dg
+
+    S = _action()
+    _, values = dg.pair_shells(4)
+    n = len(values)
+    t = DefectGasWeightTuner(S, D_max=4, rng=np.random.default_rng(6))
+    calls = []
+
+    def uprobe(w, w2, cfg, probe_sweeps, companion_every):
+        calls.append(w2.copy())
+        h = np.full(n, 50.0)                      # flat and healthy: converge immediately
+        return h, h / 2, h / 2, 8, cfg
+
+    t._probe_umbrella = uprobe
+    w2_0 = np.geomspace(5.0, 0.1, n)
+    t.tune_umbrella(np.array([1.0, 0.04, 2.4e-3]), probe_sweeps=100, w2_0=w2_0)
+    assert len(calls) == 1                        # converged on the very first probe
+    assert np.array_equal(calls[0], w2_0)          # iteration 0 probed exactly w2_0
+
+    with pytest.raises(ValueError):
+        t.tune_umbrella(np.array([1.0, 0.04, 2.4e-3]), probe_sweeps=100,
+                        w2_0=np.ones(n - 1))               # wrong shape
+    with pytest.raises(ValueError):
+        bad = np.ones(n)
+        bad[0] = -1.0
+        t.tune_umbrella(np.array([1.0, 0.04, 2.4e-3]), probe_sweeps=100,
+                        w2_0=bad)                           # non-positive
 
 
 def test_tune_umbrella_real_tiny(caplog):
