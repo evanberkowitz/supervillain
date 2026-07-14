@@ -274,13 +274,13 @@ class IntersectionCurrent(Observable):
 
     .. math ::
 
-        \texttt{IntersectionCurrent} = J = n \wedge dn,
+        \texttt{IntersectionCurrent} = j = n \wedge dn,
 
     whose divergence is *exactly* the topological-charge density,
 
     .. math ::
 
-        dJ = d(n \wedge dn) = dn \wedge dn - n \wedge d(dn) = q,
+        dj = d(n \wedge dn) = dn \wedge dn - n \wedge d(dn) = q,
 
     by the lattice Leibniz rule and $d^2 = 0$ --- both exact, so the identity
     holds configuration by configuration, not just in expectation.
@@ -298,13 +298,13 @@ class IntersectionCurrent(Observable):
     $U(1)_\theta$ symmetry breaking.
 
     Requires a four-dimensional lattice.  On the unconstrained Villain model it
-    is still measurable, but $dJ = q \neq 0$, so only its *constrained*
+    is still measurable, but $dj = q \neq 0$, so only its *constrained*
     ($q \equiv 0$) slice sums are topological.
     """
 
     @staticmethod
     def Villain(S, n):
-        r'''Measure the 3-form $J = n \wedge dn$, shape ``(4,) + L.dims``.'''
+        r'''Measure the 3-form $j = n \wedge dn$, shape ``(4,) + L.dims``.'''
         L = S.Lattice
         if L.D != 4:
             raise NotImplementedError(
@@ -315,29 +315,29 @@ class IntersectionCurrent(Observable):
 class IntersectionWinding(Observable):
     r"""
     The topological winding of the :class:`~.IntersectionCurrent` around each
-    direction of the torus: for each $\mu$, the flux of the 3-form $J$ through
+    direction of the torus: for each $\mu$, the flux of the 3-form $j$ through
     the 3-torus transverse to $\hat\mu$,
 
     .. math ::
 
-        \texttt{IntersectionWinding}_\mu = W^\theta_\mu
-        = \sum_{x \,:\, x_\mu = c} J_{\bar\mu}(x),
+        \texttt{IntersectionWinding}_\mu = J_\mu
+        = \sum_{x \,:\, x_\mu = c} j_{\bar\mu}(x),
 
     with $\bar\mu$ the 3-form component spanning the other three directions.
-    Because $dJ = q$ and the constrained ensemble has $q \equiv 0$, the sum is
+    Because $dj = q$ and the constrained ensemble has $q \equiv 0$, the sum is
     independent of the slice position $c$ --- a topological integer per
     configuration per direction.  We evaluate it as the lattice average over
-    slices, $\frac{1}{N}\sum_x J_{\bar\mu}(x)$, which coincides with any single
+    slices, $\frac{1}{N}\sum_x j_{\bar\mu}(x)$, which coincides with any single
     slice when the charge vanishes and degrades gracefully (to the
     slice-averaged flux) when it does not.
 
-    Nonzero fluctuations of $W^\theta$ are how a $\theta$ condensate carries
+    Nonzero fluctuations of $J$ are how a $\theta$ condensate carries
     supercurrent around the torus; see :class:`~.IntersectionWindingSquared`.
     """
 
     @staticmethod
     def Villain(S, IntersectionCurrent):
-        r'''The slice-averaged flux of $J$ per direction, shape ``(4,)``.'''
+        r'''The slice-averaged flux of $j$ per direction, shape ``(4,)``.'''
         L = S.Lattice
         W = np.empty(4)
         for mu in range(4):
@@ -353,14 +353,14 @@ class IntersectionWindingSquared(Scalar, Observable):
     .. math ::
 
         \texttt{IntersectionWindingSquared}
-        = \frac{1}{4} \sum_\mu \left(W^\theta_\mu\right)^2.
+        = \frac{1}{4} \sum_\mu J_\mu^2.
 
     **This is the sharp finite-volume diagnostic of $U(1)_\theta$ symmetry
     breaking** --- the $\theta$-sector stiffness, playing the role the helicity
     modulus plays for a superfluid.  $\theta$ has no kinetic term (it enters
     only as $i\theta q$), so its stiffness is generated entirely by the matter
     it constrains; a $\theta$ condensate supports supercurrents of defect
-    charge winding the torus, giving $\langle (W^\theta)^2 \rangle \neq 0$ with
+    charge winding the torus, giving $\langle J^2 \rangle \neq 0$ with
     the characteristic superfluid volume scaling, while a gapped symmetric
     phase suppresses it exponentially and a critical (gapless) phase shows
     scale-invariant fluctuations.  It therefore separates the two anomaly
@@ -375,7 +375,7 @@ class IntersectionWindingSquared(Scalar, Observable):
 
     @staticmethod
     def Villain(S, IntersectionWinding):
-        r'''Measure $\frac{1}{4}\sum_\mu (W^\theta_\mu)^2$.'''
+        r'''Measure $\frac{1}{4}\sum_\mu J_\mu^2$.'''
         return np.mean(IntersectionWinding ** 2)
 
 

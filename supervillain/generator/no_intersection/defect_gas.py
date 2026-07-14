@@ -144,7 +144,7 @@ class DefectGas(ReadWriteable, Generator):
         \qquad D(n) = \sum_{x} \left|q_{x}(n)\right|,
         \quad q = dn \wedge dn,
 
-    The number of defects $D$ is always even since $Q=\sum_h q_h = \sum_h dJ = 0$
+    The number of defects $D$ is always even since $Q=\sum_h q_h = \sum_h dj = 0$
     on every configuration, so $D/2$ counts the $\pm$ pairs in flight --- the number of
     worms the grand-canonical ensemble runs at once.
     Though, to be perfectly clear: there are no dedicated 'worms' which need to be advanced using any special worm moves.

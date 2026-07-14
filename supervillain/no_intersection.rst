@@ -42,12 +42,13 @@ The no-intersection constraint asks that the topological-charge density $q_x$
 
 .. math::
 
-   q_x = (dn \wedge dn)_x = d(n \wedge dn)_x = (dJ)_x
-   \qquad J = n \wedge dn
+   q_x = (dn \wedge dn)_x = d(n \wedge dn)_x = (dj)_x
+   \qquad j = n \wedge dn
 
 vanish on every hypercube.  The second equality is exact on the lattice (the
 Leibniz rule and $d^2 = 0$ both hold), so $q$ is the divergence of the 3-form
-current $J$ and is locally conserved and integer-valued.  A localized closed
+current $j$ (lowercase for the *local* current; its global slice sums are the
+capital windings $J_\mu$) and is locally conserved and integer-valued.  A localized closed
 $F = dn$ carries zero total charge $Q = \sum_x q_x$, so violations of the
 constraint always come as a $+1$ / $-1$ dipole --- the fact that the
 :class:`~supervillain.generator.no_intersection.IntersectionWorm` exploits.
@@ -767,9 +768,9 @@ numbers of $e^{2i\theta_x} e^{-2i\theta_y}$.
    :show-inheritance:
 
 The sharper instrument does not involve defect insertions at all.
-$U(1)_\theta$'s conserved current is the integer 3-form $J = n \wedge dn$,
-with $dJ = q$ *exactly* (lattice Leibniz and $d^{2} = 0$), so on the
-constraint surface $J$ is identically divergence-free and its flux through
+$U(1)_\theta$'s conserved current is the integer 3-form $j = n \wedge dn$,
+with $dj = q$ *exactly* (lattice Leibniz and $d^{2} = 0$), so on the
+constraint surface $j$ is identically divergence-free and its flux $J_\mu$ through
 any 3-torus is a topological integer --- computable on every stored
 configuration, no enlarged ensemble required.  Fluctuations of this winding
 are the $\theta$-sector *stiffness*, the analog of detecting a superfluid by
