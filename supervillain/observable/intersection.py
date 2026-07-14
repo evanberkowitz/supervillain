@@ -42,7 +42,7 @@ class Intersection_Intersection(DerivedQuantity):
     '''
 
     @staticmethod
-    def NoIntersections(S, Theta_Theta, Vacuum_Ticks):
+    def NoIntersections(S, Theta_Theta, VacuumTicks):
         r'''
         .. note ::
         
@@ -53,7 +53,7 @@ class Intersection_Intersection(DerivedQuantity):
         
         .. math ::
 
-            \Theta_{\Delta x} = \frac{\left\langle\texttt{Theta\_Theta}_{\Delta x}\right\rangle_{\Pi}}{\left\langle\texttt{Vacuum\_Ticks}\right\rangle_{\Pi}}.
+            \Theta_{\Delta x} = \frac{\left\langle\texttt{Theta\_Theta}_{\Delta x}\right\rangle_{\Pi}}{\left\langle\texttt{VacuumTicks}\right\rangle_{\Pi}}.
 
         and is therefore absolutely normalized: no
         origin-bin division is needed, and $\Theta$ is independent of the fugacity $\zeta$.
@@ -62,7 +62,7 @@ class Intersection_Intersection(DerivedQuantity):
         # The origin bin is *written*, not divided out: $\Theta_0 = 1$ identically 
         # (a coincident pair is the vacuum), so the gas never visits it and
         # :class:`~.Theta_Theta`'s origin bin is empty by construction.
-        Theta = np.array(Theta_Theta / Vacuum_Ticks)
+        Theta = np.array(Theta_Theta / VacuumTicks)
         Theta[S.Lattice.origin] = 1.0
         return Theta
 
@@ -108,7 +108,7 @@ class Theta_Theta(Observable):
     :class:`~supervillain.generator.no_intersection.DefectGas`: per step, the pair-sector
     dwell histogram scaled by its known fugacity price,
     $H_{\text{pair}}(\Delta x) / V \zeta^{2}$.  Its ensemble mean, divided by the mean
-    of :class:`~.Vacuum_Ticks`, is the correlator
+    of :class:`~.VacuumTicks`, is the correlator
     $\Theta_{\Delta x} = \left\langle e^{i(\theta_x - \theta_y)} \right\rangle$.
 
     Produced inline by the :class:`~supervillain.generator.no_intersection.DefectGas`
@@ -120,7 +120,7 @@ class Theta_Theta(Observable):
     """
 
 
-class Vacuum_Ticks(Observable):
+class VacuumTicks(Observable):
     r"""
     The vacuum-sector dwell of the :class:`~supervillain.generator.no_intersection.DefectGas`
     per step: how many of the step's Monte-Carlo clock ticks sat at $q \equiv 0$.  The
@@ -132,7 +132,7 @@ class Vacuum_Ticks(Observable):
     """
 
 
-class Pair_Excursions(Observable):
+class PairExcursions(Observable):
     r"""
     The number of pair *excursions* --- maximal stretches of nonvacuum ticks of the
     :class:`~supervillain.generator.no_intersection.DefectGas` chain --- completed
@@ -145,11 +145,11 @@ class Pair_Excursions(Observable):
     """
 
 
-class Max_Pair_RSq(Observable):
+class MaxPairSeparationSquared(Observable):
     r"""
     The largest min-image separation squared $\left|\Delta x\right|^{2}$ reached by any
     single $\pm$ pair during the step --- the step's *transport ceiling*.  Bins of
-    :class:`~.Theta_Theta` beyond $\sqrt{\texttt{Max\_Pair\_RSq}}$ were never even
+    :class:`~.Theta_Theta` beyond $\sqrt{\texttt{MaxPairSeparationSquared}}$ were never even
     visited: a zero there is a censored value, bounded by transport, and carries no
     information about $\theta$ long-range order.
 
@@ -157,7 +157,7 @@ class Max_Pair_RSq(Observable):
     """
 
 
-class Excursion_Lengths(Observable):
+class ExcursionLengths(Observable):
     r"""
     Histogram of completed excursion lengths (in Monte-Carlo ticks) during the step,
     in saturating power-of-two bins: entry $b$ counts excursions whose length had
@@ -197,7 +197,7 @@ class FourDefects(Observable):
 
         \texttt{FourDefects} = (4, 2, 2, 1) \cdot \texttt{FourDefectDistribution},
 
-    so that its ensemble mean divided by that of :class:`~.Vacuum_Ticks` is the
+    so that its ensemble mean divided by that of :class:`~.VacuumTicks` is the
     two-pair-sector contribution to the fourth moment
     $\left\langle \left|M\right|^{4} \right\rangle$ of the $\theta$-shift order
     parameter (see :class:`~.IntersectionBinderCumulant`).
@@ -242,7 +242,7 @@ class DoubleIntersectionSusceptibility(DerivedQuantity):
 
         \chi_2 = 1
         + \frac{\left\langle \texttt{FourDefectDistribution}_3 \right\rangle}
-               {V \left\langle \texttt{Vacuum\_Ticks} \right\rangle},
+               {V \left\langle \texttt{VacuumTicks} \right\rangle},
 
     the $1$ being the coincident term: a coincident $\pm 2$ pair *is* the
     vacuum, exactly as $\Theta_0 = 1$ normalizes the charge-1 correlator.
@@ -263,9 +263,9 @@ class DoubleIntersectionSusceptibility(DerivedQuantity):
     """
 
     @staticmethod
-    def NoIntersections(S, FourDefectDistribution, Vacuum_Ticks):
+    def NoIntersections(S, FourDefectDistribution, VacuumTicks):
         V = int(np.prod(S.Lattice.dims))
-        return 1 + FourDefectDistribution.real[3] / (V * Vacuum_Ticks)
+        return 1 + FourDefectDistribution.real[3] / (V * VacuumTicks)
 
 
 class IntersectionCurrent(Observable):
@@ -398,9 +398,9 @@ class IntersectionBinderCumulant(DerivedQuantity):
    """
 
     @staticmethod
-    def default(S, Theta_Theta, Vacuum_Ticks, FourDefects):
+    def default(S, Theta_Theta, VacuumTicks, FourDefects):
         V = int(np.prod(S.Lattice.dims))
-        S1 = np.sum(Theta_Theta.real) / Vacuum_Ticks
+        S1 = np.sum(Theta_Theta.real) / VacuumTicks
         M2 = V * (1 + S1)
-        M4 = (2 * V**2 - V) + 4 * (V - 1) * V * S1 + FourDefects / Vacuum_Ticks
+        M4 = (2 * V**2 - V) + 4 * (V - 1) * V * S1 + FourDefects / VacuumTicks
         return 1 - M4 / (2 * M2**2)

@@ -26,7 +26,7 @@ def _cold(S):
             np.zeros((4,) + tuple(L.dims), dtype=np.int64))
 
 
-W = (1.0, 0.04, 2.4e-3)          # a known-healthy N=4 kappa=0.05 table, D_max=4
+W = (1.0, 0.04, 2.4e-3)          # a known-healthy N=4 kappa=0.05 table, max_defects=4
 
 
 def test_gamma_default_is_legacy():
@@ -36,7 +36,7 @@ def test_gamma_default_is_legacy():
 
 def test_gamma_scalar_broadcasts():
     g = DefectGas(_action(), sectorWeights=W, uniformProposalFraction=0.5)
-    assert g.uniformProposalFraction.shape == (3,)               # K+1 = D_max/2 + 1 = 3
+    assert g.uniformProposalFraction.shape == (3,)               # K+1 = max_defects/2 + 1 = 3
     assert np.all(g.uniformProposalFraction == 0.5)
 
 
@@ -47,7 +47,7 @@ def test_gamma_vector_accepted():
 
 def test_gamma_needs_cap():
     try:
-        DefectGas(_action(), fugacity=0.1, uniformProposalFraction=0.5)      # D_max None
+        DefectGas(_action(), fugacity=0.1, uniformProposalFraction=0.5)      # max_defects None
     except ValueError:
         pass
     else:
@@ -55,7 +55,7 @@ def test_gamma_needs_cap():
 
 
 def test_gamma_works_with_capped_fugacity():
-    g = DefectGas(_action(), fugacity=0.1, D_max=4, uniformProposalFraction=0.5)
+    g = DefectGas(_action(), fugacity=0.1, max_defects=4, uniformProposalFraction=0.5)
     assert g.uniformProposalFraction.shape == (3,)
 
 
@@ -197,7 +197,7 @@ def _run_twins(S, seed, steps=3, **kwargs):
         assert np.array_equal(np.asarray(a['n']), np.asarray(b['n']))
         assert np.array_equal(a['Theta_Theta'], b['Theta_Theta'])
         assert np.array_equal(a['FourDefectDistribution'], b['FourDefectDistribution'])
-        assert a['Vacuum_Ticks'] == b['Vacuum_Ticks']
+        assert a['VacuumTicks'] == b['VacuumTicks']
         assert a['Ticks'] == b['Ticks']
         assert a['SectorTicks'].sum() == a['Ticks']
     assert fast.proposed == slow.proposed
@@ -247,7 +247,7 @@ def test_kernel_gamma_ones_matches_legacy_kernel():
         a = legacy.step(a)
         b = ones.step(b)
         assert np.array_equal(np.asarray(a['n']), np.asarray(b['n']))
-        assert a['Vacuum_Ticks'] == b['Vacuum_Ticks']
+        assert a['VacuumTicks'] == b['VacuumTicks']
         assert a['Ticks'] == b['Ticks']
     assert legacy.accepted == ones.accepted
 
@@ -265,13 +265,13 @@ def test_tuner_forwards_uniformProposalFraction(monkeypatch):
         built.append(self.uniformProposalFraction.copy())
 
     monkeypatch.setattr(DefectGas, '__init__', spy)
-    tuner = DefectGasWeightTuner(S, D_max=4, rng=np.random.default_rng(3))
+    tuner = DefectGasWeightTuner(S, max_defects=4, rng=np.random.default_rng(3))
     phi, n = _cold(S)
     tuner._probe(np.array([1.0, 0.04, 2.4e-3]), {'phi': phi, 'n': n}, 2, 25)
     assert len(built) == 1 and np.all(built[0] == 0.5) and built[0].shape == (3,)
 
     built.clear()
-    legacy = DefectGasWeightTuner(S, D_max=4, rng=np.random.default_rng(3), uniformProposalFraction=None)
+    legacy = DefectGasWeightTuner(S, max_defects=4, rng=np.random.default_rng(3), uniformProposalFraction=None)
     legacy._probe(np.array([1.0, 0.04, 2.4e-3]), {'phi': phi, 'n': n}, 2, 25)
     assert len(built) == 1 and built[0].size == 0
 
@@ -316,7 +316,7 @@ def test_gamma_independence_theta_and_binder():
         chain = Sequentially((villain.SiteUpdate(S), gas))
         e = supervillain.Ensemble(S).generate(400, chain)
         T = np.asarray(e.Theta_Theta).real[:, 1, 0, 0, 0]
-        V = np.asarray(e.Vacuum_Ticks).astype(float)
+        V = np.asarray(e.VacuumTicks).astype(float)
         B = 20
         n = len(T) // B
         Tb = T[:B * n].reshape(B, n).sum(axis=1)

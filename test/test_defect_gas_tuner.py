@@ -35,9 +35,9 @@ def test_generator_matched_chain():
     assert chain.fugacity == gas.fugacity
     assert chain.emit_every == gas.emit_every
     # The chain is production-ready: it generates, every emission carries the
-    # inline quantities, and the dwell bound Vacuum_Ticks <= Ticks holds.
+    # inline quantities, and the dwell bound VacuumTicks <= Ticks holds.
     e = supervillain.Ensemble(S).generate(3, chain)
-    vac, ticks = np.asarray(e.Vacuum_Ticks), np.asarray(e.Ticks)
+    vac, ticks = np.asarray(e.VacuumTicks), np.asarray(e.Ticks)
     assert np.all(vac > 0) and np.all(ticks >= vac)
 
 

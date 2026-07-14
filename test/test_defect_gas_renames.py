@@ -34,15 +34,27 @@ def test_old_spellings_are_gone():
         else:
             assert False, f'retired keyword must raise TypeError: {sorted(kwargs)}'
     try:
-        DefectGasWeightTuner(S, D_max=4, gamma=0.5)
+        DefectGasWeightTuner(S, max_defects=4, gamma=0.5)
     except TypeError:
         pass
     else:
         assert False, 'retired tuner keyword gamma must raise TypeError'
     import supervillain.observable
-    assert not hasattr(supervillain.observable, 'ThetaBinderCumulant'), \
-        'retired observable name must be gone (use IntersectionBinderCumulant)'
-    assert hasattr(supervillain.observable, 'IntersectionBinderCumulant')
+    retired = {'ThetaBinderCumulant': 'IntersectionBinderCumulant',
+               'Vacuum_Ticks': 'VacuumTicks',
+               'Pair_Excursions': 'PairExcursions',
+               'Excursion_Lengths': 'ExcursionLengths',
+               'Max_Pair_RSq': 'MaxPairSeparationSquared'}
+    for old_name, new_name in retired.items():
+        assert not hasattr(supervillain.observable, old_name), \
+            f'retired observable name must be gone: {old_name} -> {new_name}'
+        assert hasattr(supervillain.observable, new_name)
+    try:
+        DefectGas(S, fugacity=0.1, D_max=8)
+    except TypeError:
+        pass
+    else:
+        assert False, 'retired keyword D_max must raise TypeError (use max_defects)'
 
 
 def test_semantic_names_carry_the_tables():
@@ -53,6 +65,6 @@ def test_semantic_names_carry_the_tables():
                   uniformProposalFraction=0.5)
     assert np.array_equal(g.pairSeparationUmbrella, w2)
     assert g.uniformProposalFraction.shape == (3,)
-    assert DefectGasWeightTuner(S, D_max=4).uniformProposalFraction == 0.5
-    assert DefectGasWeightTuner(S, D_max=4,
+    assert DefectGasWeightTuner(S, max_defects=4).uniformProposalFraction == 0.5
+    assert DefectGasWeightTuner(S, max_defects=4,
                                 uniformProposalFraction=None).uniformProposalFraction is None

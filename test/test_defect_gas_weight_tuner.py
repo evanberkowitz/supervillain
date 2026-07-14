@@ -22,7 +22,7 @@ def _action(N=4, kappa=0.05):
 def test_recursion_update_and_convergence_canned():
     S = _action()
     V = S.Lattice.N ** 4
-    t = DefectGasWeightTuner(S, D_max=4, rng=np.random.default_rng(5))
+    t = DefectGasWeightTuner(S, max_defects=4, rng=np.random.default_rng(5))
     calls = []
     canned = [
         (np.array([900, 90, 0]), 3),      # lopsided, k=2 unvisited, too few trips
@@ -59,7 +59,7 @@ def test_recursion_update_and_convergence_canned():
 
 def test_no_convergence_warns_and_returns_best_probed(caplog):
     S = _action()
-    t = DefectGasWeightTuner(S, D_max=4, rng=np.random.default_rng(6))
+    t = DefectGasWeightTuner(S, max_defects=4, rng=np.random.default_rng(6))
     calls = []
 
     def probe(w, cfg, probe_sweeps, companion_every):
@@ -82,7 +82,7 @@ def test_update_clipped_and_probes_lengthen():
     # boost (clip at max_update per iteration), and zero-round-trip probes signal
     # that the sectors mix slower than the probe: lengthen before re-measuring.
     S = _action()
-    t = DefectGasWeightTuner(S, D_max=4, rng=np.random.default_rng(8))
+    t = DefectGasWeightTuner(S, max_defects=4, rng=np.random.default_rng(8))
     seen = []
 
     def probe(w, cfg, probe_sweeps, companion_every):
@@ -100,7 +100,7 @@ def test_update_clipped_and_probes_lengthen():
 
 def test_tune_real_tiny():
     S = _action()
-    t = DefectGasWeightTuner(S, D_max=8, rng=np.random.default_rng(7))
+    t = DefectGasWeightTuner(S, max_defects=8, rng=np.random.default_rng(7))
     w, emit_every = t.tune(probe_sweeps=400, max_iterations=8)
     assert w.shape == (5,) and w[0] == 1.0 and np.all(w > 0)
     assert emit_every >= 1
@@ -108,7 +108,7 @@ def test_tune_real_tiny():
 
 def test_generator_produces():
     S = _action()
-    t = DefectGasWeightTuner(S, D_max=8, rng=np.random.default_rng(11))
+    t = DefectGasWeightTuner(S, max_defects=8, rng=np.random.default_rng(11))
     chain = t.generator(probe_sweeps=400, max_iterations=8)
     assert isinstance(chain, Sequentially)
     gas = chain.generators[-1]
@@ -116,7 +116,7 @@ def test_generator_produces():
     assert np.array_equal(chain.sectorWeights, gas.sectorWeights)
     assert chain.emit_every == gas.emit_every
     e = supervillain.Ensemble(S).generate(3, chain)
-    vac, ticks = np.asarray(e.Vacuum_Ticks), np.asarray(e.Ticks)
+    vac, ticks = np.asarray(e.VacuumTicks), np.asarray(e.Ticks)
     assert np.all(vac > 0) and np.all(ticks >= vac)
     assert np.asarray(e.SectorTicks).sum() == ticks.sum()
 
@@ -140,7 +140,7 @@ def test_w_independence():
         chain = Sequentially((villain.SiteUpdate(S), gas))
         e = supervillain.Ensemble(S).generate(400, chain)
         T = np.asarray(e.Theta_Theta).real[:, 1, 0, 0, 0]
-        V = np.asarray(e.Vacuum_Ticks).astype(float)
+        V = np.asarray(e.VacuumTicks).astype(float)
         B = 20
         n = len(T) // B
         Tb = T[:B * n].reshape(B, n).sum(axis=1)
@@ -156,7 +156,7 @@ def test_lighten_policy_canned():
     # After freezing the probed table, light-by-policy divides w[k] by
     # lighten^k so production sits below sector coexistence.
     S = _action()
-    t = DefectGasWeightTuner(S, D_max=4, rng=np.random.default_rng(5))
+    t = DefectGasWeightTuner(S, max_defects=4, rng=np.random.default_rng(5))
 
     def probe(w, cfg, probe_sweeps, companion_every):
         t_ = np.array([400, 300, 200])
@@ -164,7 +164,7 @@ def test_lighten_policy_canned():
 
     t._probe = probe
     w_ref, _ = t.tune(probe_sweeps=100, lighten=1.0)
-    t2 = DefectGasWeightTuner(S, D_max=4, rng=np.random.default_rng(5))
+    t2 = DefectGasWeightTuner(S, max_defects=4, rng=np.random.default_rng(5))
     t2._probe = probe
     w_light, _ = t2.tune(probe_sweeps=100)              # default lighten=1.5
     assert np.allclose(w_light, w_ref / 1.5 ** np.arange(3))
@@ -175,7 +175,7 @@ def test_tune_umbrella_canned():
 
     S = _action()
     _, values = dg.pair_shells(4)
-    t = DefectGasWeightTuner(S, D_max=4, rng=np.random.default_rng(6))
+    t = DefectGasWeightTuner(S, max_defects=4, rng=np.random.default_rng(6))
     calls = []
     # Shell dwell histograms (per-bin): first lopsided, then flat -> converge.
     canned = [np.geomspace(1000.0, 1.0, len(values)),
@@ -206,7 +206,7 @@ def test_tune_umbrella_scoring_health_tier_canned():
     S = _action()
     _, values = dg.pair_shells(4)
     n = len(values)
-    t = DefectGasWeightTuner(S, D_max=4, rng=np.random.default_rng(6))
+    t = DefectGasWeightTuner(S, max_defects=4, rng=np.random.default_rng(6))
     calls = []
     # probe 0: huge round trips (100), but one shell is unvisited and the
     #          visited shells are wildly lopsided -- under the OLD scoring
@@ -264,7 +264,7 @@ def test_tune_umbrella_warm_start_canned():
     S = _action()
     _, values = dg.pair_shells(4)
     n = len(values)
-    t = DefectGasWeightTuner(S, D_max=4, rng=np.random.default_rng(6))
+    t = DefectGasWeightTuner(S, max_defects=4, rng=np.random.default_rng(6))
     calls = []
 
     def uprobe(w, w2, cfg, probe_sweeps, companion_every):
@@ -290,7 +290,7 @@ def test_tune_umbrella_warm_start_canned():
 
 def test_tune_umbrella_real_tiny(caplog):
     S = _action()
-    t = DefectGasWeightTuner(S, D_max=8, rng=np.random.default_rng(7))
+    t = DefectGasWeightTuner(S, max_defects=8, rng=np.random.default_rng(7))
     w, _ = t.tune(probe_sweeps=400, max_iterations=8, lighten=1.5)
     w2 = t.tune_umbrella(w, probe_sweeps=2000, max_iterations=12, max_probe_growth=8)
     assert np.all(w2 > 0)
@@ -301,10 +301,10 @@ def test_tune_umbrella_real_tiny(caplog):
 
 def test_generator_with_umbrella():
     S = _action()
-    t = DefectGasWeightTuner(S, D_max=8, rng=np.random.default_rng(11))
+    t = DefectGasWeightTuner(S, max_defects=8, rng=np.random.default_rng(11))
     chain = t.generator(probe_sweeps=400, max_iterations=6, umbrella=True)
     gas = chain.generators[-1]
     assert gas.pairSeparationUmbrella.size > 0
     assert np.array_equal(chain.pairSeparationUmbrella, gas.pairSeparationUmbrella)
     e = supervillain.Ensemble(S).generate(3, chain)
-    assert np.all(np.asarray(e.Vacuum_Ticks) > 0)
+    assert np.all(np.asarray(e.VacuumTicks) > 0)

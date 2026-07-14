@@ -7,7 +7,7 @@ $\Delta q$ dict from the single-link stencil, prices it against a sparse defect 
 tallies a sector --- a few dozen integer operations buried under interpreter overhead.
 Here the whole pre-drawn proposal batch runs in one ``njit`` kernel over flat integer
 state: the charge density $q$ kept as a **dense** array plus a compact list of its
-nonzero cells (at most ``D_max`` of them on a tuned chain, updated incrementally --- an
+nonzero cells (at most ``max_defects`` of them on a tuned chain, updated incrementally --- an
 accepted flip touches $O(1)$ hypercubes), so $\Delta D$, the accept/reject, the $F$
 patch, and the sector classification are all $O(1)$ per proposal with no Python in the
 loop.
@@ -208,7 +208,7 @@ def _geo_weight(cells, charges, count, w2, rsq_shell, N):
 @njit(cache=True)
 def tick_batch(F2, n2, dphi2, q, nzc, D, nnz,
                mus, sites, cs, us, comps, ucells, uedges, i0,
-               kappa, fugacity, w, w2, rsq_shell, gamma, D_max, N,
+               kappa, fugacity, w, w2, rsq_shell, gamma, max_defects, N,
                st_o, st_p, st_s, st_k, st_ptr,
                df_off, df_plane, df_val, df_ptr,
                H_pair, H_four, tally, vac_stop,
@@ -239,7 +239,7 @@ def tick_batch(F2, n2, dphi2, q, nzc, D, nnz,
     Transport instrumentation (mutated in place, always on): ``tstate`` is
     ``[current excursion length in ticks, completed excursion count, max single-pair
     min-image separation squared, touched-top-sector flag, round trips]`` (a round
-    trip is a vacuum return after visiting ``D == D_max`` since the previous vacuum
+    trip is a vacuum return after visiting ``D == max_defects`` since the previous vacuum
     tick); ``exc_hist[b]`` counts completed excursions whose
     length had bit-length $b$ (power-of-two bins, top bin saturating).  An *excursion*
     is a maximal stretch of nonvacuum ticks; a zero-count far bin plus a small
@@ -311,7 +311,7 @@ def tick_batch(F2, n2, dphi2, q, nzc, D, nnz,
             if vals[b] != 0:
                 q0 = q[cells[b]]
                 dD += abs(q0 + vals[b]) - abs(q0)
-        if D_max < 0 or D + dD <= D_max:
+        if max_defects < 0 or D + dD <= max_defects:
             srav = ((x0 * N + x1) * N + x2) * N + x3
             A = dphi2[mu, srav] - 2 * np.pi * n2[mu, srav]
             dS = (kappa / 2) * ((A - 2 * np.pi * c) ** 2 - A ** 2)
@@ -432,7 +432,7 @@ def tick_batch(F2, n2, dphi2, q, nzc, D, nnz,
                 break
         else:
             tstate[0] += 1
-            if D_max >= 0 and D == D_max:
+            if max_defects >= 0 and D == max_defects:
                 tstate[3] = 1
             if D == 2 and nnz == 2:
                 v1 = q[nzc[0]]

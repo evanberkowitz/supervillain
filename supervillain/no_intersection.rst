@@ -449,7 +449,7 @@ with $[\cdots]$ the Iverson bracket, and the factor of $\zeta^2$ dividing out th
    :members:
    :show-inheritance:
 
-.. autoclass:: supervillain.observable.Vacuum_Ticks
+.. autoclass:: supervillain.observable.VacuumTicks
    :members:
    :show-inheritance:
 
@@ -503,7 +503,7 @@ The cure is to abandon the geometric form and price each sector on its own,
    \zeta^{D(n)} \longrightarrow w_{D(n)/2},
    \qquad w_{0} = 1,
 
-a *multicanonical* weight table with one entry per pair sector up to the cap $K = $ ``D_max`` $/2$.
+a *multicanonical* weight table with one entry per pair sector up to the cap $K = $ ``max_defects`` $/2$.
 The right target is **flat sector occupancy**: with every sector dwelling equally the vacuum is revisited a fraction $1/(K+1)$ of the time --- a fixed *polynomial* price for full multi-pair traffic, against the $e^{-\langle D/2 \rangle}$ suppression *some* sector must suffer under any geometric pricing.
 And, since the intermediate sectors' weights cancel from every published estimator exactly as $\zeta$ did, the table costs nothing in exactness: running twice with materially different tables and comparing is the same free end-to-end test as running at two fugacities.
 
@@ -515,7 +515,7 @@ After the recursion freezes, the table is deliberately *lightened* ($w_{k} \to w
 .. autoclass:: supervillain.generator.no_intersection.DefectGasWeightTuner
    :members:
 
-We can build a derived quantity from the defect gas's dwell ratios to compute the intersection susceptibility $\chi_\theta$. The pair-sector dwell rides along as the :class:`~.DefectGas`'s inline observable ``Theta_Theta``, while the defect-free dwell is measured by the inline observable ``Vacuum_Ticks``, from which $\Theta$ :eq:`theta-defect-correlator` is the ratio of ensemble means.
+We can build a derived quantity from the defect gas's dwell ratios to compute the intersection susceptibility $\chi_\theta$. The pair-sector dwell rides along as the :class:`~.DefectGas`'s inline observable ``Theta_Theta``, while the defect-free dwell is measured by the inline observable ``VacuumTicks``, from which $\Theta$ :eq:`theta-defect-correlator` is the ratio of ensemble means.
 
 
 .. autoclass:: supervillain.observable.Intersection_Intersection
@@ -667,8 +667,8 @@ which can be directly translated into
 
    \left\langle \left|M\right|^{4} \right\rangle
    = (2V^{2} - V)
-   + 4(V-1)\, V\, \frac{\sum_{\Delta x} \left\langle \texttt{Theta\_Theta}_{ \Delta x} \right\rangle}{\left\langle \texttt{Vacuum\_Ticks} \right\rangle}
-   + \frac{\left\langle \texttt{FourDefects} \right\rangle}{\left\langle \texttt{Vacuum\_Ticks} \right\rangle}
+   + 4(V-1)\, V\, \frac{\sum_{\Delta x} \left\langle \texttt{Theta\_Theta}_{ \Delta x} \right\rangle}{\left\langle \texttt{VacuumTicks} \right\rangle}
+   + \frac{\left\langle \texttt{FourDefects} \right\rangle}{\left\langle \texttt{VacuumTicks} \right\rangle}
 
 The explicit factor of $V$ appears in translation because ``Theta_Theta`` is
 translation-averaged --- it carries $1/V\zeta^{2}$ --- so the site sum

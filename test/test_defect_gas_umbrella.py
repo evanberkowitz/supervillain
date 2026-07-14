@@ -101,12 +101,12 @@ def test_ones_table_matches_no_table():
         b = on.step(b)
         assert np.array_equal(np.asarray(a['n']), np.asarray(b['n']))
         assert np.array_equal(a['Theta_Theta'], b['Theta_Theta'])
-        assert a['Vacuum_Ticks'] == b['Vacuum_Ticks']
+        assert a['VacuumTicks'] == b['VacuumTicks']
     assert off.proposed == on.proposed and off.accepted == on.accepted
 
 
 def test_step_matches_reference_umbrella_D2():
-    # Nontrivial w2 with D_max = 2: only the single-pair sector exists, so this
+    # Nontrivial w2 with max_defects = 2: only the single-pair sector exists, so this
     # certifies the D=2 weight factors on both paths before the Wick sum enters.
     S = _action()
     _, values = pair_shells(4)
@@ -120,7 +120,7 @@ def test_step_matches_reference_umbrella_D2():
         b = slow.step_reference(b)
         assert np.array_equal(np.asarray(a['n']), np.asarray(b['n']))
         assert np.array_equal(a['Theta_Theta'], b['Theta_Theta'])
-        assert a['Vacuum_Ticks'] == b['Vacuum_Ticks']
+        assert a['VacuumTicks'] == b['VacuumTicks']
         assert a['Ticks'] == b['Ticks']
     assert fast.proposed == slow.proposed
     assert fast.accepted == slow.accepted
@@ -128,7 +128,7 @@ def test_step_matches_reference_umbrella_D2():
 
 
 def test_step_matches_reference_umbrella_D4():
-    # Full table, D_max = 8: the Wick-sum weight and the inverse-weighted
+    # Full table, max_defects = 8: the Wick-sum weight and the inverse-weighted
     # float H_four, bit-for-bit across paths, with the quartic sector visited.
     # The outward geomspace(1, 10) push makes the fully-quartic class ({+1,+1,
     # -1,-1}) a genuine trap under the averaged-Wick dynamics -- a step can
@@ -176,7 +176,7 @@ def test_w2_independence():
         chain = Sequentially((villain.SiteUpdate(S), gas))
         e = supervillain.Ensemble(S).generate(400, chain)
         T = np.asarray(e.Theta_Theta).real[:, 1, 0, 0, 0]
-        V = np.asarray(e.Vacuum_Ticks).astype(float)
+        V = np.asarray(e.VacuumTicks).astype(float)
         B = 20
         n = len(T) // B
         Tb = T[:B * n].reshape(B, n).sum(axis=1)

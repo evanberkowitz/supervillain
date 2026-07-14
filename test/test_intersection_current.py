@@ -62,7 +62,7 @@ def test_winding_topological_on_constrained_configurations():
 
 
 def test_double_intersection_susceptibility_arithmetic():
-    # chi_2 = 1 + FDD[3] / (V * Vacuum_Ticks), from the class tally alone.
+    # chi_2 = 1 + FDD[3] / (V * VacuumTicks), from the class tally alone.
     S = _action()
     V = S.Lattice.N ** 4
     fdd = np.array([12.0, 3.0, 2.0, 8.0])

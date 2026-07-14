@@ -39,7 +39,7 @@ def Hammer(S, fugacity=None):
 
     Finally the :class:`DefectGas` supplies the defect transport that **no worm could**.
     It occupies the slot a worm would, and measures the intersection correlator inline as
-    :class:`~.Theta_Theta` and :class:`~.Vacuum_Ticks` --- absolutely normalized, where a
+    :class:`~.Theta_Theta` and :class:`~.VacuumTicks` --- absolutely normalized, where a
     worm histogram needs its origin bin.  See :ref:`the no-intersection docs
     <no_intersection>` for the measurements that retired the worms.
 
@@ -53,7 +53,7 @@ def Hammer(S, fugacity=None):
         before sampling begins; pass an explicit value to skip that cost.  The
         emitted configurations satisfy the constraint for **any** fugacity
         $\zeta \in (0, 1]$ --- it tunes only the variance.  The tuned gas inherits the
-        tuner's default ``D_max = 8`` cap (an explicit ``fugacity`` leaves ``D_max``
+        tuner's default ``max_defects = 8`` cap (an explicit ``fugacity`` leaves ``max_defects``
         uncapped as before).
 
     Returns

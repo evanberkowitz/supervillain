@@ -35,7 +35,7 @@ def test_step_matches_reference_quartic_sector():
     # nnz-based classification is exercised against the sorted-charge dict --- but
     # low enough that the chain still comes home to emit.
     S = _action()
-    fast, slow = _twins(S, seed=23, fugacity=0.2, D_max=8, emit_every=100)
+    fast, slow = _twins(S, seed=23, fugacity=0.2, max_defects=8, emit_every=100)
     phi, n = _cold(S)
     a = {'phi': phi, 'n': n}
     b = {'phi': phi, 'n': n}
@@ -55,7 +55,7 @@ def test_step_matches_reference_quartic_sector():
 
 def test_step_matches_reference_uncapped():
     S = _action()
-    fast, slow = _twins(S, seed=29, fugacity=0.1, D_max=None, emit_every=300)
+    fast, slow = _twins(S, seed=29, fugacity=0.1, max_defects=None, emit_every=300)
     phi, n = _cold(S)
     a = {'phi': phi, 'n': n}
     b = {'phi': phi, 'n': n}
@@ -71,7 +71,7 @@ def test_step_matches_reference_uncapped():
 
 def test_step_matches_reference():
     S = _action()
-    fast, slow = _twins(S, seed=3, fugacity=0.1, D_max=8, emit_every=3000)
+    fast, slow = _twins(S, seed=3, fugacity=0.1, max_defects=8, emit_every=3000)
     phi, n = _cold(S)
     cfg_f = {'phi': phi, 'n': n}
     cfg_s = {'phi': phi, 'n': n}
@@ -83,15 +83,15 @@ def test_step_matches_reference():
         cfg_s = slow.step_reference(cfg_s)
         assert np.array_equal(np.asarray(cfg_f['n']), np.asarray(cfg_s['n']))
         assert np.array_equal(cfg_f['Theta_Theta'], cfg_s['Theta_Theta'])
-        assert cfg_f['Vacuum_Ticks'] == cfg_s['Vacuum_Ticks']
+        assert cfg_f['VacuumTicks'] == cfg_s['VacuumTicks']
         assert np.array_equal(cfg_f['FourDefectDistribution'], cfg_s['FourDefectDistribution'])
-        assert cfg_f['Pair_Excursions'] == cfg_s['Pair_Excursions']
-        assert cfg_f['Max_Pair_RSq'] == cfg_s['Max_Pair_RSq']
-        assert np.array_equal(cfg_f['Excursion_Lengths'], cfg_s['Excursion_Lengths'])
+        assert cfg_f['PairExcursions'] == cfg_s['PairExcursions']
+        assert cfg_f['MaxPairSeparationSquared'] == cfg_s['MaxPairSeparationSquared']
+        assert np.array_equal(cfg_f['ExcursionLengths'], cfg_s['ExcursionLengths'])
         assert cfg_f['Ticks'] == cfg_s['Ticks']
-        assert cfg_f['Ticks'] >= cfg_f['Vacuum_Ticks'] > 0
-        excursions += cfg_f['Pair_Excursions']
-        max_rsq = max(max_rsq, cfg_f['Max_Pair_RSq'])
+        assert cfg_f['Ticks'] >= cfg_f['VacuumTicks'] > 0
+        excursions += cfg_f['PairExcursions']
+        max_rsq = max(max_rsq, cfg_f['MaxPairSeparationSquared'])
 
     assert 'Ticks' in fast.inline_observables(1)
     assert fast.proposed == slow.proposed
@@ -106,7 +106,7 @@ def test_paths_interleave():
     # step and step_reference maintain one coherent chain state, so mixing them on a
     # single instance equals an all-reference twin.
     S = _action()
-    mixed, pure = _twins(S, seed=11, fugacity=0.1, D_max=8, emit_every=300)
+    mixed, pure = _twins(S, seed=11, fugacity=0.1, max_defects=8, emit_every=300)
     phi, n = _cold(S)
     a = {'phi': phi, 'n': n}
     b = {'phi': phi, 'n': n}

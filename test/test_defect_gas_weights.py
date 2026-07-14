@@ -39,11 +39,11 @@ def test_exactly_one_pricing():
             assert False, f'DefectGas(S, **{kwargs}) must raise ValueError'
 
 
-def test_weights_normalized_and_pin_D_max():
+def test_weights_normalized_and_pin_max_defects():
     S = _action()
     g = DefectGas(S, sectorWeights=(2.0, 1.0, 0.5))
     assert g.fugacity is None
-    assert g.D_max == 4
+    assert g.max_defects == 4
     assert np.array_equal(g.sectorWeights, [1.0, 0.5, 0.25])
     assert g._w1 == 0.5 and g._w4 == 0.25
 
@@ -51,17 +51,17 @@ def test_weights_normalized_and_pin_D_max():
 def test_weights_short_table_has_no_four_sector():
     S = _action()
     g = DefectGas(S, sectorWeights=(1.0, 0.25))
-    assert g.D_max == 2 and g._w4 == 1.0
+    assert g.max_defects == 2 and g._w4 == 1.0
 
 
-def test_weights_D_max_mismatch():
+def test_weights_max_defects_mismatch():
     S = _action()
     try:
-        DefectGas(S, sectorWeights=(1.0, 0.1, 0.01), D_max=8)
+        DefectGas(S, sectorWeights=(1.0, 0.1, 0.01), max_defects=8)
     except ValueError:
         pass
     else:
-        assert False, 'disagreeing D_max must raise ValueError'
+        assert False, 'disagreeing max_defects must raise ValueError'
 
 
 def test_weights_must_be_positive():
@@ -78,7 +78,7 @@ def test_weights_must_be_positive():
 def test_geometric_path_unchanged():
     S = _action()
     g = DefectGas(S, fugacity=0.1)
-    assert g.fugacity == 0.1 and g.w.size == 0 and g.D_max is None
+    assert g.fugacity == 0.1 and g.sectorWeights.size == 0 and g.max_defects is None
     assert g._w1 == 0.1**2 and g._w4 == 0.1**4
 
 
@@ -87,7 +87,7 @@ def test_geometric_table_equivalence():
     # same accepted moves, same fields, same tallies, on a shared proposal stream.
     S = _action()
     z, K = 0.1, 4
-    geo = DefectGas(S, fugacity=z, D_max=2 * K, emit_every=300,
+    geo = DefectGas(S, fugacity=z, max_defects=2 * K, emit_every=300,
                     rng=np.random.default_rng(31))
     tab = DefectGas(S, sectorWeights=[z**(2 * k) for k in range(K + 1)], emit_every=300,
                     rng=np.random.default_rng(31))
@@ -98,7 +98,7 @@ def test_geometric_table_equivalence():
         a = geo.step(a)
         b = tab.step(b)
         assert np.array_equal(np.asarray(a['n']), np.asarray(b['n']))
-        assert a['Vacuum_Ticks'] == b['Vacuum_Ticks']
+        assert a['VacuumTicks'] == b['VacuumTicks']
         assert a['Ticks'] == b['Ticks']
         assert np.allclose(a['Theta_Theta'], b['Theta_Theta'])
     assert geo.proposed == tab.proposed
@@ -124,7 +124,7 @@ def test_step_matches_reference_nongeometric_table():
         assert np.array_equal(np.asarray(a['n']), np.asarray(b['n']))
         assert np.array_equal(a['Theta_Theta'], b['Theta_Theta'])
         assert np.array_equal(a['FourDefectDistribution'], b['FourDefectDistribution'])
-        assert a['Vacuum_Ticks'] == b['Vacuum_Ticks']
+        assert a['VacuumTicks'] == b['VacuumTicks']
         assert a['Ticks'] == b['Ticks']
         four += a['FourDefectDistribution'].sum()
     assert fast.proposed == slow.proposed
@@ -137,7 +137,7 @@ def test_sector_ticks_and_round_trips():
     # Every tick lands in exactly one sector; vacuum is sector 0; a round trip is a
     # vacuum return after touching the top sector.  Both paths agree exactly.
     S = _action()
-    w = (1.0, 0.04, 2.4e-3)                   # D_max = 4: a reachable top sector
+    w = (1.0, 0.04, 2.4e-3)                   # max_defects = 4: a reachable top sector
     fast, slow = _twins(S, seed=5, sectorWeights=w, emit_every=300)
     phi, n = _cold(S)
     a = {'phi': phi, 'n': n}
@@ -149,7 +149,7 @@ def test_sector_ticks_and_round_trips():
         assert np.array_equal(a['SectorTicks'], b['SectorTicks'])
         assert a['RoundTrips'] == b['RoundTrips']
         assert a['SectorTicks'].sum() == a['Ticks']
-        assert a['SectorTicks'][0] == a['Vacuum_Ticks']
+        assert a['SectorTicks'][0] == a['VacuumTicks']
         trips += a['RoundTrips']
     assert trips > 0                          # the chain shuttles to the top and back
 
@@ -185,7 +185,7 @@ def test_probe_sweeps_budget_and_continuity():
 
 def test_probe_sweeps_requires_cap():
     S = _action()
-    g = DefectGas(S, fugacity=0.1)                  # D_max None
+    g = DefectGas(S, fugacity=0.1)                  # max_defects None
     phi, n = _cold(S)
     try:
         g._probe_sweeps({'phi': phi, 'n': n}, 1)
@@ -197,7 +197,7 @@ def test_probe_sweeps_requires_cap():
 
 def test_capped_geometric_emits_sector_ticks():
     S = _action()
-    g = DefectGas(S, fugacity=0.1, D_max=8, emit_every=100,
+    g = DefectGas(S, fugacity=0.1, max_defects=8, emit_every=100,
                   rng=np.random.default_rng(47))
     obs = g.inline_observables(2)
     assert 'SectorTicks' in obs and 'RoundTrips' in obs
