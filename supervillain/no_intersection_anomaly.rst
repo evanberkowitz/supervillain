@@ -86,9 +86,7 @@ with $\alpha$ and $\beta$ global constants.
 The $U(1)_\phi$ is a symmetry of the Villain term $(d\phi - 2\pi n)^2$ for any
 constant $\alpha$, since $d\alpha = 0$; this is the "standard Villain $U(1)$"
 present in every model of this family, with Noether current $j_\phi = \kappa(d\phi
-- 2\pi n)$ and on-shell conservation $\delta j_\phi = 0$.  (The subscript keeps it
-distinct from the $\theta$-sector current $j = n \wedge dn$ with $q = dj$ of the
-parent page, whose slice sums are the windings $J_\mu$.)
+- 2\pi n)$ and on-shell conservation $\delta j_\phi = 0$.
 
 $U(1)_\theta$ is a symmetry of the constraint term for any constant $\beta$
 because the total charge vanishes *identically*,
