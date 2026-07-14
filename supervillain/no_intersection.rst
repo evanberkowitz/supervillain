@@ -691,6 +691,39 @@ violates Cauchy--Schwarz) with
 underestimated :class:`~.Bootstrap` errors --- loud, like every other failure mode of
 this sampler.
 
+The pair-separation umbrella
+----------------------------
+
+The sector table controls how *often* the pair sector is visited, not where the pair goes once inside: within $D = 2$, visits to separation $r$ arrive in proportion to $\Theta(r)$ itself, so in a decaying phase the far bins are starved by exactly the physics we are trying to measure.
+The remedy is a second learned table, an *umbrella* $w_{2}(r)$ over the distinct minimal-image $r^{2}$ shells (translation- and hypercubic-invariant by construction), which multiplies the enlarged-ensemble weight,
+
+.. math ::
+
+   W = 1 \; (D = 0,\ D \geq 6,\ \text{doubled charges}),
+   \qquad
+   W = w_{2}(\left|x - y\right|) \; (D = 2),
+
+.. math ::
+
+   W = \tfrac{1}{2}\left[
+       w_{2}(\left|x_{1} - y_{1}\right|)\, w_{2}(\left|x_{2} - y_{2}\right|)
+     + w_{2}(\left|x_{1} - y_{2}\right|)\, w_{2}(\left|x_{2} - y_{1}\right|)
+   \right] \; (D = 4,\ \{+1,+1,-1,-1\}),
+
+the $D = 4$ form a Wick-inspired symmetrization: two defects' heads cannot be told apart from their tails, so the weight must be bosonic --- invariant under relabelings --- and averaging the two contractions makes the all-ones table exactly neutral in every sector.
+Since any deterministic $W$ is exactness-preserving, the estimators only need their bookkeeping adjusted: ``Theta_Theta`` bins are pure in $r$ and are divided binwise by $w_{2}$ at emission, while the $D = 4$ weight varies *within* the class, so the four-defect tally accumulates $1/W$ per tick.
+Independence of the published physics from the $w_{2}$ table --- on $\Theta$ *and* on the Binder cumulant --- generalizes the fugacity- and $w$-independence exactness tests.
+
+The umbrella is learned by :meth:`~.DefectGasWeightTuner.tune_umbrella` as a second stage of the same damped, clipped recursion with the sector table frozen, renormalized each iteration so the total pair-sector weight is unchanged --- $w$ owns sector traffic, $w_{2}$ owns the within-sector profile.
+Because unvisited shells are never extrapolated into, steeply decaying couplings want the warm start $w_{2} \sim 1/\hat\Theta$ from a previous run or stored correlator.
+
+.. warning ::
+
+   The umbrella reshapes the *stationary distribution*, not the *kinetics*, and in production the kinetics can be the binding constraint.
+   A pair made flat in $r$ random-walks the whole lattice and must diffuse back to adjacency before it can annihilate: flatten the shell dwell aggressively at a steeply decaying coupling and the vacuum round trips die, which is defect condensation by another road.
+   (At the susceptibility peak the opposite obtains: the natural far-shell dwell is only a small factor below flat, and the umbrella has little to buy.)
+   Until transport-aware proposal moves land, production should run with the umbrella off or gently capped.
+
 Irreducibility by construction
 ==============================
 

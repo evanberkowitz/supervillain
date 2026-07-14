@@ -159,6 +159,18 @@ class DefectGas(ReadWriteable, Generator):
         :class:`DefectGasWeightTuner`) the sector occupancies flatten, so the chain
         shuttles freely between the vacuum and the multi-pair sectors instead of
         paying $e^{-\langle D/2 \rangle}$ for them.
+    w2: numpy array, optional
+        A pair-separation umbrella: one positive entry per distinct minimal-image
+        $r^{2}$ shell (see :func:`pair_shells`), multiplying the enlarged-ensemble
+        weight by $w_{2}(\left|x - y\right|)$ in the single-pair sector and by the
+        averaged Wick product $\frac{1}{2}[w_{2}(\left|x_{1}-y_{1}\right|)
+        w_{2}(\left|x_{2}-y_{2}\right|) + w_{2}(\left|x_{1}-y_{2}\right|)
+        w_{2}(\left|x_{2}-y_{1}\right|)]$ in the unit-charge $D = 4$ class.
+        ``Theta_Theta`` is divided binwise by $w_{2}$ at emission and the
+        four-defect tally accumulates $1/W$ per tick, so every published estimator
+        is $w_{2}$-independent.  Omitted means $W = 1$ identically (bit-for-bit the
+        unumbrella'd sampler).  Composes with either pricing; learned by
+        :meth:`DefectGasWeightTuner.tune_umbrella`.
 
     .. warning ::
 
