@@ -1,5 +1,6 @@
 import numpy as np
-from supervillain.observable import Observable, DerivedQuantity
+from supervillain.observable import Observable, Scalar, DerivedQuantity
+from supervillain.lattice import d, wedge
 import supervillain.action
 
 
@@ -205,6 +206,177 @@ class FourDefects(Observable):
     @staticmethod
     def default(S, FourDefectDistribution):
         return np.array([4., 2., 2., 1.]) @ FourDefectDistribution.real
+
+
+class DoubleIntersectionSusceptibility(DerivedQuantity):
+    r"""
+    The *charge-2 intersection susceptibility*: the spacetime integral of the
+    two-point function of the doubly-charged defect operator $e^{2i\theta}$,
+
+    .. math ::
+
+        \texttt{DoubleIntersectionSusceptibility} = \chi_{2}
+        = \sum_{\Delta x} \left\langle e^{2i(\theta_x - \theta_{x-\Delta x})}
+          \right\rangle.
+
+    **Why measure it.**  The mixed 't Hooft anomaly forbids a trivially gapped
+    $U(1)_\phi \times U(1)_\theta$-symmetric phase, but it does not insist the
+    matching condensate carry $\theta$-charge one: if single defects are bound
+    while *pairs* condense --- $U(1)_\theta \to \mathbb{Z}_2$ rather than fully
+    broken --- the charge-1 correlator :class:`~.Intersection_Intersection`
+    decays exponentially forever while the charge-2 correlator plateaus.  A
+    paired condensate is the natural suspect in this model, whose $D = 4$ dwell
+    is utterly dominated by the pair class.  The diagnostic is the volume
+    scaling of $\chi_2 - 1 \sim V \left|\langle e^{2i\theta}\rangle\right|^2$.
+
+    **Estimator.**  The only defect sector with the quantum numbers of
+    $e^{2i\theta_x} e^{-2i\theta_y}$ at $x \neq y$ is $q = 2\delta_x -
+    2\delta_y$: the $\{+2, -2\}$ class, index 3 of
+    :class:`~.FourDefectDistribution` (and $D = \sum\left|q\right| = 4$ keeps
+    it under the cap).  Following the same dwell-ratio logic as
+    :class:`~.ThetaBinderCumulant` --- the class tally is *not*
+    translation-averaged, so one factor of the volume divides out, and the
+    tally already carries its $1/\zeta^4$ (or sector-weight) price ---
+
+    .. math ::
+
+        \chi_2 = 1
+        + \frac{\left\langle \texttt{FourDefectDistribution}_3 \right\rangle}
+               {V \left\langle \texttt{Vacuum\_Ticks} \right\rangle},
+
+    the $1$ being the coincident term: a coincident $\pm 2$ pair *is* the
+    vacuum, exactly as $\Theta_0 = 1$ normalizes the charge-1 correlator.
+
+    .. note ::
+
+        The pair-separation umbrella does not disturb this estimator: the
+        $w_2$ weight touches only the unit-charge classes, so the
+        $\{+2, -2\}$ class always carries $W = 1$.
+
+    .. warning ::
+
+        The $\{+2,-2\}$ class is a rare stratum (:math:`< 0.4\%` of the
+        $D = 4$ dwell at the couplings surveyed), so expect honest but wide
+        errors; a bin identically zero across an ensemble means the class was
+        never *visited* --- censored, not measured (see
+        :class:`~.FourDefectDistribution`).
+    """
+
+    @staticmethod
+    def NoIntersections(S, FourDefectDistribution, Vacuum_Ticks):
+        V = int(np.prod(S.Lattice.dims))
+        return 1 + FourDefectDistribution.real[3] / (V * Vacuum_Ticks)
+
+
+class IntersectionCurrent(Observable):
+    r"""
+    The $\theta$-sector current: the integer-valued 3-form
+
+    .. math ::
+
+        \texttt{IntersectionCurrent} = J = n \wedge dn,
+
+    whose divergence is *exactly* the topological-charge density,
+
+    .. math ::
+
+        dJ = d(n \wedge dn) = dn \wedge dn - n \wedge d(dn) = q,
+
+    by the lattice Leibniz rule and $d^2 = 0$ --- both exact, so the identity
+    holds configuration by configuration, not just in expectation.
+
+    **Physical meaning.**  $U(1)_\theta$ shifts $\theta$ by a constant; its
+    charged objects are the defects created by $e^{i\theta}$, and $J$ is the
+    conserved current that transports that charge: in the constrained ensemble
+    ($q \equiv 0$) it is identically divergence-free.  It is the
+    $\theta$-sector analog of the vorticity current of $U(1)_\phi$, and it is
+    computable on every *stored* configuration --- no defect insertions, no
+    enlarged ensemble --- so it opens the $\theta$ sector to plain
+    re-analysis.  Its topological slice sums are the
+    :class:`~.IntersectionWinding`, whose fluctuations
+    (:class:`~.IntersectionWindingSquared`) are the stiffness diagnostic of
+    $U(1)_\theta$ symmetry breaking.
+
+    Requires a four-dimensional lattice.  On the unconstrained Villain model it
+    is still measurable, but $dJ = q \neq 0$, so only its *constrained*
+    ($q \equiv 0$) slice sums are topological.
+    """
+
+    @staticmethod
+    def Villain(S, n):
+        r'''Measure the 3-form $J = n \wedge dn$, shape ``(4,) + L.dims``.'''
+        L = S.Lattice
+        if L.D != 4:
+            raise NotImplementedError(
+                'IntersectionCurrent requires a four-dimensional lattice.')
+        return np.asarray(wedge(n, d(n)))
+
+
+class IntersectionWinding(Observable):
+    r"""
+    The topological winding of the :class:`~.IntersectionCurrent` around each
+    direction of the torus: for each $\mu$, the flux of the 3-form $J$ through
+    the 3-torus transverse to $\hat\mu$,
+
+    .. math ::
+
+        \texttt{IntersectionWinding}_\mu = W^\theta_\mu
+        = \sum_{x \,:\, x_\mu = c} J_{\bar\mu}(x),
+
+    with $\bar\mu$ the 3-form component spanning the other three directions.
+    Because $dJ = q$ and the constrained ensemble has $q \equiv 0$, the sum is
+    independent of the slice position $c$ --- a topological integer per
+    configuration per direction.  We evaluate it as the lattice average over
+    slices, $\frac{1}{N}\sum_x J_{\bar\mu}(x)$, which coincides with any single
+    slice when the charge vanishes and degrades gracefully (to the
+    slice-averaged flux) when it does not.
+
+    Nonzero fluctuations of $W^\theta$ are how a $\theta$ condensate carries
+    supercurrent around the torus; see :class:`~.IntersectionWindingSquared`.
+    """
+
+    @staticmethod
+    def Villain(S, IntersectionCurrent):
+        r'''The slice-averaged flux of $J$ per direction, shape ``(4,)``.'''
+        L = S.Lattice
+        W = np.empty(4)
+        for mu in range(4):
+            comp = tuple(k for k in range(4) if k != mu)
+            W[mu] = IntersectionCurrent[L.comp_index[3][comp]].sum() / L.N
+        return W
+
+
+class IntersectionWindingSquared(Scalar, Observable):
+    r"""
+    The direction-averaged square of the :class:`~.IntersectionWinding`,
+
+    .. math ::
+
+        \texttt{IntersectionWindingSquared}
+        = \frac{1}{4} \sum_\mu \left(W^\theta_\mu\right)^2.
+
+    **This is the sharp finite-volume diagnostic of $U(1)_\theta$ symmetry
+    breaking** --- the $\theta$-sector stiffness, playing the role the helicity
+    modulus plays for a superfluid.  $\theta$ has no kinetic term (it enters
+    only as $i\theta q$), so its stiffness is generated entirely by the matter
+    it constrains; a $\theta$ condensate supports supercurrents of defect
+    charge winding the torus, giving $\langle (W^\theta)^2 \rangle \neq 0$ with
+    the characteristic superfluid volume scaling, while a gapped symmetric
+    phase suppresses it exponentially and a critical (gapless) phase shows
+    scale-invariant fluctuations.  It therefore separates the two anomaly
+    matchings --- condensate versus gapless --- that the charge-1 correlator
+    :class:`~.Intersection_Intersection` cannot distinguish at accessible
+    volumes.
+
+    Because the winding changes only through topology-shifting moves, check
+    its autocorrelation time before trusting error bars: a chain can render it
+    *frozen* rather than measured.
+    """
+
+    @staticmethod
+    def Villain(S, IntersectionWinding):
+        r'''Measure $\frac{1}{4}\sum_\mu (W^\theta_\mu)^2$.'''
+        return np.mean(IntersectionWinding ** 2)
 
 
 class ThetaBinderCumulant(DerivedQuantity):

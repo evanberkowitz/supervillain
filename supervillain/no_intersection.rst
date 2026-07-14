@@ -742,6 +742,54 @@ Be clear about what targeting buys: for a reversible creation/annihilation pair 
 The gain is *in-sector transport* --- both endpoint states carry the adjacency term, the factor is $O(1)$, and the pair's $r$-space diffusion rate rises by $\sim (1 - \gamma)\, V/(8\langle s\rangle)$ --- exactly the kinetics the umbrella needs and the volume scaling that starves the far bins at large $N$.
 The :class:`DefectGasWeightTuner` uses the same $\gamma$ in its probes and in the production chain it builds, so all its measurements are self-consistent.
 
+Detecting $\theta$-sector symmetry breaking
+-------------------------------------------
+
+The mixed 't Hooft anomaly forbids a trivially gapped phase symmetric under
+both $U(1)$s, but it does *not* insist on a $\theta$ condensate: the matching
+can be saturated by symmetry breaking (a Goldstone) or by gapless degrees of
+freedom (a symmetric gapped TQFT cannot match a continuous-symmetry anomaly
+of this type).  The charge-1 correlator
+:class:`~.Intersection_Intersection` struggles to distinguish these at
+accessible volumes --- a condensate $\left|\langle e^{i\theta}\rangle\right|^2
+\sim e^{-2 S_{\text{core}}}$ can hide below any per-bin floor --- and it is
+blind to a further possibility: a condensate in a *different charge sector*.
+
+If single defects are bound while pairs condense --- $U(1)_\theta \to
+\mathbb{Z}_2$ --- the charge-1 correlator decays exponentially forever while
+the charge-2 correlator plateaus.  Its spacetime integral is available from
+tallies the gas already keeps: the $\{+2,-2\}$ class of
+:class:`~.FourDefectDistribution` is exactly the sector with the quantum
+numbers of $e^{2i\theta_x} e^{-2i\theta_y}$.
+
+.. autoclass:: supervillain.observable.DoubleIntersectionSusceptibility
+   :members:
+   :show-inheritance:
+
+The sharper instrument does not involve defect insertions at all.
+$U(1)_\theta$'s conserved current is the integer 3-form $J = n \wedge dn$,
+with $dJ = q$ *exactly* (lattice Leibniz and $d^{2} = 0$), so on the
+constraint surface $J$ is identically divergence-free and its flux through
+any 3-torus is a topological integer --- computable on every stored
+configuration, no enlarged ensemble required.  Fluctuations of this winding
+are the $\theta$-sector *stiffness*, the analog of detecting a superfluid by
+its helicity modulus rather than its order parameter: nonzero in the
+condensed phase, exponentially suppressed in a gapped symmetric phase, and
+scale-invariant at a critical point --- separating the anomaly matchings the
+two-point function cannot.
+
+.. autoclass:: supervillain.observable.IntersectionCurrent
+   :members:
+   :show-inheritance:
+
+.. autoclass:: supervillain.observable.IntersectionWinding
+   :members:
+   :show-inheritance:
+
+.. autoclass:: supervillain.observable.IntersectionWindingSquared
+   :members:
+   :show-inheritance:
+
 Irreducibility by construction
 ==============================
 
