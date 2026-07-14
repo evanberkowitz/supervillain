@@ -722,7 +722,25 @@ Because unvisited shells are never extrapolated into, steeply decaying couplings
    The umbrella reshapes the *stationary distribution*, not the *kinetics*, and in production the kinetics can be the binding constraint.
    A pair made flat in $r$ random-walks the whole lattice and must diffuse back to adjacency before it can annihilate: flatten the shell dwell aggressively at a steeply decaying coupling and the vacuum round trips die, which is defect condensation by another road.
    (At the susceptibility peak the opposite obtains: the natural far-shell dwell is only a small factor below flat, and the umbrella has little to buy.)
-   Until transport-aware proposal moves land, production should run with the umbrella off or gently capped.
+   The defect-adjacent proposal targeting below is that transport move: with it, the umbrella's flattened stationary distribution and the targeted kinetics compose.
+
+Defect-adjacent proposals
+-------------------------
+
+The transport bottleneck has a proposal-side cure: instead of proposing links uniformly --- so that a separated pair is touched with probability $\sim 48/4V$ per tick --- the gas can, with probability $1 - \gamma_k$ in sector $k = D/2$, pick a live defect cell with probability $\left|q_c\right|/D$ and one of its 32 edges uniformly.
+The proposal density at link $\ell$,
+
+.. math ::
+
+   p(\ell \mid n) = \frac{\gamma_k}{4V}
+   + (1 - \gamma_k)\, \frac{s(\ell, q)}{32 D},
+   \qquad s(\ell, q) = \sum_{c \ni \ell} \left|q_c\right|,
+
+(the sum over the 8 hypercubes containing $\ell$; $\sum_\ell s = 32 D$ exactly) is asymmetric, so the accept test carries the full Metropolis--Hastings factor $p(\ell \mid n') / p(\ell \mid n)$ --- and then *every estimator is exactly unchanged*, with $\gamma$-independence joining fugacity-, $w$-, and $w_2$-independence in the family of free end-to-end exactness tests.
+
+Be clear about what targeting buys: for a reversible creation/annihilation pair the Hastings factor exactly cancels the proposal concentration, so net creation and annihilation *fluxes* are invariant.
+The gain is *in-sector transport* --- both endpoint states carry the adjacency term, the factor is $O(1)$, and the pair's $r$-space diffusion rate rises by $\sim (1 - \gamma)\, V/8\langle s \rangle$ --- exactly the kinetics the umbrella needs and the volume scaling that starves the far bins at large $N$.
+The :class:`DefectGasWeightTuner` uses the same $\gamma$ in its probes and in the production chain it builds, so all its measurements are self-consistent.
 
 Irreducibility by construction
 ==============================

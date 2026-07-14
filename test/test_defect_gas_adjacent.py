@@ -246,3 +246,63 @@ def test_kernel_gamma_ones_matches_legacy_kernel():
         assert a['Vacuum_Ticks'] == b['Vacuum_Ticks']
         assert a['Ticks'] == b['Ticks']
     assert legacy.accepted == ones.accepted
+
+
+def test_tuner_forwards_gamma(monkeypatch):
+    # Every gas the tuner builds -- probe or production -- carries the tuner's
+    # gamma, broadcast to the sector count.
+    from supervillain.generator.no_intersection import DefectGasWeightTuner
+    S = _action()
+    built = []
+    real_init = DefectGas.__init__
+
+    def spy(self, *args, **kwargs):
+        real_init(self, *args, **kwargs)
+        built.append(self.gamma.copy())
+
+    monkeypatch.setattr(DefectGas, '__init__', spy)
+    tuner = DefectGasWeightTuner(S, D_max=4, rng=np.random.default_rng(3))
+    phi, n = _cold(S)
+    tuner._probe(np.array([1.0, 0.04, 2.4e-3]), {'phi': phi, 'n': n}, 2, 25)
+    assert len(built) == 1 and np.all(built[0] == 0.5) and built[0].shape == (3,)
+
+    built.clear()
+    legacy = DefectGasWeightTuner(S, D_max=4, rng=np.random.default_rng(3), gamma=None)
+    legacy._probe(np.array([1.0, 0.04, 2.4e-3]), {'phi': phi, 'n': n}, 2, 25)
+    assert len(built) == 1 and built[0].size == 0
+
+
+def test_gamma_independence_theta_and_binder():
+    # The physics is gamma-independent: Theta on a near bin and the Binder
+    # cumulant agree between gamma=None (legacy) and gamma=0.5 chains within
+    # combined bootstrap/jackknife tolerances.  Same idiom as
+    # test_defect_gas_umbrella.py::test_w2_independence: kappa = 0.2 (stable
+    # vacuum), ratio-of-sums with blocked jackknife, 5 sigma.
+    from supervillain.generator.combining import Sequentially
+    import supervillain.generator.villain as villain
+    from supervillain.analysis import Bootstrap
+
+    S = _action(kappa=0.2)
+    w = (1.0, 0.04, 2.4e-3, 5e-5, 4e-6)
+    results = []
+    for seed, gamma in enumerate((None, 0.5)):
+        gas = DefectGas(S, weights=w, gamma=gamma, emit_every=200,
+                        rng=np.random.default_rng(400 + seed))
+        chain = Sequentially((villain.SiteUpdate(S), gas))
+        e = supervillain.Ensemble(S).generate(400, chain)
+        T = np.asarray(e.Theta_Theta).real[:, 1, 0, 0, 0]
+        V = np.asarray(e.Vacuum_Ticks).astype(float)
+        B = 20
+        n = len(T) // B
+        Tb = T[:B * n].reshape(B, n).sum(axis=1)
+        Vb = V[:B * n].reshape(B, n).sum(axis=1)
+        jk = np.array([(Tb.sum() - Tb[b]) / (Vb.sum() - Vb[b]) for b in range(B)])
+        auto = e.autocorrelation_time(observables=('ActionDensity',))
+        b = Bootstrap(e.cut(10 * auto).every(max(1, auto)))
+        U = np.asarray(b.ThetaBinderCumulant).real
+        results.append((Tb.sum() / Vb.sum(), np.sqrt((B - 1) * jk.var()),
+                        float(U.mean()), float(U.std())))
+    (m1, e1, U1, dU1), (m2, e2, U2, dU2) = results
+    assert m1 > 0 and m2 > 0
+    assert abs(m1 - m2) < 5 * np.hypot(e1, e2)
+    assert abs(U1 - U2) < 5 * max(1e-6, np.hypot(dU1, dU2))

@@ -1083,14 +1083,20 @@ class DefectGasWeightTuner:
     D_max: even int
         The cap; the table has $K + 1 = $ ``D_max/2 + 1`` sectors.
     rng: numpy Generator, optional
+    gamma: float, sequence of floats, or None
+        Defect-adjacent proposal targeting (see :class:`DefectGas`), used in
+        every probe AND in the production gas :meth:`generator` builds, so the
+        measured dwell, ``mixing_sweeps``, and ``emit_every`` are all
+        self-consistent.  ``None`` restores the legacy uniform proposal.
     """
 
-    def __init__(self, S, companions=None, D_max=16, rng=None):
+    def __init__(self, S, companions=None, D_max=16, rng=None, gamma=0.5):
         self.S = S
         if D_max is None or D_max < 2 or D_max % 2:
             raise ValueError(f'D_max must be a positive even integer; got {D_max}.')
         self.D_max = int(D_max)
         self.rng = rng if rng is not None else np.random.default_rng()
+        self.gamma = gamma
         if companions is not None:
             self.companions = tuple(companions)
         else:
@@ -1110,7 +1116,7 @@ class DefectGasWeightTuner:
         # companions interleaved.  Returns the (total, first-half, second-half)
         # sector histograms, the round trips, and the end configuration (raw,
         # possibly invalid --- fine, the next probe continues it).
-        gas = DefectGas(self.S, weights=w, rng=self.rng)
+        gas = DefectGas(self.S, weights=w, rng=self.rng, gamma=self.gamma)
         K1 = self.D_max // 2 + 1
         halves = [np.zeros(K1, dtype=np.int64), np.zeros(K1, dtype=np.int64)]
         trips = 0
@@ -1247,7 +1253,7 @@ class DefectGasWeightTuner:
         (total, first half, second half), the round trips, and the end
         configuration.
         """
-        gas = DefectGas(self.S, weights=w, w2=w2, rng=self.rng)
+        gas = DefectGas(self.S, weights=w, w2=w2, rng=self.rng, gamma=self.gamma)
         lookup, values, rsq, nz, mult = shell_multiplicity(self.S.Lattice.N)
         halves = [np.zeros(len(values)), np.zeros(len(values))]
         trips = 0
@@ -1420,7 +1426,7 @@ class DefectGasWeightTuner:
         # horizon must be generous relative to it or healthy chains die by timeout.
         horizon = max(500, int(round(20 * self.mixing_sweeps)))
         gas = DefectGas(self.S, weights=w, w2=w2, emit_every=emit_every,
-                        max_step_sweeps=horizon, rng=self.rng)
+                        max_step_sweeps=horizon, rng=self.rng, gamma=self.gamma)
         chain = Sequentially((*self.companions, gas))
         chain.weights = gas.w
         chain.w2 = gas.w2
