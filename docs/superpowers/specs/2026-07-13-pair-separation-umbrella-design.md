@@ -25,12 +25,15 @@ One geometric factor multiplies the enlarged-ensemble weight,
 
     W(state) = 1                                   D = 0, D >= 6, any doubled class
              = w2(|r|)                             D = 2, single +-1 pair
-             = w2(|x1-y1|) w2(|x2-y2|)
-             + w2(|x1-y2|) w2(|x2-y1|)             D = 4, class {+1,+1,-1,-1}
+             = [ w2(|x1-y1|) w2(|x2-y2|)
+               + w2(|x1-y2|) w2(|x2-y1|) ] / 2     D = 4, class {+1,+1,-1,-1}
 
 with |.| the min-image separation (translation- and hypercubic-invariant) and
 w2 a learned table over the distinct min-image r^2 shells.  The D=4 form is the
-Wick-inspired symmetrization (Evan, 2026-07-13): manifestly bosonic (invariant
+Wick-inspired symmetrization (Evan, 2026-07-13), AVERAGED over the two
+contractions so a trivial (all-ones) table is neutral in every sector (the
+overall constant is degenerate with w[2] regardless; discovered during
+implementation when the un-averaged sum gave W = 2 at w2 = 1): manifestly bosonic (invariant
 under head and tail relabelings), smooth (no matching discontinuities), and
 cheap (two products).  It is NOT complete -- for Gaussian theta the four-point
 is a six-pair product including same-charge suppression factors that no sum of
