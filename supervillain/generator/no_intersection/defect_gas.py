@@ -1070,22 +1070,28 @@ class DefectGasFugacityTuner:
 
 class DefectGasWeightTuner:
     r"""
-    Learns a :class:`DefectGas` per-sector weight table $w_k$ by damped histogram
-    recursion: probe the chain, cut every visited sector's weight toward the mean
-    occupancy, repeat until the sector histogram is flat.  Flat occupancies pay only
-    $1/(K+1)$ vacuum dwell for full multi-pair traffic --- against the $e^{-\langle
-    D/2\rangle}$ any geometric fugacity pays --- and cannot condense: a sector that
-    hogs time gets its weight cut on the next iteration.
-
-    Probes are **sweep-budgeted** (:meth:`DefectGas._probe_sweeps`), never waiting
-    for vacuum returns, so a condensing table produces a lopsided histogram --- a
-    measurement the recursion corrects --- rather than a ``RuntimeError``.  Because
-    nucleation out of the metastable vacuum can be slow, convergence demands
-    flatness AND round trips AND half-vs-half stationarity, never flatness alone.
+    Learns the :class:`DefectGas` sector table $w_k$ (its ``sectorWeights``) by
+    damped histogram recursion: probe the chain, cut every visited sector's
+    weight toward the mean occupancy, repeat until the sector histogram is
+    flat.  Flat occupancies pay only $1/(K+1)$ vacuum dwell for full multi-pair
+    traffic --- against the $e^{-\langle D/2\rangle}$ any geometric fugacity
+    pays --- and cannot condense: a sector that hogs time gets its weight cut
+    on the next iteration.  A second, optional stage (:meth:`tune_umbrella`)
+    then learns the pair-separation table $w_2$ (the
+    ``pairSeparationUmbrella``) with the sector table frozen.
 
     A tuner is not a generator: it runs experiments to decide which
-    :class:`DefectGas` to build, and :meth:`generator` returns the production-ready
-    chain with the frozen table and a matched ``emit_every``.
+    :class:`DefectGas` to build, and :meth:`generator` returns the
+    production-ready chain with the frozen tables and a matched
+    ``emit_every``.
+
+    Probes are *sweep-budgeted* (:meth:`DefectGas._probe_sweeps`), never
+    waiting for vacuum returns, so a condensing candidate produces a lopsided
+    histogram --- a measurement the recursion corrects --- rather than a
+    ``RuntimeError``.  Because nucleation out of the metastable vacuum can be
+    slow, convergence always demands round trips and half-vs-half
+    stationarity on top of flatness --- a histogram that has not equilibrated
+    can look beautifully flat and be wrong.
 
     Parameters
     ----------
@@ -1170,12 +1176,13 @@ class DefectGasWeightTuner:
              step_sweeps=25, u=None, max_update=10.0, max_probe_growth=8,
              lighten=1.5):
         r"""
-        Run the recursion from the Poisson-envelope warm start $w_k = k!\, u^k$
-        (default $u = 1/V$; the dilute-gas entropy is roughly $\lambda^k/k!$ for $k$
-        pairs, so the factorial undoes the identical-pair suppression) and return
-        ``(w, emit_every)`` --- the frozen table and an ``emit_every`` sized so one
-        production step costs about ``step_sweeps`` sweeps at the measured vacuum
-        dwell.
+        First stage: learn the sector table.  Run the recursion from the
+        Poisson-envelope warm start $w_k = k!\, u^k$ (default $u = 1/V$; the
+        dilute-gas entropy is roughly $\lambda^k/k!$ for $k$ pairs, so the
+        factorial undoes the identical-pair suppression) and return
+        ``(sectorWeights, emit_every)`` --- the frozen, light-by-policy table
+        and an ``emit_every`` sized so one production step costs about
+        ``step_sweeps`` sweeps at the measured vacuum dwell.
 
         Each iteration probes and multiplies every *visited* sector's weight by
         $(\bar t / t_k)^\alpha$ ($\alpha = 1$ first, ``damping`` after), clipped to
@@ -1189,9 +1196,11 @@ class DefectGasWeightTuner:
         sector was visited, $\max_k t_k \le$ ``flat`` $\times \min_k t_k$, the
         probe completed ``min_round_trips`` round trips, and the histogram is
         half-vs-half stationary.  On iteration-cap expiry: warn and freeze the
-        best *probed* table (most round trips, then flattest) --- never the
-        unmeasured post-update one --- and production ``SectorTicks`` is the
-        check that catches a bad freeze.
+        best *probed* table --- most round trips, then flattest, and never the
+        unmeasured post-update one.  (Trips lead the score here because for a
+        SECTOR table more round trips means better vacuum--top shuttling;
+        contrast :meth:`tune_umbrella`, where trips-first would be perverse.)
+        Production ``SectorTicks`` is the check that catches a bad freeze.
 
         Parameters
         ----------
@@ -1226,7 +1235,9 @@ class DefectGasWeightTuner:
         Returns
         -------
         (numpy array, int)
-            The frozen table $w$ and the matched ``emit_every``.
+            The frozen sector table --- ready to be handed to
+            :class:`DefectGas` as ``sectorWeights`` --- and the matched
+            ``emit_every``.
         """
         K = self.D_max // 2
         V = self.S.Lattice.N ** 4
@@ -1303,37 +1314,40 @@ class DefectGasWeightTuner:
                 cfg = {'phi': np.asarray(updated['phi']), 'n': cfg['n']}
         return halves[0] + halves[1], halves[0], halves[1], trips, cfg
 
-    def tune_umbrella(self, w, start='cold', probe_sweeps=4000,
+    def tune_umbrella(self, sectorWeights, start='cold', probe_sweeps=4000,
                       companion_every=25, max_iterations=10, damping=0.5,
                       flat=3.0, min_round_trips=5, max_update=10.0,
                       max_probe_growth=4, warmStart=None):
         r"""
-        Second stage: with the sector table ``w`` frozen, learn the
-        pair-separation shell table w2 by the same damped, clipped histogram
-        recursion, driven by the per-bin shell dwell of the D = 2 sector.
+        Second stage: with ``sectorWeights`` frozen, learn the
+        pair-separation table $w_2$ (the ``pairSeparationUmbrella``) by the
+        same damped, clipped histogram recursion, driven by the per-shell
+        dwell of the $D = 2$ sector.
 
-        Renormalized each iteration so the total pair-sector weight is
-        unchanged: $\sum_{\text{shell}} \text{mult} \times \hat\Theta \times w_2$
-        is fixed, where $\hat\Theta \propto h / w_2^{\text{current}}$ is the
-        per-bin physics estimate implied by the CURRENT table's dwell $h$.
-        This decouples the knobs: ``w`` owns sector traffic, ``w2`` owns the
-        within-sector profile.
+        Each iteration's update is renormalized so the total pair-sector
+        weight is unchanged: $\sum_{\text{shell}} \text{mult} \times
+        \hat\Theta \times w_2$ is held fixed, with $\hat\Theta \propto h /
+        w_2^{\text{current}}$ the per-shell physics estimate implied by the
+        current table's dwell $h$.  This decouples the knobs: the sector
+        table owns sector traffic, the umbrella owns the within-sector
+        profile.
 
         Converged when every shell was visited, the occupancy is flat, the
         histogram is half-vs-half stationary, AND the probe completed
-        ``min_round_trips`` round trips (unchanged round-trip health --
-        the umbrella must not silently trade transport for flatness).  A
-        probe with too few round trips, or an unvisited shell, or a
-        non-stationary histogram lengthens the next probe.  On iteration-cap
-        expiry: warn and freeze the best *probed* table, scored by round-trip
-        health as a boolean TIER (converged or not), then shells visited,
-        then flatness -- health is a gate, not a magnitude, so a table with
-        more round trips but worse coverage/flatness must not beat a
-        healthy-and-flatter one just because it has even more trips.
+        ``min_round_trips`` round trips --- the umbrella must not silently
+        trade transport for flatness.  A probe with too few round trips, an
+        unvisited shell, or a non-stationary histogram lengthens the next
+        probe.  On iteration-cap expiry: warn and freeze the best *probed*
+        table, scored by round-trip health as a boolean tier (healthy or
+        not), then shells visited, then flatness.  Health is a gate, not a
+        magnitude, because a heavier umbrella always completes FEWER round
+        trips --- score by trips (as :meth:`tune` correctly does for the
+        sector table) and the recursion would freeze the least-umbrella'd
+        probe every time.
 
         Parameters
         ----------
-        w: numpy array
+        sectorWeights: numpy array
             The frozen sector table from :meth:`tune`.
         start: 'cold', or a configuration as a dictionary
             Where the first probe starts; later probes continue the enlarged chain.
@@ -1353,22 +1367,23 @@ class DefectGasWeightTuner:
         max_probe_growth: int
             Cap on the adaptive probe lengthening, in units of ``probe_sweeps``.
         warmStart: numpy array, optional
-            Warm start for the shell table; defaults to all-ones (bootstrap
-            outward from the near shells).  The spec's intended use is
-            $w_2 \sim 1/\hat\Theta$ per shell, taken from a prior
-            unumbrella'd run or a stored campaign correlator, so the
-            recursion starts with far shells already lifted instead of
-            waiting for the boost to propagate outward shell by shell --
-            exactly what an all-ones start cannot do within the iteration
-            cap when the decay is steep (unvisited shells never receive a
-            boost, by design, so they can only be reached by starting there).
-            Must have one positive entry per realized shell.
+            Initial umbrella table, one positive entry per realized shell;
+            defaults to all-ones.  Because unvisited shells never receive a
+            boost (extrapolating into unmeasured territory is how
+            multicanonical recursions blow up), an all-ones start can only
+            grow the umbrella outward shell by shell --- hopeless within the
+            iteration cap when the decay is steep.  At such couplings pass
+            $w_2 \sim 1/\hat\Theta$ per shell from a prior run or a stored
+            correlator, so the recursion starts with the far shells already
+            lifted.
 
         Returns
         -------
         numpy array
-            The frozen shell table ``w2``.
+            The frozen umbrella table --- ready to be handed to
+            :class:`DefectGas` as ``pairSeparationUmbrella``.
         """
+        w = sectorWeights
         _, values, _, _, mult = shell_multiplicity(self.S.Lattice.N)
         if warmStart is None:
             w2 = np.ones(len(values))
@@ -1423,12 +1438,16 @@ class DefectGasWeightTuner:
 
     def generator(self, start='cold', umbrella=False, umbrella_kwargs=None, **kwargs):
         r"""
-        The normal way to consume a tune: :meth:`tune` from ``start`` (``kwargs``
-        forward), optionally followed by :meth:`tune_umbrella` (``umbrella_kwargs``
-        forward) with the sector table frozen, then return the production-ready
-        ``Sequentially((*companions, DefectGas(sectorWeights=w, pairSeparationUmbrella=w2,
-        emit_every=matched)))``.  The chain carries ``sectorWeights``, ``pairSeparationUmbrella``, and
-        ``emit_every`` as plain metadata for introspection.
+        The normal way to consume a tune: run :meth:`tune` from ``start``
+        (``kwargs`` forward), optionally follow with :meth:`tune_umbrella`
+        (``umbrella_kwargs`` forward) at frozen sector table, and return the
+        production-ready chain --- the companions followed by a
+        :class:`DefectGas` built with the frozen tables, the matched
+        ``emit_every``, and a step horizon sized to the measured sector-mixing
+        time (vacuum ticks arrive in bursts, and a horizon blind to that
+        kills healthy chains by timeout).  The chain carries
+        ``sectorWeights``, ``pairSeparationUmbrella``, and ``emit_every`` as
+        plain metadata for introspection.
 
         Parameters
         ----------
