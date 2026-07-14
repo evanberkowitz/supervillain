@@ -265,7 +265,12 @@ What, then, does the correctness of the constrained Monte Carlo actually rest on
   support --- converting every question above into a question about rates.  We keep
   the topological analysis anyway, because rates are physics: the slow coordinates
   identified here (knot type, entanglement of sheet components, wrapping sectors)
-  are exactly where autocorrelations will live.
+  are exactly where autocorrelations will live.  One of them is now machine-measured:
+  the $\theta$-current windings $J_\mu$ (:class:`~supervillain.observable.IntersectionWinding`,
+  the slice sums of $j = n \wedge dn$) change only through moves that alter $dn$
+  at wrapping scale, so their autocorrelation time is the direct meter on this
+  page's rate worries --- check it before trusting
+  :class:`~supervillain.observable.IntersectionWindingSquared` error bars.
 
 Summary
 =======

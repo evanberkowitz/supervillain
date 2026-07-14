@@ -36,8 +36,8 @@ by the Monte Carlo,
    \qquad\Longrightarrow\qquad
    Z = \sum\hspace{-1.33em}\int D\phi\; Dn\; e^{-S_{\text{Villain}}[\phi,n]} \prod_x [q_x = 0],
 
-exactly as $J$ is integrated out to impose $dn = 0$ in the ordinary modified Villain
-construction :ref:`vortex-free model <vortex-free model>`. For the anomaly, though, $\theta$ must stay
+exactly as the vortex-suppressing Lagrange multiplier is integrated out to impose $dn = 0$
+in the ordinary modified Villain construction :ref:`vortex-free model <vortex-free model>`. For the anomaly, though, $\theta$ must stay
 explicit: its shift symmetry is only visible in the *unintegrated* presentation
 :eq:`setup-action`.  Everything
 below works with $\theta$ present and never performs that integral.
@@ -85,8 +85,10 @@ multiplying the topological charge density $q = dn \wedge dn$
 with $\alpha$ and $\beta$ global constants.
 The $U(1)_\phi$ is a symmetry of the Villain term $(d\phi - 2\pi n)^2$ for any
 constant $\alpha$, since $d\alpha = 0$; this is the "standard Villain $U(1)$"
-present in every model of this family, with Noether current $j = \kappa(d\phi
-- 2\pi n)$ and on-shell conservation $\delta j = 0$.
+present in every model of this family, with Noether current $j_\phi = \kappa(d\phi
+- 2\pi n)$ and on-shell conservation $\delta j_\phi = 0$.  (The subscript keeps it
+distinct from the $\theta$-sector current $j = n \wedge dn$ with $q = dj$ of the
+parent page, whose slice sums are the windings $J_\mu$.)
 
 $U(1)_\theta$ is a symmetry of the constraint term for any constant $\beta$
 because the total charge vanishes *identically*,
@@ -268,7 +270,7 @@ continuum regularization to worry about: :eq:`anomalous-charge` is the exact
 lattice replacement for that index-theorem statement, valid at any $\kappa$
 and any $N$. That finite-lattice-spacing exactness is the entire point of
 building the constraint out of forms that satisfy the Leibniz rule and $d^2 =
-0$ on the nose, the same discrete machinery already used for $q = dJ$ in the
+0$ on the nose, the same discrete machinery already used for $q = dj$ in the
 parent page and for the sibling 2D chiral anomaly :cite:`Berkowitz:2023pnz`
 and 4D Pontryagin-square $\theta$-term :cite:`JacobsonSulejmanpasic2023`
 constructions cited above.
