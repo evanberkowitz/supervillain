@@ -20,6 +20,21 @@ import supervillain.action
 logger = logging.getLogger(__name__)
 
 
+def pair_shells(N):
+    r"""
+    The distinct min-image separation-squared shells a defect pair can occupy
+    on the $N^4$ torus: returns ``(lookup, values)`` with ``values`` the sorted
+    realized $r^2 > 0$ and ``lookup[r2]`` the shell index (-1 if unrealized).
+    """
+    d = np.minimum(np.arange(N), N - np.arange(N))**2
+    rsq = (d[:, None, None, None] + d[None, :, None, None]
+           + d[None, None, :, None] + d[None, None, None, :]).ravel()
+    values = np.unique(rsq[rsq > 0])
+    lookup = np.full(N**2 + 1, -1, dtype=np.int64)
+    lookup[values] = np.arange(len(values))
+    return lookup, values
+
+
 class DefectGas(ReadWriteable, Generator):
     r"""
     Grand-canonical defect sampler for the $q = dn \wedge dn = 0$ constraint in 4D,
@@ -112,7 +127,7 @@ class DefectGas(ReadWriteable, Generator):
     _FOUR = {(-1, -1, 1, 1): 0, (-1, -1, 2): 1, (-2, 1, 1): 2, (-2, 2): 3}
 
     def __init__(self, S, fugacity=None, D_max=None, emit_every=None, max_step_sweeps=500,
-                 rng=None, weights=None):
+                 rng=None, weights=None, w2=None):
         if not isinstance(S, supervillain.action.NoIntersections):
             raise ValueError('DefectGas requires a NoIntersections action.')
         if S.Lattice.D != 4:
@@ -148,6 +163,30 @@ class DefectGas(ReadWriteable, Generator):
         else:
             self._w1 = float(w[1])
             self._w4 = float(w[2]) if len(w) > 2 else 1.0
+        # The pair-separation umbrella: a per-shell table multiplying the
+        # enlarged weight in the D = 2 and D = 4 unit-charge sectors (an empty
+        # table means W = 1 identically and every prior path is bit-for-bit).
+        if w2 is None:
+            self.w2 = np.zeros(0, dtype=np.float64)
+            self._rsq_shell = np.zeros(0, dtype=np.int64)
+            self._w2_field = None
+        else:
+            lookup, values = pair_shells(self.N)
+            w2 = np.asarray(w2, dtype=np.float64)
+            if w2.shape != values.shape:
+                raise ValueError(f'w2 must have one entry per realized shell '
+                                 f'({len(values)} for N={self.N}); got {w2.shape}.')
+            if not np.all(w2 > 0):
+                raise ValueError('w2 must be positive.')
+            self.w2 = w2
+            self._rsq_shell = lookup
+            d = np.minimum(np.arange(self.N), self.N - np.arange(self.N))**2
+            rsq = (d[:, None, None, None] + d[None, :, None, None]
+                   + d[None, None, :, None] + d[None, None, None, :])
+            field = np.ones(tuple(self.L.dims))
+            nz = rsq > 0
+            field[nz] = w2[lookup[rsq[nz]]]
+            self._w2_field = field
         self.D_max = D_max
         self.emit_every = emit_every if emit_every is not None else 4 * self.N**4
         self.max_step_sweeps = max_step_sweeps
