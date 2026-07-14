@@ -194,12 +194,15 @@ def test_tune_umbrella_canned():
     assert w2.shape == values.shape and np.all(w2 > 0)
 
 
-def test_tune_umbrella_real_tiny():
+def test_tune_umbrella_real_tiny(caplog):
     S = _action()
     t = DefectGasWeightTuner(S, D_max=8, rng=np.random.default_rng(7))
     w, _ = t.tune(probe_sweeps=400, max_iterations=8, lighten=1.5)
-    w2 = t.tune_umbrella(w, probe_sweeps=400, max_iterations=6)
+    w2 = t.tune_umbrella(w, probe_sweeps=2000, max_iterations=12, max_probe_growth=8)
     assert np.all(w2 > 0)
+    # Validation bullet 5: convergence must be genuinely achievable here, not
+    # just a freeze-on-cap-expiry that happens to leave every entry positive.
+    assert not any('tune_umbrella' in r.message for r in caplog.records)
 
 
 def test_generator_with_umbrella():

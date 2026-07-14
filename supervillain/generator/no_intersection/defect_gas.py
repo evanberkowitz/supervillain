@@ -35,6 +35,23 @@ def pair_shells(N):
     return lookup, values
 
 
+def shell_multiplicity(N):
+    r"""
+    The per-shell bin multiplicity for :func:`pair_shells`\ 's realized shells on
+    the $N^4$ torus: how many of the $N^4$ displacement bins with $r^2 > 0$ land
+    in each shell.  Shared by :meth:`DefectGasWeightTuner._probe_umbrella` (the
+    per-bin dwell) and :meth:`DefectGasWeightTuner.tune_umbrella` (the spec's
+    conserved sector-total quantity).
+    """
+    lookup, values = pair_shells(N)
+    d = np.minimum(np.arange(N), N - np.arange(N))**2
+    rsq = (d[:, None, None, None] + d[None, :, None, None]
+           + d[None, None, :, None] + d[None, None, None, :]).ravel()
+    nz = rsq > 0
+    mult = np.bincount(lookup[rsq[nz]], minlength=len(values))
+    return lookup, values, rsq, nz, mult
+
+
 def geo_weight_dict(defects, w2, lookup, N):
     r"""Python mirror of the kernel's ``_geo_weight`` on the sparse dict."""
     if w2.size == 0:
@@ -1090,20 +1107,15 @@ class DefectGasWeightTuner:
         configuration.
         """
         gas = DefectGas(self.S, weights=w, w2=w2, rng=self.rng)
-        lookup, values = pair_shells(self.S.Lattice.N)
-        N = self.S.Lattice.N
-        d = np.minimum(np.arange(N), N - np.arange(N))**2
-        rsq = (d[:, None, None, None] + d[None, :, None, None]
-               + d[None, None, :, None] + d[None, None, None, :]).ravel()
-        mult = np.bincount(lookup[rsq[rsq > 0]], minlength=len(values))
+        lookup, values, rsq, nz, mult = shell_multiplicity(self.S.Lattice.N)
         halves = [np.zeros(len(values)), np.zeros(len(values))]
         trips = 0
         done = 0
         while done < probe_sweeps:
             block = min(companion_every, probe_sweeps - done)
             cfg, _, r, H_pair = gas._probe_sweeps(cfg, block, tally=True)
-            shell = np.bincount(lookup[rsq[rsq > 0]],
-                                weights=H_pair[rsq > 0], minlength=len(values))
+            shell = np.bincount(lookup[rsq[nz]],
+                                weights=H_pair[nz], minlength=len(values))
             halves[(2 * done) // probe_sweeps] += shell / mult
             trips += r
             done += block
@@ -1116,14 +1128,28 @@ class DefectGasWeightTuner:
 
     def tune_umbrella(self, w, start='cold', probe_sweeps=4000,
                       companion_every=25, max_iterations=10, damping=0.5,
-                      flat=3.0, max_update=10.0, max_probe_growth=4):
+                      flat=3.0, min_round_trips=5, max_update=10.0,
+                      max_probe_growth=4):
         r"""
         Second stage: with the sector table ``w`` frozen, learn the
         pair-separation shell table w2 by the same damped, clipped histogram
         recursion, driven by the per-bin shell dwell of the D = 2 sector.
-        Dwell-renormalized each iteration (total pair-sector weight fixed) so
-        w2 redistributes within the sector without touching sector traffic.
-        Returns the frozen w2 (best probed on cap expiry, with a warning).
+
+        Renormalized each iteration so the total pair-sector weight is
+        unchanged: $\sum_{\text{shell}} \text{mult} \times \hat\Theta \times w_2$
+        is fixed, where $\hat\Theta \propto h / w_2^{\text{current}}$ is the
+        per-bin physics estimate implied by the CURRENT table's dwell $h$.
+        This decouples the knobs: ``w`` owns sector traffic, ``w2`` owns the
+        within-sector profile.
+
+        Converged when every shell was visited, the occupancy is flat, the
+        histogram is half-vs-half stationary, AND the probe completed
+        ``min_round_trips`` round trips (unchanged round-trip health --
+        the umbrella must not silently trade transport for flatness).  A
+        probe with too few round trips, or an unvisited shell, or a
+        non-stationary histogram lengthens the next probe.  On iteration-cap
+        expiry: warn and freeze the best *probed* table, scored by (round
+        trips, shells visited, flatness) in that order.
 
         Parameters
         ----------
@@ -1140,6 +1166,8 @@ class DefectGasWeightTuner:
             The update exponent applied after the first iteration.
         flat: float
             Acceptable max/min shell-occupancy ratio.
+        min_round_trips: int
+            Vacuum--top--vacuum round trips the final probe must complete.
         max_update: float
             Per-iteration clip on each shell's update factor.
         max_probe_growth: int
@@ -1150,38 +1178,46 @@ class DefectGasWeightTuner:
         numpy array
             The frozen shell table ``w2``.
         """
-        _, values = pair_shells(self.S.Lattice.N)
+        _, values, _, _, mult = shell_multiplicity(self.S.Lattice.N)
         w2 = np.ones(len(values))
         cfg = self._start(start)
         sweeps = probe_sweeps
-        best = None
+        best = None       # (trips, visited, -flatness) of the best PROBED table
         for iteration in range(max_iterations):
             h, h1, h2, trips, cfg = self._probe_umbrella(
                 w, w2, cfg, sweeps, companion_every)
             visited = h > 0
             flatness = (h[visited].max() / h[visited].min()) if visited.any() else np.inf
-            if best is None or (int(visited.sum()), -flatness) > best[:2]:
-                best = (int(visited.sum()), -flatness, w2.copy(), h.copy())
+            if best is None or (trips, int(visited.sum()), -flatness) > best[:3]:
+                best = (trips, int(visited.sum()), -flatness, w2.copy(), h.copy())
             big = (h1 + h2) >= 10
             stationary = bool(np.all((h2[big] <= 2 * h1[big])
                                      & (h1[big] <= 2 * h2[big])))
-            if visited.all() and flatness <= flat and stationary:
+            if (visited.all() and flatness <= flat and stationary
+                    and trips >= min_round_trips):
                 break
-            if not visited.all() or not stationary:
+            if not visited.all() or not stationary or trips < min_round_trips:
                 sweeps = min(2 * sweeps, max_probe_growth * probe_sweeps)
-            alpha = 1.0 if iteration == 0 else damping
-            factor = np.ones_like(w2)
-            factor[visited] = (h[visited].mean() / h[visited]) ** alpha
-            np.clip(factor, 1.0 / max_update, max_update, out=factor)
-            w2new = w2 * factor
-            # Dwell renormalization: keep the total pair-sector weight fixed.
-            w2 = w2new * (h @ w2) / max(1e-300, h @ w2new)
+            if visited.any():
+                alpha = 1.0 if iteration == 0 else damping
+                factor = np.ones_like(w2)
+                factor[visited] = (h[visited].mean() / h[visited]) ** alpha
+                np.clip(factor, 1.0 / max_update, max_update, out=factor)
+                # Renormalize so the total pair-sector weight is unchanged: the
+                # per-bin physics estimate implied by the CURRENT table is
+                # Theta_hat = h / w2, so the conserved sector-total carrier is
+                # mult * Theta_hat -- NOT h itself (which already carries a
+                # factor of w2).
+                theta_hat = np.where(w2 > 0, h / w2, 0.0)
+                sector = mult * theta_hat
+                w2new = w2 * factor
+                w2 = w2new * max(1e-300, sector @ w2) / max(1e-300, sector @ w2new)
         else:
-            _, _, w2, h = best
+            trips, _, _, w2, h = best
             logger.warning(
                 'tune_umbrella: no convergence in %d iterations (shell dwell '
-                '%s); freezing the best probed table.',
-                max_iterations, np.array2string(h, precision=2))
+                '%s, %d round trips); freezing the best probed table.',
+                max_iterations, np.array2string(h, precision=2), trips)
         return w2
 
     def generator(self, start='cold', umbrella=False, umbrella_kwargs=None, **kwargs):

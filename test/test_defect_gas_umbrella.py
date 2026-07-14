@@ -79,6 +79,7 @@ def test_no_w2_is_sentinel():
     S = _action()
     g = DefectGas(S, fugacity=0.1)
     assert g.w2.size == 0 and g._w2_field is None
+    assert g._rsq_shell.size == 0
 
 
 def test_ones_table_matches_no_table():
