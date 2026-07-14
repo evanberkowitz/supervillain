@@ -10,7 +10,7 @@ Jacobson observed that the standard Villain model supports an interesting modifi
 .. math ::
    :label: no-intersection
 
-   S = (d\phi - 2\pi n)^2 + i \theta_h (dn \wedge dn)_h
+   S = \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + i \sum_h \theta_h (dn \wedge dn)_h
 
 with $\theta$ a real-valued 4-form that when path-integrated enforces $dn \wedge dn = 0$.
 The physical interpretation is that vortices may not intersect in this model.
@@ -150,7 +150,7 @@ The two-point function of the charge-insertion operator $e^{i\theta}$
 
 is conjugate to the no-intersection constraint and poses a tricky problem to evaluate: if we sample configurations of $Z$ we integrate $\theta$ out first and can no longer see the field needed for the obvious way to compute the observable.
 Instead we absorb the insertion into the action *before* path-integrating out $\theta$.
-Because $\theta_x$ multiplies $q_x = (dn \wedge dn)_x$, integrating $\theta_x$ against the extra $e^{i\theta_x}$ shifts the constraint at the insertions
+Because $\theta_h$ multiplies $q_h = (dn \wedge dn)_h$, integrating $\theta_x$ against the extra $e^{i\theta_x}$ shifts the constraint at the insertions
 
 .. math ::
    :name: theta worm constraint
@@ -159,7 +159,7 @@ Because $\theta_x$ multiplies $q_x = (dn \wedge dn)_x$, integrating $\theta_x$ a
    \rightarrow
    \Theta_{x,y} = \frac{1}{Z} \sum\hspace{-1.33em}\int D\phi\; Dn\; e^{-S[\phi, n]} \prod_h [(dn \wedge dn)_h = \delta_{hx} - \delta_{hy}]
 
-where now $x$ and $y$ label hypercubes: the insertion demands exactly one unit of topological-charge density at $x$ and a compensating unit at $y$.
+where $x$ and $y$ label hypercubes: the insertion demands exactly one unit of topological-charge density at $x$ and a compensating unit at $y$.
 Constructing such an overlay by hand, as in the :class:`~supervillain.observable.Spin_Spin`'s taxicab Villain-frame implementation, hits a similar overlap problem: we must lay down a whole sheet of $F = dn$ connecting $y$ to $x$, and unless it threads the valley of the action the change in action is enormous and the correlator is tiny except on rare configurations.
 In fact it's much more challenging in this model because the $dn \wedge dn$ constraint is quadratic in $n$ and the overlay must be a sheet of $n$s that satisfies the constraint.
 
@@ -193,7 +193,7 @@ We accumulate the histogram as the worm evolves and save it inline with $\phi$ a
    :show-inheritance:
 
 The enlarged $G$ ensemble also has a precise topological meaning, which is the structural reason to hope a worm mixes where local updates struggle.
-Poincaré duality turns the flux $F = dn$ into a closed 2-dimensional *vortex sheet* on the dual lattice, and $q_h = (dn \wedge dn)_h$ into the signed density of the sheet's transverse self-intersection points: in 4D two 2-dimensional sheets generically meet at isolated points, and each crossing carries a sign from comparing orientations --- the same $\epsilon^{\mu\nu\rho\sigma}$ contraction that appears in $F \wedge F$.
+Poincaré duality turns the flux $F = dn$ into a closed 2-dimensional *vortex sheet* on the dual lattice, and $q = (dn \wedge dn)$ into the signed density of the sheet's transverse self-intersection points: in 4D two 2-dimensional sheets generically meet at isolated points, and each crossing carries a sign from comparing orientations --- the same $\epsilon^{\mu\nu\rho\sigma}$ contraction that appears in $F \wedge F$.
 A valid $Z$ configuration is an *embedded* sheet, with no self-intersections anywhere; a $G$ configuration, with its $+1$ at the head and $-1$ at the tail, is an *immersed* sheet carrying exactly one pair of opposite-sign double points.
 
 That is exactly the enlargement topologists use to connect embedded surfaces in four dimensions.
@@ -231,6 +231,7 @@ Two honest caveats temper the optimism.
 Freedman--Quinn's homotopies may require *several* double-point pairs in flight at once --- this is Casson's obstruction :cite:`Casson`: Whitney disks can themselves intersect things, and repairing that creates more pairs --- while the worm carries exactly one.
 Whether one pair at a time always suffices turns out to be an open problem in 4-manifold topology, but thankfully the answer does not matter for the correctness of this library, only for its mixing rate.
 We give :ref:`a separate step-by-step argument<no_intersection_ergodicity>`; the short version is that knotted sheets untie through *embedded, valid* intermediates by genus fluctuations our legal moves perform, so the worm's corridor is a shortcut rather than a necessity.
+Moreover, the whole ergodicity issue is obviated by the :class:`~.DefectGas` which we develop below.
 
 .. autoclass:: supervillain.generator.no_intersection.IntersectionWorm
    :members:
@@ -537,7 +538,7 @@ simple bookkeeping.  If we are interested in studying a transition that involves
 $U(1)_\theta$ symmetry breaking we might be interested in the Binder cumulant,
 built from the fourth moment of the order parameter and the square of the second moment.
 
-.. autoclass:: supervillain.observable.ThetaBinderCumulant
+.. autoclass:: supervillain.observable.IntersectionBinderCumulant
    :members:
    :show-inheritance:
 
@@ -680,7 +681,7 @@ automatically the $\Delta x \neq 0$ sum.
    :show-inheritance:
 
 
-Two practical notes.  All sector prices divide out, so the :class:`~.ThetaBinderCumulant` is independent of the fugacity or weight table ---
+Two practical notes.  All sector prices divide out, so the :class:`~.IntersectionBinderCumulant` is independent of the fugacity or weight table ---
 the same free exactness test as for $\Theta$ --- but the *statistics* are not: under geometric pricing the
 quartic-sector dwell scales like $\zeta^4$, so the Binder cumulant measurement wants the
 largest healthy fugacity (exactly what :meth:`~supervillain.generator.no_intersection.DefectGasFugacityTuner.tune_edge`

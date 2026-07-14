@@ -40,7 +40,7 @@ def test_winding_topological_on_constrained_configurations():
     S = _action()
     L = S.Lattice
     gas = supervillain.generator.no_intersection.DefectGas(
-        S, weights=(1.0, 0.04, 2.4e-3), emit_every=100,
+        S, sectorWeights=(1.0, 0.04, 2.4e-3), emit_every=100,
         rng=np.random.default_rng(11))
     e = supervillain.Ensemble(S).generate(
         3, supervillain.generator.combining.Sequentially(

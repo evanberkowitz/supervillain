@@ -354,12 +354,12 @@ class SpinBinderCumulant(DerivedQuantity):
         \texttt{SpinBinderCumulant} = U =
         1 - \frac{\left\langle |m|^4 \right\rangle}{2 \left\langle |m|^2 \right\rangle^2},
 
-    the same convention as the :class:`~.ThetaBinderCumulant`: a dimensionless,
+    the same convention as the :class:`~.IntersectionBinderCumulant`: a dimensionless,
     exponent-free diagnostic with $U \to 0$ (complex Gaussian) deep in the symmetric
     phase and $U \to 1/2$ in the spin-ordered phase, so that curves of $U(\kappa; L)$
     at different volumes cross at a critical point without knowledge of any scaling
     dimension.  (Same 2026-07-13 convention change as the
-    :class:`~.ThetaBinderCumulant`: previously $\langle|m|^4\rangle /
+    :class:`~.IntersectionBinderCumulant`: previously $\langle|m|^4\rangle /
     \langle|m|^2\rangle^2$; convert stored values as $U_{\text{new}} = 1 -
     U_{\text{old}}/2$.)
     '''

@@ -324,7 +324,7 @@ def test_gamma_independence_theta_and_binder():
         jk = np.array([(Tb.sum() - Tb[b]) / (Vb.sum() - Vb[b]) for b in range(B)])
         auto = e.autocorrelation_time(observables=('ActionDensity',))
         b = Bootstrap(e.cut(10 * auto).every(max(1, auto)))
-        U = np.asarray(b.ThetaBinderCumulant).real
+        U = np.asarray(b.IntersectionBinderCumulant).real
         results.append((Tb.sum() / Vb.sum(), np.sqrt((B - 1) * jk.var()),
                         float(U.mean()), float(U.std())))
     (m1, e1, U1, dU1), (m2, e2, U2, dU2) = results

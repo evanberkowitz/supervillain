@@ -39,6 +39,10 @@ def test_old_spellings_are_gone():
         pass
     else:
         assert False, 'retired tuner keyword gamma must raise TypeError'
+    import supervillain.observable
+    assert not hasattr(supervillain.observable, 'ThetaBinderCumulant'), \
+        'retired observable name must be gone (use IntersectionBinderCumulant)'
+    assert hasattr(supervillain.observable, 'IntersectionBinderCumulant')
 
 
 def test_semantic_names_carry_the_tables():

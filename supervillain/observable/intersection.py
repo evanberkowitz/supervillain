@@ -34,7 +34,7 @@ class Intersection_Intersection(DerivedQuantity):
     :class:`~supervillain.action.NoIntersections` model,
 
     .. math ::
-        \Theta_{\Delta x} = \left\langle e^{i(\theta_x - \theta_{x - \Delta x})} \right\rangle,
+        \Theta_{\Delta x} = \frac{1}{V} \sum_x \left\langle e^{i(\theta_x - \theta_{x - \Delta x})} \right\rangle,
 
     the two-point function of the operator $e^{i\theta}$ that inserts a unit of
     vortex-sheet self-intersection $q = (dn \wedge dn)$.
@@ -58,13 +58,13 @@ class Intersection_Intersection(DerivedQuantity):
         and is therefore absolutely normalized: no
         origin-bin division is needed, and $\Theta$ is independent of the fugacity $\zeta$.
 
-        The origin bin is *written*, not divided out: $\Theta_0 = 1$ identically (a coincident
-        pair is the vacuum), so the gas never visits it and
-        :class:`~.Theta_Theta`'s origin bin is empty by construction.
         '''
-        theta = np.array(Theta_Theta / Vacuum_Ticks)
-        theta[S.Lattice.origin] = 1.0
-        return theta
+        # The origin bin is *written*, not divided out: $\Theta_0 = 1$ identically 
+        # (a coincident pair is the vacuum), so the gas never visits it and
+        # :class:`~.Theta_Theta`'s origin bin is empty by construction.
+        Theta = np.array(Theta_Theta / Vacuum_Ticks)
+        Theta[S.Lattice.origin] = 1.0
+        return Theta
 
 
 class Intersection_Intersection_Normalized(DerivedQuantity):
@@ -200,7 +200,7 @@ class FourDefects(Observable):
     so that its ensemble mean divided by that of :class:`~.Vacuum_Ticks` is the
     two-pair-sector contribution to the fourth moment
     $\left\langle \left|M\right|^{4} \right\rangle$ of the $\theta$-shift order
-    parameter (see :class:`~.ThetaBinderCumulant`).
+    parameter (see :class:`~.IntersectionBinderCumulant`).
     """
 
     @staticmethod
@@ -234,7 +234,7 @@ class DoubleIntersectionSusceptibility(DerivedQuantity):
     2\delta_y$: the $\{+2, -2\}$ class, index 3 of
     :class:`~.FourDefectDistribution` (and $D = \sum\left|q\right| = 4$ keeps
     it under the cap).  Following the same dwell-ratio logic as
-    :class:`~.ThetaBinderCumulant` --- the class tally is *not*
+    :class:`~.IntersectionBinderCumulant` --- the class tally is *not*
     translation-averaged, so one factor of the volume divides out, and the
     tally already carries its $1/\zeta^4$ (or sector-weight) price ---
 
@@ -379,14 +379,14 @@ class IntersectionWindingSquared(Scalar, Observable):
         return np.mean(IntersectionWinding ** 2)
 
 
-class ThetaBinderCumulant(DerivedQuantity):
+class IntersectionBinderCumulant(DerivedQuantity):
     r"""
     The Binder ratio of the $\theta$-shift order parameter
     $M = \sum_{x} e^{i\theta_{x}}$,
 
     .. math ::
 
-        \texttt{ThetaBinderCumulant} = U =
+        \texttt{IntersectionBinderCumulant} = U =
         1 - \frac{\left\langle \left|M\right|^{4} \right\rangle}
                  {2 \left\langle \left|M\right|^{2} \right\rangle^{2}},
 
@@ -394,12 +394,6 @@ class ThetaBinderCumulant(DerivedQuantity):
     (complex Gaussian; the finite-volume value is $1/2V$), $U \to 1/2$ in a
     $\theta$-ordered phase, and curves of $U(\kappa; L)$ at different volumes cross at
     a critical point without knowledge of any scaling dimension.
-
-    .. note ::
-
-        Before 2026-07-13 this quantity was $\langle|M|^4\rangle /
-        \langle|M|^2\rangle^2$ (symmetric $\to 2$, ordered $\to 1$); stored analyses
-        convert as $U_{\text{new}} = 1 - U_{\text{old}}/2$.
 
    """
 

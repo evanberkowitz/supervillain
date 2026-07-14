@@ -185,7 +185,7 @@ def test_w2_independence():
         from supervillain.analysis import Bootstrap
         auto = e.autocorrelation_time(observables=('ActionDensity',))
         b = Bootstrap(e.cut(10 * auto).every(max(1, auto)))
-        U = np.asarray(b.ThetaBinderCumulant).real
+        U = np.asarray(b.IntersectionBinderCumulant).real
         results.append((Tb.sum() / Vb.sum(), np.sqrt((B - 1) * jk.var()),
                         float(U.mean()), float(U.std())))
     (m1, e1, U1, dU1), (m2, e2, U2, dU2) = results
