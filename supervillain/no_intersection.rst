@@ -10,7 +10,7 @@ Jacobson observed that the standard Villain model supports an interesting modifi
 .. math ::
    :label: no-intersection
 
-   S = (d\phi - 2\pi n)^2 + i \theta_p (dn \wedge dn)_p
+   S = (d\phi - 2\pi n)^2 + i \theta_h (dn \wedge dn)_h
 
 with $\theta$ a real-valued 4-form that when path-integrated enforces $dn \wedge dn = 0$.
 The physical interpretation is that vortices may not intersect in this model.
@@ -37,21 +37,20 @@ The Action
 The Topological Charge and the Constraint
 =========================================
 
-The no-intersection constraint asks that the topological-charge density $q_x$
+The no-intersection constraint asks that the topological-charge density $q_h$
 (the same density measured by :class:`~supervillain.observable.TopologicalChargeDensity`)
 
 .. math::
 
-   q_x = (dn \wedge dn)_x = d(n \wedge dn)_x = (dj)_x
+   q_h = (dn \wedge dn)_h = d(n \wedge dn)_h = (dj)_h
    \qquad j = n \wedge dn
 
 vanish on every hypercube.  The second equality is exact on the lattice (the
 Leibniz rule and $d^2 = 0$ both hold), so $q$ is the divergence of the 3-form
-current $j$ (lowercase for the *local* current; its global slice sums are the
-capital windings $J_\mu$) and is locally conserved and integer-valued.  A localized closed
-$F = dn$ carries zero total charge $Q = \sum_x q_x$, so violations of the
+current $j$ and is locally conserved and integer-valued.  A localized closed
+$F = dn$ carries zero total charge $Q = \sum_h q_h$, so violations of the
 constraint always come as a $+1$ / $-1$ dipole --- the fact that the
-:class:`~supervillain.generator.no_intersection.IntersectionWorm` exploits.
+:class:`~supervillain.generator.no_intersection.IntersectionWorm` and the :class:`~.DefectGas` exploits.
 
 Generators
 ==========
@@ -133,14 +132,14 @@ To see precisely what such a worm measures, remember that in the :class:`~.NoInt
    \begin{aligned}
        Z &= \sum\hspace{-1.33em}\int D\phi\; Dn\; D\theta\; e^{-S[\phi, n, \theta]}
        \\
-       S[\phi, n, \theta] &= \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + i \sum_x \theta_x (dn \wedge dn)_x
+       S[\phi, n, \theta] &= \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + i \sum_h \theta_h (dn \wedge dn)_h
    \end{aligned}
 
 and that we may directly path-integrate out the Lagrange multiplier $\theta$ in favor of the constraint
 
 .. math ::
 
-   Z = \sum\hspace{-1.33em}\int D\phi\; Dn\; e^{-S[\phi, n]} \prod_x [(dn \wedge dn)_x = 0].
+   Z = \sum\hspace{-1.33em}\int D\phi\; Dn\; e^{-S[\phi, n]} \prod_h [(dn \wedge dn)_h = 0].
 
 The two-point function of the charge-insertion operator $e^{i\theta}$ 
 
@@ -158,7 +157,7 @@ Because $\theta_x$ multiplies $q_x = (dn \wedge dn)_x$, integrating $\theta_x$ a
 
    S[\phi, n, \theta] - i(\theta_x - \theta_y)
    \rightarrow
-   \Theta_{x,y} = \frac{1}{Z} \sum\hspace{-1.33em}\int D\phi\; Dn\; e^{-S[\phi, n]} \prod_p [(dn \wedge dn)_p = \delta_{px} - \delta_{py}]
+   \Theta_{x,y} = \frac{1}{Z} \sum\hspace{-1.33em}\int D\phi\; Dn\; e^{-S[\phi, n]} \prod_h [(dn \wedge dn)_h = \delta_{hx} - \delta_{hy}]
 
 where now $x$ and $y$ label hypercubes: the insertion demands exactly one unit of topological-charge density at $x$ and a compensating unit at $y$.
 Constructing such an overlay by hand, as in the :class:`~supervillain.observable.Spin_Spin`'s taxicab Villain-frame implementation, hits a similar overlap problem: we must lay down a whole sheet of $F = dn$ connecting $y$ to $x$, and unless it threads the valley of the action the change in action is enormous and the correlator is tiny except on rare configurations.
@@ -194,7 +193,7 @@ We accumulate the histogram as the worm evolves and save it inline with $\phi$ a
    :show-inheritance:
 
 The enlarged $G$ ensemble also has a precise topological meaning, which is the structural reason to hope a worm mixes where local updates struggle.
-Poincaré duality turns the flux $F = dn$ into a closed 2-dimensional *vortex sheet* on the dual lattice, and $q_x = (dn \wedge dn)_x$ into the signed density of the sheet's transverse self-intersection points: in 4D two 2-dimensional sheets generically meet at isolated points, and each crossing carries a sign from comparing orientations --- the same $\epsilon^{\mu\nu\rho\sigma}$ contraction that appears in $F \wedge F$.
+Poincaré duality turns the flux $F = dn$ into a closed 2-dimensional *vortex sheet* on the dual lattice, and $q_h = (dn \wedge dn)_h$ into the signed density of the sheet's transverse self-intersection points: in 4D two 2-dimensional sheets generically meet at isolated points, and each crossing carries a sign from comparing orientations --- the same $\epsilon^{\mu\nu\rho\sigma}$ contraction that appears in $F \wedge F$.
 A valid $Z$ configuration is an *embedded* sheet, with no self-intersections anywhere; a $G$ configuration, with its $+1$ at the head and $-1$ at the tail, is an *immersed* sheet carrying exactly one pair of opposite-sign double points.
 
 That is exactly the enlargement topologists use to connect embedded surfaces in four dimensions.
@@ -424,7 +423,7 @@ Enlarge the ensemble with a per-defect fugacity $\zeta$,
 
    \Pi = \sum\hspace{-1.33em}\int D\phi\; Dn\; e^{-S[\phi, n]}\, \zeta^{D(n)},
    \qquad
-   D(n) = \sum_x \left|q_x(n)\right|,
+   D(n) = \sum_h \left|q_h(n)\right|,
 
 and sample it with a plain single link $n\to n\pm 1$ sampled uniformly and accepted with $\min\left(1, e^{-\Delta S} \zeta^{\Delta D}\right)$.
 The very move that was poison for the constrained model --- a single-link change that can populate charge defects in its neighborhood --- is now merely *expensive*: whatever charge it scatters is a legal state, with cost inflated by $\zeta^{\Delta D}$, and the reverse move that cleans it up is *discounted* by the same factor.
@@ -440,8 +439,8 @@ Tally, after every proposal, which sector the chain sits in.  The two-point defe
    :label: theta-defect-correlator
 
    \Theta_{x,y}
-   = \frac{\left\langle \prod_p [q_p = \delta_{px} - \delta_{py}] \right\rangle_\Pi}
-          {\zeta^2 \left\langle \prod_p [q_p = 0] \right\rangle_\Pi},
+   = \frac{\left\langle \prod_h [q_h = \delta_{hx} - \delta_{hy}] \right\rangle_\Pi}
+          {\zeta^2 \left\langle \prod_h [q_h = 0] \right\rangle_\Pi},
 
 with $[\cdots]$ the Iverson bracket, and the factor of $\zeta^2$ dividing out the fugacity price of the insertion.
 
@@ -471,7 +470,7 @@ Taking the fugacity $\zeta \to 0$ collapses the kernel to the flat measure's del
 
 Topologically, the defect gas finishes the story the worm began.
 The Freedman--Quinn caveat above was that homotopies between embedded sheets may require *several* double-point pairs in flight at once --- Casson's obstruction --- while the worm carries exactly one.
-The defect gas carries *any number*: a finger move is a pair creation (priced by the fugacity $\zeta^2$), a Whitney move is a pair annihilation (rewarded $\zeta^{-2}$), an isotopy is a $\Delta q$-neutral rearrangement (free in terms of fugacity), and higher-multiplicity double points ($\left|q_x\right| \geq 2$) are ordinary states of the gas rather than special cases needing bespoke repair moves.
+The defect gas carries *any number*: a finger move is a pair creation (priced by the fugacity $\zeta^2$), a Whitney move is a pair annihilation (rewarded $\zeta^{-2}$), an isotopy is a $\Delta q$-neutral rearrangement (free in terms of fugacity), and higher-multiplicity double points ($\left|q_h\right| \geq 2$) are ordinary states of the gas rather than special cases needing bespoke repair moves.
 It walks the full immersed corridor, not the one-pair shortcut.
 
 The :class:`~supervillain.generator.no_intersection.DefectGas` is *not* a worm --- nothing walks, nothing is steered; defects appear, diffuse, and annihilate on their own schedule, and the physics is read off when the system revisits the vacuum sector, which is distributed exactly according to the expected constraint-satisfying Villain model.

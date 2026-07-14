@@ -141,7 +141,7 @@ class DefectGas(ReadWriteable, Generator):
 
     .. math ::
         \Pi = \sum\hspace{-1.33em}\int D\phi\; Dn\; e^{-S[\phi, n]}\, \zeta^{D(n)},
-        \qquad D(n) = \sum_{x} \left|q_{x}(n)\right|,
+        \qquad D(n) = \sum_{h} \left|q_{h}(n)\right|,
         \quad q = dn \wedge dn,
 
     The number of defects $D$ is always even since $Q=\sum_h q_h = \sum_h dj = 0$

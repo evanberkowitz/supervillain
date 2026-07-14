@@ -20,7 +20,7 @@ hypercubes,
        Z &= \sum\hspace{-1.33em}\int D\phi\; Dn\; D\theta\; e^{-S[\phi, n, \theta]}
        \\
        S[\phi, n, \theta] &= \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2
-       \;+\; i \sum_x \theta_x\, q_x, \qquad q = dn \wedge dn,
+       \;+\; i \sum_h \theta_h\, q_h, \qquad q = dn \wedge dn,
    \end{aligned}
 
 reproducing :eq:`no-intersection` of the parent page. $\theta$ is a genuine
@@ -32,9 +32,9 @@ by the Monte Carlo,
 
 .. math ::
 
-   \int D\theta\; e^{i\sum_x \theta_x q_x} = \prod_x 2\pi\,\delta(q_x)
+   \int D\theta\; e^{i\sum_h \theta_h q_h} = \prod_h 2\pi\,\delta(q_h)
    \qquad\Longrightarrow\qquad
-   Z = \sum\hspace{-1.33em}\int D\phi\; Dn\; e^{-S_{\text{Villain}}[\phi,n]} \prod_x [q_x = 0],
+   Z = \sum\hspace{-1.33em}\int D\phi\; Dn\; e^{-S_{\text{Villain}}[\phi,n]} \prod_h [q_h = 0],
 
 exactly as the vortex-suppressing Lagrange multiplier is integrated out to impose $dn = 0$
 in the ordinary modified Villain construction :ref:`vortex-free model <vortex-free model>`. For the anomaly, though, $\theta$ must stay
@@ -48,7 +48,7 @@ survives.  If it doesn't --- if the partition function picks up a
 background-dependent phase under the second symmetry's transformation that no
 local counterterm can remove --- the two symmetries have a mixed anomaly
 :cite:`tHooft1980`.  Every step below is an exact lattice identity, in the
-same sense that $Q = \sum_x q_x = 0$ is exact even at finite lattice spacing: nothing here
+same sense that $Q = \sum_h q_h = 0$ is exact even at finite lattice spacing: nothing here
 relies on a continuum limit or a smoothness assumption.  That kind of
 exactness is the point of the modified-Villain lattice program more broadly
 --- gauging a global symmetry by minimally coupling to a background, and
@@ -93,16 +93,16 @@ because the total charge vanishes *identically*,
 
 .. math ::
 
-   \sum_x q_x \;=\; \sum_x (dn \wedge dn)_x \;=\; \sum_x d(n \wedge dn)_x \;=\; 0 ,
+   \sum_h q_h \;=\; \sum_h (dn \wedge dn)_h \;=\; \sum_h d(n \wedge dn)_h \;=\; 0 ,
 
 a discrete-Stokes identity: the sum of an exact 4-form over every hypercube of a closed
 lattice vanishes.  Because this holds configuration by configuration --- not
 just on average --- shifting $\theta$ by *any* real $\beta$, not merely a
-multiple of $2\pi$, leaves $e^{i\sum_x \theta_x q_x}$ exactly invariant
+multiple of $2\pi$, leaves $e^{i\sum_h \theta_h q_h}$ exactly invariant
 
 .. math ::
 
-   e^{i\sum_x \theta_x q_x} \;\longrightarrow\; e^{i\sum_x (\theta_x + \beta) q_x} \;=\; e^{i\beta \sum_x q_x + i\sum_x \theta_x q_x} \;=\; e^{i\sum_x \theta_x q_x}.
+   e^{i\sum_h \theta_h q_h} \;\longrightarrow\; e^{i\sum_h (\theta_h + \beta) q_h} \;=\; e^{i\beta \sum_h q_h + i\sum_h \theta_h q_h} \;=\; e^{i\sum_h \theta_h q_h}.
 
 What makes the mixed 't Hooft anomaly exciting is that neither symmetry has its own anomaly.
 Both symmetries above are unconditional: $U(1)_\phi$'s invariance never asked
@@ -154,12 +154,12 @@ lattice.  Despite the lattice wedge's :ref:`failure to have anti/commutativity <
    :label: q-expansion
 
    \begin{aligned}
-       Q^A \;\equiv\; \sum_x q^A_x
-       =& \sum_x (dn \wedge dn)_x
+       Q^A \;\equiv\; \sum_h q^A_h
+       =& \sum_h (dn \wedge dn)_h
        \nonumber\\
-       &- \frac{1}{2\pi} \sum_x \big[(dn \wedge dA)_x + (dA \wedge dn)_x\big]
+       &- \frac{1}{2\pi} \sum_h \big[(dn \wedge dA)_h + (dA \wedge dn)_h\big]
        \nonumber\\
-       &+ \frac{1}{4\pi^2} \sum_x (dA \wedge dA)_x .
+       &+ \frac{1}{4\pi^2} \sum_h (dA \wedge dA)_h .
    \end{aligned}
 
 The first three lines vanish for the same reason: they are all exact 4-forms,
@@ -169,7 +169,7 @@ The first three lines vanish for the same reason: they are all exact 4-forms,
    \begin{aligned}
        da \wedge db &= d(a \wedge db)
        &
-       \sum_x (da \wedge db)_x = \sum_x d(a \wedge db)_x = 0
+       \sum_h (da \wedge db)_h = \sum_h d(a \wedge db)_h = 0
    \end{aligned}
 
 on a closed lattice.
@@ -180,7 +180,7 @@ The last term simplifies to the second Chern number of the background,
    :label: three-terms
 
    \begin{aligned}
-      \frac{1}{4\pi^2}\sum_x (dA \wedge dA)_x &= \frac{1}{4\pi^2}\int F \wedge F \;\equiv\; k[A] \in \mathbb{Z}
+      \frac{1}{4\pi^2}\sum_h (dA \wedge dA)_h &= \frac{1}{4\pi^2}\int F \wedge F \;\equiv\; k[A] \in \mathbb{Z}
    \end{aligned}
 
 So
@@ -207,8 +207,8 @@ Now transform by $U(1)_\theta$ in the presence of the background:
 
 .. math ::
 
-   e^{i\sum_x \theta_x q^A_x} \;\longrightarrow\; e^{i\beta Q^A}\, e^{i\sum_x \theta_x q^A_x}
-   \;=\; e^{i\beta\, k[A]}\, e^{i\sum_x \theta_x q^A_x}.
+   e^{i\sum_h \theta_h q^A_h} \;\longrightarrow\; e^{i\beta Q^A}\, e^{i\sum_h \theta_h q^A_h}
+   \;=\; e^{i\beta\, k[A]}\, e^{i\sum_h \theta_h q^A_h}.
 
 At $A = 0$ this phase is trivial for every real $\beta$, which is exactly the
 exact $U(1)_\theta$ found above. Once $U(1)_\phi$ is gauged with a

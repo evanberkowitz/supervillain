@@ -53,7 +53,7 @@ dimensions).  In this language
 
 .. math::
 
-   q_x = (dn \wedge dn)_x = \text{signed density of transverse self-intersections
+   q_h = (dn \wedge dn)_h = \text{signed density of transverse self-intersections
    of the sheet,}
 
 because in four dimensions two 2-dimensional surfaces generically meet at isolated
@@ -67,7 +67,7 @@ description:
 
 One structural fact we use repeatedly: because $F = dn$ is exact, the sheet is
 null-homologous ($[F] = 0$), for every configuration.  Its self-intersection number
-$Q = \sum_x q_x = [F] \cdot [F]$ therefore vanishes identically, which is why
+$Q = \sum_h q_h = [F] \cdot [F]$ therefore vanishes identically, which is why
 constraint violations only ever appear in $+/-$ pairs.
 
 Step 2: Four dimensions is where surfaces knot
