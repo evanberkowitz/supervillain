@@ -171,6 +171,18 @@ class DefectGas(ReadWriteable, Generator):
         is $w_{2}$-independent.  Omitted means $W = 1$ identically (bit-for-bit the
         unumbrella'd sampler).  Composes with either pricing; learned by
         :meth:`DefectGasWeightTuner.tune_umbrella`.
+    gamma: float or sequence of floats, optional
+        Defect-adjacent proposal targeting: in sector $k = D/2$, a proposal is
+        drawn uniformly with probability $\gamma_k$ and otherwise targeted at a
+        live defect (a cell with probability $\propto \left|q_c\right|$, then one
+        of its 32 edges uniformly), with the full Metropolis--Hastings ratio in
+        the accept test so every estimator is exactly unchanged.  A scalar
+        broadcasts to all $K + 1$ sectors; entries lie in $(0, 1]$; requires a
+        capped gas.  Omitted means the legacy uniform proposal, bit-for-bit.
+        Net creation/annihilation fluxes are Hastings-invariant by construction;
+        the win is in-sector transport (the pair's $r$-space diffusion rate),
+        which is what starves far $\Theta$ bins and umbrella round trips at
+        large volume.
 
     .. warning ::
 
@@ -184,7 +196,7 @@ class DefectGas(ReadWriteable, Generator):
     _FOUR = {(-1, -1, 1, 1): 0, (-1, -1, 2): 1, (-2, 1, 1): 2, (-2, 2): 3}
 
     def __init__(self, S, fugacity=None, D_max=None, emit_every=None, max_step_sweeps=500,
-                 rng=None, weights=None, w2=None):
+                 rng=None, weights=None, w2=None, gamma=None):
         if not isinstance(S, supervillain.action.NoIntersections):
             raise ValueError('DefectGas requires a NoIntersections action.')
         if S.Lattice.D != 4:
@@ -245,6 +257,21 @@ class DefectGas(ReadWriteable, Generator):
             field[nz] = w2[lookup[rsq[nz]]]
             self._w2_field = field
         self.D_max = D_max
+        if gamma is None:
+            self.gamma = np.zeros(0, dtype=np.float64)
+        else:
+            if self.D_max is None:
+                raise ValueError('gamma requires a capped gas (weights or D_max).')
+            K1 = self.D_max // 2 + 1
+            g = np.asarray(gamma, dtype=np.float64)
+            if g.ndim == 0:
+                g = np.full(K1, float(g))
+            if g.shape != (K1,):
+                raise ValueError(f'gamma must be a scalar or a vector of length '
+                                 f'{K1} (one entry per sector); got shape {g.shape}.')
+            if not np.all((g > 0) & (g <= 1)):
+                raise ValueError('gamma entries must be in (0, 1].')
+            self.gamma = g
         self.emit_every = emit_every if emit_every is not None else 4 * self.N**4
         self.max_step_sweeps = max_step_sweeps
         self.rng = rng if rng is not None else np.random.default_rng()
@@ -256,9 +283,10 @@ class DefectGas(ReadWriteable, Generator):
         self._state = None
 
     def __str__(self):
+        tag = '' if self.gamma.size == 0 else f', gamma={np.array2string(self.gamma, precision=3)}'
         if self.fugacity is not None:
-            return f'DefectGas(fugacity={self.fugacity}, D_max={self.D_max})'
-        return f'DefectGas(weights={np.array2string(self.w, precision=4)}, D_max={self.D_max})'
+            return f'DefectGas(fugacity={self.fugacity}, D_max={self.D_max}{tag})'
+        return f'DefectGas(weights={np.array2string(self.w, precision=4)}, D_max={self.D_max}{tag})'
 
     # ---------------------------------------------------------------- chain internals
 
