@@ -102,6 +102,46 @@ bit-for-bit at every gamma.
    campaign point: configs/hour and far-bin reach (max pair r^2, error at
    fixed dx).
 
+## Evidence (2026-07-14, post-implementation)
+
+All runs N=6, D_max=8, gamma=0.5, against the corresponding
+weighted-campaign-2026-07-13 points (uniform proposals, same seeds/grids).
+
+* **Gate A (umbrella revival), kinetics confirmed / co-tuning still open.**
+  At kappa=0.02 with the cap-30 1/Theta-hat umbrella -- the configuration
+  whose shell dwell flattened but whose round trips were exactly 0 without
+  targeting -- the gamma-targeted tuner's probes complete 90 round trips at
+  the default budget and 259 at 3x the budget: the return-to-adjacency
+  kinetics the umbrella lacked are demonstrably supplied, scaling with
+  horizon.  Production nevertheless still condenses, and the diagnosis
+  moved: (i) a cap-30 table cannot satisfy the flat-dwell convergence
+  criterion at a 4-decade coupling (2.5 decades of decay remain by
+  construction, so the tuner correctly refuses to converge and the
+  health-tier freeze keeps the warm start); (ii) the full-cap (1e5) table
+  makes the stage-1 w recursion itself non-stationary (probes visit 3
+  shells); (iii) fundamentally, stage 1 tunes w WITHOUT the umbrella that
+  stage 2 then imposes, so the frozen pair is mutually inconsistent at
+  strong lift.  The umbrella in production awaits alternating (w, w2)
+  co-tuning -- this spec's "optionally alternate stages once" was an
+  underestimate.  Recorded as follow-on work; the narrative docs' "off or
+  gently capped" production guidance stands.
+
+* **Gate B (transport and throughput): decisively passed, umbrella not
+  required.**  The gamma=0.5 campaign rerun (weighted-campaign-2026-07-14)
+  over the identical grids/seeds: at N=6 kappa=0.005 (the LEAST favorable
+  coupling for targeting), 2.6x the round trips in half the ticks (~5x
+  per-tick transport) and a ~7x smaller chi error at matched
+  configurations, with chi agreeing (1.0104(1) vs 1.0102(7) -- the
+  gamma-independence exactness test in production).  All three N=6
+  condensation holes of the 07-13 campaign (kappa = 0.01, 0.04, 0.05)
+  completed on the first pass, and the far Theta bins that motivated
+  everything are now MEASURED from plain (w, gamma) runs -- no umbrella --
+  e.g. kappa=0.03: Theta(3,0,0,0) = 1.02(7)e-4 and Theta(antipode) =
+  2.96(57)e-5 with the transport ceiling at the lattice maximum r^2 = 36;
+  kappa=0.06 (the chi peak): Theta(antipode) = 8.2(9)e-4 at matched
+  configurations (a 9-sigma far-bin measurement).  N=8/N=12 tier timings
+  land with the overnight campaign and extend this table.
+
 ## Non-goals
 
 A gamma-tuning stage (bolt on later if fixed 0.5 underperforms; the vector
