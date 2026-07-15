@@ -13,7 +13,7 @@ model:
   $q = dn\wedge dn = 0$ --- and is reported as a sanity check;
 * ``Intersection_Intersection`` (the two-point function of the operator that inserts a unit
   of self-intersection) is a ``DerivedQuantity``, the ratio of the sector dwells
-  ``Theta_Theta / Vacuum_Ticks`` that the ``DefectGas`` in the ``Hammer`` measures inline.
+  ``Theta_Theta / VacuumTicks`` that the ``DefectGas`` in the ``Hammer`` measures inline.
   It is **absolutely normalized** ($\Theta_0 = 1$ identically), so its "normalized"
   correlator is the identity; both are plotted alongside the compact-boson
   ``Spin_Spin_Normalized``.

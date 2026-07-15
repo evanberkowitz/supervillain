@@ -368,10 +368,32 @@ class IntersectionWindingSquared(Scalar, Observable):
     :class:`~.Intersection_Intersection` cannot distinguish at accessible
     volumes.
 
+    No disconnected piece is subtracted: reflecting any direction spanned by
+    the transverse 3-cycle flips $J_\mu$'s orientation, so
+    $\langle J_\mu \rangle = 0$ exactly and $\langle J^2 \rangle$ *is* the
+    susceptibility --- subtracting a noisy sample mean would only bias small
+    ensembles.  (Restore the subtraction if you ever simulate in a
+    reflection-breaking background.)
+
     Because the winding changes only through topology-shifting moves, check
     its autocorrelation time before trusting error bars: a chain can render it
     *frozen* rather than measured.
     """
+
+    @classmethod
+    def autocorrelation(cls, ensemble):
+        r'''
+        Only included for four-dimensional
+        :class:`~supervillain.action.NoIntersections` ensembles: elsewhere the
+        slice sums of $j$ are undefined ($D \neq 4$) or not topological
+        ($q \neq 0$), and including this observable by default would silently
+        change long-standing unconstrained-Villain
+        :meth:`~supervillain.Ensemble.autocorrelation_time` computations.
+        '''
+        S = ensemble.Action
+        return (isinstance(S, supervillain.action.NoIntersections)
+                and S.Lattice.D == 4
+                and super().autocorrelation(ensemble))
 
     @staticmethod
     def Villain(S, IntersectionWinding):

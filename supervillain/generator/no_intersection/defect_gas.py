@@ -1164,11 +1164,15 @@ class DefectGasWeightTuner:
             done += block
             L = self.S.Lattice
             for companion in self.companions:
-                # Companions speak Forms; the probe chain speaks raw arrays.  Only
-                # phi is taken back --- the gas's n mid-excursion stays the chain's.
+                # Companions speak Forms; the probe chain speaks raw arrays.  BOTH
+                # fields are taken back: the default companions include n-movers
+                # (ExactUpdate, CohomologyUpdate) whose moves are q-neutral even on
+                # the mid-excursion (invalid) n; discarding them would tune the
+                # dwell under different dynamics than production runs.
                 updated = companion.step({'phi': Form(cfg['phi'], degree=0, lattice=L),
                                           'n': Form(cfg['n'], degree=1, lattice=L)})
-                cfg = {'phi': np.asarray(updated['phi']), 'n': cfg['n']}
+                cfg = {'phi': np.asarray(updated['phi']),
+                       'n': np.asarray(updated['n'])}
         return halves[0] + halves[1], halves[0], halves[1], trips, cfg
 
     def tune(self, start='cold', probe_sweeps=2000, companion_every=25,
@@ -1311,7 +1315,8 @@ class DefectGasWeightTuner:
             for companion in self.companions:
                 updated = companion.step({'phi': Form(cfg['phi'], degree=0, lattice=L),
                                           'n': Form(cfg['n'], degree=1, lattice=L)})
-                cfg = {'phi': np.asarray(updated['phi']), 'n': cfg['n']}
+                cfg = {'phi': np.asarray(updated['phi']),
+                       'n': np.asarray(updated['n'])}
         return halves[0] + halves[1], halves[0], halves[1], trips, cfg
 
     def tune_umbrella(self, sectorWeights, start='cold', probe_sweeps=4000,
