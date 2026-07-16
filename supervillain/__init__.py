@@ -12,4 +12,5 @@ from supervillain.observable.observable import registry as observables
 from supervillain.observable.derived import registry as derivedQuantities
 from .ensemble import Ensemble
 import supervillain.generator
+from .tempering import ParallelTempering, ParallelTemperingTuner
 import supervillain.analysis

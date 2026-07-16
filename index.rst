@@ -24,6 +24,7 @@ supervillain
    supervillain/form
    supervillain/ensemble
    supervillain/generator
+   supervillain/tempering
    supervillain/measurement
    supervillain/observable
    supervillain/analysis
