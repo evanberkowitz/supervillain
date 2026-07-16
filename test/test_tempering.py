@@ -198,3 +198,17 @@ def test_tuner_recommends_a_ladder():
 
     forced = tuner.ladder(rungs=6)
     assert len(forced) == 6
+
+
+def test_tuner_gaussian_floor_on_uninformative_pilot():
+    # A pilot too coarse to accept any swaps cannot calibrate; the tuner falls
+    # back to the Gaussian theory value c = 1/2 rather than trusting the
+    # floor-clipped fit, and still recommends a ladder from sigma_E alone.
+    pt = _ladder((0.3, 0.5, 0.8), seed=23)
+    pt.generate(100)
+    pt.accepted = np.zeros_like(pt.accepted)
+    tuner = ParallelTemperingTuner(pt)
+    assert tuner.calibration == pytest.approx(0.5)
+    recommended = tuner.ladder(target=0.25)
+    assert len(recommended) >= 3
+    assert (np.diff(recommended) > 0).all()

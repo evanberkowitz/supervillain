@@ -424,6 +424,14 @@ class ParallelTemperingTuner:
     target acceptance.
 
     .. note::
+        Only pairs with at least one but not every swap accepted inform the
+        calibration.  For Gaussian $E$ the acceptance is exactly
+        $\mathrm{erfc}(\Delta\lambda/2)$, so when the pilot has no informative
+        pair at all (too coarse to accept a single swap anywhere) the tuner uses
+        the Gaussian value $c = 1/2$ --- a hopelessly-spaced pilot still yields a
+        sensible dense ladder from its measured $\sigma_E$ alone.
+
+    .. note::
         The tuner recommends; the driver decides.  Rebuild actions at the recommended
         κs through your own factory (e.g. ``lambda kappa: NoIntersections(L, kappa)``)
         --- the tuner never constructs or inspects actions.
@@ -454,12 +462,24 @@ class ParallelTemperingTuner:
         r'''Cumulative thermodynamic length at each pilot rung.'''
 
         # Calibrate acceptance ≈ erfc(c Δλ) through the origin from the measured pairs.
+        # A pair with zero (or every) attempt accepted carries no calibration
+        # information --- only a bound --- and erfcinv of a clipped stand-in value
+        # would pollute the fit, so such pairs are excluded.  When nothing
+        # informative remains (a hopelessly coarse pilot), fall back to the Gaussian
+        # theory value: for Gaussian E the acceptance is exactly erfc(Δλ/2)
+        # (mean ΔS = Δλ², std √2 Δλ), i.e. c = 1/2.
+        GAUSSIAN = 0.5
         dlambda = np.diff(self.length)
-        measured = np.clip(self.acceptance, 1e-6, 1 - 1e-6)
-        ok = np.isfinite(measured) & (dlambda > 0)
-        if not ok.any():
-            raise ValueError('The pilot has no usable pair acceptances to calibrate against.')
-        self.calibration = (erfcinv(measured[ok]) * dlambda[ok]).sum() / (dlambda[ok] ** 2).sum()
+        informative = (tempering.accepted > 0) & (tempering.accepted < tempering.attempted) \
+                      & (dlambda > 0)
+        if not informative.any():
+            logger.warning('The pilot has no informative pair acceptances; '
+                           'falling back to the Gaussian calibration c = 1/2.')
+            self.calibration = GAUSSIAN
+        else:
+            measured = self.acceptance[informative]
+            self.calibration = ((erfcinv(measured) * dlambda[informative]).sum()
+                                / (dlambda[informative] ** 2).sum())
 
     def ladder(self, target=0.25, rungs=None):
         r'''
