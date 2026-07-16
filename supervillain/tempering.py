@@ -441,15 +441,19 @@ class ParallelTemperingTuner:
     tempering: ParallelTempering
         A ladder whose :meth:`~.ParallelTempering.generate` has run a pilot leg
         (so it holds ``.ensembles``, ``.pair_acceptance``, and the κs).
+    cut: int
+        Configurations to drop from the start of every pilot ensemble before
+        measuring $\sigma_E$ --- a cold-started pilot's thermalization transient
+        otherwise inflates $\sigma_E$ and over-densifies the recommendation.
     '''
 
-    def __init__(self, tempering):
+    def __init__(self, tempering, cut=0):
 
         self.kappa = tempering.kappa
         self.acceptance = tempering.pair_acceptance
 
         self.E = tuple(
-            np.array([S(**e.configuration[t]) for t in range(len(e))]) / S.kappa
+            np.array([S(**e.configuration[t]) for t in range(cut, len(e))]) / S.kappa
             for S, e in zip(tempering.Actions, tempering.ensembles)
         )
         self.sigma = np.array([E.std() for E in self.E])
