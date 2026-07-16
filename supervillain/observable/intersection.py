@@ -333,6 +333,53 @@ class IntersectionWinding(Observable):
 
     Nonzero fluctuations of $J$ are how a $\theta$ condensate carries
     supercurrent around the torus; see :class:`~.IntersectionWindingSquared`.
+
+    **What $J$ is, topologically.**  $dj = q$, so the constraint $q \equiv 0$
+    says exactly that $j$ is a *closed* 3-form, and it therefore carries a
+    cohomology class
+
+    .. math ::
+
+        [j] \in H^3(T^4; \mathbb{Z}) \cong \mathbb{Z}^4,
+
+    of which the four $J_\mu$ are the periods over the coordinate 3-cycles.
+    This is the *secondary* (Chern--Simons / Hopf) invariant: it is born
+    precisely where the primary invariant $q$ dies, and it exists on the
+    constrained manifold and nowhere else.  (In the unconstrained model $j$ is
+    not closed, the slice sums depend on $c$, and there is no class.)  Nothing
+    here requires the vortex sheet to be multiplicity-free or a manifold, so
+    unlike surface invariants such as the genus or the Alexander polynomial,
+    $J$ is computable on *every* stored configuration --- including the generic
+    ones with $|F| \ge 2$ --- in $O(V)$, with no diagram, projection, slice, or
+    desingularization.
+
+    **$J$ depends on the field strength alone.**  Although written with $n$, it
+    is a function of $F = dn$: for any *closed* 1-form $z$ (a gauge
+    transformation $dm$, or a harmonic winding $h$),
+    $z \wedge dn = -d(z \wedge n)$ is exact, so $[z \wedge F] = 0$ and
+    $[j]$ cannot move.  Both gauge and winding drop out.
+
+    **Geometrically it is a self-linking (framing) number, not a knot
+    invariant.**  By Poincare duality $H^3 \cong H_1$, so $[j]$ measures
+    *loop--sheet* linking --- the self-linking of the vortex sheet.  Two
+    cautions follow, both easy to get backwards:
+
+    * It is blind to *intrinsic* topology.  A wild sheet of genus 217 can carry
+      $J = 0$.
+    * It does **not** detect knotting.  For the $x_0$-independent spatial
+      configuration whose sheet is the torus knot $T(k, g-k)$ one finds
+      $J = (-k(g-k), 0, 0, 0)$ --- verified for $T(2,3)$ (trefoil, $-6$),
+      $T(2,5)$ ($-10$), $T(3,4) = 8_{19}$ ($-12$), and, decisively, the
+      **unknot** $T(1,4)$, which carries $J = -4 \neq 0$.  What $J$ reads is
+      the framing $k(g-k)$, which an unknot has just as well as a knot.
+
+    Such $x_0$-independent spatial configurations ($n_0 = 0$, no $x_0$
+    dependence) are also the cheapest way to build a nonzero-$J$ background:
+    every $dn$ component carrying a 0-index vanishes, so $q \equiv 0$
+    identically and the configuration is valid by construction, with
+    $J = (\mathrm{CS}(a), 0, 0, 0)$ given by the 3D abelian Chern--Simons sum
+    $\mathrm{CS}(a) = \sum_{T^3} a \wedge da$ of the spatial 1-form.  Nonzero
+    $J$ is generic among these, already at $N = 6$.
     """
 
     @staticmethod
