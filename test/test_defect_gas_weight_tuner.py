@@ -308,3 +308,28 @@ def test_generator_with_umbrella():
     assert np.array_equal(chain.pairSeparationUmbrella, gas.pairSeparationUmbrella)
     e = supervillain.Ensemble(S).generate(3, chain)
     assert np.all(np.asarray(e.VacuumTicks) > 0)
+
+
+def test_tune_warm_start():
+    # A warmStart table replaces the Poisson envelope as the recursion's first
+    # probe (normalized to w[0] = 1), and bad tables are rejected.
+    S = _action()
+    t = DefectGasWeightTuner(S, max_defects=4, rng=np.random.default_rng(17))
+    calls = []
+    canned = (np.array([400, 300, 200]), 8)      # instantly flat -> converge
+
+    def probe(w, cfg, probe_sweeps, companion_every):
+        calls.append(w.copy())
+        t_, trips = canned
+        return t_, t_ // 2, t_ - t_ // 2, trips, cfg
+
+    t._probe = probe
+    handed = np.array([2.0, 0.5, 0.01])
+    w, emit_every = t.tune(probe_sweeps=100, warmStart=handed)
+    assert np.allclose(calls[0], handed / handed[0])
+    assert (handed == np.array([2.0, 0.5, 0.01])).all()     # caller's table untouched
+
+    with pytest.raises(ValueError):
+        t.tune(probe_sweeps=100, warmStart=np.ones(7))
+    with pytest.raises(ValueError):
+        t.tune(probe_sweeps=100, warmStart=np.array([1.0, -1.0, 1.0]))

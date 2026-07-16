@@ -1178,12 +1178,16 @@ class DefectGasWeightTuner:
     def tune(self, start='cold', probe_sweeps=2000, companion_every=25,
              max_iterations=12, damping=0.5, flat=3.0, min_round_trips=5,
              step_sweeps=25, u=None, max_update=10.0, max_probe_growth=8,
-             lighten=1.5):
+             lighten=1.5, warmStart=None):
         r"""
         First stage: learn the sector table.  Run the recursion from the
         Poisson-envelope warm start $w_k = k!\, u^k$ (default $u = 1/V$; the
         dilute-gas entropy is roughly $\lambda^k/k!$ for $k$ pairs, so the
-        factorial undoes the identical-pair suppression) and return
+        factorial undoes the identical-pair suppression) --- or, when
+        ``warmStart`` is given, from that table (e.g. the frozen table of a
+        nearby $\kappa$: adjacent rungs of a tempering ladder have nearly
+        identical sector profiles, so the recursion starts close to its fixed
+        point) --- and return
         ``(sectorWeights, emit_every)`` --- the frozen, light-by-policy table
         and an ``emit_every`` sized so one production step costs about
         ``step_sweeps`` sweeps at the measured vacuum dwell.
@@ -1225,6 +1229,15 @@ class DefectGasWeightTuner:
             Target sweeps per production step; sizes the returned ``emit_every``.
         u: float, optional
             The warm start's per-pair weight scale; defaults to $1/V$.
+            Ignored when ``warmStart`` is given.
+        warmStart: numpy array, optional
+            Initial sector table, one positive entry per sector
+            (``max_defects // 2 + 1``); overrides the Poisson envelope.
+            Pass a neighboring κ's frozen table (a tempering ladder's rung
+            above, or a smaller volume's table rescaled by
+            $(V_{\rm old}/V_{\rm new})^k$ per sector $k$, matching the
+            envelope's $u \propto 1/V$) to start the recursion near its
+            fixed point.
         max_update: float
             Per-iteration clip on each sector's update factor.
         max_probe_growth: int
@@ -1245,8 +1258,16 @@ class DefectGasWeightTuner:
         """
         K = self.max_defects // 2
         V = self.S.Lattice.N ** 4
-        u0 = (1.0 / V) if u is None else float(u)
-        w = np.array([math.factorial(k) * u0**k for k in range(K + 1)])
+        if warmStart is not None:
+            w = np.asarray(warmStart, dtype=np.float64).copy()
+            if w.shape != (K + 1,):
+                raise ValueError(f'warmStart must have one entry per sector '
+                                 f'({K + 1} for max_defects={self.max_defects}); got {w.shape}.')
+            if not np.all(w > 0):
+                raise ValueError('warmStart must be positive.')
+        else:
+            u0 = (1.0 / V) if u is None else float(u)
+            w = np.array([math.factorial(k) * u0**k for k in range(K + 1)])
         w /= w[0]
         cfg = self._start(start)
         sweeps = probe_sweeps
