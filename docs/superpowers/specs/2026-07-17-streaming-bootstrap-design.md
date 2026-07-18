@@ -79,7 +79,7 @@ The work splits along a clean seam: **reading a serialized Ensemble in blocks**
 (fiddly, I/O-bound) versus **the resample math and h5 output** (purely
 numerical). Two independently-testable classes.
 
-### `EnsembleStreamer`
+### `EnsembleStreamer` (ReadWriteable)
 
 Encapsulates memory-bounded iteration of an h5-serialized Ensemble.
 
@@ -95,12 +95,20 @@ Encapsulates memory-bounded iteration of an h5-serialized Ensemble.
   `Configurations({field: slice})` and wrapping with
   `Ensemble(Action).from_configurations(...)`. Consumers compute whatever
   observable they need on each `sub_ensemble` and discard it.
+- **`to_h5` / `from_h5`** (custom, since `source_group` is a live h5 handle,
+  not data): `to_h5` writes an h5 **link** to `source_group` (`SoftLink` if
+  same file, else `ExternalLink(source_filename, source_path)`) plus `block`
+  as an attr; `from_h5` resolves the link back to a group handle and
+  reconstructs the streamer. Being `ReadWriteable` is what lets
+  `StreamingBootstrap`'s inherited `from_h5` reconstruct its `streamer` field
+  **automatically**.
 
 Reusable beyond bootstrap: any memory-bounded pass over a big ensemble
 (re-measuring an observable at N = 16 without OOM) is the same primitive.
 
 *Test:* for every field and a scalar + a correlator observable, the
-concatenation of `blocks()` reproduces the full-load Ensemble's values exactly.
+concatenation of `blocks()` reproduces the full-load Ensemble's values exactly;
+`to_h5`/`from_h5` round-trips (link resolves to the same source).
 
 ### `StreamingBootstrap(Bootstrap)`
 
@@ -113,41 +121,45 @@ persistence — no separate `to_h5(list)` step.
   `EnsembleStreamer` (which owns `block`); `target_group` is where results
   land. Reads `len`, `weight`, `Action` from the streamer; builds `indices`
   `(configs × draws)` (via `rng` or the global RNG) and the count matrix `n`.
-  Writes the metadata — `draws`, `indices`, `Action`, and the **`Ensemble`
-  link** → the streamer's source group (`SoftLink` if same file, else
-  `ExternalLink(source_filename, source_path)`) — into `target_group` at
-  construction, so the target is a valid Bootstrap layout from the first
-  observable on. (Also stores `block` as an attr so `from_h5` can rebuild the
-  streamer faithfully.)
+  Writes the metadata — the `streamer` (serialized as its source link),
+  `draws`, `indices`, `Action` — into `target_group` at construction (via the
+  same `Data.write` field convention `ReadWriteable.to_h5` uses), so the target
+  is a valid, `from_h5`-readable Bootstrap layout from the first observable on.
+  `target_group` itself is a live handle, not a serialized field.
 - **`_resample_streaming(name)`** — the streaming accumulation above, iterating
   `streamer.blocks()` and computing `getattr(sub, name)` per block. The
-  memory-safe core.
-- **`__getattr__(name)`** (primaries) — **disk-cache + write-through**: if
-  `target_group[name]` already exists, load and return it (this is what makes a
-  run **resumable/idempotent** — re-running skips completed observables); else
-  `_resample_streaming(name)`, write the draws-first dataset into
-  `target_group`, cache in `__dict__`, return.
-- **`estimate(name)`** — computes `getattr(self, name)` (streaming primaries as
-  needed; a `DerivedQuantity` derives per-draw on top of the streamed
-  primaries), **persists `name`'s resampled array to `target_group` if not
-  already there**, and returns `(mean, std)`. This is where *derived
-  quantities* land on disk: DQ descriptors bypass `__getattr__`, so their
-  scalar result is persisted here rather than by the primary hook. (A bare
-  `sb.SomeDQ` attribute access persists its underlying primary but not the DQ
-  scalar; go through `estimate` — the normal path — to persist the DQ. No
-  `__getattribute__` magic unless we later decide bare-DQ persistence matters.)
+  memory-safe core, invoked by `__getattr__` for primaries.
+- **`__getattribute__(name)`** — **the single disk-cache + write-through
+  gate**, guarded to fire only on names in the Observable/DerivedQuantity
+  registries (everything else — `estimate`, `target_group`, `streamer`,
+  methods — falls straight through to normal lookup, no recursion):
+  - if `target_group[name]` exists → load and return the dataset (**resumable**
+    — re-running skips work already on disk);
+  - else `super().__getattribute__(name)` computes it — a **primary** falls to
+    `__getattr__` → `_resample_streaming`; a **derived quantity** runs its
+    descriptor, which pulls the (streamed, hence written) primaries it depends
+    on — then write the draws-first result into `target_group` and return it.
+
+  So `sb.SpinSusceptibility` and `sb.Spin_Spin` behave identically: check disk,
+  build if absent, persist, return. Computing a DQ therefore also persists its
+  underlying primary (the expensive `(draws×V)` array), so any later DQ built
+  on it loads from disk. `estimate(name)` is then just
+  `getattr(self, name)` → `(mean, std)` — persistence already handled by the
+  gate.
+- **`__getattr__(name)`** — the streaming resample of a **primary** (called by
+  `super().__getattribute__` when the name isn't a class attribute); no
+  persistence logic here (that lives in `__getattribute__`).
 - **No `to_h5(list)`** — the `target_group` *is* the incrementally-written
-  Bootstrap layout; there is nothing to flush beyond the metadata already
-  written at construction.
-- **`from_h5(group)`** (classmethod) — reconstructs a `StreamingBootstrap` in
-  the same state as a fresh one: reads the cached observable datasets +
-  `indices`/`draws`/`Action`/`block` into `__dict__`, and **resolves the
-  `Ensemble` link to an `EnsembleStreamer`** wrapping the linked source group
-  (symmetric with construction). Cached observables `estimate()` from their
-  datasets (streamer untouched); an un-streamed observable streams through the
-  reconstructed streamer. A **broken link** (source file moved) → `streamer =
-  None`: cached observables still work, and requesting an un-streamed one
-  raises a clear "source ensemble unavailable" error.
+  Bootstrap layout; nothing to flush beyond the construction-time metadata.
+- **`from_h5(group)`** — the **inherited** `ReadWriteable.from_h5` does the
+  work: it reconstructs each field, including `streamer` (via
+  `EnsembleStreamer.from_h5`, which resolves the source link) and the cached
+  observable datasets. `StreamingBootstrap` adds only a one-line touch to set
+  `target_group = group` on the result so continued access keeps writing
+  through. Cached observables load from their datasets; an un-streamed one
+  streams through the reconstructed streamer and persists. A **broken link**
+  (source moved) surfaces when the streamer is first used — cached observables
+  still work; an un-streamed request raises a clear "source unavailable" error.
 
 **Compatibility note.** A plain `Bootstrap.from_h5(group)` also reads the
 output: `estimate()` on a *streamed* observable works (the dataset is cached in
@@ -177,9 +189,11 @@ benefit requires `StreamingBootstrap.from_h5`.
 - Mismatched shapes across blocks (should never happen) raise loudly.
 - Re-access of an on-disk observable loads the dataset; it is not recomputed
   (resumability).
-- `from_h5` with a broken `Ensemble` link (source file moved) sets
-  `streamer = None`: cached observables still `estimate()`, and requesting an
-  un-streamed one raises a clear "source ensemble unavailable" error.
+- `from_h5` with a broken source link (source file moved): `EnsembleStreamer`
+  reconstructs but its source is unresolvable; cached observables still
+  `estimate()` from their datasets, and only a request that must call
+  `streamer.blocks()` (an un-streamed observable) raises a clear "source
+  ensemble unavailable" error.
 
 ## Testing
 
