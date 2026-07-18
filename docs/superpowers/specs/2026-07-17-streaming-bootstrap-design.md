@@ -38,6 +38,40 @@ for the N = 16 correlator) + `n` — never the 48 GB tensor. The result equals
 `Bootstrap._resample`'s to floating-point (summation order differs, so not
 bit-identical, but statistically identical and equal to ~1e-12 on a scalar).
 
+## Why streaming primary observables suffices (and derived quantities come free)
+
+Observables register as **descriptors on the `Ensemble` class**
+(`Observable.__init_subclass__` → `setattr(Ensemble, name, cls())`), and
+`Observable.__get__` computes a non-inline observable **per configuration**
+(a comprehension over configs, looking up the measure function's arguments —
+`phi`, `n`, or other observables — as ensemble attributes). Two consequences
+that make streaming correct:
+
+- A block's `from_configurations` sub-Ensemble is a real `Ensemble` instance,
+  so it carries every observable descriptor; computing `sub.Spin_Spin` needs
+  only the `Action` (carried by the sub-Ensemble) and the argument fields
+  (`phi`/`n`, sliced into the block). **Primary observables not stored on disk
+  compute fine from a block.**
+- Because the computation is per-configuration, computing an observable
+  block-by-block and concatenating equals computing it on the full ensemble.
+  This is the correctness guarantee for streaming, and it holds for every
+  primary observable and for chains (`IntersectionWindingSquared` →
+  `IntersectionWinding` → `IntersectionCurrent` → `n`). Inline observables
+  (`Theta_Theta`) come straight from the sliced fields.
+
+**Derived quantities** (`SpinSusceptibility`, `IntersectionSusceptibility`,
+`IntersectionBinderCumulant`, …) register as descriptors on **`Bootstrap`**
+(`DerivedQuantity.__init_subclass__` → `setattr(Bootstrap, name, cls())`) and
+`__get__` computes them **per draw** by looking up dependencies *on the
+bootstrap* — e.g. `getattr(bootstrap, 'Spin_Spin')`, which triggers the
+resample of the primary. So `StreamingBootstrap` (subclassing `Bootstrap`)
+inherits every DQ descriptor unchanged: a DQ's `getattr(self, primary)` returns
+the *streamed* `(draws × shape)` resample, and the DQ derives per draw on top.
+**`StreamingBootstrap` therefore only needs to stream primary observables; the
+derived layer runs for free.** `to_h5(observables=[...])` accepts either a
+primary name or a derived-quantity name — requesting `SpinSusceptibility`
+streams `Spin_Spin` underneath and writes the derived `(draws,)` result.
+
 ## Two units
 
 The work splits along a clean seam: **reading a serialized Ensemble in blocks**
