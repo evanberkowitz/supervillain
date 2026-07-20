@@ -221,12 +221,74 @@ integer $k[A]$ --- exactly the periodicity that must survive, because $q$
 No local counterterm built from $A$ alone can repair this: the anomalous charge :eq:`anomalous-charge`
 is a bulk identity fixed by the topology of $A$, not a boundary artifact, so
 there is no choice of local counterterm added to the action that cancels
-$k[A]$ while remaining a functional of $A$ alone. By the symmetric argument
+$k[A]$ while remaining a functional of $A$ alone.  The qualifier "of $A$ alone"
+is load-bearing and is examined on its own below.  By the symmetric argument
 --- gauge $U(1)_\theta$ instead and ask what happens to $U(1)_\phi$ --- the
 same obstruction reappears with the roles exchanged. Neither $U(1)$ can be
 gauged without an explicit background-dependent violation of the other. That
 obstruction, present only when *both* backgrounds are turned on, is precisely
 a mixed 't Hooft anomaly :cite:`tHooft1980`.
+
+Is the anomaly removable by a counterterm?
+===========================================
+
+The claim above is that no counterterm built from $A$ *alone* removes $k[A]$,
+and that is easy to see: a functional of $A$ alone is inert under
+$\theta \rightarrow \theta + \beta$, so it cannot cancel a $\beta$-dependent
+phase at all.  The qualifier invites the obvious next question, though, and it
+is worth answering explicitly rather than leaving it to the reader, because the
+natural candidate looks alarmingly good.  Consider adding to
+:eq:`setup-action` the local, background-gauge-invariant term
+
+.. math ::
+   :label: candidate-counterterm
+
+   S_{\text{ct}} \;=\; -\frac{i}{4\pi^2} \sum_h \theta_h\, (dA \wedge dA)_h .
+
+Under $\theta \rightarrow \theta + \beta$ this shifts by $-i\beta k[A]$ by
+:eq:`three-terms`, cancelling the anomalous phase exactly.  It is local, it is
+built from fields already present, and it vanishes at $A = 0$, so it does not
+disturb the ungauged theory.  If it were legitimate the anomaly would be a
+scheme artifact and the phase-diagram consequences below would evaporate.  It
+is not legitimate, for two independent reasons.
+
+**First, $\theta$ is dynamical.**  A counterterm is a local functional of
+*background* data, added to fix a regularization ambiguity in how the theory
+couples to those backgrounds.  Here $\theta$ is integrated over --- $D\theta$
+appears in :eq:`setup-action` --- so :eq:`candidate-counterterm` is not a
+counterterm but a modification of the dynamics.  Performing the $\theta$
+integral with $S_{\text{ct}}$ included gives
+
+.. math ::
+
+   \int D\theta\; e^{i\sum_h \theta_h [q^A_h - (dA \wedge dA)_h/4\pi^2]}
+   \qquad\Longrightarrow\qquad
+   q^A_h \;=\; \frac{(dA \wedge dA)_h}{4\pi^2} \quad \text{on every hypercube,}
+
+a *different constraint*, hence a different theory --- not a different scheme
+for the same one.
+
+**Second, and decisively, it depends on the representative and not the class.**
+A legitimate counterterm's effect can depend on the background only through
+gauge-invariant data; two backgrounds in the same topological class must give
+the same theory.  But $(dA \wedge dA)_h$ is a pointwise density that depends on
+*where the flux sits*.  Concentrate the flux 't Hooft-style --- put all of
+$2\pi m_{01}$ on a single plaquette of each $01$ plane, likewise for $m_{23}$
+--- and $(dA \wedge dA)_h/4\pi^2$ is an integer 4-form and the shifted
+constraint is at least satisfiable.  Spread the *same* total flux uniformly, so
+that $dA/2\pi$ carries $m_{01}/N^2$ per plaquette, and the shifted constraint
+demands a non-integer value of $q^A_h$, which is impossible: $q^A$ is
+integer-valued pointwise for any background, as noted above.  So
+:eq:`candidate-counterterm` defines a theory for some representatives of a
+class and no theory at all for others.  That is not an ambiguity in the
+coupling to the background; it is a failure to be a functional of the
+background's physical content.
+
+What :eq:`candidate-counterterm` *does* correctly capture is the familiar fact
+that an anomaly can be shuffled between the two currents participating in it
+--- the consistent-versus-covariant bookkeeping of the ABJ story --- but never
+removed.  The obstruction is to gauging *both* $U(1)$s at once, and no
+redistribution of it changes that.
 
 Matching the ABJ (AVV) structure
 =================================
@@ -291,3 +353,50 @@ handful of known 4D CFTs with fermionic AVV anomalies. The anomaly derived
 here is what makes that last option --- and the 4D bosonization question it
 raises --- more than idle speculation: it is the one algebraic fact the
 putative CFT would be obligated to reproduce.
+
+That menu is shorter than it may appear, and the reason is worth stating
+sharply, because two of the escapes one would naturally reach for are closed by
+a single observation: the anomalous phase $e^{i\beta k[A]}$ depends on
+$\beta$ *continuously*.  In the standard classification this is the **free**
+(non-torsion) part of the anomaly, not a discrete piece, and free anomalies
+demand either gapless degrees of freedom or the spontaneous breaking of a
+continuous symmetry.  Two corollaries:
+
+**No topological order.**  A topological field theory has only a discrete set
+of responses to a symmetry background --- its anomalies are valued in a finite
+group.  It therefore cannot reproduce a phase that varies continuously with
+$\beta$.  Saying the same thing physically: matching requires an operator whose
+expectation value shifts continuously under $U(1)_\theta$, which is a Goldstone
+boson, or else charged matter that is gapless.  A symmetric gapped phase with
+topological order supplies neither.  The "no topological order" qualifier in
+the prohibition above is thus not an extra assumption to be checked
+case-by-case here; for *this* anomaly it is automatic.
+
+**No partial breaking to a finite subgroup.**  Suppose $U(1)_\theta$ broke only
+to $\mathbb{Z}_n$, leaving $U(1)_\phi \times \mathbb{Z}_n$ unbroken and a
+trivially gapped $\mathbb{Z}_n$-symmetric vacuum.  The surviving
+transformations are $\beta = 2\pi m/n$, and the anomalous phase restricts to
+
+.. math ::
+
+   e^{i\beta k[A]}\Big|_{\beta = 2\pi m/n} \;=\; e^{2\pi i\, m\, k[A]/n},
+
+which is nontrivial whenever $n \nmid k[A]$.  The residual $\mathbb{Z}_n$
+therefore inherits a mixed $\mathbb{Z}_n$--$U(1)_\phi$ anomaly that the
+putative vacuum still cannot match: breaking to a finite subgroup relocates the
+obstruction rather than discharging it.  Anomaly matching consequently forces
+breaking of the *full* $U(1)_\theta$, not of a proper subgroup --- so a
+charge-$n$ (paired) condensate is not an available phase.
+
+One caveat on that last argument is worth recording, because it bears directly
+on what a simulation can and cannot see.  The residual phase is sensitive to
+$k[A] \bmod n$, and, as discussed above, $k[A] = c_1^2[F]$ is *even* on any
+spin 4-manifold --- the 4-torus included --- by evenness of the intersection
+form.  The $n = 2$ case is therefore invisible on $T^4$: every background
+available there has $e^{2\pi i m k[A]/2} = 1$.  The exclusion of a
+$\mathbb{Z}_2$ remnant is a statement about the theory on general closed
+oriented 4-manifolds, where $c_1^2$ can be odd (as on $\mathbb{CP}^2$), and the
+model --- being purely bosonic, with no spin structure invoked anywhere in
+:eq:`covariant-charge` through :eq:`anomalous-charge` --- is defined on those
+too.  The argument is sound, but no $T^4$ lattice diagnostic could ever
+exhibit it.
