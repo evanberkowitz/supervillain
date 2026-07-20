@@ -285,6 +285,42 @@ class IntersectionCurrent(Observable):
     by the lattice Leibniz rule and $d^2 = 0$ --- both exact, so the identity
     holds configuration by configuration, not just in expectation.
 
+    .. warning ::
+
+        **$j$ is not gauge invariant pointwise.**  Under the integer gauge
+        transformation $\phi \to \phi + 2\pi m$, $n \to n + dm$ (what
+        :class:`~supervillain.generator.villain.ExactUpdate` performs),
+
+        .. math ::
+
+            j \;\longrightarrow\; j + dm \wedge dn \;=\; j + d(m \wedge dn),
+
+        an *exact* shift.  Only quantities insensitive to an exact 3-form
+        survive: the periods over closed 3-cycles, which is exactly why
+        :class:`~.IntersectionWinding` is well defined.  **Anything local ---
+        $\left\langle j(x) j(y)\right\rangle$ at $x \neq y$, a structure factor
+        $\left\langle|\hat{\jmath}(k)|^{2}\right\rangle$ at $k \neq 0$, the
+        pointwise mean $\left\langle j(x) \right\rangle$ --- is a property of
+        the gauge in which the configuration happens to be stored, not an
+        observable.**  Use it to build :class:`~.IntersectionWinding`, or to
+        check $dj = q$; do not correlate it.
+
+        For a *pointwise* gauge-invariant current in the same conservation
+        class, use
+
+        .. math ::
+
+            j_{\rm gi} = (d\phi - 2\pi n) \wedge dn,
+            \qquad d\,j_{\rm gi} = -2\pi q,
+
+        built from the invariant combination $(d\phi - 2\pi n)$ and the
+        invariant $dn$.  It differs from $j$ by an improvement term,
+        $j_{\rm gi} = -2\pi\, j + d(\phi\, dn)$, so the two share their
+        periods --- the same $J_\mu$ up to $-2\pi$ --- and differ by precisely
+        the gauge-ambiguous exact piece.  Correlators of $j_{\rm gi}$ at
+        $k \neq 0$ *are* observables; those of $j$ are not.  (All three
+        statements are checked in ``test/test_intersection_current.py``.)
+
     **Physical meaning.**  $U(1)_\theta$ shifts $\theta$ by a constant; its
     charged objects are the defects created by $e^{i\theta}$, and $J$ is the
     conserved current that transports that charge: in the constrained ensemble
@@ -292,7 +328,9 @@ class IntersectionCurrent(Observable):
     $\theta$-sector analog of the vorticity current of $U(1)_\phi$, and it is
     computable on every *stored* configuration --- no defect insertions, no
     enlarged ensemble --- so it opens the $\theta$ sector to plain
-    re-analysis.  Its topological slice sums are the
+    re-analysis, subject to the gauge caveat above: the re-analysis must go
+    through the periods, or through $j_{\rm gi}$.  Its topological slice sums
+    are the
     :class:`~.IntersectionWinding`, whose fluctuations
     (:class:`~.IntersectionWindingSquared`) are the stiffness diagnostic of
     $U(1)_\theta$ symmetry breaking.
@@ -358,6 +396,13 @@ class IntersectionWinding(Observable):
     transformation $dm$, or a harmonic winding $h$),
     $z \wedge dn = -d(z \wedge n)$ is exact, so $[z \wedge F] = 0$ and
     $[j]$ cannot move.  Both gauge and winding drop out.
+
+    Read that carefully: it is the *class* $[j]$ --- equivalently the periods
+    $J_\mu$ --- that is invariant, because an exact shift integrates to zero
+    over a closed cycle.  The current $j$ itself is **not** invariant
+    pointwise, so this paragraph licenses $J_\mu$ and nothing finer; see the
+    warning on :class:`~.IntersectionCurrent` before correlating $j$ at
+    separated points or at nonzero momentum.
 
     **Geometrically it is a self-linking (framing) number, not a knot
     invariant.**  By Poincare duality $H^3 \cong H_1$, so $[j]$ measures
@@ -425,6 +470,26 @@ class IntersectionWindingSquared(Scalar, Observable):
     Because the winding changes only through topology-shifting moves, check
     its autocorrelation time before trusting error bars: a chain can render it
     *frozen* rather than measured.
+
+    .. note ::
+
+        That freezing is not hypothetical --- it is the normal situation in the
+        constrained ensemble, where $J$ moves only when a defect pair winds the
+        torus, an excursion whose acceptance falls exponentially in the linear
+        size.  A chain can then report $\langle J^2 \rangle = 0$ with *zero*
+        error, which is a censored value and not a measurement of the
+        stiffness.
+
+        The censoring-free alternative measures the same stiffness away from
+        the zero mode: because $j$ is closed on the constraint surface, its
+        dual is transverse, so the structure factor of the *gauge-invariant*
+        current $j_{\rm gi} = (d\phi - 2\pi n) \wedge dn$ (see the warning on
+        :class:`~.IntersectionCurrent`) is the transverse current correlator,
+        and its $k \to 0$ intercept is the helicity modulus.  It is computable
+        on stored configurations and needs no winding move.  Beware
+        fit-window curvature bias in that extrapolation: a wide window
+        manufactures a spurious nonzero intercept that shrinks as the window
+        does.
     """
 
     @classmethod

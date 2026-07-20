@@ -69,3 +69,64 @@ def test_double_intersection_susceptibility_arithmetic():
     vt = 400.0
     chi2 = DoubleIntersectionSusceptibility.NoIntersections(S, fdd, vt)
     assert np.isclose(chi2, 1 + 8.0 / (V * 400.0))
+
+
+def _zero_form(L, rng, integer=True):
+    a = (rng.integers(-2, 3, size=(1,) + tuple(L.dims)) if integer
+         else rng.normal(size=(1,) + tuple(L.dims)))
+    return Form(a, degree=0, lattice=L)
+
+
+def test_current_is_gauge_variant_but_its_periods_are_not():
+    # j = n ^ dn shifts by the EXACT form d(m ^ dn) under n -> n + dm, so it is
+    # not an observable pointwise -- only its fluxes through 3-cycles are.
+    # Anything correlating j at separated points or at nonzero momentum is
+    # measuring the storage gauge.  See the warning on IntersectionCurrent.
+    L = Lattice(4, 4)
+    rng = np.random.default_rng(23)
+
+    def periods(J):
+        return np.array([J[L.comp_index[3][tuple(k for k in range(4) if k != mu)]].sum()
+                         for mu in range(4)])
+
+    for _ in range(3):
+        n = _random_n(L, rng)
+        m = _zero_form(L, rng)
+        ng = Form(np.asarray(n) + np.asarray(d(m)), degree=1, lattice=L)
+
+        j = np.asarray(wedge(n, d(n)))
+        jg = np.asarray(wedge(ng, d(ng)))
+
+        assert not np.array_equal(j, jg)                                  # variant pointwise
+        assert np.array_equal(jg - j, np.asarray(d(wedge(m, d(n)))))      # ... by an exact form
+        assert np.array_equal(periods(j), periods(jg))                    # periods survive
+
+
+def test_gauge_invariant_current_is_invariant_and_shares_the_periods():
+    # j_gi = (dphi - 2 pi n) ^ dn is invariant POINTWISE, obeys d j_gi = -2 pi q,
+    # and differs from j only by the improvement term d(phi dn) -- so it carries
+    # the same periods up to -2 pi and is the representative to correlate.
+    L = Lattice(4, 4)
+    rng = np.random.default_rng(29)
+
+    def j_gi(phi, n):
+        A = Form(np.asarray(d(phi)) - 2 * np.pi * np.asarray(n), degree=1, lattice=L)
+        return np.asarray(wedge(A, d(n)))
+
+    for _ in range(3):
+        n = _random_n(L, rng)
+        phi = _zero_form(L, rng, integer=False)
+        m = _zero_form(L, rng)
+
+        phig = Form(np.asarray(phi) + 2 * np.pi * np.asarray(m), degree=0, lattice=L)
+        ng = Form(np.asarray(n) + np.asarray(d(m)), degree=1, lattice=L)
+
+        assert np.allclose(j_gi(phi, n), j_gi(phig, ng))                  # invariant pointwise
+
+        q = np.asarray(wedge(d(n), d(n)))
+        assert np.allclose(
+            np.asarray(d(Form(j_gi(phi, n), degree=3, lattice=L))), -2 * np.pi * q)
+
+        improvement = (-2 * np.pi * np.asarray(wedge(n, d(n)))
+                       + np.asarray(d(wedge(phi, d(n)))))
+        assert np.allclose(j_gi(phi, n), improvement)

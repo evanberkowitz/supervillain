@@ -779,6 +779,21 @@ condensed phase, exponentially suppressed in a gapped symmetric phase, and
 scale-invariant at a critical point --- separating the anomaly matchings the
 two-point function cannot.
 
+Two cautions, both easy to trip over and both detailed in the class
+documentation below.  First, $j = n \wedge dn$ is **not gauge invariant
+pointwise** --- under $n \to n + dm$ it shifts by the exact form
+$d(m \wedge dn)$ --- so it is only the *fluxes* $J_\mu$ that are observables.
+Correlating $j$ at separated points, or forming its structure factor at
+nonzero momentum, measures the gauge in which the configuration was stored.
+When a local, momentum-resolved current is wanted, use the pointwise-invariant
+$j_{\rm gi} = (d\phi - 2\pi n) \wedge dn$, which obeys
+$d\,j_{\rm gi} = -2\pi q$ and shares $j$'s periods.  Second, $J$ is a
+*topological* integer, which is exactly what makes it slow: in the constrained
+ensemble it moves only when a defect pair winds the torus, so a chain can
+report $\langle J^{2}\rangle = 0$ with zero error --- censored, not measured.
+The $k \to 0$ intercept of the transverse $j_{\rm gi}$ structure factor gives
+the same stiffness without any winding move.
+
 .. autoclass:: supervillain.observable.IntersectionCurrent
    :members:
    :show-inheritance:
