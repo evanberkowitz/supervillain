@@ -503,7 +503,7 @@ class IntersectionWinding(Observable):
         slice-dependent), and this reports the $c = 0$ cycle.
         '''
         L = S.Lattice
-        j = np.asarray(chern_simons_form(n))
+        j = chern_simons_form(n)
         return np.array([j[L.comp_index[3][tuple(k for k in range(4) if k != mu)]]
                          .take(0, axis=mu).sum() for mu in range(4)])
 
