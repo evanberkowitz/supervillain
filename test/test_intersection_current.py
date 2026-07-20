@@ -170,3 +170,32 @@ def test_observable_current_is_invariant_and_reproduces_the_winding():
         per = np.array([np.asarray(j)[L.comp_index[3][tuple(k for k in range(4) if k != mu)]]
                         .sum() / L.N for mu in range(4)])
         assert np.allclose(per, W)
+
+
+def test_winding_is_an_exact_integer():
+    # J is a secondary characteristic class: CS(n) is integer valued and a period
+    # is a sum of integers over a cycle, so the winding is an exact integer and is
+    # returned as one -- no division, no rounding.  Checked on configurations with
+    # genuinely nonzero winding, and against the slice-average it replaced.
+    L = Lattice(4, 6)
+    S = supervillain.action.NoIntersections(L, kappa=0.1)
+    rng = np.random.default_rng(2026)
+    saw_nonzero = False
+    for _ in range(4):
+        # x0-independent, n_0 = 0: every dn component carrying a 0-index vanishes,
+        # so q == 0 identically and J = (CS(a), 0, 0, 0) is generically nonzero.
+        a = rng.integers(-1, 2, size=(4,) + tuple(L.dims))
+        a[0] = 0
+        a[:, :, :, :, :] = a[:, 0:1, :, :, :]
+        n = Form(a, degree=1, lattice=L)
+        assert not np.asarray(wedge(d(n), d(n))).any()          # on the constraint surface
+
+        W = supervillain.observable.IntersectionWinding.Villain(S, n)
+        assert np.issubdtype(W.dtype, np.integer)               # exactly integral
+
+        j = np.asarray(chern_simons_form(n))
+        average = np.array([j[L.comp_index[3][tuple(k for k in range(4) if k != mu)]].sum() / L.N
+                            for mu in range(4)])
+        assert np.array_equal(W.astype(float), average)         # every slice agrees
+        saw_nonzero |= bool(W.any())
+    assert saw_nonzero, 'test is vacuous if every winding is zero'

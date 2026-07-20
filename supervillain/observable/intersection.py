@@ -418,11 +418,10 @@ class IntersectionWinding(Observable):
 
     with $\bar\mu$ the 3-form component spanning the other three directions.
     Because $dj = q$ and the constrained ensemble has $q \equiv 0$, the sum is
-    independent of the slice position $c$ --- a topological integer per
-    configuration per direction.  We evaluate it as the lattice average over
-    slices, $\frac{1}{N}\sum_x j_{\bar\mu}(x)$, which coincides with any single
-    slice when the charge vanishes and degrades gracefully (to the
-    slice-averaged flux) when it does not.
+    independent of the slice position $c$ --- a topological **integer** per
+    configuration per direction, and integer *exactly*: $j$ is integer-valued
+    and a period is a sum of integers over a cycle, so no rounding enters
+    anywhere.  We evaluate a single slice and return it in an integer dtype.
 
     Nonzero fluctuations of $J$ are how a $\theta$ condensate carries
     supercurrent around the torus; see :class:`~.IntersectionWindingSquared`.
@@ -485,21 +484,28 @@ class IntersectionWinding(Observable):
 
     @staticmethod
     def Villain(S, n):
-        r'''The slice-averaged flux of $\mathrm{CS}(n)$ per direction, shape ``(4,)``.
+        r'''The flux of $\mathrm{CS}(n)$ through one 3-cycle per direction, shape ``(4,)``.
 
         Computed from :func:`~.chern_simons_form` rather than from
-        :class:`~.IntersectionCurrent` so the arithmetic stays exact and
-        integral: the two representatives have identical periods, but the
-        gauge-invariant one is float and would deliver these integers only up
-        to rounding.  Nothing $V$-sized is stored along the way.
+        :class:`~.IntersectionCurrent`, and by summing a *single* slice rather
+        than averaging over all $N$ of them.  Both choices are about
+        exactness: $\mathrm{CS}(n)$ is integer-valued, so a period is a sum of
+        integers and is **an exact integer** --- as a secondary characteristic
+        class must be --- and this returns it in the integer dtype it deserves,
+        with no division to round and no $V$-sized intermediate.  Averaging the
+        $N$ slices would divide an integer by $N$ and hand back a float; the
+        gauge-invariant representative would be worse still, delivering these
+        integers only to floating precision.
+
+        On the constraint surface every slice carries the same flux, so the
+        choice of slice is immaterial and this *is* the invariant.  Off it the
+        observable is not topological at all (:math:`q \neq 0` makes the flux
+        slice-dependent), and this reports the $c = 0$ cycle.
         '''
         L = S.Lattice
         j = np.asarray(chern_simons_form(n))
-        W = np.empty(4)
-        for mu in range(4):
-            comp = tuple(k for k in range(4) if k != mu)
-            W[mu] = j[L.comp_index[3][comp]].sum() / L.N
-        return W
+        return np.array([j[L.comp_index[3][tuple(k for k in range(4) if k != mu)]]
+                         .take(0, axis=mu).sum() for mu in range(4)])
 
 
 class IntersectionWindingSquared(Scalar, Observable):
