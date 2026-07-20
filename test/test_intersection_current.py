@@ -11,7 +11,7 @@ import numpy as np
 
 import supervillain
 from supervillain.lattice import Lattice, Form, d, wedge
-from supervillain.observable import DoubleIntersectionSusceptibility
+from supervillain.observable import DoubleIntersectionSusceptibility, chern_simons_form
 
 
 def _action(N=4, kappa=0.1):
@@ -29,7 +29,7 @@ def test_dJ_equals_q():
     rng = np.random.default_rng(7)
     for _ in range(3):
         n = _random_n(L, rng)
-        J = wedge(n, d(n))
+        J = chern_simons_form(n)
         q = wedge(d(n), d(n))
         assert np.array_equal(np.asarray(d(J)), np.asarray(q))
 
@@ -46,7 +46,8 @@ def test_winding_topological_on_constrained_configurations():
         3, supervillain.generator.combining.Sequentially(
             (supervillain.generator.villain.SiteUpdate(S), gas)),
         start='cold')
-    J_all = np.asarray(e.IntersectionCurrent)
+    J_all = np.stack([np.asarray(chern_simons_form(Form(np.asarray(c['n']), degree=1, lattice=L)))
+                      for c in e.configuration])
     W_all = np.asarray(e.IntersectionWinding)
     for cfg in range(len(e)):
         J = J_all[cfg]
@@ -94,8 +95,8 @@ def test_current_is_gauge_variant_but_its_periods_are_not():
         m = _zero_form(L, rng)
         ng = Form(np.asarray(n) + np.asarray(d(m)), degree=1, lattice=L)
 
-        j = np.asarray(wedge(n, d(n)))
-        jg = np.asarray(wedge(ng, d(ng)))
+        j = np.asarray(chern_simons_form(n))
+        jg = np.asarray(chern_simons_form(ng))
 
         assert not np.array_equal(j, jg)                                  # variant pointwise
         assert np.array_equal(jg - j, np.asarray(d(wedge(m, d(n)))))      # ... by an exact form
@@ -127,6 +128,45 @@ def test_gauge_invariant_current_is_invariant_and_shares_the_periods():
         assert np.allclose(
             np.asarray(d(Form(j_gi(phi, n), degree=3, lattice=L))), -2 * np.pi * q)
 
-        improvement = (-2 * np.pi * np.asarray(wedge(n, d(n)))
+        improvement = (-2 * np.pi * np.asarray(chern_simons_form(n))
                        + np.asarray(d(wedge(phi, d(n)))))
         assert np.allclose(j_gi(phi, n), improvement)
+
+
+def test_observable_current_is_invariant_and_reproduces_the_winding():
+    # The IntersectionCurrent OBSERVABLE is now the gauge-invariant
+    # representative, normalized so dj = q.  Two things must hold on a real
+    # ensemble: it is invariant under the integer gauge transformation, and its
+    # periods reproduce IntersectionWinding exactly -- which is what licenses
+    # computing the winding from the (cheaper, exactly integral) CS form while
+    # correlating the invariant one.
+    S = _action()
+    L = S.Lattice
+    gas = supervillain.generator.no_intersection.DefectGas(
+        S, sectorWeights=(1.0, 0.04, 2.4e-3), emit_every=100,
+        rng=np.random.default_rng(5))
+    e = supervillain.Ensemble(S).generate(
+        2, supervillain.generator.combining.Sequentially(
+            (supervillain.generator.villain.SiteUpdate(S), gas)), start='cold')
+
+    rng = np.random.default_rng(41)
+    for cfg in e.configuration:
+        phi = Form(np.asarray(cfg['phi']), degree=0, lattice=L)
+        n = Form(np.asarray(cfg['n']), degree=1, lattice=L)
+        m = _zero_form(L, rng)
+        phi_g = Form(np.asarray(phi) + 2 * np.pi * np.asarray(m), degree=0, lattice=L)
+        n_g = Form(np.asarray(n) + np.asarray(d(m)), degree=1, lattice=L)
+
+        j = supervillain.observable.IntersectionCurrent.Villain(S, phi, n)
+        jg = supervillain.observable.IntersectionCurrent.Villain(S, phi_g, n_g)
+        assert np.allclose(j, jg)                                  # invariant pointwise
+
+        # dj = q, by the chosen normalization.
+        q = np.asarray(wedge(d(n), d(n)))
+        assert np.allclose(np.asarray(d(Form(j, degree=3, lattice=L))), q)
+
+        # and its periods are the winding, to floating precision
+        W = supervillain.observable.IntersectionWinding.Villain(S, n)
+        per = np.array([np.asarray(j)[L.comp_index[3][tuple(k for k in range(4) if k != mu)]]
+                        .sum() / L.N for mu in range(4)])
+        assert np.allclose(per, W)

@@ -268,72 +268,125 @@ class DoubleIntersectionSusceptibility(DerivedQuantity):
         return 1 + FourDefectDistribution.real[3] / (V * VacuumTicks)
 
 
-class IntersectionCurrent(Observable):
+def chern_simons_form(n):
     r"""
-    The $\theta$-sector current: the integer-valued 3-form
+    The abelian Chern--Simons 3-form of the integer connection $n$,
 
     .. math ::
 
-        \texttt{IntersectionCurrent} = j = n \wedge dn,
-
-    whose divergence is *exactly* the topological-charge density,
-
-    .. math ::
-
-        dj = d(n \wedge dn) = dn \wedge dn - n \wedge d(dn) = q,
+        \mathrm{CS}(n) = n \wedge dn,
+        \qquad
+        d\,\mathrm{CS}(n) = dn \wedge dn - n \wedge d(dn) = q,
 
     by the lattice Leibniz rule and $d^2 = 0$ --- both exact, so the identity
-    holds configuration by configuration, not just in expectation.
+    holds configuration by configuration, not just in expectation.  Integer
+    valued, and computed in exact integer arithmetic, which is what makes the
+    periods :class:`~.IntersectionWinding` exact integers rather than floats
+    that happen to round.
 
     .. warning ::
 
-        **$j$ is not gauge invariant pointwise.**  Under the integer gauge
-        transformation $\phi \to \phi + 2\pi m$, $n \to n + dm$ (what
-        :class:`~supervillain.generator.villain.ExactUpdate` performs),
+        **This is not gauge invariant, and that is intrinsic to a
+        Chern--Simons form rather than a defect to be fixed.**  Under the
+        integer gauge transformation $\phi \to \phi + 2\pi m$, $n \to n + dm$
+        (what :class:`~supervillain.generator.villain.ExactUpdate` performs),
 
         .. math ::
 
-            j \;\longrightarrow\; j + dm \wedge dn \;=\; j + d(m \wedge dn),
+            n \wedge dn \;\longrightarrow\; n \wedge dn + dm \wedge dn
+            \;=\; n \wedge dn + d(m \wedge dn),
 
         an *exact* shift.  Only quantities insensitive to an exact 3-form
-        survive: the periods over closed 3-cycles, which is exactly why
-        :class:`~.IntersectionWinding` is well defined.  **Anything local ---
-        $\left\langle j(x) j(y)\right\rangle$ at $x \neq y$, a structure factor
-        $\left\langle|\hat{\jmath}(k)|^{2}\right\rangle$ at $k \neq 0$, the
-        pointwise mean $\left\langle j(x) \right\rangle$ --- is a property of
-        the gauge in which the configuration happens to be stored, not an
-        observable.**  Use it to build :class:`~.IntersectionWinding`, or to
-        check $dj = q$; do not correlate it.
+        survive --- the periods over closed 3-cycles, which is exactly why
+        :class:`~.IntersectionWinding` is well defined (a period is a sum over
+        a cycle with no boundary, so discrete Stokes annihilates the shift;
+        note this needs only closedness of the *cycle*, so it holds even off
+        the constraint surface).  **Anything local --- a two-point function at
+        separated points, a structure factor at $k \neq 0$, the pointwise mean
+        --- is a property of the gauge the configuration happens to be stored
+        in, not an observable.**
 
-        For a *pointwise* gauge-invariant current in the same conservation
-        class, use
+        This is deliberately a plain function and *not* an
+        :class:`~.Observable`: registering it would make it an
+        :class:`~supervillain.Ensemble` attribute that
+        :meth:`~supervillain.Ensemble.measure` computes by default and writes
+        to disk, which is both a $V$-fold storage waste (its whole invariant
+        content is four integers per configuration) and an invitation to
+        correlate it.  It was an ``Observable`` until 2026-07-20; the stored
+        arrays were deleted by ``no-intersections/migrate_h5_names.py``, whose
+        ``DELETIONS`` section records why.
+
+        When a *local* $\theta$ current is wanted, use
+        :class:`~.IntersectionCurrent`, which is gauge invariant pointwise.
+
+    Parameters
+    ----------
+    n : supervillain.lattice.Form
+        An integer-valued 1-form on a four-dimensional lattice.
+
+    Returns
+    -------
+    supervillain.lattice.Form
+        The integer 3-form $n \wedge dn$, degree 3, shape ``(4,) + L.dims``.
+    """
+    if n.lattice.D != 4:
+        raise NotImplementedError(
+            'The Chern-Simons form requires a four-dimensional lattice.')
+    return wedge(n, d(n))
+
+
+class IntersectionCurrent(Observable):
+    r"""
+    The $U(1)_\theta$ current: the **gauge-invariant** 3-form
+
+    .. math ::
+
+        \texttt{IntersectionCurrent} = j
+        = \frac{(d\phi - 2\pi n) \wedge dn}{-2\pi},
+
+    normalized so that its divergence is *exactly* the topological-charge
+    density, $dj = q$.  Both factors are inert under
+    $\phi \to \phi + 2\pi m$, $n \to n + dm$ --- $(d\phi - 2\pi n)$ is the
+    invariant combination the action is built from, and $dn$ is invariant
+    because $d^2 = 0$ --- so unlike the Chern--Simons form
+    :func:`~.chern_simons_form` this is an observable **pointwise**, and its
+    correlators and structure factors at $k \neq 0$ mean something.
+
+    .. note ::
+
+        The two currents differ by an *improvement term*,
 
         .. math ::
 
-            j_{\rm gi} = (d\phi - 2\pi n) \wedge dn,
-            \qquad d\,j_{\rm gi} = -2\pi q,
+            j = n \wedge dn - \frac{d(\phi\, dn)}{2\pi},
 
-        built from the invariant combination $(d\phi - 2\pi n)$ and the
-        invariant $dn$.  It differs from $j$ by an improvement term,
-        $j_{\rm gi} = -2\pi\, j + d(\phi\, dn)$, so the two share their
-        periods --- the same $J_\mu$ up to $-2\pi$ --- and differ by precisely
-        the gauge-ambiguous exact piece.  Correlators of $j_{\rm gi}$ at
-        $k \neq 0$ *are* observables; those of $j$ are not.  (All three
-        statements are checked in ``test/test_intersection_current.py``.)
+        using $d\phi \wedge dn = d(\phi\, dn)$.  An exact form has vanishing
+        periods, so the two carry the **same** :class:`~.IntersectionWinding`
+        and differ only by the piece that was gauge-ambiguous in the first
+        place.  Improvement terms are $\partial$ of a local antisymmetric
+        object, contributing only terms regular at $p = 0$, so they do not
+        move the residue of a massless pole --- but if you ever extract a
+        *nonzero* stiffness this way, check it against the choice of
+        representative before believing it.
 
     **Physical meaning.**  $U(1)_\theta$ shifts $\theta$ by a constant; its
-    charged objects are the defects created by $e^{i\theta}$, and $J$ is the
+    charged objects are the defects created by $e^{i\theta}$, and $j$ is the
     conserved current that transports that charge: in the constrained ensemble
-    ($q \equiv 0$) it is identically divergence-free.  It is the
-    $\theta$-sector analog of the vorticity current of $U(1)_\phi$, and it is
-    computable on every *stored* configuration --- no defect insertions, no
-    enlarged ensemble --- so it opens the $\theta$ sector to plain
-    re-analysis, subject to the gauge caveat above: the re-analysis must go
-    through the periods, or through $j_{\rm gi}$.  Its topological slice sums
-    are the
-    :class:`~.IntersectionWinding`, whose fluctuations
-    (:class:`~.IntersectionWindingSquared`) are the stiffness diagnostic of
-    $U(1)_\theta$ symmetry breaking.
+    ($q \equiv 0$) it is identically divergence-free.  It is computable on
+    every *stored* configuration --- no defect insertions, no enlarged
+    ensemble, no worm --- so it opens the $\theta$ sector to plain
+    re-analysis.  Because it is closed on shell its dual is transverse, which
+    makes $\left\langle \lvert\hat{\jmath}(k)\rvert^2 \right\rangle$ the transverse
+    current correlator whose $k \to 0$ intercept is the $\theta$-sector
+    helicity modulus --- the stiffness diagnostic
+    (:class:`~.IntersectionWindingSquared`) measured *without* needing the
+    sampler to move a winding.
+
+    .. warning ::
+
+        This is a $V$-sized float field, so measuring it across a campaign
+        stores $4 V$ numbers per configuration.  Prefer computing it on demand,
+        or reducing it (to a structure factor) before storing.
 
     Requires a four-dimensional lattice.  On the unconstrained Villain model it
     is still measurable, but $dj = q \neq 0$, so only its *constrained*
@@ -341,13 +394,15 @@ class IntersectionCurrent(Observable):
     """
 
     @staticmethod
-    def Villain(S, n):
-        r'''Measure the 3-form $j = n \wedge dn$, shape ``(4,) + L.dims``.'''
+    def Villain(S, phi, n):
+        r'''Measure $j = (d\phi - 2\pi n) \wedge dn / (-2\pi)$ as a degree-3
+        :class:`~supervillain.lattice.Form`, shape ``(4,) + L.dims``.'''
         L = S.Lattice
         if L.D != 4:
             raise NotImplementedError(
                 'IntersectionCurrent requires a four-dimensional lattice.')
-        return np.asarray(wedge(n, d(n)))
+        A = d(phi) - 2 * np.pi * n
+        return wedge(A, d(n)) / (-2 * np.pi)
 
 
 class IntersectionWinding(Observable):
@@ -400,9 +455,10 @@ class IntersectionWinding(Observable):
     Read that carefully: it is the *class* $[j]$ --- equivalently the periods
     $J_\mu$ --- that is invariant, because an exact shift integrates to zero
     over a closed cycle.  The current $j$ itself is **not** invariant
-    pointwise, so this paragraph licenses $J_\mu$ and nothing finer; see the
-    warning on :class:`~.IntersectionCurrent` before correlating $j$ at
-    separated points or at nonzero momentum.
+    pointwise, so this paragraph licenses $J_\mu$ and nothing finer.  That is
+    why :func:`~.chern_simons_form` is a plain function rather than an
+    observable, and why a *local* $\theta$ current means the gauge-invariant
+    :class:`~.IntersectionCurrent`.
 
     **Geometrically it is a self-linking (framing) number, not a knot
     invariant.**  By Poincare duality $H^3 \cong H_1$, so $[j]$ measures
@@ -428,13 +484,21 @@ class IntersectionWinding(Observable):
     """
 
     @staticmethod
-    def Villain(S, IntersectionCurrent):
-        r'''The slice-averaged flux of $j$ per direction, shape ``(4,)``.'''
+    def Villain(S, n):
+        r'''The slice-averaged flux of $\mathrm{CS}(n)$ per direction, shape ``(4,)``.
+
+        Computed from :func:`~.chern_simons_form` rather than from
+        :class:`~.IntersectionCurrent` so the arithmetic stays exact and
+        integral: the two representatives have identical periods, but the
+        gauge-invariant one is float and would deliver these integers only up
+        to rounding.  Nothing $V$-sized is stored along the way.
+        '''
         L = S.Lattice
+        j = np.asarray(chern_simons_form(n))
         W = np.empty(4)
         for mu in range(4):
             comp = tuple(k for k in range(4) if k != mu)
-            W[mu] = IntersectionCurrent[L.comp_index[3][comp]].sum() / L.N
+            W[mu] = j[L.comp_index[3][comp]].sum() / L.N
         return W
 
 
@@ -483,8 +547,7 @@ class IntersectionWindingSquared(Scalar, Observable):
         The censoring-free alternative measures the same stiffness away from
         the zero mode: because $j$ is closed on the constraint surface, its
         dual is transverse, so the structure factor of the *gauge-invariant*
-        current $j_{\rm gi} = (d\phi - 2\pi n) \wedge dn$ (see the warning on
-        :class:`~.IntersectionCurrent`) is the transverse current correlator,
+        :class:`~.IntersectionCurrent` is the transverse current correlator,
         and its $k \to 0$ intercept is the helicity modulus.  It is computable
         on stored configurations and needs no winding move.  Beware
         fit-window curvature bias in that extrapolation: a wide window

@@ -779,20 +779,38 @@ condensed phase, exponentially suppressed in a gapped symmetric phase, and
 scale-invariant at a critical point --- separating the anomaly matchings the
 two-point function cannot.
 
-Two cautions, both easy to trip over and both detailed in the class
-documentation below.  First, $j = n \wedge dn$ is **not gauge invariant
-pointwise** --- under $n \to n + dm$ it shifts by the exact form
-$d(m \wedge dn)$ --- so it is only the *fluxes* $J_\mu$ that are observables.
-Correlating $j$ at separated points, or forming its structure factor at
-nonzero momentum, measures the gauge in which the configuration was stored.
-When a local, momentum-resolved current is wanted, use the pointwise-invariant
-$j_{\rm gi} = (d\phi - 2\pi n) \wedge dn$, which obeys
-$d\,j_{\rm gi} = -2\pi q$ and shares $j$'s periods.  Second, $J$ is a
-*topological* integer, which is exactly what makes it slow: in the constrained
-ensemble it moves only when a defect pair winds the torus, so a chain can
-report $\langle J^{2}\rangle = 0$ with zero error --- censored, not measured.
-The $k \to 0$ intercept of the transverse $j_{\rm gi}$ structure factor gives
-the same stiffness without any winding move.
+Which current, though, needs care, and the distinction is worth stating before
+the classes below.  The Chern--Simons form $\mathrm{CS}(n) = n \wedge dn$ is
+the natural thing to write --- but it is **not gauge invariant pointwise**:
+under $n \to n + dm$ it shifts by the exact form $d(m \wedge dn)$.  A period
+over a closed 3-cycle is a sum with no boundary, so discrete Stokes kills that
+shift and the fluxes $J_\mu$ survive; but *anything local* built from
+$\mathrm{CS}(n)$ --- a correlator at separated points, a structure factor at
+nonzero momentum --- measures the gauge the configuration was stored in.  That
+is why :func:`~supervillain.observable.chern_simons_form` is a plain function
+rather than an observable: it exists to make the fluxes, in exact integer
+arithmetic, and nothing else.
+
+The observable current is the pointwise-invariant
+
+.. math ::
+
+   j = \frac{(d\phi - 2\pi n) \wedge dn}{-2\pi},
+   \qquad dj = q,
+
+built from the invariant combination $(d\phi - 2\pi n)$ and the invariant
+$dn$.  It differs from $\mathrm{CS}(n)$ by the improvement term
+$d(\phi\, dn)/2\pi$, so it carries exactly the same periods while being safe to
+correlate at any momentum.
+
+Second caution: $J$ is a *topological* integer, which is exactly what makes it
+slow.  In the constrained ensemble it moves only when a defect pair winds the
+torus, so a chain can report $\langle J^{2}\rangle = 0$ with zero error ---
+censored, not measured.  Because $j$ is closed on shell its dual is transverse,
+so the $k \to 0$ intercept of its structure factor gives the same stiffness
+with no winding move at all.
+
+.. autofunction:: supervillain.observable.chern_simons_form
 
 .. autoclass:: supervillain.observable.IntersectionCurrent
    :members:
