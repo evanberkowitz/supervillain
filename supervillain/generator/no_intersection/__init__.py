@@ -20,8 +20,8 @@ def Hammer(S, fugacity=None):
 
     The :class:`DefectGas`, :class:`ConstrainedLinkUpdate`, and
     :class:`WrappingLoopUpdate` all update $n$ only; a
-    :class:`~supervillain.generator.villain.SiteUpdate` is included to update
-    $\phi$.  We also reuse the Villain
+    :class:`~supervillain.generator.villain.SiteHeatbath` is included to update
+    $\phi$ (exactly, since at fixed $n$ the action is Gaussian in $\phi$).  We also reuse the Villain
     :class:`~supervillain.generator.villain.ExactUpdate` and
     :class:`~supervillain.generator.villain.CohomologyUpdate`: both change $n$ by a
     *closed* form, so they leave $dn$ (and hence the charge density $q = dn\wedge dn$)
@@ -61,7 +61,7 @@ def Hammer(S, fugacity=None):
     An ergodic generator for updating No-Intersection configurations.
     '''
     roster = (
-        _villain.SiteUpdate(S),
+        _villain.SiteHeatbath(S),
         _villain.ExactUpdate(S),
         _villain.CohomologyUpdate(S),
         ConstrainedLinkUpdate(S),

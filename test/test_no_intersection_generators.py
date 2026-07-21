@@ -332,7 +332,7 @@ def test_hammer_includes_constraint_preserving_villain_updates():
     # correlator, where every worm we tried jammed.
     S = _action()
     H = str(supervillain.generator.no_intersection.Hammer(S, fugacity=0.025))
-    for name in ('SiteUpdate', 'ExactUpdate', 'CohomologyUpdate', 'ConstrainedLinkUpdate',
+    for name in ('SiteHeatbath', 'ExactUpdate', 'CohomologyUpdate', 'ConstrainedLinkUpdate',
                  'WrappingLoopUpdate', 'PlanarFluxUpdate', 'ScattershotUpdate',
                  'DefectGas'):
         assert name in H
