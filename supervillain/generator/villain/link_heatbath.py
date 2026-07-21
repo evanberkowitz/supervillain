@@ -45,7 +45,7 @@ class LinkHeatbath(ReadWriteable, Generator):
     for any $W$.  Like :class:`~.LinkUpdate`, the heatbath therefore holds
     $n \bmod W$ (the winding sector) fixed; for $W=1$ that is vacuous and the
     update is complete, while for $W>1$ the sector must be moved separately (see
-    :class:`~.ExactUpdate`, :class:`~.CohomologyUpdate`, and the :class:`~.ClassicWorm`).
+    :class:`~.ExactUpdate`, :class:`~.CohomologyUpdate`, and the :class:`~villain.worm.ClassicWorm`).
 
     .. seealso ::
         :class:`~.LinkUpdate` is the Metropolis version, whose stationary
