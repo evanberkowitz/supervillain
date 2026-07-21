@@ -71,6 +71,17 @@ We can decouple these proposals.
 .. autoclass :: supervillain.generator.villain.LinkUpdate
    :members:
 
+These decoupled proposals can be sampled *exactly* rather than Metropolis-tested.
+At fixed $n$ the action is quadratic in $\phi$, so a single $\phi$ has a Gaussian conditional; at fixed $\phi$ each $n_\ell$ enters the action independently, so a single $n$ has a (discrete Gaussian) conditional on the constraint-preserving coset.
+The :class:`~.SiteHeatbath` and :class:`~.LinkHeatbath` draw these conditionals directly.
+They are drop-in heatbath replacements for the :class:`~.SiteUpdate` and :class:`~.LinkUpdate`: they take no proposal width and never reject.
+
+.. autoclass :: supervillain.generator.villain.SiteHeatbath
+   :members:
+
+.. autoclass :: supervillain.generator.villain.LinkHeatbath
+   :members:
+
 When $W=1$ the combination of the :class:`~.SiteUpdate` and :class:`~.LinkUpdate` are ergodic.
 But when $W>1$ the :class:`~.LinkUpdate` only offers changes to $n$ by multiples of $W$ to preserve the constraint $dn = 0 \text{ mod }W$.
 For an ergodic algorithm when $W>1$ we need to offer ways to change $n$ by 1 (less than $W$) while maintaining the constraint.

@@ -1,6 +1,8 @@
 
 from .site import SiteUpdate
+from .site_heatbath import SiteHeatbath
 from .link import LinkUpdate
+from .link_heatbath import LinkHeatbath
 from .exact import ExactUpdate
 from .cohomology import CohomologyUpdate
 from .neighborhood import NeighborhoodUpdate
