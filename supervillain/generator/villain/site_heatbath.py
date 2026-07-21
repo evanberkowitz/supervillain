@@ -21,7 +21,7 @@ class SiteHeatbath(ReadWriteable, Generator):
     the conditional of a single site given its neighbors is a one-dimensional
     Gaussian.  Writing $g = \delta(d\phi - 2\pi n)$ for the local force 0-form (so
     that $\kappa g = \partial S / \partial \phi$) and using that the scalar
-    Laplacian $\delta d$ has diagonal equal to the coordination number $2D$,
+    Laplacian $\delta d$ has diagonal equal to the coordination number $2D$ in dimension $D$,
 
     .. math ::
 
@@ -31,12 +31,6 @@ class SiteHeatbath(ReadWriteable, Generator):
     neighbor within a color, so each color's draws are simultaneously exact; this
     is red--black Gibbs / stochastic Gauss--Seidel on $\Delta\phi = 2\pi\,\delta n$.
     The update leaves $n$ untouched and is dimension-independent.
-
-    .. note ::
-        The color order is randomized every sweep.  This is not needed for
-        correctness --- each color's draw is an exact conditional, so any fixed
-        order already samples $P(\phi\mid n)$ --- but it makes the composite sweep
-        kernel reversible rather than merely stationary.
 
     .. seealso ::
         :class:`~.SiteUpdate` for the Metropolis version, which offers the same
@@ -93,6 +87,10 @@ class SiteHeatbath(ReadWriteable, Generator):
         r = d(phi) - 2 * np.pi * n
 
         colors = L.checkerboarding
+        # The color order is randomized every sweep.  This is not needed for
+        # correctness --- each color's draw is an exact conditional, so any fixed
+        # order already samples $P(\phi\mid n)$ --- but it makes the composite sweep
+        # kernel reversible rather than merely stationary.
         for i in self.rng.permutation(len(colors)):
             color = colors[i]
 
@@ -117,6 +115,5 @@ class SiteHeatbath(ReadWriteable, Generator):
 
     def report(self):
         return (
-            f'SiteHeatbath: {self.sweeps} exact heatbath sweeps of φ '
-            '(no accept/reject).'
+            f'{self.sweeps} exact heatbath sweeps of φ.'
         )

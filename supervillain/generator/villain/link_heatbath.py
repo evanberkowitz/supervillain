@@ -18,33 +18,37 @@ class LinkHeatbath(ReadWriteable, Generator):
     integer link field $n$ from its exact conditional rather than proposing a
     change of $\pm W$ and accepting or rejecting, so it takes no step size and
     never rejects.
+    The update leaves $\phi$ untouched.
 
     At fixed $\phi$ each $n_\ell$ appears in a single term of the
     :class:`~.Villain` action, so the links are conditionally independent and every
-    link can be resampled simultaneously (no checkerboard).  With $A = d\phi$ a
+    link can be resampled simultaneously.  With $d\phi{}_{\ell}$ a
     fixed background 1-form, the exact conditional on the constraint-preserving
     coset $n_\ell^0 + W\mathbb{Z}$ is a discrete Gaussian
 
     .. math ::
 
-        P(n_\ell = n_\ell^0 + W m) \propto \exp\left[-\frac{\kappa}{2}\left(A_\ell - 2\pi n_\ell^0 - 2\pi W m\right)^2\right],
+        P(n{}_\ell = n{}_\ell^0 + W m) \propto \exp\left[-\frac{\kappa}{2}\left(d\phi{}_\ell - 2\pi n{}_\ell^0 - 2\pi W m\right)^2\right],
         \qquad m \in \mathbb{Z},
 
-    centered on $m^* = (A_\ell / 2\pi - n_\ell^0)/W$ with width
-    $\sigma_m = 1/(2\pi W \sqrt{\kappa})$.  We draw it by truncated enumeration over
-    a window of $\pm K$ integers about $m^*$ (so the truncation error
-    $\sim e^{-\frac{1}{2}\kappa(2\pi W)^2 K^2}$ is negligible) and Gumbel-max
-    sampling, vectorized across all links.  The update leaves $\phi$ untouched.
+    centered on $m^* = (d\phi{}_\ell / 2\pi - n{}_\ell^0)/W$ with width
+    $\sigma_m = 1/(2\pi W \sqrt{\kappa})$.  We draw it by truncated enumeration and
+    Gumbel-max sampling, vectorized across all links: the candidates run over a
+    window of $\pm K$ integers about $m^*$, where the integer half-window $K$ is
+    set to span ``coverage_sigmas`` standard deviations $\sigma_m$
+    of the conditional (so the truncated tail $\sim e^{-\frac{1}{2}\kappa(2\pi W)^2
+    K^2}$ is negligible).  $K$ is not a user parameter; it adapts to $\kappa$ and
+    $W$ through $\sigma_m$.
 
     Because the moves are per-link shifts by multiples of $W$, they preserve the
     constraint $dn \equiv 0 \pmod W$ automatically and independently on every link,
     for any $W$.  Like :class:`~.LinkUpdate`, the heatbath therefore holds
     $n \bmod W$ (the winding sector) fixed; for $W=1$ that is vacuous and the
     update is complete, while for $W>1$ the sector must be moved separately (see
-    :class:`~.ExactUpdate`, :class:`~.CohomologyUpdate`, and the worm).
+    :class:`~.ExactUpdate`, :class:`~.CohomologyUpdate`, and the :class:`~.ClassicWorm`).
 
     .. seealso ::
-        :class:`~.LinkUpdate` for the Metropolis version, whose stationary
+        :class:`~.LinkUpdate` is the Metropolis version, whose stationary
         distribution on the coset is the same discrete Gaussian sampled here.
 
     Parameters
@@ -53,11 +57,14 @@ class LinkHeatbath(ReadWriteable, Generator):
         The Villain action whose $n$ is resampled.
     rng: numpy.random.Generator
         A source of randomness; if omitted a fresh default generator is used.
-    n_sigma: float
-        Half-window in units of $\sigma_m$ (default 6 --- deep in the tail).
+    coverage_sigmas: float
+        How many standard deviations $\sigma_m$ of the conditional the enumeration
+        window covers before the (in-principle infinite) discrete-Gaussian sum is
+        truncated.  The integer half-window $K$ is derived from this and the width;
+        the default 6 leaves a negligible tail and rarely needs changing.
     '''
 
-    def __init__(self, action, rng=None, n_sigma=6.0):
+    def __init__(self, action, rng=None, coverage_sigmas=6.0):
         if not isinstance(action, supervillain.action.Villain):
             raise ValueError('The LinkHeatbath requires the Villain action.')
 
@@ -67,11 +74,12 @@ class LinkHeatbath(ReadWriteable, Generator):
         self.W = action.W
 
         self.rng = rng if rng is not None else np.random.default_rng()
-        self.n_sigma = n_sigma
+        self.coverage_sigmas = coverage_sigmas
 
-        # Half-window K (in integer m), from the coset width σ_m = 1/(2π W √κ).
+        # Derived integer half-window K, from the coset width σ_m = 1/(2π W √κ);
+        # the user knob is coverage_sigmas, not K.
         sigma_m = 1.0 / (_TWO_PI * self.W * np.sqrt(self.kappa))
-        self.K = int(np.ceil(self.n_sigma * sigma_m)) + 2
+        self.K = int(np.ceil(self.coverage_sigmas * sigma_m)) + 2
 
         self.sweeps = 0
 

@@ -18,6 +18,18 @@ class SiteUpdate(ReadWriteable, Generator):
     .. math ::
 
         \Delta \phi_x   \sim \text{uniform}(-\texttt{interval\_phi}, +\texttt{interval\_phi})
+
+    .. seealso ::
+
+        :class:`~.SiteHeatbath` is a similar, exact, rejection-free sampler.
+
+    Parameters
+    ----------
+    action: supervillain.action.Villain
+        The action to update.
+    interval_phi: float
+        The interval of the uniform proposal.
+
     '''
 
     def __init__(self, action, interval_phi = np.pi):
