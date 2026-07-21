@@ -53,14 +53,14 @@ def Hammer(S, worms=1):
 
     if S.W < float('inf'):
         return _combining.Sequentially((
-                SiteUpdate(S),
-                LinkUpdate(S),  # <-- changes dn by W, omitted below.
+                SiteHeatbath(S),
+                LinkHeatbath(S),  # <-- changes dn by W, omitted below.
                 ExactUpdate(S),
                 CohomologyUpdate(S),
                 ) + worm)
 
     return _combining.Sequentially((
-            SiteUpdate(S),
+            SiteHeatbath(S),
             ExactUpdate(S),
             CohomologyUpdate(S),
             ) + worm)
