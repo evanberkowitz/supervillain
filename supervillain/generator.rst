@@ -272,8 +272,8 @@ The combination of the :class:`~.worldline.VortexUpdate`, :class:`~.CoexactUpdat
 However, the may be suboptimal.  In particular the :class:`~.worldline.WrappingUpdate` touches a large number of links which often leads to very large changes in action
 and rejection.  Just as in the Villain case we can make smarter updates to a dynamically-determined set of variables with high acceptance by using a *worm algorithm*.
 
-Metropolis Updates
-------------------
+Heatbath Updates
+----------------
 
 As in the Villain formulation these decoupled proposals can be sampled *exactly*.
 Writing the gauge-invariant link one-form $f = m - \delta v / \bar{W}$, a single plaquette's shift of $v$ or of the integer two-form $t$ (with $\Delta m = \delta t$) has a Gaussian conditional, so the :class:`~.VortexHeatbath` and :class:`~.CoexactHeatbath` are drop-in heatbath replacements for the :class:`~.worldline.VortexUpdate` and :class:`~.CoexactUpdate` that take no proposal width and never reject.

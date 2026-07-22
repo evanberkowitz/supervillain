@@ -532,7 +532,7 @@ class IntersectionWindingSquared(Scalar, Observable):
 
     No disconnected piece is subtracted: reflecting any direction spanned by
     the transverse 3-cycle flips $J_\mu$'s orientation, so
-    $\langle J_\mu \rangle = 0$ exactly and $\langle J^2 \rangle$ *is* the
+    $\langle {J}_\mu \rangle = 0$ exactly and $\langle J^2 \rangle$ *is* the
     susceptibility --- subtracting a noisy sample mean would only bias small
     ensembles.  (Restore the subtraction if you ever simulate in a
     reflection-breaking background.)
@@ -578,7 +578,7 @@ class IntersectionWindingSquared(Scalar, Observable):
 
     @staticmethod
     def Villain(S, IntersectionWinding):
-        r'''Measure $\frac{1}{4}\sum_\mu J_\mu^2$.'''
+        r'''Measure $\frac{1}{4}\sum_\mu {J}_\mu^2$.'''
         return np.mean(IntersectionWinding ** 2)
 
 
