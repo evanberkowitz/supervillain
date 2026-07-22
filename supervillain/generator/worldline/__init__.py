@@ -2,6 +2,8 @@
 from .wrapping import WrappingUpdate
 from .plaquette import PlaquetteUpdate
 from .vortex import VortexUpdate
+from .vortex_heatbath import VortexHeatbath
+from .vortex_overrelaxation import VortexOverrelaxation
 from .coexact import CoexactUpdate
 from .coexact_heatbath import CoexactHeatbath
 from .worm import ClassicWorm as Worm
