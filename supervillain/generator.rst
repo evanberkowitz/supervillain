@@ -99,6 +99,16 @@ We need to make closed updates to $n$, which can be broken up into :class:`~.vil
 .. autoclass :: supervillain.generator.villain.CohomologyUpdate
    :members:
 
+Just as the :class:`~.SiteHeatbath` and :class:`~.LinkHeatbath` are exact-conditional versions of the :class:`~.SiteUpdate` and :class:`~.LinkUpdate`, the closed updates admit heatbath kernels too.
+Holding everything else fixed, the action is quadratic in a single site's integer shift $z_x$ (for :class:`~.ExactUpdate`, $\Delta n = dz$) or in the integer holonomy shift $h_\mu$ on a slice (for :class:`~.CohomologyUpdate`), so each conditional is a one-dimensional *discrete* Gaussian which the :class:`~.ExactHeatbath` and :class:`~.CohomologyHeatbath` draw directly (by truncated enumeration and a Gumbel-max pick), never rejecting.
+Being discrete, neither has a microcanonical overrelaxation partner (a reflection about the real mean leaves the integer lattice).
+
+.. autoclass :: supervillain.generator.villain.ExactHeatbath
+   :members: step, report
+
+.. autoclass :: supervillain.generator.villain.CohomologyHeatbath
+   :members: step, report
+
 The combination of the :class:`~.SiteUpdate`, :class:`~.LinkUpdate`, :class:`~.ExactUpdate`, and :class:`~.CohomologyUpdate` is ergodic even when $W>1$.
 But it can be slow to decorrelate.
 As mentioned, the :class:`~.CohomologyUpdate` often rejects because it touches a macroscopic number of variables ($N^{D-1}$ links per direction).
@@ -200,6 +210,15 @@ The worm offers *dynamically determined constraint-preserving updates* and is mu
 In can change the holonomy, for example, by finding a route around the torus that isn't a straight shot but
 runs through the valley of the action.
 
+A different nonlocal move for the Villain spin sector is the Wolff reflection cluster.
+Reflecting $\phi \rightarrow 2r - \phi$ on a cluster of sites and $n \rightarrow -n$ on its internal links sends the gauge-invariant link $\theta = (d\phi - 2\pi n) \rightarrow -\theta$ internally, leaving every internal-bond energy invariant; a whole-lattice reflection is the exact symmetry $\theta \rightarrow -\theta$ (an O(2) reflection combined with charge conjugation $n \rightarrow -n$).
+Growing the cluster across boundary bonds with the Fortuin--Kasteleyn probability $q = 1 - \exp(-[E_b^R - E_b]_+)$ makes the whole reflection rejection-free while satisfying detailed balance.
+
+.. autoclass :: supervillain.generator.villain.VillainWolff
+   :members: step, report
+
+Like the worm the cluster is not ergodic on its own --- it leaves the winding $w_\mu$ (the $H^1$ class) fixed --- so it is combined with the local updates; its value is decorrelating the long-wavelength spin modes near criticality.
+
 Finally, we provide a convenience function which provides an ergodic generator.
 
 .. autofunction :: supervillain.generator.villain.Hammer
@@ -222,6 +241,19 @@ We can decouple the proposals in the :class:`~.worldline.PlaquetteUpdate`, and u
 
 .. autoclass :: supervillain.generator.worldline.CoexactUpdate
    :members:
+
+As in the Villain formulation these decoupled proposals can be sampled *exactly*.
+Writing the gauge-invariant link one-form $f = m - \delta v / \bar{W}$, a single plaquette's shift of $v$ or of the integer two-form $t$ (with $\Delta m = \delta t$) has a Gaussian conditional, so the :class:`~.VortexHeatbath` and :class:`~.CoexactHeatbath` are drop-in heatbath replacements for the :class:`~.worldline.VortexUpdate` and :class:`~.CoexactUpdate` that take no proposal width and never reject.
+The :class:`~.CoexactHeatbath` (and the :class:`~.VortexHeatbath` at finite $W$) draws a *discrete* Gaussian; at $W=\infty$ the vortex field $v$ is real, so the :class:`~.VortexHeatbath` conditional is continuous and admits a microcanonical partner, the :class:`~.VortexOverrelaxation`, which reflects $v$ about its conditional mean.
+
+.. autoclass :: supervillain.generator.worldline.VortexHeatbath
+   :members: step, report
+
+.. autoclass :: supervillain.generator.worldline.VortexOverrelaxation
+   :members: step, report
+
+.. autoclass :: supervillain.generator.worldline.CoexactHeatbath
+   :members: step, report
 
 To have a fully ergodic algorithm we will also need to update the :class:`~.TorusWrapping` of the worldlines.
 
