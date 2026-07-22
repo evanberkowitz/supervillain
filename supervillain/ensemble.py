@@ -305,13 +305,16 @@ class Ensemble(Extendable):
                      histogram_label=None,
                      bins=31, density=True,
                      alpha=0.5, color=None,
-                     history_kwargs=dict(),
+                     history_kwargs=None,
                      ):
         r'''
         .. seealso ::
             :py:meth:`Blocking.plot_history <~.Blocking.plot_history>`.
         '''
 
+        # Copy rather than mutate: a shared mutable default (or the caller's own dict) would
+        # otherwise carry `label` from one call into the next.
+        history_kwargs = dict(history_kwargs) if history_kwargs else {}
         if 'label' not in history_kwargs:
             history_kwargs['label']=label
 
