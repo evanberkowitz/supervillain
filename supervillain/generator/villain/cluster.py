@@ -18,11 +18,11 @@ class VillainWolff(ReadWriteable, Generator):
     Draw a reflection value $r \sim U[0, 2\pi)$ and a seed site.  A cluster is grown and
     then reflected: on cluster sites $\phi_x \to 2r - \phi_x$, and on *internal* links
     (both endpoints in the cluster) $n \to -n$.  Because the gauge-invariant link
-    $\theta = (d\phi - 2\pi n)$ then maps to $-\theta$ on every internal link, each
-    internal-bond energy $\frac{\kappa}{2}\theta^2$ is exactly invariant; only boundary
-    bonds change the action.  Whole-lattice reflection is the exact global symmetry
-    $\theta \to -\theta$ (a reflection of the O(2) spin combined with charge conjugation
-    $n \to -n$).
+    $(d\phi - 2\pi n)_\ell$ then maps to minus itself on every internal link, each
+    internal-bond energy $\frac{\kappa}{2}(d\phi - 2\pi n)_\ell^2$ is exactly invariant;
+    only boundary bonds change the action.  Whole-lattice reflection is the exact global
+    symmetry $(d\phi - 2\pi n) \to -(d\phi - 2\pi n)$ (a reflection of the O(2) spin
+    combined with charge conjugation $n \to -n$).
 
     The cluster grows across a boundary bond from an in-cluster site $x$ to an out-of-cluster
     neighbor $y$ with the Fortuin--Kasteleyn / Wolff probability
@@ -30,7 +30,7 @@ class VillainWolff(ReadWriteable, Generator):
     .. math ::
 
         q = 1 - \exp\!\left(-\left[E_b^R - E_b\right]_+\right),
-        \qquad E_b = \tfrac{\kappa}{2}\theta_b^2,
+        \qquad E_b = \tfrac{\kappa}{2}(d\phi - 2\pi n)_b^2,
 
     where $E_b^R$ is the bond energy with $x$ reflected (and $y$, $n$ held fixed): $y$ is
     bound into the cluster precisely when reflecting $x$ alone would *raise* the bond's
@@ -38,14 +38,12 @@ class VillainWolff(ReadWriteable, Generator):
     This makes the whole cluster move rejection-free (acceptance 1) while satisfying
     detailed balance.
 
-    .. note ::
-
-        A torus-wrapping cluster *does* change the winding holonomy
-        ${w}_\mu = \sum_\text{cycle} {n}_\mu$ (the $H^1$ class): the move realizes the global charge-conjugation reflection
-        $n \rightarrow -n$, so a cluster wrapping a cycle flips ${w}_\mu \rightarrow -{w}_\mu$.  It
-        does **not** leave $H^1$ fixed.  (Do not confuse this holonomy with the
-        :class:`~.WindingSquared` observable $\langle (dn)^2\rangle$, the local vortex density,
-        which is a different quantity.)  The move is nonetheless **not ergodic on its own**,
+    A torus-wrapping cluster can change the winding holonomy
+    ${w}_\mu = \sum_\text{cycle} {n}_\mu$ (the $H^1$ class): the move realizes the global charge-conjugation reflection
+    $n \rightarrow -n$, so a cluster wrapping a cycle flips ${w}_\mu \rightarrow -{w}_\mu$.
+    
+    .. note :
+        The move is nonetheless not ergodic on its own,
         because it only *reflects* existing structure: from $n = 0$ it can never produce
         $n \neq 0$ (since $-0 = 0$), and with the current uniform reflection value the clusters
         are near-global and realize sign flips $w \rightarrow -w$ rather than moves between
@@ -139,15 +137,15 @@ class VillainWolff(ReadWriteable, Generator):
                     y = list(x); y[mu] = (y[mu] + sign) % N; y = tuple(y)
                     if in_cluster[y]:
                         continue
-                    if sign == 1:                    # link (x,mu): θ = p[y] − p[x] − 2π n[mu,x]
+                    if sign == 1:                    # link (x,mu): b = p[y] − p[x] − 2π n[mu,x]
                         nval = n[(mu,) + x]
-                        theta = p[y] - px - 2 * np.pi * nval
-                        thetaR = p[y] - (2 * r - px) - 2 * np.pi * nval
-                    else:                            # link (y,mu): θ = p[x] − p[y] − 2π n[mu,y]
+                        link = p[y] - px - 2 * np.pi * nval
+                        link_reflected = p[y] - (2 * r - px) - 2 * np.pi * nval
+                    else:                            # link (y,mu): b = p[x] − p[y] − 2π n[mu,y]
                         nval = n[(mu,) + y]
-                        theta = px - p[y] - 2 * np.pi * nval
-                        thetaR = (2 * r - px) - p[y] - 2 * np.pi * nval
-                    dE = (kappa / 2) * (thetaR**2 - theta**2)   # E_b^R − E_b
+                        link = px - p[y] - 2 * np.pi * nval
+                        link_reflected = (2 * r - px) - p[y] - 2 * np.pi * nval
+                    dE = (kappa / 2) * (link_reflected**2 - link**2)   # E_b^R − E_b
                     if dE > 0 and self.rng.uniform() < 1.0 - np.exp(-dE):
                         in_cluster[y] = True
                         stack.append(y)
