@@ -1,6 +1,7 @@
 
 from .site import SiteUpdate
 from .site_heatbath import SiteHeatbath
+from .site_overrelaxation import SiteOverrelaxation
 from .link import LinkUpdate
 from .link_heatbath import LinkHeatbath
 from .exact import ExactUpdate
