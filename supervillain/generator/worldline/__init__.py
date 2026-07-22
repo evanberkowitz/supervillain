@@ -1,5 +1,6 @@
 
 from .wrapping import WrappingUpdate
+from .wrapping_heatbath import WrappingHeatbath
 from .plaquette import PlaquetteUpdate
 from .vortex import VortexUpdate
 from .vortex_heatbath import VortexHeatbath
@@ -16,9 +17,10 @@ def Hammer(S, worms=1, overrelax=3):
     combination of generators.  It may change from version to version as new generators
     become available or get improved.
 
-    The $v$ and coexact-$m$ moves are drawn from their exact conditionals by the
-    :class:`~.VortexHeatbath` and :class:`~.CoexactHeatbath` (rejection-free replacements for
-    the :class:`~.worldline.VortexUpdate` and :class:`~.CoexactUpdate`).  At $W=\infty$ the
+    The $v$, coexact-$m$, and wrapping moves are drawn from their exact conditionals by the
+    :class:`~.VortexHeatbath`, :class:`~.CoexactHeatbath`, and :class:`~.WrappingHeatbath`
+    (rejection-free replacements for the :class:`~.worldline.VortexUpdate`,
+    :class:`~.CoexactUpdate`, and :class:`~.worldline.WrappingUpdate`).  At $W=\infty$ the
     vortex field $v$ is continuous, so a microcanonical :class:`~.VortexOverrelaxation` is
     interleaved after its heatbath to accelerate decorrelation; at finite $W$ (discrete $v$)
     it has no reflection partner and is omitted.
@@ -57,6 +59,6 @@ def Hammer(S, worms=1, overrelax=3):
             VortexHeatbath(S),
             ) + vorx + (
             CoexactHeatbath(S),
-            WrappingUpdate(S),
+            WrappingHeatbath(S),
             W,
             ))

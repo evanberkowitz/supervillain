@@ -278,6 +278,7 @@ Metropolis Updates
 As in the Villain formulation these decoupled proposals can be sampled *exactly*.
 Writing the gauge-invariant link one-form $f = m - \delta v / \bar{W}$, a single plaquette's shift of $v$ or of the integer two-form $t$ (with $\Delta m = \delta t$) has a Gaussian conditional, so the :class:`~.VortexHeatbath` and :class:`~.CoexactHeatbath` are drop-in heatbath replacements for the :class:`~.worldline.VortexUpdate` and :class:`~.CoexactUpdate` that take no proposal width and never reject.
 The :class:`~.CoexactHeatbath` (and the :class:`~.VortexHeatbath` at finite $W$) draws a *discrete* Gaussian; at $W=\infty$ the vortex field $v$ is real, so the :class:`~.VortexHeatbath` conditional is continuous and admits a microcanonical partner, the :class:`~.VortexOverrelaxation`, which reflects $v$ about its conditional mean.
+The wrapping sector admits a heatbath too: each torus cycle's action is quadratic in a single integer winding shift $\Delta$, and the $D N^{D-1}$ cycles touch disjoint links, so the :class:`~.WrappingHeatbath` draws every cycle's shift from its exact *discrete* Gaussian simultaneously --- the rejection-free drop-in for the :class:`~.worldline.WrappingUpdate`, curing exactly the large-action-change acceptance problem noted above.  Like the :class:`~.worldline.WrappingUpdate` it is not ergodic on its own.
 
 .. autoclass :: supervillain.generator.worldline.VortexHeatbath
    :members: step, report
@@ -286,6 +287,9 @@ The :class:`~.CoexactHeatbath` (and the :class:`~.VortexHeatbath` at finite $W$)
    :members: step, report
 
 .. autoclass :: supervillain.generator.worldline.CoexactHeatbath
+   :members: step, report
+
+.. autoclass :: supervillain.generator.worldline.WrappingHeatbath
    :members: step, report
 
 

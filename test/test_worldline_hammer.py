@@ -12,12 +12,15 @@ def _action(D=2, N=4, kappa=0.5, W=1):
 
 
 def test_worldline_hammer_uses_heatbaths():
-    # The default sampler uses the exact heatbaths, not the Metropolis VortexUpdate/CoexactUpdate.
+    # The default sampler uses the exact heatbaths, not the Metropolis
+    # VortexUpdate/CoexactUpdate/WrappingUpdate.
     s = str(supervillain.generator.worldline.Hammer(_action(W=1)))
     assert 'VortexHeatbath' in s
     assert 'CoexactHeatbath' in s
+    assert 'WrappingHeatbath' in s
     assert 'VortexUpdate' not in s
     assert 'CoexactUpdate' not in s
+    assert 'WrappingUpdate' not in s
 
 
 def test_worldline_hammer_overrelaxation_only_at_infinite_W():
