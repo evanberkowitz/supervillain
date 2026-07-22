@@ -5,7 +5,9 @@ from .site_overrelaxation import SiteOverrelaxation
 from .link import LinkUpdate
 from .link_heatbath import LinkHeatbath
 from .exact import ExactUpdate
+from .exact_heatbath import ExactHeatbath
 from .cohomology import CohomologyUpdate
+from .cohomology_heatbath import CohomologyHeatbath
 from .neighborhood import NeighborhoodUpdate
 from .worm import ClassicWorm as Worm
 
@@ -56,13 +58,13 @@ def Hammer(S, worms=1, overrelax=3):
     else:
         worm = ()
 
-    # A φ-only, action-preserving overrelaxation interleaved after the heatbath.
-    orx = (SiteOverrelaxation(S, applications=overrelax),) if overrelax else ()
+    if (not isinstance(overrelax, int)) or (overrelax < 0):
+        raise ValueError(f"overrelax must be a non-negative integer, not {overrelax}")
 
     if S.W < float('inf'):
         return _combining.Sequentially((
                 SiteHeatbath(S),
-                ) + orx + (
+                SiteOverrelaxation(S, applications=overrelax),
                 LinkHeatbath(S),  # <-- changes dn by W, omitted below.
                 ExactUpdate(S),
                 CohomologyUpdate(S),
@@ -70,7 +72,7 @@ def Hammer(S, worms=1, overrelax=3):
 
     return _combining.Sequentially((
             SiteHeatbath(S),
-            ) + orx + (
+            SiteOverrelaxation(S, applications=overrelax),
             ExactUpdate(S),
             CohomologyUpdate(S),
             ) + worm)
