@@ -82,6 +82,12 @@ They are drop-in heatbath replacements for the :class:`~.SiteUpdate` and :class:
 .. autoclass :: supervillain.generator.villain.LinkHeatbath
    :members: step, report
 
+The :class:`~.SiteOverrelaxation` is the microcanonical partner of the :class:`~.SiteHeatbath`: rather than drawing the $\phi$ conditional it *reflects* $\phi$ about the conditional mean, an action-preserving, rejection-free move that decorrelates the Gaussian $\phi$ sector faster than the heatbath alone.
+It is not ergodic by itself --- it never leaves the action shell --- and is run interleaved with the heatbath, as the :func:`~.villain.Hammer` does by default.
+
+.. autoclass :: supervillain.generator.villain.SiteOverrelaxation
+   :members: step, report
+
 When $W=1$ the combination of the :class:`~.SiteUpdate` and :class:`~.LinkUpdate` are ergodic.
 But when $W>1$ the :class:`~.LinkUpdate` only offers changes to $n$ by multiples of $W$ to preserve the constraint $dn = 0 \text{ mod }W$.
 For an ergodic algorithm when $W>1$ we need to offer ways to change $n$ by 1 (less than $W$) while maintaining the constraint.
