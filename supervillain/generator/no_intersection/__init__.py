@@ -12,7 +12,7 @@ import supervillain.generator.villain as _villain
 import supervillain.generator.combining as _combining
 
 
-def Hammer(S, fugacity=None):
+def Hammer(S, fugacity=None, overrelax=3):
     r'''
     Syntactic sugar for an ergodic :class:`~.Sequentially` combination of the
     No-Intersection generators.  It may change from version to version as new
@@ -55,13 +55,24 @@ def Hammer(S, fugacity=None):
         $\zeta \in (0, 1]$ --- it tunes only the variance.  The tuned gas inherits the
         tuner's default ``max_defects = 8`` cap (an explicit ``fugacity`` leaves ``max_defects``
         uncapped as before).
+    overrelax: int
+        How many $\phi$ overrelaxation sweeps
+        (:class:`~supervillain.generator.villain.SiteOverrelaxation`) to interleave after
+        the $\phi$ heatbath; ``0`` omits it.  The move is $\phi$-only and
+        action-preserving, so it leaves the no-intersection constraint $dn\wedge dn = 0$
+        intact and only accelerates $\phi$ decorrelation.
 
     Returns
     -------
     An ergodic generator for updating No-Intersection configurations.
     '''
+    # A φ-only, action-preserving overrelaxation interleaved after the φ heatbath.  It
+    # leaves n fixed, so the no-intersection constraint dn∧dn=0 is preserved exactly.
+    orx = (_villain.SiteOverrelaxation(S, applications=overrelax),) if overrelax else ()
+
     roster = (
         _villain.SiteHeatbath(S),
+    ) + orx + (
         _villain.ExactUpdate(S),
         _villain.CohomologyUpdate(S),
         ConstrainedLinkUpdate(S),

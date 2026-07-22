@@ -15,6 +15,19 @@ def _cold(S):
     return S.configurations(1)[0]
 
 
+def test_no_intersection_hammer_includes_overrelaxation():
+    # Explicit fugacity skips the tuner's Monte-Carlo probes, keeping this fast.
+    S = _action()
+    H = supervillain.generator.no_intersection.Hammer(S, fugacity=0.5)
+    assert 'SiteOverrelaxation' in str(H)
+
+
+def test_no_intersection_hammer_overrelax_zero_omits_it():
+    S = _action()
+    H = supervillain.generator.no_intersection.Hammer(S, fugacity=0.5, overrelax=0)
+    assert 'SiteOverrelaxation' not in str(H)
+
+
 def test_charge_matches_topological_charge():
     from supervillain.generator.no_intersection.charge import charge
     from supervillain.observable.topological import _topological_charge
