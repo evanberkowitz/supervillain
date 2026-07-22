@@ -15,17 +15,35 @@ def _cold(S):
     return S.configurations(1)[0]
 
 
-def test_no_intersection_hammer_includes_overrelaxation():
-    # Explicit fugacity skips the tuner's Monte-Carlo probes, keeping this fast.
+def test_no_intersection_hammer_uses_heatbaths_and_overrelaxation():
+    # Explicit fugacity skips the tuner's Monte-Carlo probes, keeping this fast.  The closed-n
+    # moves are the exact heatbaths (constraint-safe: they leave dn, hence dn∧dn, untouched),
+    # and the φ overrelaxation is interleaved.  LinkHeatbath is excluded (breaks the constraint).
+    S = _action()
+    s = str(supervillain.generator.no_intersection.Hammer(S, fugacity=0.5))
+    assert 'SiteOverrelaxation' in s
+    assert 'ExactHeatbath' in s
+    assert 'CohomologyHeatbath' in s
+    assert 'ExactUpdate' not in s
+    assert 'CohomologyUpdate' not in s
+    assert 'LinkHeatbath' not in s
+
+
+def test_no_intersection_hammer_overrelax_must_be_positive():
+    S = _action()
+    import pytest
+    with pytest.raises(ValueError):
+        supervillain.generator.no_intersection.Hammer(S, fugacity=0.5, overrelax=0)
+
+
+def test_no_intersection_hammer_steps_stay_valid():
+    # The heatbath-based Hammer must keep dn∧dn = 0 exactly.
     S = _action()
     H = supervillain.generator.no_intersection.Hammer(S, fugacity=0.5)
-    assert 'SiteOverrelaxation' in str(H)
-
-
-def test_no_intersection_hammer_overrelax_zero_omits_it():
-    S = _action()
-    H = supervillain.generator.no_intersection.Hammer(S, fugacity=0.5, overrelax=0)
-    assert 'SiteOverrelaxation' not in str(H)
+    cfg = S.configurations(1)[0]
+    for _ in range(20):
+        cfg = H.step(cfg)
+        assert S.valid(cfg)
 
 
 def test_charge_matches_topological_charge():
@@ -339,13 +357,13 @@ def test_scattershot_proposals_are_joint():
 
 
 def test_hammer_includes_constraint_preserving_villain_updates():
-    # The Hammer reuses the Villain ExactUpdate and CohomologyUpdate, which change n
-    # by a closed form and so leave dn (hence q = dn∧dn) untouched.  The DefectGas
-    # replaces the worm: it is manifestly ergodic and emits the absolutely-normalized
-    # correlator, where every worm we tried jammed.
+    # The Hammer reuses the Villain closed-n moves as exact heatbaths (ExactHeatbath and
+    # CohomologyHeatbath), which change n by a closed form and so leave dn (hence q = dn∧dn)
+    # untouched.  The DefectGas replaces the worm: it is manifestly ergodic and emits the
+    # absolutely-normalized correlator, where every worm we tried jammed.
     S = _action()
     H = str(supervillain.generator.no_intersection.Hammer(S, fugacity=0.025))
-    for name in ('SiteHeatbath', 'ExactUpdate', 'CohomologyUpdate', 'ConstrainedLinkUpdate',
+    for name in ('SiteHeatbath', 'ExactHeatbath', 'CohomologyHeatbath', 'ConstrainedLinkUpdate',
                  'WrappingLoopUpdate', 'PlanarFluxUpdate', 'ScattershotUpdate',
                  'DefectGas'):
         assert name in H

@@ -38,8 +38,9 @@ def Hammer(S, worms=1, overrelax=3):
         A positive integer saying how many worms to do per iteration.
     overrelax: int
         How many $\phi$ overrelaxation sweeps (:class:`SiteOverrelaxation`) to interleave
-        after the heatbath; ``0`` omits it.  The move is $\phi$-only and action-preserving,
-        so it only accelerates decorrelation and does not change ergodicity.
+        after the heatbath.  Must be a positive integer ($\geq 1$).  The move is $\phi$-only
+        and action-preserving, so it only accelerates decorrelation (near $\kappa_c$) and does
+        not change ergodicity.
 
     Returns
     -------
@@ -59,21 +60,21 @@ def Hammer(S, worms=1, overrelax=3):
     else:
         worm = ()
 
-    if (not isinstance(overrelax, int)) or (overrelax < 0):
-        raise ValueError(f"overrelax must be a non-negative integer, not {overrelax}")
+    if (not isinstance(overrelax, int)) or (overrelax < 1):
+        raise ValueError(f"overrelax must be a positive integer (>= 1), not {overrelax}")
 
     if S.W < float('inf'):
         return _combining.Sequentially((
                 SiteHeatbath(S),
                 SiteOverrelaxation(S, applications=overrelax),
                 LinkHeatbath(S),  # <-- changes dn by W, omitted below.
-                ExactUpdate(S),
-                CohomologyUpdate(S),
+                ExactHeatbath(S),
+                CohomologyHeatbath(S),
                 ) + worm)
 
     return _combining.Sequentially((
             SiteHeatbath(S),
             SiteOverrelaxation(S, applications=overrelax),
-            ExactUpdate(S),
-            CohomologyUpdate(S),
+            ExactHeatbath(S),
+            CohomologyHeatbath(S),
             ) + worm)

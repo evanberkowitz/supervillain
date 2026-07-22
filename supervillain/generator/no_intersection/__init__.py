@@ -58,23 +58,25 @@ def Hammer(S, fugacity=None, overrelax=3):
     overrelax: int
         How many $\phi$ overrelaxation sweeps
         (:class:`~supervillain.generator.villain.SiteOverrelaxation`) to interleave after
-        the $\phi$ heatbath; ``0`` omits it.  The move is $\phi$-only and
-        action-preserving, so it leaves the no-intersection constraint $dn\wedge dn = 0$
+        the $\phi$ heatbath.  Must be a positive integer ($\geq 1$).  The move is $\phi$-only
+        and action-preserving, so it leaves the no-intersection constraint $dn\wedge dn = 0$
         intact and only accelerates $\phi$ decorrelation.
 
     Returns
     -------
     An ergodic generator for updating No-Intersection configurations.
     '''
-    # A φ-only, action-preserving overrelaxation interleaved after the φ heatbath.  It
-    # leaves n fixed, so the no-intersection constraint dn∧dn=0 is preserved exactly.
-    orx = (_villain.SiteOverrelaxation(S, applications=overrelax),) if overrelax else ()
+    if (not isinstance(overrelax, int)) or (overrelax < 1):
+        raise ValueError(f"overrelax must be a positive integer (>= 1), not {overrelax}")
 
+    # The exact closed-n moves (ExactHeatbath: Δn=dz; CohomologyHeatbath: a constant on a
+    # slice) and the φ overrelaxation all leave dn untouched, so dn∧dn=0 is preserved exactly;
+    # LinkHeatbath is still excluded here since its W-coset move would break the constraint.
     roster = (
         _villain.SiteHeatbath(S),
-    ) + orx + (
-        _villain.ExactUpdate(S),
-        _villain.CohomologyUpdate(S),
+        _villain.SiteOverrelaxation(S, applications=overrelax),
+        _villain.ExactHeatbath(S),
+        _villain.CohomologyHeatbath(S),
         ConstrainedLinkUpdate(S),
         WrappingLoopUpdate(S),
         PlanarFluxUpdate(S),

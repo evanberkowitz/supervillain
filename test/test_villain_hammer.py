@@ -19,8 +19,13 @@ def test_villain_hammer_uses_heatbaths_finite_W():
     s = str(supervillain.generator.villain.Hammer(S))
     assert 'SiteHeatbath' in s
     assert 'LinkHeatbath' in s
+    assert 'ExactHeatbath' in s
+    assert 'CohomologyHeatbath' in s
     assert 'SiteUpdate' not in s
     assert 'LinkUpdate' not in s
+    # The closed-n moves are heatbaths too now, not Metropolis.
+    assert 'ExactUpdate' not in s
+    assert 'CohomologyUpdate' not in s
 
 
 def test_villain_hammer_uses_site_heatbath_at_W_infinity():
@@ -51,15 +56,12 @@ def test_villain_hammer_includes_overrelaxation_by_default():
     assert 'SiteOverrelaxation' in str(supervillain.generator.villain.Hammer(S))
 
 
-@pytest.mark.xfail(reason="Hammer edit made SiteOverrelaxation unconditional; "
-                          "overrelax=0 now builds SiteOverrelaxation(applications=0) "
-                          "which raises. Reconcile the overrelax=0 semantics with Evan "
-                          "when wiring the Hammers in the morning.", strict=False)
-def test_villain_hammer_overrelax_zero_omits_it():
+def test_villain_hammer_overrelax_must_be_positive():
+    # Overrelaxation is unconditional in the Hammer; overrelax must be >= 1.
     L = supervillain.lattice.Lattice(D=2, N=6)
     S = supervillain.action.Villain(L, kappa=0.5, W=1)
-    assert 'SiteOverrelaxation' not in str(
-        supervillain.generator.villain.Hammer(S, overrelax=0))
+    with pytest.raises(ValueError):
+        supervillain.generator.villain.Hammer(S, overrelax=0)
 
 
 def test_villain_hammer_omits_worm_in_D3():
