@@ -44,6 +44,19 @@ def test_villain_hammer_produces_valid_configs_W2():
         assert S.valid(e.configuration[i])
 
 
+def test_villain_hammer_includes_overrelaxation_by_default():
+    L = supervillain.lattice.Lattice(D=2, N=6)
+    S = supervillain.action.Villain(L, kappa=0.5, W=1)
+    assert 'SiteOverrelaxation' in str(supervillain.generator.villain.Hammer(S))
+
+
+def test_villain_hammer_overrelax_zero_omits_it():
+    L = supervillain.lattice.Lattice(D=2, N=6)
+    S = supervillain.action.Villain(L, kappa=0.5, W=1)
+    assert 'SiteOverrelaxation' not in str(
+        supervillain.generator.villain.Hammer(S, overrelax=0))
+
+
 def test_villain_hammer_omits_worm_in_D3():
     # The ClassicWorm is only implemented for D=2; Hammer should still build
     # (and step) in higher D by omitting it, rather than raising.

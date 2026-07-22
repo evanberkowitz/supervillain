@@ -11,7 +11,7 @@ from .worm import ClassicWorm as Worm
 
 import supervillain.generator.combining as _combining
 
-def Hammer(S, worms=1):
+def Hammer(S, worms=1, overrelax=3):
     r'''
     The Hammer is just syntactic sugar for a :class:`~.Sequentially` applied ergodic
     combination of generators.  It may change from version to version as new generators
@@ -33,6 +33,10 @@ def Hammer(S, worms=1):
     S: a Villain action
     worms: int
         A positive integer saying how many worms to do per iteration.
+    overrelax: int
+        How many $\phi$ overrelaxation sweeps (:class:`SiteOverrelaxation`) to interleave
+        after the heatbath; ``0`` omits it.  The move is $\phi$-only and action-preserving,
+        so it only accelerates decorrelation and does not change ergodicity.
 
     Returns
     -------
@@ -52,9 +56,13 @@ def Hammer(S, worms=1):
     else:
         worm = ()
 
+    # A φ-only, action-preserving overrelaxation interleaved after the heatbath.
+    orx = (SiteOverrelaxation(S, applications=overrelax),) if overrelax else ()
+
     if S.W < float('inf'):
         return _combining.Sequentially((
                 SiteHeatbath(S),
+                ) + orx + (
                 LinkHeatbath(S),  # <-- changes dn by W, omitted below.
                 ExactUpdate(S),
                 CohomologyUpdate(S),
@@ -62,6 +70,7 @@ def Hammer(S, worms=1):
 
     return _combining.Sequentially((
             SiteHeatbath(S),
+            ) + orx + (
             ExactUpdate(S),
             CohomologyUpdate(S),
             ) + worm)
