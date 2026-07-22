@@ -3,6 +3,7 @@ from .wrapping import WrappingUpdate
 from .plaquette import PlaquetteUpdate
 from .vortex import VortexUpdate
 from .coexact import CoexactUpdate
+from .coexact_heatbath import CoexactHeatbath
 from .worm import ClassicWorm as Worm
 
 import supervillain.generator.combining as _combining
