@@ -20,9 +20,9 @@ class CoexactHeatbath(ReadWriteable, Generator):
     $\delta^2 t = 0$ this leaves $\delta m$ (and therefore the constraint $\delta m = 0$)
     untouched, and it never changes $v$.  Writing $f = m - \delta v / \bar{W}$ for the
     residual one-form (with $\bar{W} = W$ finite or $2\pi$ when $W=\infty$), the
-    :class:`~.Worldline` action $S = \frac{1}{2\kappa}\sum_\ell f_\ell^2$ is quadratic in a
+    :class:`~.Worldline` action $S = \frac{1}{2\kappa}\sum_\ell {f}_\ell^2$ is quadratic in a
     single plaquette's integer shift $t_p$.  Shifting $t_p$ by an integer $x$ sends
-    $f_\ell \to f_\ell + x\, c_{\ell p}$ on the four boundary links of $p$ (with signed
+    ${f}_\ell \to {f}_\ell + x\, c_{\ell p}$ on the four boundary links of $p$ (with signed
     incidence $c_{\ell p}$, independent of $W$ since $t$ is not divided by $\bar{W}$), and
     changes the action by
 
@@ -33,7 +33,7 @@ class CoexactHeatbath(ReadWriteable, Generator):
 
     a discrete Gaussian with curvature $a = 4/\kappa$ (width $\sigma = \sqrt{\kappa}/2$)
     centered on the real mean shift $\mu = -(df)_p / 4$, where
-    $(df)_p = \sum_{\ell \in \partial p} c_{\ell p} f_\ell$ is the exterior derivative of
+    $(df)_p = \sum_{\ell \in \partial p} c_{\ell p} {f}_\ell$ is the exterior derivative of
     $f$ at the plaquette $p$.  Sweeping the colors of the
     :attr:`~.Lattice.checkerboarding` (and processing the $\binom{D}{2}$ two-form
     components sequentially) freezes every boundary link within a color, so each color's

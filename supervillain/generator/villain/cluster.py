@@ -40,10 +40,17 @@ class VillainWolff(ReadWriteable, Generator):
 
     .. note ::
 
-        The move updates only the O(2) / spin sector reachable by reflections; it leaves
-        the total winding $w_\mu$ (the $H^1$ cohomology class) unchanged, so it is
-        **not ergodic on its own** and must be combined with the local updates (e.g. the
-        :class:`~.SiteHeatbath`/:class:`~.LinkHeatbath`).  Its value is decorrelating the
+        A torus-wrapping cluster *does* change the winding holonomy
+        ${w}_\mu = \sum_\text{cycle} {n}_\mu$ (the $H^1$ class): the move realizes the global charge-conjugation reflection
+        $n \rightarrow -n$, so a cluster wrapping a cycle flips ${w}_\mu \rightarrow -{w}_\mu$.  It
+        does **not** leave $H^1$ fixed.  (Do not confuse this holonomy with the
+        :class:`~.WindingSquared` observable $\langle (dn)^2\rangle$, the local vortex density,
+        which is a different quantity.)  The move is nonetheless **not ergodic on its own**,
+        because it only *reflects* existing structure: from $n = 0$ it can never produce
+        $n \neq 0$ (since $-0 = 0$), and with the current uniform reflection value the clusters
+        are near-global and realize sign flips $w \rightarrow -w$ rather than moves between
+        winding magnitudes.  Combine it with the local updates (e.g. the
+        :class:`~.SiteHeatbath`/:class:`~.LinkHeatbath`); its value is decorrelating the
         long-wavelength spin modes near criticality, where local updates critically slow.
 
     .. warning ::
@@ -52,6 +59,15 @@ class VillainWolff(ReadWriteable, Generator):
         Python breadth-first search, so it is $O(\text{cluster size})$ per step but not
         numba-accelerated.  Large lattices will want a compiled cluster grower.
 
+    .. warning ::
+
+        Implemented for the unconstrained $W = 1$ :class:`~.Villain` model only.  The
+        boundary $n \rightarrow -n$ flip changes $dn$ on boundary plaquettes, which is
+        harmless when $dn$ is unconstrained ($W = 1$) but breaks the winding constraint
+        $dn \equiv 0\ (\bmod W)$ for $W > 1$ and the no-intersection constraint
+        $dn \wedge dn = 0$ of the :class:`~.NoIntersections` model; the constructor rejects
+        both.
+
     .. seealso ::
         :class:`~.SiteHeatbath` and :class:`~.LinkHeatbath` for the local exact samplers it
         is combined with.
@@ -59,7 +75,7 @@ class VillainWolff(ReadWriteable, Generator):
     Parameters
     ----------
     action: supervillain.action.Villain
-        The Villain action whose spin sector is updated.
+        The unconstrained ($W = 1$) Villain action whose spin sector is updated.
     rng: numpy.random.Generator
         A source of randomness; if omitted a fresh default generator is used.
     '''
@@ -67,6 +83,14 @@ class VillainWolff(ReadWriteable, Generator):
     def __init__(self, action, rng=None):
         if not isinstance(action, supervillain.action.Villain):
             raise ValueError('The VillainWolff requires the Villain action.')
+        if isinstance(action, supervillain.action.NoIntersections):
+            raise ValueError(
+                'VillainWolff is not valid for the No-Intersection model: the boundary '
+                'n -> -n flip breaks the dn wedge dn = 0 constraint.')
+        if action.W != 1:
+            raise ValueError(
+                f'VillainWolff is implemented for W=1 only, got W={action.W}: at W>1 the '
+                'boundary n -> -n flip is not guaranteed to preserve dn = 0 (mod W).')
 
         self.Action = action
         self.Lattice = action.Lattice

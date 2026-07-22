@@ -17,7 +17,7 @@ class VortexHeatbath(ReadWriteable, Generator):
 
     .. math ::
 
-        S[m, v] = \frac{1}{2\kappa} \sum_\ell f_\ell^2.
+        S[m, v] = \frac{1}{2\kappa} \sum_\ell {f}_\ell^2.
 
     Changing a single plaquette $v_p \rightarrow v_p + \Delta$ shifts $f$ on the four boundary links of $p$, so the conditional distribution of $\Delta$ is Gaussian,
 
@@ -29,7 +29,7 @@ class VortexHeatbath(ReadWriteable, Generator):
         \qquad
         a = \frac{4}{\kappa \bar{W}^2},
 
-    where $(df)_p = \sum_{\ell \in \partial p} c_{\ell p} f_\ell$ is the signed boundary sum of $f$ over the plaquette.
+    where $(df)_p = \sum_{\ell \in \partial p} c_{\ell p} {f}_\ell$ is the signed boundary sum of $f$ over the plaquette.
 
     When $W < \infty$ the plaquette value is an integer, so $\Delta$ is drawn from the **discrete** Gaussian on the integers (truncated enumeration with a Gumbel-max draw).  When $W=\infty$ the plaquette value is real and $\Delta$ is a continuous normal draw with variance $1/a = \pi^2 \kappa$.
 

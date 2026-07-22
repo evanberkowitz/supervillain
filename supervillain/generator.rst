@@ -32,7 +32,12 @@ It has an infinitely bad ergodicity problem!
 The Villain Formulation
 -----------------------
 
-A less dumb algorithm is a local update, which changes only fields in some small area of the lattice.
+.. subtitle:: Metropolis updates
+
+Metropolis Updates
+------------------
+
+A less dumb algorithm is a local Metropolis-tested update, which changes only fields in some small area of the lattice.
 
 As an example, we can formulate an update scheme offering localized changes to the $\phi$ and $n$ fields in the :class:`~.Villain` formulation.
 
@@ -46,7 +51,7 @@ Picking a site $x$ at random and proposing a change
     \Delta n_\ell   &\sim [-\texttt{interval\_n}, +\texttt{interval\_n}]
     \end{aligned}
 
-for the $\phi$ on $x$ and $n$ on links $\ell$ which touch $x$ is ergodic (once swept over the lattice) and satisfies detailed balance so long as we accept the proposal based on the change of action.
+for the $\phi$ on $x$ and $n$ on links $\ell$ which touch $x$ is ergodic (once swept over the lattice) and satisfies detailed balance so long as we accept the proposal based on the change of action---the so-called Metropolis acceptance criterion.
 The :class:`NeighborhoodUpdateSlow <supervillain.generator.reference_implementation.villain.NeighborhoodUpdateSlow>` generator implements this update algorithm but suffers from a variety of defects.
 
 First, its *implementation* makes a lot of calls.
@@ -71,23 +76,6 @@ We can decouple these proposals.
 .. autoclass :: supervillain.generator.villain.LinkUpdate
    :members:
 
-Because of the simplicity of the :class:`~.Villain` action, these decoupled proposals can be sampled *exactly* rather than Metropolis-tested.
-At fixed $n$ the action is quadratic in $\phi$, so a single $\phi$ has a Gaussian conditional; at fixed $\phi$ each $n_\ell$ enters the action independently, so a single $n$ has a (discrete) Gaussian conditional on the constraint-preserving coset (when the constraint integer $W>1$).
-The :class:`~.SiteHeatbath` and :class:`~.LinkHeatbath` draw these conditionals directly.
-They are drop-in heatbath replacements for the :class:`~.SiteUpdate` and :class:`~.LinkUpdate`: they take no proposal width and never reject.
-
-.. autoclass :: supervillain.generator.villain.SiteHeatbath
-   :members: step, report
-
-.. autoclass :: supervillain.generator.villain.LinkHeatbath
-   :members: step, report
-
-The :class:`~.SiteOverrelaxation` is the microcanonical partner of the :class:`~.SiteHeatbath`: rather than drawing the $\phi$ conditional it *reflects* $\phi$ about the conditional mean, an action-preserving, rejection-free move that decorrelates the Gaussian $\phi$ sector faster than the heatbath alone.
-It is not ergodic by itself --- it never leaves the action shell --- and is run interleaved with the heatbath, as the :func:`~.villain.Hammer` does by default.
-
-.. autoclass :: supervillain.generator.villain.SiteOverrelaxation
-   :members: step, report
-
 When $W=1$ the combination of the :class:`~.SiteUpdate` and :class:`~.LinkUpdate` are ergodic.
 But when $W>1$ the :class:`~.LinkUpdate` only offers changes to $n$ by multiples of $W$ to preserve the constraint $dn = 0 \text{ mod }W$.
 For an ergodic algorithm when $W>1$ we need to offer ways to change $n$ by 1 (less than $W$) while maintaining the constraint.
@@ -99,6 +87,28 @@ We need to make closed updates to $n$, which can be broken up into :class:`~.vil
 .. autoclass :: supervillain.generator.villain.CohomologyUpdate
    :members:
 
+Heatbath Updates
+----------------
+
+Because of the simplicity of the :class:`~.Villain` action, these decoupled proposals can be sampled *exactly* rather than Metropolis-tested.
+At fixed $n$ the action is quadratic in $\phi$, so a single $\phi$ has a Gaussian conditional; at fixed $\phi$ each $n_\ell$ enters the action independently, so a single $n$ has a (discrete) Gaussian conditional on the constraint-preserving coset (when the constraint integer $W>1$).
+The :class:`~.SiteHeatbath` and :class:`~.LinkHeatbath` draw these conditionals directly.
+They are drop-in heatbath replacements for the :class:`~.SiteUpdate` and :class:`~.LinkUpdate`.
+
+.. autoclass :: supervillain.generator.villain.SiteHeatbath
+   :members: step, report
+
+The :class:`~.SiteOverrelaxation` is the microcanonical partner of the :class:`~.SiteHeatbath`: rather than drawing the $\phi$ conditional it *reflects* $\phi$ about the conditional mean, an action-preserving, rejection-free move that decorrelates the Gaussian $\phi$ sector faster than the heatbath alone.
+It is not ergodic by itself --- it never leaves the action shell --- and is run interleaved with the heatbath, as the :func:`~.villain.Hammer` does by default.
+
+.. autoclass :: supervillain.generator.villain.SiteOverrelaxation
+   :members: step, report
+
+As mentioned we can also update the $n$ fields with a heatbath.
+
+.. autoclass :: supervillain.generator.villain.LinkHeatbath
+   :members: step, report
+
 Just as the :class:`~.SiteHeatbath` and :class:`~.LinkHeatbath` are exact-conditional versions of the :class:`~.SiteUpdate` and :class:`~.LinkUpdate`, the closed updates admit heatbath kernels too.
 Holding everything else fixed, the action is quadratic in a single site's integer shift $z_x$ (for :class:`~.ExactUpdate`, $\Delta n = dz$) or in the integer holonomy shift $h_\mu$ on a slice (for :class:`~.CohomologyUpdate`), so each conditional is a one-dimensional *discrete* Gaussian which the :class:`~.ExactHeatbath` and :class:`~.CohomologyHeatbath` draw directly (by truncated enumeration and a Gumbel-max pick), never rejecting.
 Being discrete, neither has a microcanonical overrelaxation partner (a reflection about the real mean leaves the integer lattice).
@@ -108,6 +118,10 @@ Being discrete, neither has a microcanonical overrelaxation partner (a reflectio
 
 .. autoclass :: supervillain.generator.villain.CohomologyHeatbath
    :members: step, report
+
+
+Worm and Cluster Algorithms
+---------------------------
 
 The combination of the :class:`~.SiteUpdate`, :class:`~.LinkUpdate`, :class:`~.ExactUpdate`, and :class:`~.CohomologyUpdate` is ergodic even when $W>1$.
 But it can be slow to decorrelate.
@@ -210,14 +224,19 @@ The worm offers *dynamically determined constraint-preserving updates* and is mu
 In can change the holonomy, for example, by finding a route around the torus that isn't a straight shot but
 runs through the valley of the action.
 
-A different nonlocal move for the Villain spin sector is the Wolff reflection cluster.
-Reflecting $\phi \rightarrow 2r - \phi$ on a cluster of sites and $n \rightarrow -n$ on its internal links sends the gauge-invariant link $\theta = (d\phi - 2\pi n) \rightarrow -\theta$ internally, leaving every internal-bond energy invariant; a whole-lattice reflection is the exact symmetry $\theta \rightarrow -\theta$ (an O(2) reflection combined with charge conjugation $n \rightarrow -n$).
-Growing the cluster across boundary bonds with the Fortuin--Kasteleyn probability $q = 1 - \exp(-[E_b^R - E_b]_+)$ makes the whole reflection rejection-free while satisfying detailed balance.
+A different nonlocal move for the Villain spin sector is the Wolff reflection cluster :cite:`PhysRevLett.62.361`.
+Reflecting $\phi \rightarrow 2r - \phi$ on a cluster of sites and $n \rightarrow -n$ on its internal links sends the gauge-invariant link $(d\phi - 2\pi n) \rightarrow -(d\phi - 2\pi n)$ internally, leaving every internal-bond energy invariant; a whole-lattice reflection is the exact symmetry $(d\phi - 2\pi n) \rightarrow -(d\phi - 2\pi n)$ (an O(2) reflection combined with charge conjugation $n \rightarrow -n$).
+Growing the cluster across boundary bonds with the probability $q = 1 - \exp(-[E_b^R - E_b]_+)$ makes the whole reflection rejection-free while satisfying detailed balance.
 
 .. autoclass :: supervillain.generator.villain.VillainWolff
    :members: step, report
 
-Like the worm the cluster is not ergodic on its own --- it leaves the winding $w_\mu$ (the $H^1$ class) fixed --- so it is combined with the local updates; its value is decorrelating the long-wavelength spin modes near criticality.
+Like the worm the cluster is not ergodic on its own.
+A torus-wrapping cluster *does* change the winding holonomy ${w}_\mu$ (the $H^1$ class) --- realizing the global reflection $n \rightarrow -n$ it flips ${w}_\mu \rightarrow -{w}_\mu$, so it does not leave $H^1$ fixed --- but it only reflects existing structure (from $n = 0$ it can never make $n \neq 0$), so it cannot stand alone.
+Combined with the local updates its value is decorrelating the long-wavelength spin modes near criticality.
+
+The Hammer
+----------
 
 Finally, we provide a convenience function which provides an ergodic generator.
 
@@ -226,6 +245,9 @@ Finally, we provide a convenience function which provides an ergodic generator.
 -------------------------
 The Worldline Formulation
 -------------------------
+
+Metropolis Updates
+------------------
 
 In the :class:`~.Worldline` formulation the constraint $\delta m = 0$ restricts which kinds of updates we could propose.
 For example, changing only a single link is *guaranteed* to break the constraint on both ends.
@@ -242,6 +264,18 @@ We can decouple the proposals in the :class:`~.worldline.PlaquetteUpdate`, and u
 .. autoclass :: supervillain.generator.worldline.CoexactUpdate
    :members:
 
+To have a fully ergodic algorithm we will also need to update the :class:`~.TorusWrapping` of the worldlines.
+
+.. autoclass :: supervillain.generator.worldline.WrappingUpdate
+   :members:
+
+The combination of the :class:`~.worldline.VortexUpdate`, :class:`~.CoexactUpdate`, and :class:`~.WrappingUpdate` are ergodic.
+However, the may be suboptimal.  In particular the :class:`~.worldline.WrappingUpdate` touches a large number of links which often leads to very large changes in action
+and rejection.  Just as in the Villain case we can make smarter updates to a dynamically-determined set of variables with high acceptance by using a *worm algorithm*.
+
+Metropolis Updates
+------------------
+
 As in the Villain formulation these decoupled proposals can be sampled *exactly*.
 Writing the gauge-invariant link one-form $f = m - \delta v / \bar{W}$, a single plaquette's shift of $v$ or of the integer two-form $t$ (with $\Delta m = \delta t$) has a Gaussian conditional, so the :class:`~.VortexHeatbath` and :class:`~.CoexactHeatbath` are drop-in heatbath replacements for the :class:`~.worldline.VortexUpdate` and :class:`~.CoexactUpdate` that take no proposal width and never reject.
 The :class:`~.CoexactHeatbath` (and the :class:`~.VortexHeatbath` at finite $W$) draws a *discrete* Gaussian; at $W=\infty$ the vortex field $v$ is real, so the :class:`~.VortexHeatbath` conditional is continuous and admits a microcanonical partner, the :class:`~.VortexOverrelaxation`, which reflects $v$ about its conditional mean.
@@ -255,14 +289,9 @@ The :class:`~.CoexactHeatbath` (and the :class:`~.VortexHeatbath` at finite $W$)
 .. autoclass :: supervillain.generator.worldline.CoexactHeatbath
    :members: step, report
 
-To have a fully ergodic algorithm we will also need to update the :class:`~.TorusWrapping` of the worldlines.
 
-.. autoclass :: supervillain.generator.worldline.WrappingUpdate
-   :members:
-
-The combination of the :class:`~.worldline.VortexUpdate`, :class:`~.CoexactUpdate`, and :class:`~.WrappingUpdate` are ergodic.
-However, the may be suboptimal.  In particular the :class:`~.worldline.WrappingUpdate` touches a large number of links which often leads to very large changes in action
-and rejection.  Just as in the Villain case we can make smarter updates to a dynamically-determined set of variables with high acceptance by using a *worm algorithm*.
+Worm Algorithms
+---------------
 
 Unlike the Villain formulation, the Worldline formulation has a constraint even when :math:`W=1`, :math:`\delta m = 0` everywhere, from path-integrating $\phi$
 

@@ -13,7 +13,7 @@ class VortexOverrelaxation(ReadWriteable, Generator):
     r'''
     A microcanonical overrelaxation for the vortex two-form $v$ of the :class:`~.Worldline` action, leaving $m$ untouched.
 
-    With the gauge-invariant link one-form $f = m - \delta v / 2\pi$, the conditional of a single plaquette $v_p$ is Gaussian with mean $\mu_p = v_p + \tfrac{\pi}{2}(df)_p$, where $(df)_p = \sum_{\ell \in \partial p} c_{\ell p} f_\ell$.  Reflecting the plaquette about that mean,
+    With the gauge-invariant link one-form $f = m - \delta v / 2\pi$, the conditional of a single plaquette $v_p$ is Gaussian with mean $\mu_p = v_p + \tfrac{\pi}{2}(df)_p$, where $(df)_p = \sum_{\ell \in \partial p} c_{\ell p} {f}_\ell$.  Reflecting the plaquette about that mean,
 
     .. math ::
 
