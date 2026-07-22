@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 class ExactHeatbath(ReadWriteable, Generator):
     r'''
-    The exact heatbath (Gibbs) counterpart of :class:`~.ExactUpdate`: it resamples the
+    The exact heatbath counterpart of :class:`~.ExactUpdate` resamples the
     exact part of $n$ from its exact conditional rather than proposing $\Delta n = dz$ and
     accepting or rejecting, so it takes no step size and never rejects.
 
@@ -28,10 +28,12 @@ class ExactHeatbath(ReadWriteable, Generator):
     .. math ::
 
         \Delta S(k) = 2\pi\kappa\left[-k\,(\delta r)_x + \pi (2D)\, k^2\right]
-        \;=\; \tfrac{1}{2} a\,(k - k^\ast)^2 + \text{const},
+        \;=\; \tfrac{1}{2} a\,(k - k^\ast)^2 - \tfrac{1}{2} a\,(k^\ast)^2,
 
     a discrete Gaussian with curvature $a = 8\pi^2\kappa D$ (width $\sigma = 1/\sqrt a$)
-    centered on $k^\ast = (\delta r)_x/(4\pi D)$.  Sweeping the colors of the
+    centered on $k^\ast = (\delta r)_x/(4\pi D)$.  The trailing constant
+    $-\tfrac{1}{2} a\,(k^\ast)^2$ is independent of $k$, so it cancels from the normalized
+    conditional and never enters the draw.  Sweeping the colors of the
     :attr:`~.Lattice.checkerboarding` freezes every neighbor within a color, so each
     color's draws are simultaneously exact.  The integers are drawn by truncated
     enumeration (a window of ``coverage_sigmas`` widths) with a Gumbel-max pick, exactly
