@@ -76,6 +76,8 @@ class ExactHeatbath(ReadWriteable, Generator):
         D = self.Lattice.D
         self.curvature = 8 * np.pi**2 * self.kappa * D
         sigma = 1.0 / np.sqrt(self.curvature)
+        # The + 2 floors K >= 3 (ceil of any positive is >= 1), so _draw always enumerates
+        # round(k*) +/- 1, 2, 3: a nonzero shift is always a candidate even when sigma << 1.
         self.K = int(np.ceil(self.coverage_sigmas * sigma)) + 2
 
         self.sweeps = 0

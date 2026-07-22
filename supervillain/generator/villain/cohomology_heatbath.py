@@ -82,6 +82,11 @@ class CohomologyHeatbath(ReadWriteable, Generator):
         self.slice_links = L.N ** (L.D - 1)
         self.curvature = 4 * np.pi**2 * self.kappa * self.slice_links
         sigma = 1.0 / np.sqrt(self.curvature)
+        # Enumeration half-window.  ceil(coverage_sigmas * sigma) >= 1 for any sigma > 0,
+        # and the + 2 floors K >= 3, so _draw always enumerates round(h*) +/- 1, 2, 3 --
+        # a nonzero holonomy shift is always a candidate even when sigma << 1 (large
+        # kappa N^{D-1}).  Whether it is *drawn* is then set by the conditional weight,
+        # not by the window: exp(-a/2) on a +/-1 step, exponentially small at large a.
         self.K = int(np.ceil(self.coverage_sigmas * sigma)) + 2
 
         self.sweeps = 0
