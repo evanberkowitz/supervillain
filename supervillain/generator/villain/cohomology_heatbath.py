@@ -17,21 +17,24 @@ class CohomologyHeatbath(ReadWriteable, Generator):
     than proposing an integer shift and accepting or rejecting.
 
     Like :class:`~.CohomologyUpdate` it adds a constant integer $h_\mu$ to $n_\mu$ on the
-    single slice $x_\mu = 0$; because $\Delta n_\mu$ is constant on that slice,
+    single slice $x_\mu = 0$; because $\Delta {n}_\mu$ is constant on that slice,
     $d(\Delta n) = 0$ exactly, so the constraint $dn \equiv 0\ (\bmod W)$ is preserved for
     any $W$ and the winding $w_\mu$ changes by $h_\mu$.  With everything else fixed the
     :class:`~.Villain` action is quadratic in the integer $h_\mu$, so its conditional is a
-    one-dimensional *discrete* Gaussian.  Writing $r = d\phi - 2\pi n$ and
-    $R_\mu = \sum_{\ell\in\text{slice }\mu} r_\ell$, and letting the slice hold
+    one-dimensional discrete Gaussian.  Writing $r = d\phi - 2\pi n$ and
+    ${R}_\mu = \sum_{\ell\in\text{slice }\mu} {r}_\ell$, and letting the slice hold
     $N^{D-1}$ links,
 
     .. math ::
 
         \Delta S(h) = 2\pi\kappa\left[-h\,R_\mu + \pi N^{D-1} h^2\right]
-        \;=\; \tfrac12 a\,(h - h^\ast)^2 + \text{const},
+        \;=\; \tfrac12 a\,(h - h^\ast)^2 - \tfrac12 a\,(h^\ast)^2,
 
     a discrete Gaussian with curvature $a = 4\pi^2 \kappa N^{D-1}$ (width
-    $\sigma = 1/\sqrt a$) centered on $h^\ast = R_\mu/(2\pi N^{D-1})$.  The $D$ directions
+    $\sigma = 1/\sqrt a$) centered on $h^\ast = {R}_\mu/(2\pi N^{D-1})$.  The trailing
+    $-\tfrac12 a\,(h^\ast)^2$ is the vertex value that keeps $\Delta S(0) = 0$; being
+    independent of $h$ it cancels from the normalized conditional and never enters the
+    draw.  The $D$ directions
     are independent and processed sequentially, updating the residual between them.  The
     integers are drawn by truncated enumeration with a Gumbel-max pick, exactly as in
     :class:`~.LinkHeatbath`.  The update leaves $\phi$ and $dn$ untouched.
