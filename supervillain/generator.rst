@@ -32,7 +32,6 @@ It has an infinitely bad ergodicity problem!
 The Villain Formulation
 -----------------------
 
-.. subtitle:: Metropolis updates
 
 Metropolis Updates
 ------------------
@@ -228,11 +227,11 @@ A different nonlocal move for the Villain spin sector is the Wolff reflection cl
 Reflecting $\phi \rightarrow 2r - \phi$ on a cluster of sites and $n \rightarrow -n$ on its internal links sends the gauge-invariant link $(d\phi - 2\pi n) \rightarrow -(d\phi - 2\pi n)$ internally, leaving every internal-bond energy invariant; a whole-lattice reflection is the exact symmetry $(d\phi - 2\pi n) \rightarrow -(d\phi - 2\pi n)$ (an O(2) reflection combined with charge conjugation $n \rightarrow -n$).
 Growing the cluster across boundary bonds with the probability $q = 1 - \exp(-[E_b^R - E_b]_+)$ makes the whole reflection rejection-free while satisfying detailed balance.
 
-.. autoclass :: supervillain.generator.villain.VillainWolff
+.. autoclass :: supervillain.generator.villain.ReflectionCluster
    :members: step, report
 
 Like the worm the cluster is not ergodic on its own.
-A torus-wrapping cluster *does* change the winding holonomy ${w}_\mu$ (the $H^1$ class) --- realizing the global reflection $n \rightarrow -n$ it flips ${w}_\mu \rightarrow -{w}_\mu$, so it does not leave $H^1$ fixed --- but it only reflects existing structure (from $n = 0$ it can never make $n \neq 0$), so it cannot stand alone.
+A torus-wrapping cluster can change the winding holonomy ${w}_\mu$ (the $H^1$ class) but the sign do not allow magnitude fluctuations---only sign flips.
 Combined with the local updates its value is decorrelating the long-wavelength spin modes near criticality.
 
 The Hammer

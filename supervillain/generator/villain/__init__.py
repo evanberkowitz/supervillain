@@ -10,7 +10,7 @@ from .cohomology import CohomologyUpdate
 from .cohomology_heatbath import CohomologyHeatbath
 from .neighborhood import NeighborhoodUpdate
 from .worm import ClassicWorm as Worm
-from .cluster import VillainWolff
+from .cluster import ReflectionCluster
 
 import supervillain.generator.combining as _combining
 

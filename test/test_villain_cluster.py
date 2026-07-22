@@ -16,16 +16,16 @@ def test_wolff_rejects_constrained_actions():
     # The boundary n -> -n flip breaks dn ≡ 0 (mod W) for W>1 and the dn∧dn=0 constraint of
     # NoIntersections, so the constructor must reject both.
     with pytest.raises(ValueError):
-        supervillain.generator.villain.VillainWolff(_action(W=2))
+        supervillain.generator.villain.ReflectionCluster(_action(W=2))
     with pytest.raises(ValueError):
-        supervillain.generator.villain.VillainWolff(NoIntersections(Lattice(4, 4), kappa=0.3))
+        supervillain.generator.villain.ReflectionCluster(NoIntersections(Lattice(4, 4), kappa=0.3))
 
 
 def test_wolff_not_ergodic_alone_from_zero_n():
     # It only reflects existing structure: from n = 0 the flip n -> -n keeps n = 0
     # (−0 = 0), so it can never build vortex/winding content on its own.
     S = _action(D=2, N=8, kappa=0.5)
-    G = supervillain.generator.villain.VillainWolff(S, rng=np.random.default_rng(1))
+    G = supervillain.generator.villain.ReflectionCluster(S, rng=np.random.default_rng(1))
     cfg = S.configurations(1)[0]           # cold: n = 0
     cfg['phi'] = cfg['phi'] + Form(
         np.random.default_rng(2).normal(size=np.asarray(cfg['phi']).shape),
@@ -66,7 +66,7 @@ def test_wolff_whole_lattice_reflection_is_a_symmetry():
 
 def test_wolff_changes_the_configuration():
     S = _action(D=2, N=8, kappa=0.7)
-    G = supervillain.generator.villain.VillainWolff(S, rng=np.random.default_rng(1))
+    G = supervillain.generator.villain.ReflectionCluster(S, rng=np.random.default_rng(1))
     cfg = S.configurations(1)[0]
     cfg['phi'] = cfg['phi'] + Form(
         np.random.default_rng(2).normal(size=np.asarray(cfg['phi']).shape),
@@ -88,14 +88,14 @@ def test_wolff_preserves_the_distribution():
     # ⟨SpinMagnetizationSquared⟩ with τ-aware errors; use a shared fast kernel so both
     # ensembles are genuinely decorrelated.
     import supervillain.generator.combining as C
-    from supervillain.generator.villain import SiteHeatbath, LinkHeatbath, VillainWolff
+    from supervillain.generator.villain import SiteHeatbath, LinkHeatbath, ReflectionCluster
     S = _action(D=2, N=12, kappa=0.7)
 
     local = C.Sequentially((SiteHeatbath(S, rng=np.random.default_rng(1)),
                             LinkHeatbath(S, rng=np.random.default_rng(2))))
     withcluster = C.Sequentially((SiteHeatbath(S, rng=np.random.default_rng(3)),
                                   LinkHeatbath(S, rng=np.random.default_rng(4)),
-                                  VillainWolff(S, rng=np.random.default_rng(5))))
+                                  ReflectionCluster(S, rng=np.random.default_rng(5))))
 
     el = supervillain.Ensemble(S).generate(5000, local, start='cold').cut(1200)
     ec = supervillain.Ensemble(S).generate(5000, withcluster, start='cold').cut(1200)

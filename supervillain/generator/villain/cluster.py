@@ -10,7 +10,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class VillainWolff(ReadWriteable, Generator):
+class ReflectionCluster(ReadWriteable, Generator):
     r'''
     A Wolff single-cluster reflection update for the :class:`~.Villain` action --- the
     embedded-reflection cluster algorithm for the O(2) spin sector.
@@ -80,14 +80,14 @@ class VillainWolff(ReadWriteable, Generator):
 
     def __init__(self, action, rng=None):
         if not isinstance(action, supervillain.action.Villain):
-            raise ValueError('The VillainWolff requires the Villain action.')
+            raise ValueError('The ReflectionCluster requires the Villain action.')
         if isinstance(action, supervillain.action.NoIntersections):
             raise ValueError(
-                'VillainWolff is not valid for the No-Intersection model: the boundary '
+                'ReflectionCluster is not valid for the No-Intersection model: the boundary '
                 'n -> -n flip breaks the dn wedge dn = 0 constraint.')
         if action.W != 1:
             raise ValueError(
-                f'VillainWolff is implemented for W=1 only, got W={action.W}: at W>1 the '
+                f'ReflectionCluster is implemented for W=1 only, got W={action.W}: at W>1 the '
                 'boundary n -> -n flip is not guaranteed to preserve dn = 0 (mod W).')
 
         self.Action = action
@@ -100,7 +100,7 @@ class VillainWolff(ReadWriteable, Generator):
         self.cluster_sizes = 0
 
     def __str__(self):
-        return 'VillainWolff'
+        return 'ReflectionCluster'
 
     def step(self, cfg):
         r'''
