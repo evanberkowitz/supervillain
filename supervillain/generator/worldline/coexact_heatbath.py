@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 class CoexactHeatbath(ReadWriteable, Generator):
     r'''
-    The exact heatbath (Gibbs) counterpart of :class:`~.CoexactUpdate`: it resamples the
+    The exact heatbath counterpart of :class:`~.CoexactUpdate` resamples the
     coexact part of $m$ from its exact conditional rather than proposing $\Delta m = \delta t$
     and accepting or rejecting, so it takes no step size and never rejects.
 
@@ -23,30 +23,25 @@ class CoexactHeatbath(ReadWriteable, Generator):
     :class:`~.Worldline` action $S = \frac{1}{2\kappa}\sum_\ell {f}_\ell^2$ is quadratic in a
     single plaquette's integer shift $t_p$.  Shifting $t_p$ by an integer $x$ sends
     ${f}_\ell \to {f}_\ell + x\, c_{\ell p}$ on the four boundary links of $p$ (with signed
-    incidence $c_{\ell p}$, independent of $W$ since $t$ is not divided by $\bar{W}$), and
-    changes the action by
+    incidence $c_{\ell p}$), and changes the action by
 
     .. math ::
 
         \Delta S(x) = \frac{1}{\kappa}\left[x\,(df)_p + 2 x^2\right]
-        \;=\; \tfrac{1}{2} a\,(x - \mu)^2 + \text{const},
+        \;=\; \tfrac{1}{2} a\,(x - \mu)^2 - \frac{(df)_p^2}{8\kappa},
 
     a discrete Gaussian with curvature $a = 4/\kappa$ (width $\sigma = \sqrt{\kappa}/2$)
     centered on the real mean shift $\mu = -(df)_p / 4$, where
     $(df)_p = \sum_{\ell \in \partial p} c_{\ell p} {f}_\ell$ is the exterior derivative of
-    $f$ at the plaquette $p$.  Sweeping the colors of the
+    $f$ at the plaquette $p$.  The $x$-independent constant
+    $-(df)_p^2/8\kappa = -\tfrac{1}{2} a\,\mu^2$ completes the square --- it is exactly what
+    makes $\Delta S(0) = 0$ --- and cancels from the heatbath/Metropolis weight.  Sweeping the colors of the
     :attr:`~.Lattice.checkerboarding` (and processing the $\binom{D}{2}$ two-form
     components sequentially) freezes every boundary link within a color, so each color's
     draws are simultaneously exact.  The integers are drawn by truncated enumeration (a
     window of ``coverage_sigmas`` widths) with a Gumbel-max pick, exactly as in
     :class:`~.ExactHeatbath`.  The update leaves $v$ untouched, leaves $\delta m$
     untouched, and works for every $W$.
-
-    .. note ::
-
-        Because $t_p$ is always an integer (for every $W$), this move is always a
-        discrete Gaussian and has no clean microcanonical overrelaxation partner (a
-        reflection about the real mean $\mu$ leaves the integer lattice).
 
     .. seealso ::
         :class:`~.CoexactUpdate` for the Metropolis version, which offers the same

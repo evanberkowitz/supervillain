@@ -40,7 +40,10 @@ class Villain(ReadWriteable):
 
     def __init__(self, lattice, kappa, W=1):
         if not isinstance(lattice, Lattice):
-            raise TypeError(f'Villain requires a supervillain.lattice.Lattice, got {type(lattice).__name__}')
+            raise TypeError(f'Villain requires a supervillain.lattice.Lattice, not {type(lattice).__name__}')
+        # type(self).__name__ so a NoIntersections (which calls this via super) reports itself.
+        if kappa < 0:
+            raise ValueError(f'{type(self).__name__} requires a non-negative kappa, not kappa = {kappa}.')
         self.Lattice = lattice
         self.kappa = kappa
         self.W = W

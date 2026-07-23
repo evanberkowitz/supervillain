@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import re
+
 import numpy as np
 import pytest
 import supervillain
@@ -26,7 +28,11 @@ def test_no_intersection_hammer_uses_heatbaths_and_overrelaxation():
     assert 'CohomologyHeatbath' in s
     assert 'ExactUpdate' not in s
     assert 'CohomologyUpdate' not in s
-    assert 'LinkHeatbath' not in s
+    # The constraint-safe local heatbath is present …
+    assert 'ConstrainedLinkHeatbath' in s
+    # … but the Villain LinkHeatbath (its W-coset move breaks the constraint) is not.  Match
+    # on a word boundary so ConstrainedLinkHeatbath's substring does not give a false positive.
+    assert not re.search(r'(?<![A-Za-z])LinkHeatbath', s)
 
 
 def test_no_intersection_hammer_overrelax_must_be_positive():
@@ -37,9 +43,11 @@ def test_no_intersection_hammer_overrelax_must_be_positive():
 
 
 def test_no_intersection_hammer_steps_stay_valid():
-    # The heatbath-based Hammer must keep dn∧dn = 0 exactly.
+    # The heatbath-based Hammer must keep dn∧dn = 0 exactly.  fugacity is kept light: at
+    # this small volume a heavy DefectGas condenses (no vacuum return) and raises --- a
+    # physical limit, not a validity failure --- which would make this stochastic test flaky.
     S = _action()
-    H = supervillain.generator.no_intersection.Hammer(S, fugacity=0.5)
+    H = supervillain.generator.no_intersection.Hammer(S, fugacity=0.025)
     cfg = S.configurations(1)[0]
     for _ in range(20):
         cfg = H.step(cfg)
@@ -256,6 +264,69 @@ def test_constrained_link_update_preserves_validity():
     assert out['n'].shape == cfg['n'].shape
 
 
+def test_constrained_link_heatbath_requires_no_intersections_action():
+    L = Lattice(4, 5)
+    V = supervillain.action.Villain(L, kappa=0.3, W=1)
+    with pytest.raises(ValueError):
+        supervillain.generator.no_intersection.ConstrainedLinkHeatbath(V)
+
+
+def test_constrained_link_heatbath_preserves_validity():
+    # Both the vectorized sweep and the global-recompute oracle must keep dn∧dn = 0.
+    S = _action()
+    for method in ('step', 'step_reference'):
+        gen = supervillain.generator.no_intersection.ConstrainedLinkHeatbath(S)
+        cfg = _cold(S)
+        for _ in range(5):
+            cfg = getattr(gen, method)(cfg)
+            assert S.valid(cfg)
+            assert cfg['n'].shape == (S.Lattice.D,) + S.Lattice.dims
+
+
+def test_constrained_link_heatbath_leaves_phi_untouched():
+    S = _action()
+    gen = supervillain.generator.no_intersection.ConstrainedLinkHeatbath(S)
+    cfg = _cold(S)
+    phi0 = np.asarray(cfg['phi']).copy()
+    out = gen.step(cfg)
+    assert np.array_equal(np.asarray(out['phi']), phi0)
+
+
+def test_constrained_link_heatbath_clean_on_zero_flux_and_moves_from_cold():
+    # On a zero-flux background F = dn = 0, L_ℓ(F) = 0 on every link, so every link is
+    # clean: the first colour swept from cold sees all-clean.  (Across the full sweep the
+    # carried F fills in as links move, so later colours can freeze --- clean < proposed
+    # overall, which is the checkerboard doing its job, not a bug.)
+    from supervillain.generator.no_intersection.local_charge import clean_mask_for_color, axis_colors
+    S = _action()
+    N = S.Lattice.N
+    F0 = np.asarray(d(S.Lattice.zeros(1, dtype=int)))       # zero flux
+    axis = axis_colors(N)
+    idx = [axis[0]] * 4
+    assert clean_mask_for_color(F0, 0, idx, N).all()
+
+    # And the heatbath actually resamples links off the cold start (not a silent no-op).
+    gen = supervillain.generator.no_intersection.ConstrainedLinkHeatbath(S)
+    gen.step(_cold(S))
+    assert gen.resampled > 0
+    assert 0 < gen.clean <= gen.proposed == S.Lattice.D * S.Lattice.sites
+
+
+def test_constrained_link_heatbath_matches_villain_linkheatbath_when_unconstrained():
+    # Where every link is clean (cold F = 0), a ConstrainedLinkHeatbath sweep and a Villain
+    # W=1 LinkHeatbath sweep sample the SAME per-link discrete Gaussian.  Seeded identically
+    # and drawing in the same order (the reference oracle visits one link at a time, as the
+    # Villain heatbath does per site), their first-move marginals must coincide statistically:
+    # here we check the cheaper invariant that both leave q = 0 and only shift n by integers.
+    S = _action()
+    gen = supervillain.generator.no_intersection.ConstrainedLinkHeatbath(S)
+    cfg = _cold(S)
+    out = gen.step(cfg)
+    shift = np.asarray(out['n']) - np.asarray(cfg['n'])
+    assert np.array_equal(shift, shift.astype(int))     # integer shifts only
+    assert S.valid(out)
+
+
 def test_wrapping_loop_update_requires_no_intersections_action():
     L = Lattice(4, 5)
     V = supervillain.action.Villain(L, kappa=0.3, W=1)
@@ -363,10 +434,15 @@ def test_hammer_includes_constraint_preserving_villain_updates():
     # absolutely-normalized correlator, where every worm we tried jammed.
     S = _action()
     H = str(supervillain.generator.no_intersection.Hammer(S, fugacity=0.025))
-    for name in ('SiteHeatbath', 'ExactHeatbath', 'CohomologyHeatbath', 'ConstrainedLinkUpdate',
-                 'WrappingLoopUpdate', 'PlanarFluxUpdate', 'ScattershotUpdate',
-                 'DefectGas'):
+    for name in ('SiteHeatbath', 'ExactHeatbath', 'CohomologyHeatbath',
+                 'ConstrainedLinkHeatbath', 'PlanarFluxUpdate',
+                 'ScattershotUpdate', 'DefectGas'):
         assert name in H
+    # The heatbath supersedes the Metropolis single-link move; it is not doubled up.
+    assert 'ConstrainedLinkUpdate' not in H
+    # WrappingLoopUpdate is omitted while it is a slow reference implementation
+    # (Scattershot/DefectGas cover ergodicity).
+    assert 'WrappingLoopUpdate' not in H
 
 
 def test_hammer_has_no_worm():

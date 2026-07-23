@@ -73,6 +73,39 @@ But we can try to do something simple: make :class:`~supervillain.generator.vill
 .. autoclass:: supervillain.generator.no_intersection.ConstrainedLinkUpdate
    :members:
 
+Just as the Villain :class:`~supervillain.generator.villain.LinkUpdate` has an exact-heatbath
+counterpart in the :class:`~supervillain.generator.villain.LinkHeatbath`, so does the
+:class:`~supervillain.generator.no_intersection.ConstrainedLinkUpdate`.  The single-link charge
+change is *exactly linear* in the shift---because the self-wedge $d\delta_\ell \wedge d\delta_\ell \equiv 0$,
+
+.. math ::
+
+   \Delta q = c\,\bigl(F \wedge d\delta_\ell + d\delta_\ell \wedge F\bigr) \equiv c\, L_\ell(F),
+
+and $L_\ell(F)$ reads $F$ only on the planes complementary to $\ell$'s direction, which $n_\ell$
+never touches, so it does not depend on $n_\ell$ itself.  Cleanliness ($\Delta q = 0 \Leftrightarrow L_\ell(F) = 0$)
+is therefore a property of the background alone, *independent of the shift $c$*, and it splits
+every link cleanly in two: a **clean** link ($L_\ell(F) = 0$) admits *every* integer shift, so its
+exact conditional is the unconstrained Villain discrete Gaussian and we can heatbath it outright;
+a **frozen** link ($L_\ell(F) \ne 0$) admits *only* $c = 0$ and is left fixed.  There is no middle
+case---no link ever has a bounded, nontrivial legal window---so the 'heatbath' is simply: resample
+the clean links from the same discrete Gaussian the :class:`~supervillain.generator.villain.LinkHeatbath`
+uses, and skip the frozen ones.
+
+.. autoclass:: supervillain.generator.no_intersection.ConstrainedLinkHeatbath
+   :members:
+
+Be clear about what this does and does not buy, since the very same linearity that *makes* the
+heatbath exact also *bounds its value*.  Because cleanliness is independent of $c$, the heatbath and
+the :class:`~supervillain.generator.no_intersection.ConstrainedLinkUpdate` reach the **same set of
+configurations**---the reachability graph has identical connected components for any shift magnitude.
+So the heatbath is not the ergodic fix: it is trapped by exactly the frozen configurations described
+next, and it cannot cross between the topological sectors of the constraint surface any more than the
+Metropolis version can.  Its only advantage is that it jumps clean links to a fresh discrete-Gaussian
+draw in one hit instead of diffusing them $\pm 1$, a modest mixing gain confined to small $\kappa$
+where that conditional (width $\sigma = 1/2\pi\sqrt{\kappa}$) is wide enough for the difference to
+matter.  Escaping a frozen configuration, or changing sector, still needs a *coordinated* move.
+
 Frozen configurations
 ======================
 

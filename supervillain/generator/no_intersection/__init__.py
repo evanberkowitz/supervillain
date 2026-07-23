@@ -4,6 +4,7 @@ from .worm import IntersectionWorm
 from .free_target_worm import FreeTargetWorm
 from .defect_gas import DefectGas, DefectGasFugacityTuner, DefectGasWeightTuner
 from .link import ConstrainedLinkUpdate
+from .link_heatbath import ConstrainedLinkHeatbath
 from .wrapping import WrappingLoopUpdate
 from .planar import PlanarFluxUpdate
 from .scattershot import ScattershotUpdate
@@ -18,10 +19,14 @@ def Hammer(S, fugacity=None, overrelax=3):
     No-Intersection generators.  It may change from version to version as new
     generators become available or get improved.
 
-    The :class:`DefectGas`, :class:`ConstrainedLinkUpdate`, and
-    :class:`WrappingLoopUpdate` all update $n$ only; a
+    The :class:`DefectGas` and :class:`ConstrainedLinkHeatbath` both update $n$ only; a
     :class:`~supervillain.generator.villain.SiteHeatbath` is included to update
-    $\phi$ (exactly, since at fixed $n$ the action is Gaussian in $\phi$).  We also reuse the Villain
+    $\phi$ (exactly, since at fixed $n$ the action is Gaussian in $\phi$).  The local
+    single-link move is the :class:`ConstrainedLinkHeatbath` rather than the Metropolis
+    :class:`ConstrainedLinkUpdate` --- they share the same connectivity (a link is *clean*
+    or *frozen* independently of the shift), so the heatbath simply resamples the clean
+    links from their exact discrete-Gaussian conditional instead of a $\pm 1$ step, using
+    the heatbath variant here exactly as we do for $\phi$ and the closed-$n$ moves below.  We also reuse the Villain
     :class:`~supervillain.generator.villain.ExactUpdate` and
     :class:`~supervillain.generator.villain.CohomologyUpdate`: both change $n$ by a
     *closed* form, so they leave $dn$ (and hence the charge density $q = dn\wedge dn$)
@@ -31,7 +36,12 @@ def Hammer(S, fugacity=None, overrelax=3):
     torus-wrapping holonomy of $n$ at fixed $dn$ --- a sector the other $n$-updates do
     not reach.  The :class:`PlanarFluxUpdate` contributes a large,
     whole-lattice tunneling move (deposit a decomposable flux sheet), complementing the
-    local loop moves.  The :class:`ScattershotUpdate` proposes a joint,
+    local single-link moves.  (The :class:`WrappingLoopUpdate` --- the coordinated
+    torus-wrapping loop that escapes frozen configurations --- is **omitted for now**: it is
+    still a slow pure-python reference implementation, and since the
+    :class:`ScattershotUpdate` and :class:`DefectGas` below already guarantee ergodicity, its
+    structured mixing is a bonus not yet worth its cost.  Re-add it once it is compiled.)  The
+    :class:`ScattershotUpdate` proposes a joint,
     atomic change of every link at once from a symmetric full-support distribution,
     which upgrades the combination's ergodicity on the constraint surface from a
     plausible hope to a one-line **theorem**: every valid configuration is proposed from
@@ -72,13 +82,14 @@ def Hammer(S, fugacity=None, overrelax=3):
     # The exact closed-n moves (ExactHeatbath: Δn=dz; CohomologyHeatbath: a constant on a
     # slice) and the φ overrelaxation all leave dn untouched, so dn∧dn=0 is preserved exactly;
     # LinkHeatbath is still excluded here since its W-coset move would break the constraint.
+    # WrappingLoopUpdate is omitted for now: it is a slow pure-python reference implementation,
+    # and ScattershotUpdate/DefectGas already cover ergodicity.  Re-add it once it is compiled.
     roster = (
         _villain.SiteHeatbath(S),
         _villain.SiteOverrelaxation(S, applications=overrelax),
         _villain.ExactHeatbath(S),
         _villain.CohomologyHeatbath(S),
-        ConstrainedLinkUpdate(S),
-        WrappingLoopUpdate(S),
+        ConstrainedLinkHeatbath(S),
         PlanarFluxUpdate(S),
         ScattershotUpdate(S),
     )

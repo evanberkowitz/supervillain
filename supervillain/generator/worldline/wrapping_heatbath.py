@@ -39,17 +39,10 @@ class WrappingHeatbath(ReadWriteable, Generator):
     :class:`~.CoexactHeatbath`.  The update leaves $v$ untouched, leaves $\delta m = 0$, and
     works for every $W$.
 
-    .. note ::
-
-        Being discrete-Gaussian rather than continuous, this move has no clean microcanonical
-        overrelaxation partner (a reflection about the real mean $\Delta^\ast$ leaves the
-        integer lattice).
-
     .. warning::
 
-        Like :class:`~.WrappingUpdate` this move is not ergodic on its own --- it cannot
-        generate coexact changes.  It is a partner to the vortex and coexact moves, not a
-        standalone sampler.
+        This move is not ergodic on its own --- it cannot generate coexact changes.
+        It is a partner to the vortex and coexact moves, not a standalone sampler.
 
     .. seealso ::
         :class:`~.WrappingUpdate` for the Metropolis version, which offers the same
