@@ -213,3 +213,20 @@ class Action_Action(DerivedQuantity):
     @staticmethod
     def default(S, ActionTwoPoint, ActionDensity):
         return ActionTwoPoint - ActionDensity**2
+
+class ActionSusceptibility(DerivedQuantity):
+    r'''
+    The *action susceptibility* is the spacetime sum of the connected :class:`~.Action_Action` correlator,
+
+    .. math::
+
+        \texttt{ActionSusceptibility} = \chi_{\mathcal{S}} = \sum_{\Delta x} \texttt{Action\_Action}_{\Delta x}
+        = \frac{(\kappa \partial_\kappa)^2 \log Z}{\Lambda},
+
+    the second logarithmic $\kappa$-derivative of the partition function per site --- the response of the
+    :class:`~.ActionDensity` to a change of coupling, $\chi_{\mathcal{S}} = - \kappa \partial_\kappa \left\langle \texttt{ActionDensity} \right\rangle$.
+    '''
+
+    @staticmethod
+    def default(S, Action_Action):
+        return np.sum(Action_Action.real)

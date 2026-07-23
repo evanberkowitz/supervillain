@@ -51,6 +51,10 @@ Action
    :members:
    :show-inheritance:
 
+.. autoclass :: supervillain.observable.ActionSusceptibility
+   :members:
+   :show-inheritance:
+
 ==================
 Topological Charge
 ==================
