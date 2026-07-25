@@ -4,6 +4,9 @@ import matplotlib.pyplot as plt
 import supervillain
 from supervillain.analysis import Uncertain
 
+import logging
+logger = logging.getLogger(__name__)
+
 _default_observables=('ActionDensity', 'InternalEnergyDensity', 'InternalEnergyDensitySquared', 'WindingSquared')
 
 def setup(observables=_default_observables):
@@ -87,13 +90,27 @@ def histories(ax, ensembles, labels=None, observables=_default_observables):
             Names for the legend, one per ensemble.
         observables: iterable of strings
     '''
+    # Same guard as bootstraps(): the signature advertises an optional labels.
+    if labels is None:
+        labels = tuple('' for e in ensembles)
+
     for a, o in zip(ax, observables):
         for e, label in zip(ensembles,labels):
-            tau = supervillain.analysis.autocorrelation_time(getattr(e, o))
-            e.plot_history(a, o, alpha=0.5, 
+            # An observable can be frozen for good physical reasons --- WindingSquared
+            # deep in the ordered phase, or an observable a constraint pins to a
+            # constant --- and then it has no autocorrelation time.  That is worth
+            # plotting (the flat trace is the point), so label it without a τ rather
+            # than taking down the whole figure, mirroring
+            # :meth:`~.Ensemble.autocorrelation_time`'s handling.
+            try:
+                tau = f'τ={supervillain.analysis.autocorrelation_time(getattr(e, o))}'
+            except Exception:
+                logger.warning(f'{o} does not fluctuate enough to have an autocorrelation time; plotting its history without one.')
+                tau = 'no fluctuation'
+            e.plot_history(a, o, alpha=0.5,
                            history_kwargs={
                                'zorder': -1,
-                               'label': f'{label} τ={tau}'
+                               'label': f'{label} {tau}'
                             })
         a[0].legend(loc='upper left')
 

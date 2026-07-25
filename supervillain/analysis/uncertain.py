@@ -129,9 +129,18 @@ To mandate a sign even for positive numbers, add a ``+``.
         # 'factored out' consistently.
 
         # We can get the three pieces in the scientific notation straightforwardly.
+        # A mean of exactly zero has no scientific exponent of its own (and log10 would
+        # overflow); leaving the exponent at 0 falls through to the ± branch below, which
+        # is the right presentation whenever the uncertainty is not smaller than the mean.
+        # An observable that vanishes identically --- WindingSquared deep in the ordered
+        # phase, say --- is a normal thing to tabulate, not an error.
         sign = np.sign(self.mean)
-        exponent = int(np.floor(np.log10(sign * self.mean)))
-        mantissa = self.mean / 10**exponent
+        if self.mean == 0:
+            exponent = 0
+            mantissa = 0.
+        else:
+            exponent = int(np.floor(np.log10(sign * self.mean)))
+            mantissa = self.mean / 10**exponent
 
         if ('+' in format_spec) or format_spec == '':
             f_sign='+'
