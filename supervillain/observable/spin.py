@@ -274,7 +274,87 @@ class SpinSusceptibility(DerivedQuantity):
     @staticmethod
     def default(S, Spin_Spin_Normalized):
         return np.sum(Spin_Spin_Normalized.real)
-    
+
+class SpinStiffness(DerivedQuantity):
+    r'''
+    The *spin stiffness* (helicity modulus) $\Upsilon_\phi$ measures how much
+    the free energy resists a global twist of the $U(1)_\phi$ symmetry: impose
+    a boundary condition that rotates $\phi$ by a constant $a$ per step across
+    the lattice in one direction and ask for the curvature of the free energy
+    in $a$,
+
+    .. math ::
+
+        \Upsilon_\phi = \frac{1}{V} \left.\frac{\partial^2 F}{\partial a^2}\right|_{a=0},
+
+    averaged over the directions of the twist ($V$ is the number of sites).
+    It is the order parameter for whether $U(1)_\phi$ is *rigid*.  A phase that
+    spontaneously breaks $U(1)_\phi$ (or is critical) pays an energy $\propto a^2$
+    to accommodate the twist, so $\Upsilon_\phi > 0$; a symmetric, disordered
+    phase relaxes the twist away for free and $\Upsilon_\phi \to 0$ in the
+    thermodynamic limit.  This is the field-theory analogue of a superfluid
+    density: it is nonzero precisely when the would-be Goldstone mode is present.
+
+    Two exact limits fix the interpretation.  As $\kappa \to \infty$ the field
+    $n$ is frozen and the twist is absorbed rigidly, $\Upsilon_\phi \to \kappa$
+    (the tree-level stiffness), so $\Upsilon_\phi/\kappa \to 1$.  In a phase
+    where vortices proliferate and screen the twist completely,
+    $\Upsilon_\phi \to 0$.  In the unconstrained :class:`~.Villain` model
+    $\Upsilon_\phi/\kappa$ passes from $\approx 0$ below the critical coupling to
+    $\approx 1$ above it, tracking the ordering transition; the intermediate
+    value $\Upsilon_\phi/\kappa \approx 1/2$ signals partial screening.
+
+    .. note ::
+
+        A positive stiffness establishes that $U(1)_\phi$ is **not disordered** ---
+        the phase is rigid --- but it does not by itself distinguish true
+        long-range order (a condensate with a Goldstone boson) from a
+        critical/power-law phase; both are rigid.  Separating those requires a
+        two-point summary such as the :class:`~.SpinSusceptibility` and its
+        finite-size scaling.
+
+    .. note ::
+
+        Unlike the :class:`~.Spin_Spin` correlator, whose amplitude is
+        multiplied by an exponentially small vortex-core factor and so sinks
+        below the statistical floor at small $\kappa$, the stiffness is built
+        from a topological winding sum that every local update moves freely.
+        It is therefore not censored by the sampler: it stays informative
+        exactly where the correlator goes dark.
+
+    '''
+
+    @staticmethod
+    def Villain(S, WrappingSquared, TorusWrapping):
+        r'''
+        In the Villain frame the twist enters the action through
+        $(d\phi - 2\pi n - a\,\hat\mu)^2$, and $\phi$ drops out of the response
+        entirely: on the periodic lattice $\sum_{\ell \in \mu} d\phi_\ell = 0$
+        configuration by configuration (the sum telescopes), so the second
+        derivative of the free energy sees only the integer link sum
+        $M_\mu = \sum_{\ell \in \mu} n_\ell$ --- which is exactly the
+        :class:`~.TorusWrapping`.  The helicity modulus reduces to the
+        fluctuation of that winding,
+
+        .. math ::
+
+            \Upsilon_\phi = \kappa - (2\pi\kappa)^2 \frac{\langle M_\mu^2\rangle_c}{V},
+
+        with $\langle \cdot \rangle_c$ the connected variance, averaged over the
+        $D$ directions.  The direction sum of $M_\mu^2$ is the
+        :class:`~.WrappingSquared`, and $\langle M_\mu \rangle = 0$ by symmetry,
+        so the connected variance is $\langle\texttt{WrappingSquared}\rangle
+        - \sum_\mu \langle\texttt{TorusWrapping}_\mu\rangle^2$.
+        '''
+        # <M_mu^2> summed over directions minus the disconnected piece sum_mu <M_mu>^2
+        # (the latter vanishes in expectation by symmetry, but subtracting it removes
+        # the finite-sample bias in <M>); WrappingSquared and TorusWrapping arrive as
+        # bootstrap-resampled means, so this whole expression is per-resample.
+        connected = WrappingSquared - (TorusWrapping**2).sum(axis=-1)
+        L = S.Lattice
+        # divide by D to average the per-direction stiffness over the D twist directions.
+        return S.kappa - (2 * np.pi * S.kappa)**2 * connected / (L.D * L.sites)
+
 class SpinSusceptibilityScaled(SpinSusceptibility):
     r'''
     At the critical point and in the CFT the :class:`~.SpinSusceptibility` has a known expected scaling that comes from the scaling dimension $\Delta$ of $e^{i\phi}$

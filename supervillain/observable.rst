@@ -152,6 +152,10 @@ Spin Correlations
    :members:
    :show-inheritance:
 
+.. autoclass :: supervillain.observable.SpinStiffness
+   :members:
+   :show-inheritance:
+
 .. autoclass :: supervillain.observable.SpinCriticalMoment
    :members:
    :show-inheritance:
