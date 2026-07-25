@@ -287,7 +287,7 @@ class SpinStiffness(DerivedQuantity):
 
         \Upsilon_\phi = \frac{1}{V} \left.\frac{\partial^2 F}{\partial a^2}\right|_{a=0},
 
-    averaged over the directions of the twist ($V$ is the number of sites).
+    averaged over the directions of the twist.
     It is the order parameter for whether $U(1)_\phi$ is *rigid*.  A phase that
     spontaneously breaks $U(1)_\phi$ (or is critical) pays an energy $\propto a^2$
     to accommodate the twist, so $\Upsilon_\phi > 0$; a symmetric, disordered
@@ -301,8 +301,8 @@ class SpinStiffness(DerivedQuantity):
     where vortices proliferate and screen the twist completely,
     $\Upsilon_\phi \to 0$.  In the unconstrained :class:`~.Villain` model
     $\Upsilon_\phi/\kappa$ passes from $\approx 0$ below the critical coupling to
-    $\approx 1$ above it, tracking the ordering transition; the intermediate
-    value $\Upsilon_\phi/\kappa \approx 1/2$ signals partial screening.
+    $\approx 1$ above it, tracking the ordering transition; an intermediate
+    value signals partial screening.
 
     .. note ::
 
@@ -330,21 +330,21 @@ class SpinStiffness(DerivedQuantity):
         In the Villain frame the twist enters the action through
         $(d\phi - 2\pi n - a\,\hat\mu)^2$, and $\phi$ drops out of the response
         entirely: on the periodic lattice $\sum_{\ell \in \mu} d\phi_\ell = 0$
-        configuration by configuration (the sum telescopes), so the second
+        configuration by configuration, so the second
         derivative of the free energy sees only the integer link sum
-        $M_\mu = \sum_{\ell \in \mu} n_\ell$ --- which is exactly the
+        ${M}_\mu = \sum_{\ell \in \mu} {n}_\ell$ --- which is exactly the
         :class:`~.TorusWrapping`.  The helicity modulus reduces to the
         fluctuation of that winding,
 
         .. math ::
 
-            \Upsilon_\phi = \kappa - (2\pi\kappa)^2 \frac{\langle M_\mu^2\rangle_c}{V},
+            \begin{aligned}
+                \Upsilon_\phi &= \kappa - \frac{(2\pi\kappa)^2}{V} \times \frac{1}{D} \sum_\mu \left(\langle {M}_\mu^2\rangle - \langle M_\mu \rangle^2\right)
+                \nonumber\\
+                &= \kappa - \frac{(2\pi\kappa)^2}{D\,V} \left(\langle \texttt{WrappingSquared} \rangle - \sum_\mu\langle \texttt{TorusWrapping}_\mu \rangle^2\right).
+            \end{aligned}
 
-        with $\langle \cdot \rangle_c$ the connected variance, averaged over the
-        $D$ directions.  The direction sum of $M_\mu^2$ is the
-        :class:`~.WrappingSquared`, and $\langle M_\mu \rangle = 0$ by symmetry,
-        so the connected variance is $\langle\texttt{WrappingSquared}\rangle
-        - \sum_\mu \langle\texttt{TorusWrapping}_\mu\rangle^2$.
+        though the :class:`~.TorusWrapping` is 0 by symmetry.
         '''
         # <M_mu^2> summed over directions minus the disconnected piece sum_mu <M_mu>^2
         # (the latter vanishes in expectation by symmetry, but subtracting it removes
