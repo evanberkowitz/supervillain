@@ -97,18 +97,19 @@ They are drop-in heatbath replacements for the :class:`~.SiteUpdate` and :class:
 .. autoclass :: supervillain.generator.villain.SiteHeatbath
    :members: step, report
 
-Sweeping single-site conditionals is stochastic Gauss--Seidel, which relaxes a massless field's long-wavelength modes only diffusively.
-But at fixed $n$ the *joint* conditional of $\phi$ is Gaussian too, and $\Delta_0 = \delta d$ is diagonal in Fourier space, so the whole field can be drawn at once: the :class:`~.FourierSiteHeatbath` splits $\phi = \bar\phi + \eta$ into the solution of $\Delta_0\bar\phi = 2\pi\delta n$ and a fluctuation whose Fourier modes are independent, and produces it in three fast Fourier transforms.
-Its successive $\phi$ are statistically *independent* rather than merely correlated less, so the $\phi$ sector has no autocorrelation at all and there is nothing left for an overrelaxation to improve.
-
-.. autoclass :: supervillain.generator.villain.FourierSiteHeatbath
-   :members: step, conditional_mean, report
-
 The :class:`~.SiteOverrelaxation` is the microcanonical partner of the :class:`~.SiteHeatbath`: rather than drawing the $\phi$ conditional it *reflects* $\phi$ about the conditional mean, an action-preserving, rejection-free move that decorrelates the Gaussian $\phi$ sector faster than the heatbath alone.
 It is not ergodic by itself --- it never leaves the action shell --- and is run interleaved with the heatbath, as the :func:`~.villain.Hammer` does by default.
 
 .. autoclass :: supervillain.generator.villain.SiteOverrelaxation
    :members: step, report
+
+Sweeping single-site conditionals is stochastic Gauss--Seidel, which relaxes a massless field's long-wavelength modes only diffusively.
+But at fixed $n$ the *joint* conditional of $\phi$ is Gaussian too, and $\delta d$ (equal to the Laplacian $\Delta$ on the 0-form $\phi$) is diagonal in Fourier space, so the whole field can be drawn at once.
+The :class:`~.FourierSiteHeatbath` splits $\phi = \bar\phi + \eta$ into the solution of $\Delta\bar\phi = 2\pi\delta n$ and a fluctuation whose Fourier modes are independent, and produces it in three fast Fourier transforms.
+Its successive $\phi$ are statistically *independent* rather than merely correlated less, so the $\phi$ sector has no autocorrelation at all and there is nothing left for an overrelaxation to improve.
+
+.. autoclass :: supervillain.generator.villain.FourierSiteHeatbath
+   :members: step, conditional_mean, report
 
 As mentioned we can also update the $n$ fields with a heatbath.
 

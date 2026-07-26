@@ -23,23 +23,22 @@ class FourierSiteHeatbath(ReadWriteable, Generator):
 
         \phi = \bar\phi + \eta,
         \qquad
-        \Delta_0 \bar\phi = 2\pi\, \delta n,
+        \Delta \bar\phi = 2\pi\, \delta n,
         \qquad
-        \eta \sim \exp\left[-\frac{\kappa}{2}\left(\eta, \Delta_0 \eta\right)\right],
+        \eta \sim \exp\left[-\frac{\kappa}{2}\left(\eta, \Delta \eta\right)\right],
 
-    with $\Delta_0 = \delta d$ the scalar Laplacian --- which on a 0-form is just
-    the lattice's :func:`~.laplacian`, since $\delta$ annihilates 0-forms.  Both
-    pieces are available in closed form because $\Delta_0$ is diagonal in Fourier
+    with $\Delta = \delta d$ the scalar Laplacian (the $d\delta$ term annihilates the 0-form $\phi$).  Both
+    pieces are available in closed form because $\Delta$ is diagonal in Fourier
     space with symbol
-    $\hat k^2 = \sum_\mu \left|e^{ik_\mu}-1\right|^2$: the mean is one solve of a
+    $\hat{k}^2 = \sum_\mu \left|e^{i{k}_\mu}-1\right|^2$: the mean is one solve of a
     Poisson equation, and the fluctuation's Fourier modes are *independent*
     Gaussians of variance $1/\kappa \hat k^2$.  The whole update is three fast
     Fourier transforms and costs $O(V \log V)$.
 
     In practice the mean is computed from the same local force
     $g = \delta(d\phi - 2\pi n)$ that the :class:`~.SiteHeatbath` uses: since
-    $g = \Delta_0\phi - 2\pi\delta n$, the conditional mean is
-    $\bar\phi = \phi - \Delta_0^{-1} g$ exactly.
+    $g = \Delta\phi - 2\pi\delta n$, the conditional mean is
+    $\bar\phi = \phi - \Delta^{-1} g$ exactly.
 
     .. note ::
 
@@ -69,12 +68,6 @@ class FourierSiteHeatbath(ReadWriteable, Generator):
         :class:`~.SiteOverrelaxation` for its microcanonical partner.  Neither
         overrelaxation nor sweeping helps here: an independent draw cannot be
         decorrelated further.
-
-    .. seealso ::
-
-        Applies verbatim to the :class:`~.NoIntersections` action, which is a
-        :class:`~.Villain` whose extra term constrains $n$ alone and is
-        therefore $\phi$-independent; the conditional above is unchanged.
 
     Parameters
     ----------
@@ -124,7 +117,7 @@ class FourierSiteHeatbath(ReadWriteable, Generator):
     def conditional_mean(self, cfg):
         r'''
         The exact conditional mean $\bar\phi$ of $\phi$ at fixed $n$: the unique
-        (up to the constant mode) minimizer of the action, $\Delta_0\bar\phi =
+        (up to the constant mode) minimizer of the action, $\Delta\bar\phi =
         2\pi\delta n$.
 
         It is a useful quantity in its own right, since the marginal action after
