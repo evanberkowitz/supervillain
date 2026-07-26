@@ -28,6 +28,26 @@ the result will be an ensemble ``e`` that has 17 identical configurations (becau
 Obviously, for good sampling, DoNothing is the worst imaginable algorithm!
 It has an infinitely bad ergodicity problem!
 
+.. _importance-weights:
+
+------------------
+Importance Weights
+------------------
+
+A generator may be a *reweighting* generator: instead of (or in addition to) making detailed-balance updates toward the target distribution, it emits configurations from some easier distribution together with a per-configuration importance weight that corrects the estimator afterward.
+It does this through the very same inline-observable mechanism, by returning a log-weight under a specially-named field.
+
+Any inline measurement whose name begins with ``logWeight_`` is treated as the natural logarithm of an importance weight.
+A generator emits *its own* contribution under a namespaced key ``logWeight_<name>``.
+Omitting the key is the same as emitting ``0`` (unit weight), so an ordinary detailed-balance generator does nothing and stays unweighted.
+
+Contributions **accumulate by summing the logs** --- equivalently, the weights multiply.
+If several generators each emit a ``logWeight_*`` field the total log-weight is their sum; because the keys are namespaced they never collide, so :class:`~.Sequentially` combines them with no special handling and each contribution remains separately inspectable in the configuration.
+Working in logs (rather than multiplying the weights directly) keeps the accumulation representable even when the individual factors are astronomically small.
+
+The per-generator log-weights are the canonical quantity that is stored with the configurations; the linear weight the analysis actually uses is derived from them on demand as :attr:`Ensemble.weight <supervillain.ensemble.Ensemble.weight>`.
+See :ref:`the bootstrap <reweighting>` for how the weighted expectation value is formed.
+
 -----------------------
 The Villain Formulation
 -----------------------

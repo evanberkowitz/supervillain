@@ -75,7 +75,6 @@ class Ensemble(Extendable):
         self.configuration |= generator.inline_observables(steps)
         self.index_stride = index_stride
         self.index = Batch(starting_index + self.index_stride * np.arange(steps))
-        self.weight = Batch(np.ones(steps))
 
         if start == 'cold':
             seed = self.Action.configurations(1)[0]
@@ -181,6 +180,31 @@ class Ensemble(Extendable):
 
         return self.__dict__.keys() & supervillain.observables.keys()
 
+    @property
+    def weight(self):
+        r'''
+        Per-configuration importance weight, **derived on access** from any
+        ``logWeight_*`` columns the generators emitted (default: all ones).
+
+        A reweighting generator emits its own log-weight contribution as an
+        inline observable named ``logWeight_<name>``; the total importance weight is the
+        product over contributions, or the exponential of the *summed*
+        log-weights.  Working in logs and summing keeps the accumulation stable
+        even when individual factors are astronomically small.
+
+                    '''
+        # The global ``max`` subtraction is numerical conditioning only --- it
+        # cancels in :class:`~.Bootstrap`'s :math:`\langle Ow\rangle/\langle
+        # w\rangle` ratio --- and is retaken over whatever configurations are
+        # present.  Nothing normalized is persisted, so :meth:`cut`,
+        # :meth:`every`, and :meth:`~.Extendable.continue_from` stay
+        # self-consistent with no on-disk rewrite.
+        cols = sorted(k for k in self.configuration.fields if k.startswith('logWeight_'))
+        if not cols:
+            return Batch(np.ones(len(self)))
+        lw = sum(np.asarray(Batch.as_array(self.configuration.fields[k])) for k in cols)
+        return Batch(np.exp(lw - lw.max()))
+
     def autocorrelation_time(self, observables=None, every=False):
         r'''
         Compute the autocorrelation time for the ensemble's measurements.
@@ -212,12 +236,16 @@ class Ensemble(Extendable):
             observables = tuple(supervillain.observables.keys())
 
 
+        # On a reweighted ensemble the relevant τ is that of the ratio-estimator
+        # influence function w(O−Ō)/⟨w⟩, so hand the weights to autocorrelation_time
+        # (a no-op for the default unit weights).
+        weight = Batch.as_array(self.weight)
         auto = dict()
         for name in observables:
             if not supervillain.observables[name].autocorrelation(self):
                 continue
             try:
-                auto[name] = autocorrelation_time(getattr(self, name))
+                auto[name] = autocorrelation_time(getattr(self, name), weight=weight)
             except Exception as E:
                 logger.warning(f'{name} does not fluctuate enough; it is not included in the autocorrelation time calculation.')
 
@@ -259,7 +287,7 @@ class Ensemble(Extendable):
         e = Ensemble(self.Action).from_configurations(self.configuration[start:])
         e.index = self.index[start:]
         e.index_stride = self.index_stride
-        e.weight = self.weight[start:]
+        # .weight is derived from the (now-sliced) logWeight_* configuration columns.
 
         for o in self.measured:
             setattr(e, o, getattr(self, o)[start:])
@@ -292,7 +320,7 @@ class Ensemble(Extendable):
         e = Ensemble(self.Action).from_configurations(self.configuration[::stride])
         e.index = self.index[::stride]
         e.index_stride = self.index_stride * stride
-        e.weight = self.weight[::stride]
+        # .weight is derived from the (now-strided) logWeight_* configuration columns.
 
         for o in self.measured:
             setattr(e, o, getattr(self, o)[::stride])
@@ -323,10 +351,15 @@ class Ensemble(Extendable):
 
         data = Batch.as_array(getattr(self, observable))
         axes[0].plot(Batch.as_array(self.index), data, color=color, **history_kwargs)
+        # The trajectory (left) is the raw chain; the histogram (right) is the
+        # observable's DISTRIBUTION, so on a reweighted ensemble it is weighted by
+        # .weight (a no-op for the default unit weights) to show the physical, not
+        # the merely-sampled, distribution.
         axes[1].hist(data, label=histogram_label,
                      orientation='horizontal',
                      bins=bins, density=density,
                      color=color, alpha=alpha,
+                     weights=Batch.as_array(self.weight),
                      )
 
     def __getattr__(self, name):

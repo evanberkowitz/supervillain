@@ -179,6 +179,29 @@ def _read_batch_block(field_group, start, stop):
     return Batch(data, cls=cls, dtype=data.dtype, **item_kwargs)
 
 
+def _stream_weight(source_group):
+    r'''Derive the per-config importance weight from an on-disk ensemble exactly
+    as :attr:`Ensemble.weight` does in memory: sum the cheap ``logWeight_*``
+    scalar columns and exponentiate with a SINGLE global ``max`` subtraction.
+
+    The global max is a correctness requirement, not just overflow safety: the
+    streaming resample forms ⟨Ow⟩/⟨w⟩ across blocks, and the ``exp`` offset
+    cancels in that ratio only if it is one constant shared by every config --- a
+    per-block max would silently bias the estimate.  Reads only the scalar
+    ``data`` datasets of the log columns (never the heavy fields), so the whole
+    weight vector is materialized eagerly before any block streams.  Falls back
+    to a legacy stored ``weight`` dataset, then to unit weights.'''
+    fields = source_group['configuration/fields']
+    cols = sorted(k for k in fields.keys() if k.startswith('logWeight_'))
+    if cols:
+        lw = sum(np.asarray(fields[k]['data'][:]) for k in cols)
+        return np.exp(lw - lw.max())
+    if 'weight' in source_group:
+        return np.asarray(Batch.as_array(Data.read(source_group['weight'])))
+    name = next(iter(fields.keys()))
+    return np.ones(len(fields[name]['data']))
+
+
 class EnsembleStreamer(ReadWriteable):
     r'''Memory-bounded block iteration of an h5-serialized :class:`~.Ensemble`.
 
@@ -199,7 +222,7 @@ class EnsembleStreamer(ReadWriteable):
         self._source = source_group
         self.block = block
         self.Action = Data.read(source_group['Action'])
-        self.weight = Data.read(source_group['weight'])
+        self.weight = _stream_weight(source_group)
         self._length = len(np.asarray(self.weight))
 
     def __len__(self):
@@ -245,7 +268,7 @@ class EnsembleStreamer(ReadWriteable):
             source = group['source']
             o._source = source
             o.Action = Data.read(source['Action'])
-            o.weight = Data.read(source['weight'])
+            o.weight = _stream_weight(source)
             o._length = len(np.asarray(o.weight))
         except (KeyError, OSError):
             o._source = None

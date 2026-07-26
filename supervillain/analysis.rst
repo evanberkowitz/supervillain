@@ -33,6 +33,27 @@ A natural choice for n is the autocorrelation time.
 
 Ensembles also have an :meth:`~.Ensemble.autocorrelation_time`, which leverages the above :py:func:`~.analysis.autocorrelation_time` and understands which observables to include.
 
+.. _weighted-autocorrelation:
+
+On a :ref:`reweighted <reweighting>` ensemble the autocorrelation must be taken of the right time series.
+The estimator is no longer a plain mean but the ratio :math:`\bar O = \langle wO\rangle / \langle w\rangle`, where the ⟨averages⟩ run over the chain, and the naive autocorrelation of :math:`O_t` alone is *not* what controls its uncertainty.
+Following the Wolff :math:`\Gamma`-method treatment of a derived quantity, write the ratio as :math:`F(A,B) = A/B` with :math:`A = \langle wO\rangle` and :math:`B = \langle w\rangle` and linearize about the sample means.
+The fluctuation of :math:`F` from configuration :math:`t` is the *influence function*
+
+.. math ::
+
+   f(t)
+   = \frac{\partial F}{\partial A}\Big(w_t O_t - \langle wO\rangle\Big)
+   + \frac{\partial F}{\partial B}\Big(w_t - \langle w\rangle\Big)
+   = \frac{1}{\langle w\rangle}\Big(w_t O_t - \bar O\, w_t\Big)
+   = \frac{w_t\,(O_t - \bar O)}{\langle w\rangle},
+
+where the constant pieces :math:`\partial_A F = 1/\langle w\rangle` and :math:`\partial_B F = -\langle wO\rangle/\langle w\rangle^2 = -\bar O/\langle w\rangle` were used and the term :math:`\langle wO\rangle - \bar O\langle w\rangle` vanishes identically by the definition of :math:`\bar O`.
+It is the autocorrelation of :math:`f(t)`, not of :math:`O_t`, whose integral is the :math:`\tau_{int}` that inflates :math:`\mathrm{Var}(\bar O)`.
+When every weight is 1 this reduces to :math:`f(t) = O_t - \bar O` and the ordinary autocorrelation is recovered; and :math:`f` is invariant under a global rescaling of the weights, so the arbitrary normalization of :attr:`~.Ensemble.weight` is immaterial.
+Passing ``weight`` to :py:func:`~.analysis.autocorrelation` (as :meth:`~.Ensemble.autocorrelation_time` does automatically) computes the autocorrelation of :math:`f(t)`.
+This is important when the weights carry their own slow Markov-time structure --- as they do when the weight is a function of a slow mode of the sampler --- because then :math:`f` can decorrelate more slowly than :math:`O` and the unweighted :math:`\tau` would under-report the uncertainty.
+
 Blocking
 --------
 
@@ -51,6 +72,26 @@ The idea is that each draw *could* have been what your samples were with the sam
 .. autoclass:: supervillain.analysis.Bootstrap
    :no-special-members:
    :members: plot_band, plot_correlator, estimate
+
+.. _reweighting:
+
+Reweighting
+-----------
+
+The bootstrap forms the *weighted* expectation value :math:`\langle O\rangle = \langle Ow\rangle / \langle w\rangle` using a per-configuration weight, :attr:`Ensemble.weight <supervillain.ensemble.Ensemble.weight>`.
+By default every weight is 1 and this is the ordinary sample mean.
+A :ref:`reweighting generator <importance-weights>` instead emits per-configuration importance weights, and then :class:`~.Bootstrap` corrects *every* observable automatically --- resampling the numerator and denominator together so the correlated uncertainty is automatically right.
+
+The :attr:`~supervillain.ensemble.Ensemble.weight` is not stored; it is derived from the generators' ``logWeight_*`` contributions as
+
+.. math ::
+
+   w = \exp\left(\sum_k \texttt{logWeight}_k - \max\right).
+
+The single global ``max`` subtraction is exact: it cancels in the :math:`\langle Ow\rangle/\langle w\rangle` ratio, so it changes no expectation value and serves only to keep the exponentials representable.
+Because only the raw log-weights are persisted --- and the ``max`` is retaken over whatever configurations are present --- :meth:`~.Ensemble.cut`, :meth:`~.Ensemble.every`, and :meth:`~.Ensemble.continue_from` stay self-consistent with nothing to rewrite on disk.
+
+The memory-bounded :class:`~.analysis.bootstrap.StreamingBootstrap` derives the same weight from the on-disk log columns, materializing the whole (cheap, scalar) weight vector and taking the global ``max`` before it streams any block so that the offset is global and consistently cancels from the ratio.
 
 Uncertainty
 -----------

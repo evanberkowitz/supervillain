@@ -329,7 +329,7 @@ class ParallelTempering:
             e.configuration = configurations[i]
             e.index_stride = index_stride
             e.index = Batch(starting_index + index_stride * np.arange(steps))
-            e.weight = Batch(np.ones(steps))
+            # .weight is derived from logWeight_* columns; a plain rung carries none → ones.
             e.start = start if (isinstance(start, str)) else start[i]
             e.generator = TemperedRung(G, rung=i, ladder=self.kappa)
             ensembles.append(e)

@@ -86,12 +86,19 @@ class Blocking(ReadWriteable):
         if histogram_label is None:
             histogram_label=label
 
-        data = Batch.as_array(getattr(self, observable))
+        # The blocked observable is w-scaled (a block sum of w*O); dividing by the
+        # block weight recovers the per-block weighted mean Σ(wO)/Σw --- the actual
+        # observable value --- and the histogram is weighted by the block weight so
+        # it shows the physical distribution.  Both reduce to the plain block mean
+        # when the weights are all 1.
+        weight = Batch.as_array(self.weight)
+        data = Batch.as_array(getattr(self, observable)) / weight
         axes[0].plot(self.index, data, color=color, **history_kwargs)
         axes[1].hist(data, label=histogram_label,
                      orientation='horizontal',
                      bins=bins, density=density,
                      color=color, alpha=alpha,
+                     weights=weight,
                      )
 
     def __getattr__(self, name):
