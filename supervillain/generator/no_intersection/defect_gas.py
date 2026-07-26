@@ -11,7 +11,7 @@ from supervillain.generator.combining import Sequentially
 from supervillain.h5 import ReadWriteable
 from supervillain.batch import Batch
 from supervillain.lattice import Form, d
-from supervillain.generator.villain.site_heatbath import SiteHeatbath
+from supervillain.generator.villain.site_fourier_heatbath import FourierSiteHeatbath
 from supervillain.generator.villain.exact import ExactUpdate
 from supervillain.generator.villain.cohomology import CohomologyUpdate
 from supervillain.generator.no_intersection.charge import charge
@@ -872,12 +872,13 @@ class DefectGasFugacityTuner:
         if companions is not None:
             self.companions = tuple(companions)
         else:
-            # SiteHeatbath moves phi (exactly); ExactUpdate stirs n at fixed dn (q exactly
-            # preserved); CohomologyUpdate shifts the winding holonomy no local
-            # move reaches (and with it the theta-current windings J_mu).  All
-            # three are D-neutral and tolerate the mid-excursion (invalid-n)
-            # states the probes hand them.
-            defaults = (SiteHeatbath(S), ExactUpdate(S), CohomologyUpdate(S))
+            # FourierSiteHeatbath draws phi (exactly, and jointly -- it reads n only
+            # through delta(dphi - 2 pi n), so it neither inspects nor disturbs it);
+            # ExactUpdate stirs n at fixed dn (q exactly preserved); CohomologyUpdate
+            # shifts the winding holonomy no local move reaches (and with it the
+            # theta-current windings J_mu).  All three are D-neutral and tolerate the
+            # mid-excursion (invalid-n) states the probes hand them.
+            defaults = (FourierSiteHeatbath(S), ExactUpdate(S), CohomologyUpdate(S))
             for generator in defaults:
                 generator.rng = self.rng
             self.companions = defaults
@@ -1128,12 +1129,13 @@ class DefectGasWeightTuner:
         if companions is not None:
             self.companions = tuple(companions)
         else:
-            # SiteHeatbath moves phi (exactly); ExactUpdate stirs n at fixed dn (q exactly
-            # preserved); CohomologyUpdate shifts the winding holonomy no local
-            # move reaches (and with it the theta-current windings J_mu).  All
-            # three are D-neutral and tolerate the mid-excursion (invalid-n)
-            # states the probes hand them.
-            defaults = (SiteHeatbath(S), ExactUpdate(S), CohomologyUpdate(S))
+            # FourierSiteHeatbath draws phi (exactly, and jointly -- it reads n only
+            # through delta(dphi - 2 pi n), so it neither inspects nor disturbs it);
+            # ExactUpdate stirs n at fixed dn (q exactly preserved); CohomologyUpdate
+            # shifts the winding holonomy no local move reaches (and with it the
+            # theta-current windings J_mu).  All three are D-neutral and tolerate the
+            # mid-excursion (invalid-n) states the probes hand them.
+            defaults = (FourierSiteHeatbath(S), ExactUpdate(S), CohomologyUpdate(S))
             for generator in defaults:
                 generator.rng = self.rng
             self.companions = defaults
