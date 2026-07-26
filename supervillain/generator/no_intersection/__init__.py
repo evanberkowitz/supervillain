@@ -13,15 +13,18 @@ import supervillain.generator.villain as _villain
 import supervillain.generator.combining as _combining
 
 
-def Hammer(S, fugacity=None, overrelax=3):
+def Hammer(S, fugacity=None):
     r'''
     Syntactic sugar for an ergodic :class:`~.Sequentially` combination of the
     No-Intersection generators.  It may change from version to version as new
     generators become available or get improved.
 
     The :class:`DefectGas` and :class:`ConstrainedLinkHeatbath` both update $n$ only; a
-    :class:`~supervillain.generator.villain.SiteHeatbath` is included to update
-    $\phi$ (exactly, since at fixed $n$ the action is Gaussian in $\phi$).  The local
+    :class:`~supervillain.generator.villain.FourierSiteHeatbath` is included to update
+    $\phi$ (exactly, since at fixed $n$ the action is Gaussian in $\phi$ --- and *jointly*
+    so, which is why the whole field is drawn at once rather than swept site by site and
+    then overrelaxed; the draw leaves $n$ untouched, so $dn\wedge dn = 0$ survives
+    trivially).  The local
     single-link move is the :class:`ConstrainedLinkHeatbath` rather than the Metropolis
     :class:`ConstrainedLinkUpdate` --- they share the same connectivity (a link is *clean*
     or *frozen* independently of the shift), so the heatbath simply resamples the clean
@@ -65,28 +68,18 @@ def Hammer(S, fugacity=None, overrelax=3):
         $\zeta \in (0, 1]$ --- it tunes only the variance.  The tuned gas inherits the
         tuner's default ``max_defects = 8`` cap (an explicit ``fugacity`` leaves ``max_defects``
         uncapped as before).
-    overrelax: int
-        How many $\phi$ overrelaxation sweeps
-        (:class:`~supervillain.generator.villain.SiteOverrelaxation`) to interleave after
-        the $\phi$ heatbath.  Must be a positive integer ($\geq 1$).  The move is $\phi$-only
-        and action-preserving, so it leaves the no-intersection constraint $dn\wedge dn = 0$
-        intact and only accelerates $\phi$ decorrelation.
 
     Returns
     -------
     An ergodic generator for updating No-Intersection configurations.
     '''
-    if (not isinstance(overrelax, int)) or (overrelax < 1):
-        raise ValueError(f"overrelax must be a positive integer (>= 1), not {overrelax}")
-
     # The exact closed-n moves (ExactHeatbath: Δn=dz; CohomologyHeatbath: a constant on a
-    # slice) and the φ overrelaxation all leave dn untouched, so dn∧dn=0 is preserved exactly;
+    # slice) and the φ draw all leave dn untouched, so dn∧dn=0 is preserved exactly;
     # LinkHeatbath is still excluded here since its W-coset move would break the constraint.
     # WrappingLoopUpdate is omitted for now: it is a slow pure-python reference implementation,
     # and ScattershotUpdate/DefectGas already cover ergodicity.  Re-add it once it is compiled.
     roster = (
-        _villain.SiteHeatbath(S),
-        _villain.SiteOverrelaxation(S, applications=overrelax),
+        _villain.FourierSiteHeatbath(S),
         _villain.ExactHeatbath(S),
         _villain.CohomologyHeatbath(S),
         ConstrainedLinkHeatbath(S),

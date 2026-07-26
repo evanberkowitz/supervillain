@@ -17,13 +17,15 @@ def _cold(S):
     return S.configurations(1)[0]
 
 
-def test_no_intersection_hammer_uses_heatbaths_and_overrelaxation():
+def test_no_intersection_hammer_uses_heatbaths_and_one_shot_phi():
     # Explicit fugacity skips the tuner's Monte-Carlo probes, keeping this fast.  The closed-n
     # moves are the exact heatbaths (constraint-safe: they leave dn, hence dn∧dn, untouched),
     # and the φ overrelaxation is interleaved.  LinkHeatbath is excluded (breaks the constraint).
     S = _action()
     s = str(supervillain.generator.no_intersection.Hammer(S, fugacity=0.5))
-    assert 'SiteOverrelaxation' in s
+    assert 'FourierSiteHeatbath' in s
+    assert 'SiteOverrelaxation' not in s
+    assert not re.search(r'(?<![A-Za-z])SiteHeatbath', s)
     assert 'ExactHeatbath' in s
     assert 'CohomologyHeatbath' in s
     assert 'ExactUpdate' not in s
@@ -35,11 +37,12 @@ def test_no_intersection_hammer_uses_heatbaths_and_overrelaxation():
     assert not re.search(r'(?<![A-Za-z])LinkHeatbath', s)
 
 
-def test_no_intersection_hammer_overrelax_must_be_positive():
+def test_no_intersection_hammer_rejects_overrelax():
+    # The φ draw is already independent, so the knob is gone rather than ignored.
     S = _action()
     import pytest
-    with pytest.raises(ValueError):
-        supervillain.generator.no_intersection.Hammer(S, fugacity=0.5, overrelax=0)
+    with pytest.raises(TypeError):
+        supervillain.generator.no_intersection.Hammer(S, fugacity=0.5, overrelax=3)
 
 
 def test_no_intersection_hammer_steps_stay_valid():

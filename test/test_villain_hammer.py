@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import re
+
 import pytest
 import supervillain
 
@@ -50,18 +52,25 @@ def test_villain_hammer_produces_valid_configs_W2():
         assert S.valid(e.configuration[i])
 
 
-def test_villain_hammer_includes_overrelaxation_by_default():
+def test_villain_hammer_draws_phi_in_one_shot():
+    # φ is drawn from its joint conditional, so neither the site-by-site sweep nor the
+    # overrelaxation that decorrelated it belongs in the roster any more.
     L = supervillain.lattice.Lattice(D=2, N=6)
     S = supervillain.action.Villain(L, kappa=0.5, W=1)
-    assert 'SiteOverrelaxation' in str(supervillain.generator.villain.Hammer(S))
+    s = str(supervillain.generator.villain.Hammer(S))
+    assert 'FourierSiteHeatbath' in s
+    assert 'SiteOverrelaxation' not in s
+    # word boundary so FourierSiteHeatbath does not give a false positive
+    assert not re.search(r'(?<![A-Za-z])SiteHeatbath', s)
 
 
-def test_villain_hammer_overrelax_must_be_positive():
-    # Overrelaxation is unconditional in the Hammer; overrelax must be >= 1.
+def test_villain_hammer_rejects_overrelax():
+    # Removed rather than accepted-and-ignored: a knob that silently does nothing is worse
+    # than one that raises.
     L = supervillain.lattice.Lattice(D=2, N=6)
     S = supervillain.action.Villain(L, kappa=0.5, W=1)
-    with pytest.raises(ValueError):
-        supervillain.generator.villain.Hammer(S, overrelax=0)
+    with pytest.raises(TypeError):
+        supervillain.generator.villain.Hammer(S, overrelax=3)
 
 
 def test_villain_hammer_omits_worm_in_D3():

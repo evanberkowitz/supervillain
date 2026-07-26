@@ -15,7 +15,7 @@ from .cluster import ReflectionCluster
 
 import supervillain.generator.combining as _combining
 
-def Hammer(S, worms=1, overrelax=3):
+def Hammer(S, worms=1):
     r'''
     The Hammer is just syntactic sugar for a :class:`~.Sequentially` applied ergodic
     combination of generators.  It may change from version to version as new generators
@@ -37,11 +37,6 @@ def Hammer(S, worms=1, overrelax=3):
     S: a Villain action
     worms: int
         A positive integer saying how many worms to do per iteration.
-    overrelax: int
-        How many $\phi$ overrelaxation sweeps (:class:`SiteOverrelaxation`) to interleave
-        after the heatbath.  Must be a positive integer ($\geq 1$).  The move is $\phi$-only
-        and action-preserving, so it only accelerates decorrelation (near $\kappa_c$) and does
-        not change ergodicity.
 
     Returns
     -------
@@ -61,21 +56,22 @@ def Hammer(S, worms=1, overrelax=3):
     else:
         worm = ()
 
-    if (not isinstance(overrelax, int)) or (overrelax < 1):
-        raise ValueError(f"overrelax must be a positive integer (>= 1), not {overrelax}")
-
+    # φ is drawn by the FourierSiteHeatbath rather than by a SiteHeatbath sweep followed by
+    # SiteOverrelaxation: at fixed n the *joint* conditional of φ is Gaussian and diagonal in
+    # Fourier space, so the whole field is drawn at once and successive φ are independent.
+    # Nothing is then left for an overrelaxation to decorrelate, which is why `overrelax` is
+    # gone rather than merely defaulted — passing it now raises loudly instead of silently
+    # doing nothing.
     if S.W < float('inf'):
         return _combining.Sequentially((
-                SiteHeatbath(S),
-                SiteOverrelaxation(S, applications=overrelax),
+                FourierSiteHeatbath(S),
                 LinkHeatbath(S),  # <-- changes dn by W, omitted below.
                 ExactHeatbath(S),
                 CohomologyHeatbath(S),
                 ) + worm)
 
     return _combining.Sequentially((
-            SiteHeatbath(S),
-            SiteOverrelaxation(S, applications=overrelax),
+            FourierSiteHeatbath(S),
             ExactHeatbath(S),
             CohomologyHeatbath(S),
             ) + worm)
