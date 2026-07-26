@@ -337,12 +337,13 @@ def chern_simons_form(n):
 
 class IntersectionCurrent(Observable):
     r"""
-    The $U(1)_\theta$ current: the **gauge-invariant** 3-form
+    The $U(1)_\theta$ current: the **gauge-invariant, cup-symmetrized** 3-form
 
     .. math ::
 
         \texttt{IntersectionCurrent} = j
-        = \frac{(d\phi - 2\pi n) \wedge dn}{-2\pi},
+        = -\frac{1}{4\pi}\,\big[\,A \cup dn + dn \cup A\,\big],
+        \qquad A = d\phi - 2\pi n,
 
     normalized so that its divergence is *exactly* the topological-charge
     density, $dj = q$.  Both factors are inert under
@@ -351,6 +352,29 @@ class IntersectionCurrent(Observable):
     because $d^2 = 0$ --- so unlike the Chern--Simons form
     :func:`~.chern_simons_form` this is an observable **pointwise**, and its
     correlators and structure factors at $k \neq 0$ mean something.
+
+    .. note ::
+
+        **Why the symmetrization** (and what it changes).  On the lattice the
+        cup product is *not* graded-commutative: $A \cup dn \neq dn \cup A$
+        (equal only in the continuum, where $A\wedge dn = (-1)^{1\cdot2}dn\wedge A
+        = +\,dn\wedge A$), so the single ordering $A \cup dn$ is an *arbitrary*
+        convention.  We take the ordering-independent symmetric combination.  It
+        keeps everything the asymmetric current had --- gauge invariance,
+        $dj = q$, and periods that reproduce :class:`~.IntersectionWinding`
+        exactly --- because the two orderings share the same divergence
+        ($d(A\cup dn) = dA\cup dn = -2\pi\,dn\cup dn = d(dn\cup A)$, using
+        $dA=-2\pi\,dn$) and the same periods.  They differ only by the
+        *antisymmetric* piece $j_- \propto (A\cup dn - dn\cup A) = dn\cup_1 dn$,
+        which is **closed** ($dj_-=0$, carries no charge), has **zero winding**,
+        and **vanishes in the continuum** --- a pure lattice cup-ordering ghost.
+        Consequence: pointwise densities and $k\neq0$ structure factors of this
+        symmetric $j$ differ (by an $O(1)$ amount at finite lattice spacing, the
+        ghost's $\langle|\hat\jmath_-|^2\rangle$) from those of the older
+        asymmetric $A\cup dn/(-2\pi)$.  The winding, $dj=q$, and the continuum
+        limit are unchanged; the *finite-lattice* value of any current
+        correlator or structure factor (e.g.\ a $\theta$-sector helicity
+        modulus) is a different, ordering-free number.
 
     .. note ::
 
@@ -395,14 +419,16 @@ class IntersectionCurrent(Observable):
 
     @staticmethod
     def Villain(S, phi, n):
-        r'''Measure $j = (d\phi - 2\pi n) \wedge dn / (-2\pi)$ as a degree-3
-        :class:`~supervillain.lattice.Form`, shape ``(4,) + L.dims``.'''
+        r'''Measure the cup-symmetrized current
+        $j = -\tfrac{1}{4\pi}\,[A\cup dn + dn\cup A]$, $A = d\phi - 2\pi n$, as a
+        degree-3 :class:`~supervillain.lattice.Form`, shape ``(4,) + L.dims``.'''
         L = S.Lattice
         if L.D != 4:
             raise NotImplementedError(
                 'IntersectionCurrent requires a four-dimensional lattice.')
         A = d(phi) - 2 * np.pi * n
-        return wedge(A, d(n)) / (-2 * np.pi)
+        dn = d(n)
+        return (wedge(A, dn) + wedge(dn, A)) / (-4 * np.pi)
 
 
 class IntersectionWinding(Observable):

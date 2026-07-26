@@ -134,12 +134,14 @@ def test_gauge_invariant_current_is_invariant_and_shares_the_periods():
 
 
 def test_observable_current_is_invariant_and_reproduces_the_winding():
-    # The IntersectionCurrent OBSERVABLE is now the gauge-invariant
-    # representative, normalized so dj = q.  Two things must hold on a real
-    # ensemble: it is invariant under the integer gauge transformation, and its
-    # periods reproduce IntersectionWinding exactly -- which is what licenses
-    # computing the winding from the (cheaper, exactly integral) CS form while
-    # correlating the invariant one.
+    # The IntersectionCurrent OBSERVABLE is now the gauge-invariant,
+    # cup-SYMMETRIZED representative -(1/4pi)(A cup dn + dn cup A), normalized so
+    # dj = q.  Symmetrizing keeps all three properties (the two cup orderings
+    # share the same divergence and the same periods): it is invariant under the
+    # integer gauge transformation, dj = q, and its periods reproduce
+    # IntersectionWinding exactly -- which is what licenses computing the winding
+    # from the (cheaper, exactly integral) CS form while correlating the
+    # ordering-free invariant one.
     S = _action()
     L = S.Lattice
     gas = supervillain.generator.no_intersection.DefectGas(
