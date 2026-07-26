@@ -38,9 +38,18 @@ class Ensemble(Extendable):
         Returns
         -------
             The ensemble itself, so that one can do ``ensemble = Ensemble(action).from_configurations(cfgs)``.
+
+        .. note ::
+            An ensemble assembled this way has no Markov history, but it still gets
+            a default :attr:`index` and :attr:`index_stride`, because
+            :meth:`~.Ensemble.cut`, :meth:`~.Ensemble.every`, and
+            :class:`~.Blocking` all rely on them.  :meth:`~.Ensemble.generate`
+            overwrites both with the real chain's labelling.
         '''
 
         self.configuration = configurations
+        self.index = Batch(np.arange(len(configurations)))
+        self.index_stride = 1
 
         return self
 
@@ -292,7 +301,12 @@ class Ensemble(Extendable):
         for o in self.measured:
             setattr(e, o, getattr(self, o)[start:])
 
-        e.generator = self.generator
+        # A hand-assembled ensemble (from_configurations) has no generator; there
+        # is then nothing to carry forward and continue_from is simply unavailable.
+        try:
+            e.generator = self.generator
+        except AttributeError:
+            pass
 
         return e
 
@@ -325,7 +339,11 @@ class Ensemble(Extendable):
         for o in self.measured:
             setattr(e, o, getattr(self, o)[::stride])
 
-        e.generator = supervillain.generator.combining.KeepEvery(stride, self.generator, blocked_inline=False)
+        # As in cut: no generator to wrap when the ensemble was hand-assembled.
+        try:
+            e.generator = supervillain.generator.combining.KeepEvery(stride, self.generator, blocked_inline=False)
+        except AttributeError:
+            pass
 
         return e
 
