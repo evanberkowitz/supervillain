@@ -14,7 +14,7 @@ import numpy as np
 import pytest
 
 import supervillain
-from supervillain.lattice import Form, d, delta
+from supervillain.lattice import Form, d, delta, laplacian
 
 
 def _action(D=2, N=6, kappa=0.5, W=1):
@@ -180,3 +180,30 @@ def test_works_for_no_intersections():
     for _ in range(5):
         cfg = G.step(cfg)
     assert np.array_equal(np.asarray(cfg['n']), before)
+
+
+@pytest.mark.parametrize('D,N', [(2, 6), (3, 4), (2, 5), (4, 4)])
+def test_symbol_is_the_lattice_laplacian(D, N):
+    r'''The generator reads its Fourier symbol off the lattice's own
+    :func:`~.laplacian` rather than rewriting the eigenvalues by hand.  Check it
+    against the analytic 4 Σ sin²(k/2), and check that using it really inverts
+    the lattice operator on a random source.'''
+    S = _action(D=D, N=N, kappa=0.5)
+    G = supervillain.generator.villain.FourierSiteHeatbath(
+        S, rng=np.random.default_rng(18))
+    L = S.Lattice
+
+    k = 2 * np.pi * np.fft.fftfreq(N)
+    analytic = sum(4 * np.sin(K / 2)**2
+                   for K in np.meshgrid(*(D * (k,)), indexing='ij'))
+    inverse = np.where(analytic > 1e-9 * analytic.max(),
+                       1. / np.where(analytic > 1e-9 * analytic.max(), analytic, 1.), 0.)
+    assert np.allclose(G._inverse_laplacian, inverse)
+
+    # and it is a genuine inverse: Δ₀⁻¹Δ₀ f = f up to the constant mode
+    r = np.random.default_rng(19)
+    f = L.zeros(0)
+    f[...] = r.normal(size=f.shape)
+    f = f - np.asarray(f).mean()
+    back = L.ifft(L.fft(laplacian(f)) * G._inverse_laplacian).real
+    assert np.abs(back - np.asarray(f)).max() < 1e-10
