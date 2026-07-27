@@ -153,19 +153,28 @@ class ConstrainedLinkHeatbath(ReadWriteable, Generator):
         self.sweeps += 1
         axis = local_charge.axis_colors(N)
 
-        for mu in range(4):
-            for choice in product(range(len(axis)), repeat=4):
-                idx = [axis[choice[a]] for a in range(4)]
-                sub = np.ix_(*idx)
+        # Visit the colours in a fresh random order each sweep.  Any order is stationary ---
+        # each colour's resample preserves the target on its own --- but when the constraint
+        # bites, mobility is scarce and whichever direction is always offered first gets
+        # first claim on the clean links, which reads as an anisotropy in directional
+        # quantities (the winding, TorusWrapping) though the physics is isotropic.  It also
+        # restores reversibility of the sweep as a whole, which a fixed order loses even
+        # when every colour is individually detailed-balanced.
+        colours = [(mu, choice) for mu in range(4)
+                   for choice in product(range(len(axis)), repeat=4)]
+        for index in self.rng.permutation(len(colours)):
+            mu, choice = colours[index]
+            idx = [axis[choice[a]] for a in range(4)]
+            sub = np.ix_(*idx)
 
-                clean = local_charge.clean_mask_for_color(F, mu, idx, N)
-                self.proposed += clean.size
-                self.clean += int(clean.sum())
+            clean = local_charge.clean_mask_for_color(F, mu, idx, N)
+            self.proposed += clean.size
+            self.clean += int(clean.sum())
 
-                m = self._resample_shift(n[mu][sub], A[mu][sub], kappa, K)
-                flip = np.where(clean, m, 0)                # resample clean links, freeze the rest
-                local_charge.apply_color(n, F, mu, idx, N, flip)
-                self.resampled += int(np.count_nonzero(flip))
+            m = self._resample_shift(n[mu][sub], A[mu][sub], kappa, K)
+            flip = np.where(clean, m, 0)                # resample clean links, freeze the rest
+            local_charge.apply_color(n, F, mu, idx, N, flip)
+            self.resampled += int(np.count_nonzero(flip))
 
         return cfg | {'n': Form(n, degree=1, lattice=L)}
 

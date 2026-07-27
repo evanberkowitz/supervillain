@@ -116,7 +116,18 @@ class ConstrainedLinkUpdate(ReadWriteable, Generator):
         self.sweeps += 1
         accepted = 0
 
-        for mu, base, block, coords in local_charge.numba_plan(N):
+        # Visit the colours in a fresh random order each sweep.  Any order samples the
+        # right distribution --- each colour's update preserves the target on its own, so
+        # a fixed composition is still stationary --- but when the constraint bites there
+        # is very little mobility, and whichever direction is always offered first gets
+        # first claim on the scarce clean links.  That shows up as an apparent anisotropy
+        # in directional quantities (the winding, TorusWrapping) even though the physics is
+        # isotropic.  Randomizing the visit order also restores reversibility of the whole
+        # sweep, which a fixed order loses even when every colour is individually
+        # detailed-balanced.
+        plan = local_charge.numba_plan(N)
+        for index in self.rng.permutation(len(plan)):
+            mu, base, block, coords = plan[index]
             stencil = local_charge._numba_stencil(mu)
 
             # The RNG draws and the float metropolis test stay in numpy -- same order, same
@@ -170,24 +181,29 @@ class ConstrainedLinkUpdate(ReadWriteable, Generator):
         # apply with numpy fancy-indexing (clean_mask_for_color / apply_color).  It samples
         # the same distribution as step_reference, but draws the RNG in a different
         # (per-colour) order, so it is not bit-for-bit with that global-recompute reference.
-        for mu in range(4):
-            for choice in product(range(len(axis)), repeat=4):
-                idx = [axis[choice[a]] for a in range(4)]
-                sub = np.ix_(*idx)
+        # Same random colour order as step: the same rng call at the same point in the
+        # stream, over the canonical colour list numba_plan builds, so the two stay
+        # bit-for-bit while both avoid a fixed direction always going first.
+        colours = [(mu, choice) for mu in range(4)
+                   for choice in product(range(len(axis)), repeat=4)]
+        for index in self.rng.permutation(len(colours)):
+            mu, choice = colours[index]
+            idx = [axis[choice[a]] for a in range(4)]
+            sub = np.ix_(*idx)
 
-                clean = local_charge.clean_mask_for_color(F, mu, idx, N)
-                block = clean.shape
-                self.proposed += clean.size
+            clean = local_charge.clean_mask_for_color(F, mu, idx, N)
+            block = clean.shape
+            self.proposed += clean.size
 
-                c = 2 * self.rng.integers(0, 2, size=block) - 1
-                A = dphi[mu][sub] - twopi * n[mu][sub]
-                dS = (self.kappa / 2) * ((A - twopi * c) ** 2 - A ** 2)
-                coin = self.rng.uniform(0, 1, size=block)
-                accept = clean & (coin < np.exp(np.minimum(-dS, 0.0)))
+            c = 2 * self.rng.integers(0, 2, size=block) - 1
+            A = dphi[mu][sub] - twopi * n[mu][sub]
+            dS = (self.kappa / 2) * ((A - twopi * c) ** 2 - A ** 2)
+            coin = self.rng.uniform(0, 1, size=block)
+            accept = clean & (coin < np.exp(np.minimum(-dS, 0.0)))
 
-                flip = np.where(accept, c, 0)
-                local_charge.apply_color(n, F, mu, idx, N, flip)
-                accepted += int(accept.sum())
+            flip = np.where(accept, c, 0)
+            local_charge.apply_color(n, F, mu, idx, N, flip)
+            accepted += int(accept.sum())
 
         self.accepted += accepted
         return cfg | {'n': Form(n, degree=1, lattice=L)}
