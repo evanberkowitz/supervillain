@@ -13,7 +13,7 @@ A grand-canonical extended-ensemble sampler of the No-Intersections model's
 F-space with both physical constraints relaxed and priced:
 
     pi_ext(F) ∝ exp[−2π²κ C(F)] · w(D(F)) · intersectionFugacity^Q(F)
-               · [Z_wind(F) if tilted] · w₂(pair separation)
+               · Z_wind(F) · w₂(pair separation)
 
 Moves: uniform/defect-targeted plaquette toggles (Metropolis, manifest
 detailed balance) interleaved with an exact coboundary heatbath. Physical
@@ -47,7 +47,7 @@ concern:
 | `staircase.py` | Integer primitives of exact forms (verbatim math). Candidate to graduate to `supervillain.lattice` later; not in this migration. |
 | `reconstruct.py` | n-ification: **raises on any non-exact F** (dF ≠ 0 or nonzero H² periods); winding-coset resample of the harmonic sector from its exact conditional; exact Gaussian φ draw. |
 | `kernel.py` | The numba batch kernel and its table builders (`worm_numba.py` + `stencils.py` merged), including incremental periods maintenance at both commit points. |
-| `gas.py` | `SurfaceWormGas(ReadWriteable, Generator)`. **Gas and generator-adapter merge** (the DefectGas precedent): `step(configuration)` advances the internal chain (ticksPerStep × stride measured moves), waits for the legal vacuum (slow-emit warning, hard-wait failure), emits an (n, φ) record carrying the accumulator's harvest and the log-weight column; `inline_observables` sizes storage from a fresh harvest. The adapter's cadence parameters (`ticksPerStep`, `stride`, `pCob`, `maxWaitTicks`, `hardWaitFactor`) move onto the gas constructor; the notebook's separate `SurfaceWormGasGenerator` adapter disappears. `measure=False` skips the accumulator (cheap mobility/tuning chains) and its inline columns. |
+| `gas.py` | `SurfaceWormGas(ReadWriteable, Generator)`. **Gas and generator-adapter merge** (the DefectGas precedent): `step(configuration)` advances the internal chain (ticksPerStep × stride measured moves), waits for the legal vacuum (slow-emit warning, hard-wait failure), emits an (n, φ) record carrying the accumulator's harvest; `inline_observables` sizes storage from a fresh harvest. The adapter's cadence parameters (`ticksPerStep`, `stride`, `pCob`, `maxWaitTicks`, `hardWaitFactor`) move onto the gas constructor; the notebook's separate `SurfaceWormGasGenerator` adapter disappears. `measure=False` skips the accumulator (cheap mobility/tuning chains) and its inline columns. |
 | `accumulator.py` | `CorrelatorAccumulator`: strided dwell-ratio Θ measurement; excludes closed-but-non-exact ticks from the closed-shell dwells and reports them as `NontrivialClassTicks`; divides the umbrella weight out per pair bin using the SAME `PairUmbrella` object the acceptance multiplies by. |
 | `tuners.py` | `SectorWeightTuner` (w(D) flattening) and `PairUmbrellaTuner` (w₂ bisection; its N=4 oscillation — audit-era finding — documented as a known limitation in the docstring). Extensible for the transport tuner. |
 
@@ -75,14 +75,18 @@ Constructor guardrail: exactly one of `openSurfaceFugacity` and
    closed ticks. `staircase.primitive_2form` itself stays permissive — the
    sampler legitimately uses it as a linear map on open F for the
    winding-sensitivity table; the gate lives at the n-ification boundary.
-2. **The emit-weight double-count fix lands here** (deferred in j-vacuum
-   finding 4 until the ensembles were on disk). The winding factor
-   Z_wind(F) — the difference between the gas's native F-marginal and the
-   physical one — enters exactly once: `windingInSampler=True` (default)
-   folds it into the chain, and the emitted `logWeight_SurfaceWormGas` is
-   **0**; `windingInSampler=False` leaves the chain untilted and the column
-   carries log Z_wind. The column always means "what remains to be
-   applied"; the double count becomes unrepresentable.
+2. **The winding tilt is always on; the `windingInSampler` option and the
+   `logWeight_SurfaceWormGas` column are removed** (supersedes the deferred
+   j-vacuum finding-4 fix by making the whole bug class unrepresentable).
+   The winding factor Z_wind(F) — the difference between the gas's native
+   F-marginal and the physical one — is folded into the chain
+   unconditionally: emitted rows are physical raw, there is no importance
+   weight, and nothing can be double-counted. The tilt costs O(1) per move
+   (winding-sensitivity table) and the reweighted alternative is strictly
+   worse (measured ESS 0.43). The untilted path survives ONLY as a
+   test-only seam (the tilt coefficient set to zero through a private
+   hook — the identical code route), so the tilt-vs-reweight equivalence
+   check remains a permanent library test without a public knob.
 3. Constructor guardrails carried over: the fugacity/table exclusivity,
    `targetFraction ∈ [0, 1)` with the ergodicity rationale, the
    accumulator sharing the umbrella object.
@@ -103,6 +107,9 @@ Constructor guardrail: exactly one of `openSurfaceFugacity` and
 - winding-coset emit oracle: the resampled harmonic sector's marginal
   matches the exact conditional (the independent-oracle construction from
   the external validation);
+- tilt-vs-reweight equivalence: an untilted chain (test-only seam, tilt
+  coefficient zeroed) reweighted by Z_wind agrees with the tilted chain on
+  physical observables — the permanent form of the TILT-XOR-WEIGHT check;
 - detailed balance: the move's acceptance exponent vs a globally recomputed
   Δlog pi_ext;
 - direct-from-F J (FState.intersection_winding) == library
