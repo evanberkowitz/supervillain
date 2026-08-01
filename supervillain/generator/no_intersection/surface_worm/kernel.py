@@ -386,3 +386,528 @@ def build_cob(S):
         k2 = 4 * sum(np.sin(Ki / 2) ** 2 for Ki in K); k2s = np.where(k2 == 0, 1.0, k2)
         Kcob[mu] = float((np.abs(Ft) ** 2 / k2s * (k2 != 0)).sum()) / V
     return cob_pc, cob_off, cob_sign, Kcob
+
+
+# ============================================================ batch njit kernel
+@njit(cache=True)
+def log_winding_1d(w, quantum, a):
+    r"""One direction's contribution to $\log Z_\text{wind}$ — the same nine-term,
+    max-shifted logsumexp the python reference sums in ``_log_winding_weight``.
+
+    Kept arithmetically identical to the reference on purpose: the kernel and the
+    reference are cross-gated against each other, so any divergence here would read
+    as a physics disagreement rather than as a code difference."""
+    centre = int(round(-w / quantum))
+    best = -1.0e300
+    for k in range(centre - 4, centre + 5):
+        m = w + k * quantum
+        lw = -a * m * m
+        if lw > best:
+            best = lw
+    total = 0.0
+    for k in range(centre - 4, centre + 5):
+        m = w + k * quantum
+        total += np.exp(-a * m * m - best)
+    return best + np.log(total)
+
+
+@njit(cache=True)
+def log_proposal_density_nb(openCells, D, targetFraction, sites):
+    r"""Compiled twin of ``SurfaceWormGas._log_proposal_density``.  D == 0 means the
+    targeted branch has no cell to draw, so the proposal is purely uniform."""
+    if D == 0 or targetFraction == 0.0:
+        return -np.log(sites)
+    return np.log((1.0 - targetFraction) / sites + targetFraction * openCells / (6.0 * D))
+
+
+@njit(cache=True)
+def log_sector_weight(D, table, tailSlope, hardWall):
+    r"""log w(D) -- the compiled twin of ``SectorWeights.__call__``.
+
+    With ``hardWall`` the window [0, cap] is CLOSED: log w = -inf beyond it, so the
+    Metropolis exponent goes to -inf and any move proposing D > cap is rejected. Detailed
+    balance is preserved because w is still a genuine function of D (zero outside), and the
+    reverse of a forbidden move is equally forbidden.
+
+    Without it, the linear tail applies. See the PROVISIONAL note in ``SectorWeights``: the
+    tail is an escape hatch that let the walk leave the flattening window and never return
+    (N=6, cap=12: all 3000 ticks above cap by iteration 49), which is why the wall is the
+    current default and why it may need revisiting."""
+    cap = table.shape[0] - 1
+    if D <= cap:
+        return table[D]
+    if hardWall:
+        return -np.inf
+    return table[cap] + (D - cap) * tailSlope
+
+
+
+@njit(cache=True)
+def sep2_flat(i0, i1, N):
+    r"""Squared minimal-image separation between two flat 4D cell indices.
+
+    Flat indices, not tuples: numba handles integer arithmetic far better than tuple
+    juggling, and the kernel already speaks flat indices everywhere else."""
+    a0 = i0 // (N * N * N); r0 = i0 % (N * N * N)
+    a1 = r0 // (N * N);     r0 = r0 % (N * N)
+    a2 = r0 // N;           a3 = r0 % N
+    b0 = i1 // (N * N * N); r1 = i1 % (N * N * N)
+    b1 = r1 // (N * N);     r1 = r1 % (N * N)
+    b2 = r1 // N;           b3 = r1 % N
+    s = 0
+    d = (a0 - b0) % N
+    if N - d < d:
+        d = N - d
+    s += d * d
+    d = (a1 - b1) % N
+    if N - d < d:
+        d = N - d
+    s += d * d
+    d = (a2 - b2) % N
+    if N - d < d:
+        d = N - d
+    s += d * d
+    d = (a3 - b3) % N
+    if N - d < d:
+        d = N - d
+    s += d * d
+    return s
+
+
+@njit(cache=True)
+def pair_log_umbrella(nCharge, chargeList, qflat, N, table):
+    r"""log w_2 of the CURRENT state: 0 unless exactly two cells carry +1 and -1.
+
+    The same condition CorrelatorAccumulator.tick bins on.  If the weight and the
+    accumulator disagreed about what counts as a pair, the division would not undo the
+    bias."""
+    if nCharge != 2:
+        return 0.0
+    i0 = chargeList[0]
+    i1 = chargeList[1]
+    v0 = qflat[i0]
+    v1 = qflat[i1]
+    if not ((v0 == 1 and v1 == -1) or (v0 == -1 and v1 == 1)):
+        return 0.0
+    return table[sep2_flat(i0, i1, N)]
+
+
+@njit(cache=True)
+def cob_log_umbrella(D, nCharge, chargeList, qflat, hhFlat, vv, nu, N, table, postList):
+    r"""$\log w_2$ of the state the coboundary heatbath would reach for shift ``D``.
+
+    The heatbath draws $D$ from a normalized categorical over the local conditional, so
+    every candidate's log weight must carry the umbrella --- including $D=0$.  Omitting it
+    is not a small bias: the coboundary move is the one that changes $q = F\wedge F$ at
+    fixed $dF$, i.e. it is *the* move that transports the pair, so leaving $w_2$ out of it
+    while the plaquette move carries it gives the two updates different stationary
+    distributions and the chain converges to neither.
+    """
+    nPost = 0
+    for jj in range(nCharge):
+        cell = chargeList[jj]
+        touched = False
+        for u in range(nu):
+            if hhFlat[u] == cell:
+                touched = True
+                break
+        if not touched:
+            postList[nPost] = cell
+            nPost += 1
+    for u in range(nu):
+        if qflat[hhFlat[u]] + D * vv[u] != 0:
+            postList[nPost] = hhFlat[u]
+            nPost += 1
+    if nPost != 2:
+        return 0.0
+    v0 = qflat[postList[0]]
+    v1 = qflat[postList[1]]
+    for u in range(nu):
+        if hhFlat[u] == postList[0]:
+            v0 = qflat[postList[0]] + D * vv[u]
+        if hhFlat[u] == postList[1]:
+            v1 = qflat[postList[1]] + D * vv[u]
+    if not ((v0 == 1 and v1 == -1) or (v0 == -1 and v1 == 1)):
+        return 0.0
+    return table[sep2_flat(postList[0], postList[1], N)]
+
+
+@njit(cache=True)
+def gas_batch(nmoves, p_cob, F, dF, q, G, g0, counts, ctr,
+                  N, V, kappa, lg_q, self_energy,
+                  dsten_cc, dsten_off, dsten_sign,
+                  w_pc, w_rel, w_v, w_gid, w_nterm, w_ngroup, ghrel,
+                  cob_pc, cob_off, cob_sign, Kcob, Harr,
+                  windingSensitivity, winding, periods, quantum, windingCoefficient,
+                  edgeTolerance, windowCap, sectorLogWeight, sectorTailSlope, sectorHardWall,
+                  targetFraction, revPc, revOff, openList, openPos,
+                  pairUmbrellaLog, chargeList, chargePos, affIdx, affNew, postList,
+                  affIdxApplied):
+    r"""counts=[D,Q]; ctr=[plaq_prop,plaq_acc,cob_prop,cob_acc]; winding is the
+    4-vector maintained in place.  ``sectorLogWeight``/``sectorTailSlope`` carry the
+    open-surface weight table w(D); with the default fugacity table log w is linear in D
+    and this reproduces the old ``dD * log(eta_dF)`` pricing exactly.  There is no separate
+    ``lg_dF`` argument: the table is the sole open-surface price, and passing both was the
+    ambiguity ``SurfaceWormGas.__init__`` now rejects."""
+    # Occupancy list of open cells, so the targeted draw is O(1) instead of an O(V) scan.
+    # Rebuilt once per batch (O(4V), negligible against thousands of moves) and maintained
+    # incrementally on every accepted toggle by swapping with the last entry.
+    nOpen = 0
+    for cc in range(4):
+        for a0 in range(N):
+            for a1 in range(N):
+                for a2 in range(N):
+                    for a3 in range(N):
+                        flat = cc * V + ((a0 * N + a1) * N + a2) * N + a3
+                        if dF[cc, a0, a1, a2, a3] != 0:
+                            openList[nOpen] = flat
+                            openPos[flat] = nOpen
+                            nOpen += 1
+                        else:
+                            openPos[flat] = -1
+    # Charged-cell occupancy list, same pattern as openList: the umbrella needs the pair
+    # separation on EVERY plaquette proposal, and an O(V) scan per move is impossible.
+    # Rebuilt once per batch (O(V), negligible against thousands of moves) and maintained
+    # incrementally on every accepted q change.
+    qflat = q.reshape(-1)
+    nCharge = 0
+    for cell in range(V):
+        if qflat[cell] != 0:
+            chargeList[nCharge] = cell
+            chargePos[cell] = nCharge
+            nCharge += 1
+        else:
+            chargePos[cell] = -1
+    sites = 6.0 * V
+    twopi2k = 2.0 * np.pi ** 2 * kappa
+    maxg = ghrel.shape[1]
+    cellFlat = np.empty(4, np.int64)
+    cellNew = np.empty(4, np.int64)
+    gdq = np.empty(maxg, np.int64)
+    maxK = 6 * w_pc.shape[1]
+    hh = np.empty((maxK, 4), np.int64)
+    vv = np.empty(maxK, np.int64)
+    used = np.empty(maxK, np.uint8)
+    hhFlat = np.empty(maxK, np.int64)   # flat form of hh, for the umbrella's candidates
+    for _ in range(nmoves):
+        if np.random.random() < p_cob:
+            # ---------- coboundary heatbath ----------
+            ctr[2] += 1
+            mu = np.random.randint(4)
+            y0 = np.random.randint(N); y1 = np.random.randint(N)
+            y2 = np.random.randint(N); y3 = np.random.randint(N)
+            Kc = Kcob[mu]
+            L = 0.0
+            for j in range(6):
+                pc = cob_pc[mu, j]
+                xp0 = (y0 + cob_off[mu, j, 0]) % N; xp1 = (y1 + cob_off[mu, j, 1]) % N
+                xp2 = (y2 + cob_off[mu, j, 2]) % N; xp3 = (y3 + cob_off[mu, j, 3]) % N
+                L += cob_sign[mu, j] * G[pc, xp0, xp1, xp2, xp3]
+            # gather per-unit q change dq1 over the 6 plaquettes' wedge terms
+            K = 0
+            for j in range(6):
+                pc = cob_pc[mu, j]; sgn = cob_sign[mu, j]
+                xp0 = (y0 + cob_off[mu, j, 0]) % N; xp1 = (y1 + cob_off[mu, j, 1]) % N
+                xp2 = (y2 + cob_off[mu, j, 2]) % N; xp3 = (y3 + cob_off[mu, j, 3]) % N
+                for t in range(w_nterm[pc]):
+                    p0 = (xp0 + w_rel[pc, t, 0]) % N; p1 = (xp1 + w_rel[pc, t, 1]) % N
+                    p2 = (xp2 + w_rel[pc, t, 2]) % N; p3 = (xp3 + w_rel[pc, t, 3]) % N
+                    vv[K] = sgn * w_v[pc, t] * F[w_pc[pc, t], p0, p1, p2, p3]
+                    gg = w_gid[pc, t]     # terms in a group share hrel (= ghrel)
+                    hh[K, 0] = (xp0 + ghrel[pc, gg, 0]) % N
+                    hh[K, 1] = (xp1 + ghrel[pc, gg, 1]) % N
+                    hh[K, 2] = (xp2 + ghrel[pc, gg, 2]) % N
+                    hh[K, 3] = (xp3 + ghrel[pc, gg, 3]) % N
+                    K += 1
+            # dedupe hh->unique summed
+            for a in range(K):
+                used[a] = 0
+            nu = 0
+            uh0 = hh  # reuse hh storage compacted in place
+            for a in range(K):
+                if used[a] == 1:
+                    continue
+                tot = vv[a]
+                for b in range(a + 1, K):
+                    if used[b] == 0 and hh[b, 0] == hh[a, 0] and hh[b, 1] == hh[a, 1] and hh[b, 2] == hh[a, 2] and hh[b, 3] == hh[a, 3]:
+                        tot += vv[b]; used[b] = 1
+                used[a] = 1
+                if tot != 0:
+                    hh[nu, 0] = hh[a, 0]; hh[nu, 1] = hh[a, 1]
+                    hh[nu, 2] = hh[a, 2]; hh[nu, 3] = hh[a, 3]
+                    vv[nu] = tot; nu += 1
+            # Flat indices of the affected q-cells, AFTER the in-place dedupe compaction --
+            # the umbrella's candidate weights need them once per heatbath, not per D.
+            for u in range(nu):
+                hhFlat[u] = (((hh[u, 0] * N + hh[u, 1]) * N + hh[u, 2]) * N + hh[u, 3])
+            # Winding shift per unit Delta, resolved AT THIS POSITION.  It is not a
+            # per-direction constant: the integer primitive cones from the origin, so it
+            # is linear but not translation-covariant and the shift depends on y.  The
+            # difference is an exact multiple of the quantum, which the winding weight
+            # cannot see, so only the stored integer would reveal an error here.
+            shift0 = 0; shift1 = 0; shift2 = 0; shift3 = 0
+            for j in range(6):
+                pc = cob_pc[mu, j]; sgn = cob_sign[mu, j]
+                xp0 = (y0 + cob_off[mu, j, 0]) % N; xp1 = (y1 + cob_off[mu, j, 1]) % N
+                xp2 = (y2 + cob_off[mu, j, 2]) % N; xp3 = (y3 + cob_off[mu, j, 3]) % N
+                col = pc * V + ((xp0 * N + xp1) * N + xp2) * N + xp3
+                shift0 += sgn * windingSensitivity[0, col]
+                shift1 += sgn * windingSensitivity[1, col]
+                shift2 += sgn * windingSensitivity[2, col]
+                shift3 += sgn * windingSensitivity[3, col]
+            windingBase = (log_winding_1d(winding[0], quantum, windingCoefficient)
+                           + log_winding_1d(winding[1], quantum, windingCoefficient)
+                           + log_winding_1d(winding[2], quantum, windingCoefficient)
+                           + log_winding_1d(winding[3], quantum, windingCoefficient))
+            center = int(round(-L / Kc))
+            # Tolerance-driven window: the winding factor tilts the discrete Gaussian, so
+            # a fixed half-width can truncate it.  Double until the edge weight is
+            # negligible, exactly as the python reference does.
+            H = Harr[mu]
+            logw = np.empty(2 * H + 1)
+            while True:
+                nD = 2 * H + 1
+                logw = np.empty(nD)
+                best = -1.0e300
+                for iD in range(nD):
+                    D = center - H + iD
+                    dQ = 0
+                    for u in range(nu):
+                        q0 = q[hh[u, 0], hh[u, 1], hh[u, 2], hh[u, 3]]
+                        nv = q0 + D * vv[u]
+                        dQ += (1 if nv != 0 else 0) - (1 if q0 != 0 else 0)
+                    lw = (-twopi2k * (2.0 * D * L + D * D * Kc) + dQ * lg_q
+                          + (log_winding_1d(winding[0] + D * shift0, quantum, windingCoefficient)
+                             + log_winding_1d(winding[1] + D * shift1, quantum, windingCoefficient)
+                             + log_winding_1d(winding[2] + D * shift2, quantum, windingCoefficient)
+                             + log_winding_1d(winding[3] + D * shift3, quantum, windingCoefficient))
+                          - windingBase
+                          + cob_log_umbrella(D, nCharge, chargeList, qflat, hhFlat, vv,
+                                              nu, N, pairUmbrellaLog, postList))
+                    logw[iD] = lw
+                    if lw > best:
+                        best = lw
+                edgeLow = np.exp(logw[0] - best)
+                edgeHigh = np.exp(logw[nD - 1] - best)
+                edge = edgeLow if edgeLow > edgeHigh else edgeHigh
+                if edge < edgeTolerance or H > windowCap:
+                    break
+                H *= 2
+            if H > windowCap:
+                raise ValueError('coboundary window failed to reach tolerance within the cap')
+            nD = 2 * H + 1
+            ssum = 0.0
+            for iD in range(nD):
+                logw[iD] = np.exp(logw[iD] - best); ssum += logw[iD]
+            r = np.random.random() * ssum; acc = 0.0; pick = 0
+            for iD in range(nD):
+                acc += logw[iD]
+                if r <= acc:
+                    pick = iD; break
+            D = center - H + pick
+            if D != 0:
+                ctr[3] += 1
+                dQ = 0
+                nAffApplied = 0
+                for u in range(nu):
+                    q0 = q[hh[u, 0], hh[u, 1], hh[u, 2], hh[u, 3]]
+                    nv = q0 + D * vv[u]
+                    dQ += (1 if nv != 0 else 0) - (1 if q0 != 0 else 0)
+                    q[hh[u, 0], hh[u, 1], hh[u, 2], hh[u, 3]] = nv
+                    affIdxApplied[nAffApplied] = (((hh[u, 0] * N + hh[u, 1]) * N
+                                                   + hh[u, 2]) * N + hh[u, 3])
+                    nAffApplied += 1
+                for j in range(6):
+                    pc = cob_pc[mu, j]
+                    xp0 = (y0 + cob_off[mu, j, 0]) % N; xp1 = (y1 + cob_off[mu, j, 1]) % N
+                    xp2 = (y2 + cob_off[mu, j, 2]) % N; xp3 = (y3 + cob_off[mu, j, 3]) % N
+                    F[pc, xp0, xp1, xp2, xp3] += D * cob_sign[mu, j]
+                    periods[pc] += D * cob_sign[mu, j]
+                    green_add(G[pc], g0, xp0, xp1, xp2, xp3, float(D * cob_sign[mu, j]), N)
+                # Maintain the charged-cell list in step with q, by the same swap-with-last
+                # trick openList uses.  If this drifts from q the umbrella silently weights
+                # the wrong separation -- and would keep producing a plausible correlator.
+                for kk in range(nAffApplied):
+                    cell = affIdxApplied[kk]
+                    pos = chargePos[cell]
+                    if qflat[cell] != 0 and pos < 0:
+                        chargeList[nCharge] = cell
+                        chargePos[cell] = nCharge
+                        nCharge += 1
+                    elif qflat[cell] == 0 and pos >= 0:
+                        last = chargeList[nCharge - 1]
+                        chargeList[pos] = last
+                        chargePos[last] = pos
+                        chargePos[cell] = -1
+                        nCharge -= 1
+                counts[1] += dQ
+                winding[0] += D * shift0; winding[1] += D * shift1
+                winding[2] += D * shift2; winding[3] += D * shift3
+        else:
+            # ---------- plaquette ±1 ----------
+            ctr[0] += 1
+            if targetFraction > 0.0 and nOpen > 0 and np.random.random() < targetFraction:
+                # Draw an open cell, then one of the 6 plaquettes incident on it.  The
+                # forward stencil says toggling (c, x) moves cell (cc, x+off), so the
+                # plaquette sits at x = a - off.
+                ctr[4] += 1
+                flat = openList[np.random.randint(nOpen)]
+                cc = flat // V
+                rem = flat - cc * V
+                a3 = rem % N; rem = rem // N
+                a2 = rem % N; rem = rem // N
+                a1 = rem % N; rem = rem // N
+                a0 = rem
+                j = np.random.randint(6)
+                c = revPc[cc, j]
+                x0 = (a0 - revOff[cc, j, 0]) % N; x1 = (a1 - revOff[cc, j, 1]) % N
+                x2 = (a2 - revOff[cc, j, 2]) % N; x3 = (a3 - revOff[cc, j, 3]) % N
+            else:
+                c = np.random.randint(6)
+                x0 = np.random.randint(N); x1 = np.random.randint(N)
+                x2 = np.random.randint(N); x3 = np.random.randint(N)
+            s = 1 if np.random.random() < 0.5 else -1
+            dC = 2.0 * s * G[c, x0, x1, x2, x3] + self_energy
+            dD = 0
+            openBefore = 0
+            openAfter = 0
+            for k in range(4):
+                kcc = dsten_cc[c, k]
+                a0 = (x0 + dsten_off[c, k, 0]) % N; a1 = (x1 + dsten_off[c, k, 1]) % N
+                a2 = (x2 + dsten_off[c, k, 2]) % N; a3 = (x3 + dsten_off[c, k, 3]) % N
+                old = dF[kcc, a0, a1, a2, a3]; new = old + s * dsten_sign[c, k]
+                dD += (1 if new != 0 else 0) - (1 if old != 0 else 0)
+                openBefore += 1 if old != 0 else 0
+                openAfter += 1 if new != 0 else 0
+                cellFlat[k] = kcc * V + ((a0 * N + a1) * N + a2) * N + a3
+                cellNew[k] = new
+            ng = w_ngroup[c]
+            for gg in range(ng):
+                gdq[gg] = 0
+            for t in range(w_nterm[c]):
+                p0 = (x0 + w_rel[c, t, 0]) % N; p1 = (x1 + w_rel[c, t, 1]) % N
+                p2 = (x2 + w_rel[c, t, 2]) % N; p3 = (x3 + w_rel[c, t, 3]) % N
+                gdq[w_gid[c, t]] += w_v[c, t] * F[w_pc[c, t], p0, p1, p2, p3]
+            dQ = 0
+            for gg in range(ng):
+                dq = s * gdq[gg]
+                if dq == 0:
+                    continue
+                h0 = (x0 + ghrel[c, gg, 0]) % N; h1 = (x1 + ghrel[c, gg, 1]) % N
+                h2 = (x2 + ghrel[c, gg, 2]) % N; h3 = (x3 + ghrel[c, gg, 3]) % N
+                q0 = q[h0, h1, h2, h3]; nv = q0 + dq
+                dQ += (1 if nv != 0 else 0) - (1 if q0 != 0 else 0)
+            col = c * V + ((x0 * N + x1) * N + x2) * N + x3
+            dLogWinding = 0.0
+            for mu2 in range(4):
+                w0 = winding[mu2]
+                w1 = w0 + s * windingSensitivity[mu2, col]
+                dLogWinding += (log_winding_1d(w1, quantum, windingCoefficient)
+                                - log_winding_1d(w0, quantum, windingCoefficient))
+            dLogSector = (log_sector_weight(counts[0] + dD, sectorLogWeight, sectorTailSlope, sectorHardWall)
+                          - log_sector_weight(counts[0], sectorLogWeight, sectorTailSlope, sectorHardWall))
+            dLogProposal = (log_proposal_density_nb(openAfter, counts[0] + dD,
+                                                    targetFraction, sites)
+                            - log_proposal_density_nb(openBefore, counts[0],
+                                                       targetFraction, sites))
+            # Pair-separation umbrella.  Before: read the live charged list.  After: rebuild
+            # the would-be charged set from the affected cells without mutating anything,
+            # since the acceptance is decided before the move is applied.  Cells driven to
+            # zero must be DROPPED, not carried as zeros -- a stale zero makes a two-defect
+            # state look like three and silently switches the umbrella off for exactly the
+            # configurations it exists to weight.
+            nAff = 0
+            for gg in range(ng):
+                dq = s * gdq[gg]
+                if dq == 0:
+                    continue
+                h0 = (x0 + ghrel[c, gg, 0]) % N; h1 = (x1 + ghrel[c, gg, 1]) % N
+                h2 = (x2 + ghrel[c, gg, 2]) % N; h3 = (x3 + ghrel[c, gg, 3]) % N
+                affIdx[nAff] = ((h0 * N + h1) * N + h2) * N + h3
+                affNew[nAff] = qflat[affIdx[nAff]] + dq
+                nAff += 1
+            nPost = 0
+            for jj in range(nCharge):
+                cell = chargeList[jj]
+                touched = False
+                for kk in range(nAff):
+                    if affIdx[kk] == cell:
+                        touched = True
+                        break
+                if not touched:
+                    postList[nPost] = cell
+                    nPost += 1
+            for kk in range(nAff):
+                if affNew[kk] != 0:
+                    postList[nPost] = affIdx[kk]
+                    nPost += 1
+            logUmbBefore = pair_log_umbrella(nCharge, chargeList, qflat, N, pairUmbrellaLog)
+            logUmbAfter = 0.0
+            if nPost == 2:
+                v0 = qflat[postList[0]]
+                for kk in range(nAff):
+                    if affIdx[kk] == postList[0]:
+                        v0 = affNew[kk]
+                v1 = qflat[postList[1]]
+                for kk in range(nAff):
+                    if affIdx[kk] == postList[1]:
+                        v1 = affNew[kk]
+                if (v0 == 1 and v1 == -1) or (v0 == -1 and v1 == 1):
+                    logUmbAfter = pairUmbrellaLog[sep2_flat(postList[0], postList[1], N)]
+            lnA = (-twopi2k * dC + dLogSector + dQ * lg_q + dLogWinding + dLogProposal
+                   + logUmbAfter - logUmbBefore)
+            if np.log(np.random.random()) < lnA:
+                ctr[1] += 1
+                for mu2 in range(4):
+                    winding[mu2] += s * windingSensitivity[mu2, col]
+                F[c, x0, x1, x2, x3] += s
+                periods[c] += s
+                for k in range(4):
+                    kcc = dsten_cc[c, k]
+                    a0 = (x0 + dsten_off[c, k, 0]) % N; a1 = (x1 + dsten_off[c, k, 1]) % N
+                    a2 = (x2 + dsten_off[c, k, 2]) % N; a3 = (x3 + dsten_off[c, k, 3]) % N
+                    dF[kcc, a0, a1, a2, a3] += s * dsten_sign[c, k]
+                for gg in range(ng):
+                    dq = s * gdq[gg]
+                    if dq == 0:
+                        continue
+                    h0 = (x0 + ghrel[c, gg, 0]) % N; h1 = (x1 + ghrel[c, gg, 1]) % N
+                    h2 = (x2 + ghrel[c, gg, 2]) % N; h3 = (x3 + ghrel[c, gg, 3]) % N
+                    q[h0, h1, h2, h3] += dq
+                green_add(G[c], g0, x0, x1, x2, x3, float(s), N)
+                # Keep the occupancy list in step: swap-remove closures, append openings.
+                for k in range(4):
+                    flat = cellFlat[k]
+                    pos = openPos[flat]
+                    if cellNew[k] != 0 and pos < 0:
+                        openList[nOpen] = flat
+                        openPos[flat] = nOpen
+                        nOpen += 1
+                    elif cellNew[k] == 0 and pos >= 0:
+                        last = openList[nOpen - 1]
+                        openList[pos] = last
+                        openPos[last] = pos
+                        openPos[flat] = -1
+                        nOpen -= 1
+                nAffApplied = 0
+                for kk in range(nAff):
+                    affIdxApplied[nAffApplied] = affIdx[kk]
+                    nAffApplied += 1
+                # Maintain the charged-cell list in step with q, by the same swap-with-last
+                # trick openList uses.  If this drifts from q the umbrella silently weights
+                # the wrong separation -- and would keep producing a plausible correlator.
+                for kk in range(nAffApplied):
+                    cell = affIdxApplied[kk]
+                    pos = chargePos[cell]
+                    if qflat[cell] != 0 and pos < 0:
+                        chargeList[nCharge] = cell
+                        chargePos[cell] = nCharge
+                        nCharge += 1
+                    elif qflat[cell] == 0 and pos >= 0:
+                        last = chargeList[nCharge - 1]
+                        chargeList[pos] = last
+                        chargePos[last] = pos
+                        chargePos[cell] = -1
+                        nCharge -= 1
+                counts[0] += dD
+                counts[1] += dQ

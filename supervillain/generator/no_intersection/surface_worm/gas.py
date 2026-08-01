@@ -59,6 +59,7 @@ from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
 from supervillain.lattice import d, wedge
 
+from . import kernel
 from .kernel import scalar_green, pot, stencils
 from .staircase import primitive_2form
 from .weights import SectorWeights, PairUmbrella, pair_separation_squared
@@ -618,8 +619,8 @@ class SurfaceWormGas(ReadWriteable, Generator):
     def sweep_reference(self, state, nmoves, pCob=None):
         r"""Python REFERENCE sweep: each of ``nmoves`` is a coboundary HEATBATH
         (relaxation) move with probability ``pCob``, else a plaquette (worm) $\pm1$
-        move.  A compiled ``sweep`` (a later task) reproduces this; validate it
-        against THIS, not against seed-independence.
+        move.  The compiled :meth:`sweep` reproduces this; it is validated against
+        THIS, not against seed-independence.
 
         Parameters
         ----------
@@ -642,6 +643,102 @@ class SurfaceWormGas(ReadWriteable, Generator):
                 self._coboundary_heatbath(state)
             else:
                 self._plaquette_move(state)
+        return state
+
+    # ---- numba-accelerated sweep (validated against sweep_reference)
+    def _build_nb(self):
+        r"""Lazily build the flat numba-kernel tables and scratch buffers
+        (:attr:`_nb`, the occupancy and charge-list scratch arrays) that
+        :meth:`sweep` needs, and seed the compiled RNG stream.  Idempotent:
+        a second call is a no-op once :attr:`_nb_ready` is set."""
+        if getattr(self, '_nb_ready', False):
+            return
+        (dsten_cc, dsten_off, dsten_sign, w_pc, w_rel, w_hrel, w_v, w_gid,
+         w_nterm, w_ngroup, ghrel) = kernel.group_hrel(self.N)
+        cob_pc, cob_off, cob_sign, Kcob = kernel.build_cob(self.S)
+        twopi2k = 2 * np.pi ** 2 * self.kappa
+        Harr = np.array([max(4, int(np.ceil(6.0 / np.sqrt(2 * twopi2k * Kcob[mu]))) + 2)
+                         for mu in range(4)], np.int64)
+        # Reverse incidence for the targeted draw: for each cell component, the 6
+        # (plaquette component, forward offset) pairs that touch it.  Built from the SAME
+        # forward stencil the kernel uses, so the two cannot disagree.
+        revPc = np.zeros((4, 6), np.int64)
+        revOff = np.zeros((4, 6, 4), np.int64)
+        filled = np.zeros(4, np.int64)
+        for c in range(6):
+            for k in range(4):
+                cc = int(dsten_cc[c, k])
+                j = int(filled[cc])
+                if j >= 6:
+                    raise ValueError(f'cell component {cc} touched by more than 6 plaquettes')
+                revPc[cc, j] = c
+                revOff[cc, j] = dsten_off[c, k]
+                filled[cc] += 1
+        if not (filled == 6).all():
+            raise ValueError(f'reverse incidence is not uniform: {filled} plaquettes per cell')
+        self._openList = np.zeros(4 * self.V, np.int64)
+        self._openPos = np.full(4 * self.V, -1, np.int64)
+        # Scratch for the pair umbrella: the charged-cell occupancy list and small buffers
+        # for the affected cells of a single move.  Sized generously (V) rather than by the
+        # observed max Q, so a run that wanders into an unusually charged configuration
+        # cannot overflow them silently.
+        self._chargeList = np.zeros(self.V, np.int64)
+        self._chargePos = np.full(self.V, -1, np.int64)
+        self._affIdx = np.zeros(64, np.int64)
+        self._affNew = np.zeros(64, np.int64)
+        self._postList = np.zeros(self.V, np.int64)
+        self._affIdxApplied = np.zeros(64, np.int64)
+        self._nb = (dsten_cc, dsten_off, dsten_sign, w_pc, w_rel, w_v, w_gid,
+                    w_nterm, w_ngroup, ghrel, cob_pc, cob_off, cob_sign, Kcob, Harr,
+                    revPc, revOff)
+        if self._nb_seed_val is not None:
+            kernel.nb_seed(self._nb_seed_val)
+        else:
+            kernel.nb_seed(int(self.rng.integers(2 ** 31)))
+        self._nb_ready = True
+
+    def sweep(self, state, nmoves, pCob=None):
+        r"""Numba-accelerated sweep --- same moves and weights as
+        :meth:`sweep_reference` (plaquette $\pm1$ + coboundary heatbath), just fast.
+
+        Parameters
+        ----------
+        state: supervillain.generator.no_intersection.surface_worm.state.FState
+            Mutated in place.
+        nmoves: int
+            How many moves to make.
+        pCob: float, optional
+            Coboundary-move probability; defaults to the constructor's ``pCob``.
+
+        Returns
+        -------
+        FState
+            ``state``, for chaining.
+        """
+        if pCob is None:
+            pCob = self.pCob
+        self._build_nb()
+        counts = np.array([state.counts['D'], state.counts['Q']], np.int64)
+        ctr = np.zeros(5, np.int64)      # [plaq_prop, plaq_acc, cob_prop, cob_acc, targeted]
+        winding = np.ascontiguousarray(state.winding, dtype=np.int64)
+        periods = np.ascontiguousarray(state.periods, dtype=np.int64)
+        kernel.gas_batch(nmoves, pCob, state.F, state.dF, state.q, state.G, self.g0,
+                      counts, ctr, self.N, self.V, self.kappa, self.lg_q,
+                      self.self_energy, *self._nb[:-2],
+                      self.windingSensitivity, winding, periods, self.N ** 3,
+                      self._windingCoefficient, 1e-14, 256,
+                      self._sectorLogWeight, self._sectorTailSlope, self._sectorHardWall,
+                      self.targetFraction, self._nb[-2], self._nb[-1],
+                      self._openList, self._openPos,
+                      np.ascontiguousarray(self.pairUmbrella.logWeight),
+                      self._chargeList, self._chargePos, self._affIdx, self._affNew,
+                      self._postList, self._affIdxApplied)
+        state.winding = winding
+        state.periods = periods
+        state.counts['D'] = int(counts[0]); state.counts['Q'] = int(counts[1])
+        self.proposed += int(ctr[0]); self.accepted += int(ctr[1])
+        self.cob_proposed += int(ctr[2]); self.cob_accepted += int(ctr[3])
+        self.targetedProposals += int(ctr[4])
         return state
 
     def setSectorWeights(self, weights):
