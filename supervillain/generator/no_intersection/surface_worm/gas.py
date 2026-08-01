@@ -61,7 +61,9 @@ from supervillain.lattice import d, wedge
 
 from . import kernel
 from .kernel import scalar_green, pot, stencils
+from .reconstruct import reconstruct_n, draw_phi
 from .staircase import primitive_2form
+from .state import FState
 from .weights import SectorWeights, PairUmbrella, pair_separation_squared
 
 
@@ -292,6 +294,16 @@ class SurfaceWormGas(ReadWriteable, Generator):
         self.absoluteChargeCap = int(absoluteChargeCap)
         self.squaredChargeCap = int(squaredChargeCap)
         self.chargeBinWidth = int(chargeBinWidth)
+        # Generator-protocol chain state: the FState the compiled sweep evolves,
+        # as opposed to the emitted (n, phi) Ensemble.generate hands step() --
+        # see step()'s docstring for why the latter is ignored.  Lazily built
+        # (FState(S), the cold vacuum) on first use by step()/equilibrate(), or
+        # set directly by warm_start().
+        self._state = None
+        # step()'s emit-wait bookkeeping: how many times the maxWaitTicks warning
+        # fired, and the extra-tick count each step actually waited (for report()).
+        self.warned = 0
+        self.waits = []
 
     def winding_of(self, F):
         r"""The winding 4-vector $M_0(F) = \sum_x \left[\text{primitive}(F)\right]_\mu(x)$,
@@ -776,3 +788,234 @@ class SurfaceWormGas(ReadWriteable, Generator):
         self.sectorWeights = weights
         self._sectorLogWeight, self._sectorTailSlope, self._sectorHardWall = weights.arrays()
         return self
+
+    # ---- emit: physical (n, phi) configurations, and the Generator protocol
+    def emit(self, state, rng=None):
+        r"""Reconstruct a full Villain configuration $(n, \varphi)$ from ``state``,
+        which must already be a :attr:`~.state.FState.legal_vacuum` ($D = Q = 0$,
+        every period zero) --- the joint vacuum is what the extended-ensemble weight
+        $\pi_\text{ext}$ (module docstring) reduces to the true $F$-marginal
+        $\pi(F) \propto e^{-2\pi^2\kappa C(F)}\cdot Z_\text{wind}(F)$ on.
+
+        $n \leftarrow$ an integer primitive of $F$ (:func:`~.reconstruct.reconstruct_n`)
+        carrying a winding $M$ freshly resampled from its exact conditional
+        $\pi(M \mid F) \propto e^{-2\pi^2\kappa\|M\|^2/V}$ restricted to the coset
+        $M \in M_0(F) + N^3\mathbb Z^4$ (the **winding-tilt fix**: the sampler only
+        ever sees $M_0(F)$, one representative of that coset, so *not* resampling
+        $M$ would silently pin every emission to whichever representative the
+        primitive construction happens to return); $\varphi \leftarrow$ the exact
+        Gaussian conditional draw (:func:`~.reconstruct.draw_phi`).  Since $F$ is
+        already distributed $\propto e^{-2\pi^2\kappa C(F)}$ and $M \mid F$, $\varphi
+        \mid n$ are both drawn from their exact conditionals, $(n, \varphi)$ is an
+        unbiased joint sample --- no importance weight is needed or returned (unlike
+        the audited reference this ports, which returned ``(record, logZ_wind)`` for
+        a reweighting correction; resampling $M$ here makes that correction moot).
+
+        .. note ::
+            The coset resample always uses the **physical** winding coefficient
+            $2\pi^2\kappa/V$, a fresh local rather than :attr:`_windingCoefficient`.
+            The latter is a private test-only seam (see
+            ``test_tilt_vs_reweight_equivalence``) that can be zeroed to detune the
+            *chain's* winding tilt for a hand-reweighting cross-check; the emitted
+            conditional must stay physical regardless, or the seam would just move
+            the bias into every emission instead of removing it.
+
+        Parameters
+        ----------
+        state: supervillain.generator.no_intersection.surface_worm.state.FState
+            The chain state to emit from.  Not mutated.
+        rng: numpy.random.Generator, optional
+            Source of randomness for the winding resample and $\varphi$ draw.
+            Defaults to :attr:`rng`.
+
+        Returns
+        -------
+        dict
+            ``{'n': ..., 'phi': ...}``, plus harvested accumulator keys when
+            :attr:`measure` is set and :attr:`accumulator` exists (``None`` until a
+            later task wires it up, in which case no harvest keys are added).
+
+        Raises
+        ------
+        ValueError
+            If ``not state.legal_vacuum``.
+        """
+        if not state.legal_vacuum:
+            raise ValueError(
+                f'emit needs a legal vacuum (D={state.D}, Q={state.Q}, periods='
+                f'{tuple(int(p) for p in state.periods)}); reaching here means the '
+                'chain was advanced to the joint vacuum incorrectly, or emit was '
+                'called directly on a state that never got there.')
+        if rng is None:
+            rng = self.rng
+        F = np.asarray(state.F, dtype=np.int64)
+        M0 = primitive_2form(F).reshape(4, -1).sum(axis=1)
+        Q3 = self.N ** 3
+        # ALWAYS the physical coefficient -- see the note above; never
+        # self._windingCoefficient, which a test seam may have zeroed to detune
+        # the chain (not the emitted conditional).
+        a = 2 * np.pi ** 2 * self.kappa / self.V
+        M = np.empty(4, np.int64)
+        for mu in range(4):
+            cstar = int(round(-M0[mu] / Q3))
+            cs = np.arange(cstar - 4, cstar + 5)
+            lw = -a * (M0[mu] + cs * Q3) ** 2
+            m = lw.max()
+            p = np.exp(lw - m); p /= p.sum()
+            M[mu] = M0[mu] + int(cs[rng.choice(len(cs), p=p)]) * Q3
+        n = reconstruct_n(self.S, F, M)
+        phi = draw_phi(self.S, n, rng)
+        # self.S.configurations(1) only ever registers the 'n'/'phi' fields (see
+        # Villain.configurations); Configurations.__setitem__ raises KeyError on
+        # any key it hasn't pre-registered, so a harvest dict cannot be routed
+        # through out[0] directly.  Round-trip n/phi through the container (this
+        # is what gives them their Form wrapping), then attach the harvest to a
+        # PLAIN dict built from that result.
+        out = self.S.configurations(1)
+        out[0] = {'n': n, 'phi': phi}
+        record = dict(out[0])
+        if self.measure and self.accumulator is not None:
+            record.update(self.accumulator.harvest())
+        return record
+
+    def warm_start(self, configuration):
+        r"""Set the Generator-protocol chain state from a Villain configuration.
+
+        Parameters
+        ----------
+        configuration: dict
+            A configuration as produced by ``S.configurations(...)`` --- only its
+            ``'n'`` entry is read (:meth:`~.state.FState.from_configuration`).
+
+        Returns
+        -------
+        SurfaceWormGas
+            ``self``, for chaining.
+        """
+        self._state = FState.from_configuration(self.S, configuration)
+        return self
+
+    def step(self, configuration):
+        r"""``Generator`` protocol: advance the chain and emit a physical
+        configuration.
+
+        ``configuration`` is IGNORED.  The chain's state lives in :attr:`_state`
+        (an :class:`~.state.FState`), lazily built cold on first use; the
+        ``configuration`` ``Ensemble.generate`` passes in is the *previously
+        emitted* ``(n, phi)``, a reconstruction downstream of the chain, not the
+        state the chain itself evolves --- so there is nothing in it to resume
+        from that :attr:`_state` does not already carry.  (Use :meth:`warm_start`
+        to seed :attr:`_state` from a configuration instead.)
+
+        Advances :attr:`ticksPerStep` batches of :attr:`stride` moves (via
+        :meth:`sweep`; a later task switches this to a measuring sweep that ticks
+        the accumulator), then --- since the joint vacuum the extended ensemble
+        needs for :meth:`emit` is not guaranteed after a fixed number of moves ---
+        keeps sweeping in 10-tick chunks of :attr:`stride` moves until
+        :attr:`_state` is a :attr:`~.state.FState.legal_vacuum`, warning once at
+        :attr:`maxWaitTicks` extra ticks and giving up with a ``RuntimeError`` at
+        ``hardWaitFactor`` times that (the chain is not stuck, just accumulating;
+        see the warning message).  Finally :meth:`emit`\ s :attr:`_state`.
+
+        Parameters
+        ----------
+        configuration: dict
+            Ignored; see above.
+
+        Returns
+        -------
+        dict
+            The emitted record, as returned by :meth:`emit`.
+
+        Raises
+        ------
+        RuntimeError
+            If the joint vacuum is not reached within ``hardWaitFactor *
+            maxWaitTicks`` extra ticks.
+        """
+        if self._state is None:
+            self._state = FState(self.S)
+        for _ in range(self.ticksPerStep):
+            self.sweep(self._state, self.stride)
+        waited = 0
+        hardWaitTicks = self.maxWaitTicks * self.hardWaitFactor
+        while not self._state.legal_vacuum and waited < hardWaitTicks:
+            self.sweep(self._state, 10 * self.stride)
+            waited += 10
+            if waited == self.maxWaitTicks:
+                self.warned += 1
+                print(f'    slow emit: {waited} ticks waiting for the joint vacuum '
+                      f'(warning {self.warned}); still accumulating, not stuck', flush=True)
+        self.waits.append(waited)
+        if not self._state.legal_vacuum:
+            raise RuntimeError(
+                f'the joint vacuum D=Q=0 was not reached in {waited} extra ticks: the '
+                'chain is pinned away from the joint vacuum (an umbrella or sector '
+                'table too aggressive for this coupling is the usual cause).  Use a '
+                'gentler table.')
+        return self.emit(self._state, self.rng)
+
+    def inline_observables(self, steps):
+        r"""``Generator`` protocol: storage for every field a record carries beyond
+        ``n`` and ``phi``.
+
+        Parameters
+        ----------
+        steps: int
+            How many rows to allocate.
+
+        Returns
+        -------
+        dict
+            Empty when :attr:`measure` is false --- :meth:`step`/:meth:`emit`
+            return only ``{'n', 'phi'}`` in that case, which
+            ``Ensemble.generate`` already allocates.  A later task, once the
+            accumulator exists, sizes its harvest keys here from a fresh
+            accumulator's own harvest (so a new observable registers itself
+            automatically instead of failing at the first :meth:`step` with a
+            ``KeyError``).
+        """
+        if not self.measure:
+            return {}
+        return {}
+
+    def equilibrate(self, moves):
+        r"""Advance the Generator-protocol chain state without emitting, e.g. to
+        burn in before the first :meth:`step`.
+
+        Parameters
+        ----------
+        moves: int
+            How many moves to sweep.
+
+        Returns
+        -------
+        SurfaceWormGas
+            ``self``, for chaining.
+        """
+        if self._state is None:
+            self._state = FState(self.S)
+        self.sweep(self._state, moves)
+        return self
+
+    def report(self):
+        r"""Acceptance summary; ``Ensemble.generate`` logs this when generation
+        finishes.
+
+        Returns
+        -------
+        str
+            The plaquette/coboundary acceptance fractions, plus (once
+            :meth:`step` has run at least once) the emit-wait median/max in extra
+            ticks.
+        """
+        p = max(self.proposed, 1)
+        cp = max(self.cob_proposed, 1)
+        summary = (f'SurfaceWormGas: plaquette {self.accepted}/{self.proposed} '
+                   f'({self.accepted / p:.3f}), coboundary {self.cob_accepted}/'
+                   f'{self.cob_proposed} ({self.cob_accepted / cp:.3f})')
+        if self.waits:
+            waits = np.asarray(self.waits)
+            summary += (f'\nemit waits: median {np.median(waits):.0f}, max '
+                        f'{waits.max():.0f} extra ticks')
+        return summary
