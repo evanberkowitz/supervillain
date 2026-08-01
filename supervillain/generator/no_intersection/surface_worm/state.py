@@ -312,12 +312,13 @@ class FState:
         by floats.  This reuses :attr:`G`, which already *is*
         $\Delta^{-1}F$ per component, instead of a fresh FFT.
 
-        Only valid when $F$ is closed with vanishing periods (i.e.
-        :attr:`legal_vacuum`, or at least $dF = 0$ and $[F] = 0$) --- $j$ is
-        closed only on that surface, which is exactly what makes the slice
-        sum independent of the slice position $c$; :func:`spread_tol` is the
-        gate that catches a call off that surface rather than silently
-        returning a slice-dependent, non-topological number.
+        Only valid when $F$ is closed with vanishing periods, i.e.
+        :attr:`legal_vacuum` --- $j$ is closed only on that surface, which is
+        exactly what makes the slice sum independent of the slice position
+        $c$.  This method therefore raises immediately when
+        ``not self.legal_vacuum``, rather than relying on the numeric
+        ``spread_tol`` alarms below to catch every way of being off that
+        surface: they do not (see the second ``ValueError`` entry).
 
         Parameters
         ----------
@@ -338,7 +339,30 @@ class FState:
             If the slice sum is not independent of the slice, or the result
             is not close to integers, to tolerance ``spread_tol`` --- both
             symptoms of $F$ not being closed with vanishing periods.
+        ValueError
+            Immediately, if ``not self.legal_vacuum`` --- i.e. $D \neq 0$,
+            $Q \neq 0$, or any :attr:`periods` component is nonzero.  This
+            is checked *before* the FFT/wedge work: :attr:`counts` and
+            :attr:`periods` are already on hand, so the guard is free, and it
+            catches states the numeric spread/distance alarms below can
+            miss.  A closed $F$ carrying a nonzero $H^2$ class (nonzero
+            periods, $D = Q = 0$) is the concrete failure case --- the
+            zero-mode $\Delta^{-1}$ drops silently absorbs the nonzero mean
+            that a nonzero period represents, and for some such $F$ the
+            resulting slice sums still happen to land inside ``spread_tol``
+            of each other and of an integer, so the numeric alarms do not
+            fire even though the returned $J$ is not the topological
+            winding of any $n$ (no $n$ with $dn = F$ exists off the
+            constraint surface at all).
         """
+        if not self.legal_vacuum:
+            raise ValueError(
+                'intersection_winding: F is not a legal vacuum (D='
+                f'{self.D}, Q={self.Q}, periods={tuple(int(p) for p in self.periods)}); '
+                'the direct-J construction needs F closed (D=0) with vanishing H^2 '
+                'periods, or J is not the topological winding of any n -- and the '
+                'numeric spread/distance alarms below are not a reliable substitute '
+                '(a closed F with nonzero periods can still slip past them).')
         L = self.S.Lattice
         N = self.N
         g = L.form(2)

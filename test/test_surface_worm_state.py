@@ -40,3 +40,29 @@ def test_check_passes_on_fresh_state():
     F = np.zeros((6,)+(4,)*4, dtype=np.int64); F[3, 1, 2, 0, 3] = 2
     st = FState(S, F)
     assert st.check()
+
+def test_intersection_winding_rejects_class_one_sheet():
+    # D=0, Q=0 but periods != 0 -- closed with a nonzero H^2 class, not a legal
+    # vacuum (no n with dn=F exists). The numeric spread/distance alarms alone
+    # demonstrably miss this: the FFT Green's function silently drops F's nonzero
+    # mean, and the resulting slice sums for this particular F still land inside
+    # spread_tol of each other and of an integer (they round to [0,0,0,0]), so an
+    # explicit legal_vacuum guard is required as the first line of defense.
+    S = _S()
+    F = np.zeros((6,)+(4,)*4, dtype=np.int64); F[0, 0, 0, :, :] = 1
+    st = FState(S, F)
+    assert not st.legal_vacuum
+    with pytest.raises(ValueError):
+        st.intersection_winding()
+
+def test_intersection_winding_rejects_open_F():
+    # A single toggled plaquette: D != 0 (dF is generically nonzero), so the same
+    # legal_vacuum guard fires -- this is the more common off-shell case a worm
+    # move passes through mid-proposal.
+    S = _S()
+    F = np.zeros((6,)+(4,)*4, dtype=np.int64); F[0, 0, 0, 0, 0] = 1
+    st = FState(S, F)
+    assert st.D != 0
+    assert not st.legal_vacuum
+    with pytest.raises(ValueError):
+        st.intersection_winding()
