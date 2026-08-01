@@ -370,7 +370,7 @@ class IntersectionCurrent(Observable):
         and **vanishes in the continuum** --- a pure lattice cup-ordering ghost.
         Consequence: pointwise densities and $k\neq0$ structure factors of this
         symmetric $j$ differ (by an $O(1)$ amount at finite lattice spacing, the
-        ghost's $\langle|\hat\jmath_-|^2\rangle$) from those of the older
+        ghost's $\langle \lvert\hat\jmath_-\rvert^2 \rangle$) from those of the older
         asymmetric $A\cup dn/(-2\pi)$.  The winding, $dj=q$, and the continuum
         limit are unchanged; the *finite-lattice* value of any current
         correlator or structure factor (e.g.\ a $\theta$-sector helicity

@@ -83,7 +83,7 @@ change is *exactly linear* in the shift---because the self-wedge $d\delta_\ell \
    \Delta q = c\,\bigl(F \wedge d\delta_\ell + d\delta_\ell \wedge F\bigr) \equiv c\, L_\ell(F),
 
 and $L_\ell(F)$ reads $F$ only on the planes complementary to $\ell$'s direction, which $n_\ell$
-never touches, so it does not depend on $n_\ell$ itself.  Cleanliness ($\Delta q = 0 \Leftrightarrow L_\ell(F) = 0$)
+never touches, so it does not depend on $n_\ell$ itself.  Cleanliness ($\Delta q = 0 \Leftrightarrow L_{\ell}(F) = 0$)
 is therefore a property of the background alone, *independent of the shift $c$*, and it splits
 every link cleanly in two: a **clean** link ($L_\ell(F) = 0$) admits *every* integer shift, so its
 exact conditional is the unconstrained Villain discrete Gaussian and we can heatbath it outright;

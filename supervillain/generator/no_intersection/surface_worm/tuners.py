@@ -752,7 +752,7 @@ class TransportTuner:
       reads as zero pressure while transporting *nothing* (v1's first run
       chose such a stage and scored 0 flips/40M).  Low pressure is ambiguous
       between "expansion exhausted" and "tune failed"; the **transport
-      corner dwell** ($D \geq$ ``cornerFrac``$\cdot$cap with $Q > 0$, the
+      corner dwell** ($D \geq$ ``cornerFrac`` $\cdot$ cap with $Q > 0$, the
       finding-7 proxy --- an 18% flip-conversion rate per excursion at
       $N=4$) is not, so it is what :meth:`tune` actually decides on.
       ``pressureFrac``/``pressureEps`` are still accepted and still recorded
@@ -821,7 +821,7 @@ class TransportTuner:
         corner-dwell logic superseded it --- see the class docstring's
         "corner-dwell over pressure" note).
     cornerFrac: float
-        The transport corner is $D \geq$ ``cornerFrac``$\cdot$cap with
+        The transport corner is $D \geq$ ``cornerFrac`` $\cdot$ cap with
         $Q > 0$ --- the finding-7 proxy :meth:`tune` actually decides on.
     returnFloor: int
         Minimum vacuum returns a stage's **worst** seed must show (the

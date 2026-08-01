@@ -183,7 +183,7 @@ class ConstrainedLinkHeatbath(ReadWriteable, Generator):
         Reference sweep: the plain, obviously-correct implementation.
 
         Visits every link in random order; a link is *clean* iff a global ``charge``
-        recompute of the trial $n_\ell \to n_\ell + 1$ still vanishes everywhere (cleanliness
+        recompute of the trial $n_\ell \to n_{\ell} + 1$ still vanishes everywhere (cleanliness
         is independent of the shift, so $+1$ decides it).  A clean link is resampled from its
         discrete-Gaussian conditional; a frozen link is left untouched.  Kept as the
         correctness oracle the vectorized :meth:`step` is validated against.
