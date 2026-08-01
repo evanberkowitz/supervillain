@@ -16,22 +16,24 @@ def test_sweep_invariants_through_charged_excursions():
 def test_sweep_and_reference_agree_statistically():
     # same target, two kernels: mean D and mean Q agree loosely over short runs
     S = supervillain.action.NoIntersections(Lattice(4, 4), kappa=0.2)
+    # rng= must be passed explicitly (not just seed=): SurfaceWormGas.__init__ only
+    # threads seed into the compiled kernel's own RNG (_nb_seed_val, used by
+    # sweep's numba path); self.rng -- what sweep_reference actually draws from --
+    # defaults to an UNSEEDED np.random.default_rng() when rng is omitted. Without
+    # this, "seed=22" does not make sweep_reference reproducible at all: two
+    # independent runs of this exact test produced D=12 and D=4 after the same
+    # 5,000 moves. With rng seeded, the original 40_000-move/40-sample budget and
+    # seeds (21, 22) agree comfortably and reproducibly (verified by rerunning
+    # twice: identical numba=20.65, ref=21.77 both times) -- the apparent
+    # autocorrelation-driven flakiness was this missing seed, not slow D-mixing.
     def meanD(sweeper, seed, moves=40_000, samples=40):
         g = SurfaceWormGas(S, openSurfaceFugacity=0.2, intersectionFugacity=0.3,
-                           seed=seed, measure=False)
+                           seed=seed, rng=np.random.default_rng(seed), measure=False)
         st = FState(S); out = []
         for _ in range(samples):
             getattr(g, sweeper)(st, moves // samples)
             out.append(st.D)
         return np.mean(out), np.std(out) / len(out) ** 0.5
-    # Seeds 21/22 were the original draw here but landed on an unlucky pair: D is
-    # strongly autocorrelated at this kappa/fugacity point (the sector-weight tail
-    # documented in SectorWeights lets D random-walk over many thousand moves), so
-    # the naive std/sqrt(n) error bar underestimates the true uncertainty in the
-    # mean and 21/22 alone falls outside the (still loose) 5-sigma band. 41/42 is
-    # not special -- it is simply a verified-stable draw (as are most others tried:
-    # 31/32, 51/52, 61/62 all agree comfortably too), used here so the gate is a
-    # reliable check of algorithmic agreement rather than a coin flip on RNG luck.
-    m1, e1 = meanD('sweep', 41)
-    m2, e2 = meanD('sweep_reference', 42)
+    m1, e1 = meanD('sweep', 21)
+    m2, e2 = meanD('sweep_reference', 22)
     assert abs(m1 - m2) < 5 * np.hypot(e1, e2) + 0.5
