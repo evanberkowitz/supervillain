@@ -348,19 +348,25 @@ class SurfaceWormGas(ReadWriteable, Generator):
 
     def _log_extended_weight(self, F):
         r"""Globally recomputed $\log \pi_\text{ext}(F)$ --- the coexact norm, both
-        defect prices, and the winding weight --- from ``F`` alone.
+        defect prices, the winding weight, and the pair-separation umbrella ---
+        from ``F`` alone.
 
         For gates only: it is $O(V\log V)$ and exists so the incremental acceptance
-        exponent can be checked against an independent computation."""
+        exponent can be checked against an independent computation.  The umbrella
+        term is identically 0 whenever :attr:`pairUmbrella` is the identity
+        (:meth:`PairUmbrella.off`), so it is always included rather than gated ---
+        an un-umbrella'd gas gets the same value either way."""
         N = self.N
         C = sum(float((F[c] * pot(F[c], N)).sum()) for c in range(6))
         f = self.S.Lattice.form(2); np.asarray(f)[...] = F
         dFg = np.asarray(d(f)).astype(np.int64)
         qg = np.asarray(wedge(f, f)).astype(np.int64).reshape((N,) * 4)
+        chargeSites = {tuple(int(v) for v in h): int(qg[tuple(h)]) for h in np.argwhere(qg != 0)}
         return (-2 * np.pi ** 2 * self.kappa * C
                 + float(self.sectorWeights(int((dFg != 0).sum())))
                 + int((qg != 0).sum()) * self.lg_q
-                + self._log_winding_weight(self.winding_of(F)))
+                + self._log_winding_weight(self.winding_of(F))
+                + self.pairUmbrella.logW(pair_separation_squared(chargeSites, N)))
 
     # ---- plaquette toggle: the "worm" move (opens surfaces; changes dF and q)
     def _log_proposal_density(self, openCells, D):
@@ -531,6 +537,39 @@ class SurfaceWormGas(ReadWriteable, Generator):
     #      draws; any resulting normalization mismatch is bounded by ~2*(edge
     #      tolerance), i.e. <~5e-12, and has never been observed to matter in
     #      practice.
+    def _coboundary_umbrella_log_weight(self, state, aff, Delta):
+        r"""$\log w_2$ of the state a coboundary shift ``Delta`` would reach ---
+        the python-reference mirror of the compiled kernel's ``cob_log_umbrella``.
+
+        Every enumerated candidate's log-weight must carry the umbrella, including
+        ``Delta = 0``: the coboundary move is the one that transports the pair (it
+        changes $q$ at fixed $dF$), so leaving $w_2$ out of it while the plaquette
+        move carries it would give the two moves different stationary distributions
+        and the chain would converge to neither.
+
+        Parameters
+        ----------
+        state: supervillain.generator.no_intersection.surface_worm.state.FState
+            The current state; only :attr:`~.state.FState.chargeSites` is read.
+        aff: list of (tuple, int, int)
+            The ``(h, q0, dq1h)`` triples :meth:`_coboundary_log_weights` built:
+            the affected cells, their current charge, and their per-unit-``Delta``
+            change.
+        Delta: int
+            The candidate shift.
+
+        Returns
+        -------
+        float
+            $\log w_2(r^2)$ of the post-move charge configuration if it is
+            *exactly* a $\pm1$ pair, else 0 --- identically 0 for every ``Delta``
+            when :attr:`pairUmbrella` is the identity (:meth:`PairUmbrella.off`),
+            so an un-umbrella'd gas is untouched.
+        """
+        q_new = [(h, q0 + Delta * dq1h) for (h, q0, dq1h) in aff]
+        sitesAfter = self._charge_sites_after(state, q_new)
+        return self.pairUmbrella.logW(pair_separation_squared(sitesAfter, self.N))
+
     def _coboundary_log_weights(self, state, mu, y, edge_tol=1e-14, H_cap=256, H0=None):
         r"""The candidate offsets and their log-weights for a $\mu$-coboundary move at
         ``y``, plus the bookkeeping the accept branch needs.
@@ -538,6 +577,12 @@ class SurfaceWormGas(ReadWriteable, Generator):
         Split out of :meth:`_coboundary_heatbath` so a gate can compare these weights
         against a globally recomputed change in $\log \pi_\text{ext}$ --- the tilt is
         otherwise untestable except through its sampling statistics.
+
+        Each candidate's log-weight carries the pair-separation umbrella
+        (:meth:`_coboundary_umbrella_log_weight`), mirroring the compiled kernel's
+        ``cob_log_umbrella`` --- without it, the python reference and the compiled
+        kernel would target different stationary distributions whenever
+        :attr:`pairUmbrella` is not the identity.
 
         ``edge_tol``, ``H_cap``, and ``H0`` default to the production tolerance, cap,
         and initial half-width (``None`` meaning "use the usual floor formula"); a
@@ -596,7 +641,8 @@ class SurfaceWormGas(ReadWriteable, Generator):
                     dQ += (1 if q0 + Delta * dq1h != 0 else 0) - (1 if q0 != 0 else 0)
                 logw[i] = (-twopi2k * (2 * Delta * L + Delta * Delta * Kc)
                            + dQ * self.lg_q
-                           + self._log_winding_weight(state.winding + Delta * shift) - base)
+                           + self._log_winding_weight(state.winding + Delta * shift) - base
+                           + self._coboundary_umbrella_log_weight(state, aff, int(Delta)))
             edge = np.exp(max(logw[0], logw[-1]) - logw.max())
             if edge < edge_tol or H > H_cap:
                 break

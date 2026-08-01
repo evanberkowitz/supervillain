@@ -36,8 +36,10 @@ from getting trapped at large separation.  Two move types keep this
 distribution manifestly reachable: a plaquette $\pm1$ toggle (uniform, or
 --- with probability ``targetFraction`` --- targeted at a plaquette incident
 on an open cell, corrected by an explicit Hastings ratio) and an exact
-coboundary heatbath that resamples a whole $\mu$-plane shift from its true
-conditional. Both are Metropolis- or heatbath-correct against $\pi_\text{ext}$
+coboundary heatbath: a **local** move, the 6-plaquette coboundary of one unit
+$\mu$-link translated to a randomly drawn anchor $y$, shifted by an integer
+$\Delta$ resampled from its exact conditional. Both are Metropolis- or
+heatbath-correct against $\pi_\text{ext}$
 by construction, so **detailed balance is manifest** --- there is no
 adjacency bookkeeping to get wrong, and no orphaned defect a move might
 strand.
