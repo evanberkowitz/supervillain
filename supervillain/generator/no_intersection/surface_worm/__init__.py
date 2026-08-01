@@ -116,6 +116,30 @@ physical configuration) and are instead counted separately as
 wandering in class is visible in the harvest rather than silently
 contaminating the correlator.
 
+Which tuner when
+----------------
+
+Three tuners, three objectives — they are not interchangeable, and the two
+$w(D)$ tuners deliberately optimize *conflicting* goals:
+
+* :class:`~.tuners.SectorWeightTuner` — $w(D)$ flattened at a fixed,
+  moderate cap: the default for $\Theta$-correlator work, pilots at a new
+  $(N, \kappa)$, and any run whose statistics are bought with closed-shell
+  dwell (the correlator's denominator lives there). Cheap; sits safely
+  inside the healthy-return region.
+* :class:`~.tuners.TransportTuner` — chooses the cap by the $J$-transport
+  physics, spending vacuum dwell to buy the deep charged excursions that
+  flip the topological sector. The right instrument **only** when $J$ flips
+  per unit compute is the figure of merit, at volumes where flips
+  demonstrably fire (validated at $N = 4$); its stage score is an $N = 4$
+  calibrated proxy, its designs sit deliberately near the return-floor
+  constraint, and it costs a cap ladder of multi-seed flatness tunes. It
+  *uses* the :class:`~.tuners.SectorWeightTuner` internally for each stage's
+  flatten.
+* :class:`~.tuners.PairUmbrellaTuner` — orthogonal to both: tunes $w_2$
+  over the charge-pair separation to un-censor the correlator's
+  large-$|\Delta x|$ bins. The other tuners take its table as an input.
+
 Exports
 -------
 
