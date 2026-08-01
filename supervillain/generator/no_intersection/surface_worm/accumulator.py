@@ -216,7 +216,22 @@ class CorrelatorAccumulator:
             'Theta_Theta_WeightSquared': (self.pairWeightSquared
                                           / (self.V * self.intersectionFugacity ** 2) ** 2),
             'Theta_Theta_Counts': self.pairCounts.copy(),
-            'FourDefectDistribution': self.fourDefect / self.intersectionFugacity ** 4,
+            # Per class, not a uniform / eta_q**4: the SWG prices intersections PER
+            # OCCUPIED CELL (Q counts cells with q != 0), and the four ordered classes
+            # occupy different numbers of cells -- [-1,-1,1,1] 4 cells, [-1,-1,2] and
+            # [-2,1,1] 3 cells each, [-2,2] 2 cells -- so they dwell at eta_q**4,
+            # eta_q**3, eta_q**3, eta_q**2 respectively.  This is NOT the same
+            # normalization as the DefectGas's identically-named 'FourDefectDistribution'
+            # column: the DefectGas prices per unit |charge|, and every one of these
+            # classes has Sum|q| = 4, so its uniform / zeta**4 is correct as written for
+            # that pricing convention.  Only the SWG's per-cell convention needs the
+            # per-class exponents below.  After this fix both gases' harvests are the
+            # physically-normalized distribution and can be compared directly.
+            #
+            # Upstream-fix note: the notebook audit toolchain (no-intersections repo,
+            # correlator.py) still carries the uncorrected uniform / etaQ**4 version this
+            # replaces; port this fix there too before trusting its FourDefectDistribution.
+            'FourDefectDistribution': self.fourDefect / self.intersectionFugacity ** np.array([4, 3, 3, 2]),
             'AbsoluteIntersectionChargeDistribution': self.absoluteCharge.copy(),
             'SquaredIntersectionChargeDistribution': self.squaredCharge.copy(),
             'MaxAbsoluteIntersectionCharge': int(self.maxAbsoluteCharge),

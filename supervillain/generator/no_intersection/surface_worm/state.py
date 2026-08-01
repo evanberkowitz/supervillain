@@ -347,8 +347,8 @@ class FState:
             catches states the numeric spread/distance alarms below can
             miss.  A closed $F$ carrying a nonzero $H^2$ class (nonzero
             periods, $D = Q = 0$) is the concrete failure case --- the
-            zero-mode $\Delta^{-1}$ drops silently absorbs the nonzero mean
-            that a nonzero period represents, and for some such $F$ the
+            $\Delta^{-1}$ silently drops the zero mode, absorbing the nonzero
+            mean that a nonzero period represents, and for some such $F$ the
             resulting slice sums still happen to land inside ``spread_tol``
             of each other and of an integer, so the numeric alarms do not
             fire even though the returned $J$ is not the topological

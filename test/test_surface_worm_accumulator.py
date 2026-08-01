@@ -44,6 +44,47 @@ def test_harvest_resets():
     acc.harvest()
     assert acc.harvest()['VacuumTicks'] == 0
 
+def _four_defect_fixture(chargesByCell, etaQ=0.3, N=4):
+    r"""Build a hand-crafted, closed (D=0, periods=0), Q-cell FState carrying
+    exactly the given {cell: charge} map, for FourDefectDistribution gates."""
+    st = FState(_S())
+    for cell, charge in chargesByCell.items():
+        st.q[cell] = charge
+    st.counts['Q'] = len(chargesByCell)
+    st.chargeSites = dict(chargesByCell)
+    st.absoluteCharge = sum(abs(c) for c in chargesByCell.values())
+    st.squaredCharge = sum(c * c for c in chargesByCell.values())
+    return st
+
+def test_four_defect_distribution_per_class_normalization():
+    # FourDefectDistribution prices per OCCUPIED CELL (Q counts cells with q != 0,
+    # not total |charge|), so the four ordered classes -- which all have the same
+    # total charge 4 but different cell counts -- dwell at different powers of
+    # etaQ: [-1,-1,1,1] at etaQ**4 (4 cells), [-1,-1,2] and [-2,1,1] at etaQ**3
+    # (3 cells each), [-2,2] at etaQ**2 (2 cells).  A uniform / etaQ**4 (the
+    # pre-fix bug) would inflate the 3- and 2-cell classes.
+    etaQ = 0.3
+    acc = CorrelatorAccumulator(4, etaQ)
+
+    # class 0: [-1,-1,1,1], 4 cells
+    acc.tick(_four_defect_fixture(
+        {(0, 0, 0, 0): -1, (1, 0, 0, 0): -1, (2, 0, 0, 0): 1, (3, 0, 0, 0): 1}, etaQ))
+    # class 1: [-1,-1,2], 3 cells
+    acc.tick(_four_defect_fixture(
+        {(0, 0, 0, 0): -1, (1, 0, 0, 0): -1, (2, 0, 0, 0): 2}, etaQ))
+    # class 2: [-2,1,1], 3 cells
+    acc.tick(_four_defect_fixture(
+        {(0, 0, 0, 0): -2, (1, 0, 0, 0): 1, (2, 0, 0, 0): 1}, etaQ))
+    # class 3: [-2,2], 2 cells
+    acc.tick(_four_defect_fixture({(0, 0, 0, 0): -2, (1, 0, 0, 0): 2}, etaQ))
+
+    h = acc.harvest()
+    dist = h['FourDefectDistribution']
+    assert np.isclose(dist[0], 1.0 / etaQ ** 4)
+    assert np.isclose(dist[1], 1.0 / etaQ ** 3)
+    assert np.isclose(dist[2], 1.0 / etaQ ** 3)
+    assert np.isclose(dist[3], 1.0 / etaQ ** 2)
+
 def test_measure_true_through_generator_protocol():
     # Integration gate for the gas wiring (not just the accumulator in isolation):
     # a measuring gas must drive Ensemble.generate end to end, with harvest keys

@@ -136,10 +136,14 @@ class SurfaceWormGas(ReadWriteable, Generator):
         When false, :attr:`accumulator` is ``None`` and moves never tick one.
     seed: int, optional
         Seeds the compiled kernel's own RNG stream (``_build_nb``); kept as plain
-        data here.
+        data here.  Also seeds the python-side stream in :attr:`rng` when ``rng``
+        is not given explicitly -- so ``seed=`` alone reproducibly seeds BOTH the
+        fast (numba) path and the python reference path.  Ignored for :attr:`rng`
+        if ``rng`` is passed.
     rng: numpy.random.Generator, optional
-        The stream the python reference moves draw from.  Defaults to
-        ``numpy.random.default_rng()``.
+        The stream the python reference moves draw from.  If omitted, built from
+        ``seed`` (``numpy.random.default_rng(seed)``) when ``seed`` is given, else
+        a fresh, unseeded ``numpy.random.default_rng()``.
     absoluteChargeCap: int
         Forwarded to :attr:`accumulator` when ``measure`` is true.
     squaredChargeCap: int
@@ -214,7 +218,15 @@ class SurfaceWormGas(ReadWriteable, Generator):
         # physical coefficient means the acceptance and the emitted log-weight are
         # never at risk of disagreeing about which coefficient is "the" one.
         self._windingCoefficient = 2 * np.pi ** 2 * self.kappa / self.V
-        self.rng = rng if rng is not None else np.random.default_rng()
+        # When the caller passes only seed=, that seed must drive BOTH RNG streams --
+        # the compiled kernel's (via _nb_seed_val, above) AND this python-side one --
+        # or two gases built identically from seed= alone silently diverge on the
+        # python reference path while agreeing on the fast path.  rng= (given
+        # explicitly) always wins; a bare, unseeded gas still gets a fresh
+        # default_rng().
+        self.rng = (rng if rng is not None
+                    else np.random.default_rng(seed) if seed is not None
+                    else np.random.default_rng())
         self.g0, self.self_energy = scalar_green(self.N)
         self.dsten, wsten = stencils(self.N)
         for c in range(6):
@@ -649,7 +661,13 @@ class SurfaceWormGas(ReadWriteable, Generator):
             H *= 2
         self.windowEdgeWeightMax = max(self.windowEdgeWeightMax, float(edge))
         self.windowHalfWidthMax = max(self.windowHalfWidthMax, int(H))
-        assert H <= H_cap, f'coboundary window failed to reach tolerance by H={H_cap}'
+        # Same error contract as the compiled kernel's identical cap check
+        # (kernel.py's ``raise ValueError('coboundary window failed to reach
+        # tolerance within the cap')``): an assert is stripped under `python -O`,
+        # which would silently let the truncated window through instead of failing.
+        if H > H_cap:
+            raise ValueError(
+                f'coboundary window failed to reach tolerance within the cap (H={H} > H_cap={H_cap})')
         return deltas, logw, plq, aff, shift
 
     def _coboundary_heatbath(self, state):
@@ -1059,6 +1077,7 @@ class SurfaceWormGas(ReadWriteable, Generator):
             for _ in range(self.ticksPerStep):
                 self.sweep(self._state, self.stride)
         waited = 0
+        warnedThisStep = False
         hardWaitTicks = self.maxWaitTicks * self.hardWaitFactor
         while not self._state.legal_vacuum and waited < hardWaitTicks:
             if self.measure:
@@ -1066,7 +1085,13 @@ class SurfaceWormGas(ReadWriteable, Generator):
             else:
                 self.sweep(self._state, 10 * self.stride)
             waited += 10
-            if waited == self.maxWaitTicks:
+            # >=, not ==: waited advances in steps of 10, so a maxWaitTicks not
+            # divisible by 10 would otherwise skip past the exact value and never
+            # warn at all.  warnedThisStep gates it to once per step() call --
+            # without it, every further 10-tick chunk on the way to hardWaitTicks
+            # would also satisfy >= and reprint.
+            if waited >= self.maxWaitTicks and not warnedThisStep:
+                warnedThisStep = True
                 self.warned += 1
                 print(f'    slow emit: {waited} ticks waiting for the joint vacuum '
                       f'(warning {self.warned}); still accumulating, not stuck', flush=True)

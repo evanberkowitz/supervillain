@@ -543,7 +543,9 @@ def gas_batch(nmoves, p_cob, F, dF, q, G, g0, counts, ctr,
                   targetFraction, revPc, revOff, openList, openPos,
                   pairUmbrellaLog, chargeList, chargePos, affIdx, affNew, postList,
                   affIdxApplied):
-    r"""counts=[D,Q]; ctr=[plaq_prop,plaq_acc,cob_prop,cob_acc]; winding is the
+    r"""counts=[D,Q]; ctr=[plaq_prop,plaq_acc,cob_prop,cob_acc,targeted] (5 entries:
+    ``targeted`` counts how often the defect-adjacent proposal actually fired,
+    i.e. ``targetFraction`` branch taken AND ``D>0``); winding is the
     4-vector maintained in place.  ``sectorLogWeight``/``sectorTailSlope`` carry the
     open-surface weight table w(D); with the default fugacity table log w is linear in D
     and this reproduces the old ``dD * log(eta_dF)`` pricing exactly.  There is no separate
@@ -623,7 +625,6 @@ def gas_batch(nmoves, p_cob, F, dF, q, G, g0, counts, ctr,
             for a in range(K):
                 used[a] = 0
             nu = 0
-            uh0 = hh  # reuse hh storage compacted in place
             for a in range(K):
                 if used[a] == 1:
                     continue

@@ -118,3 +118,30 @@ def test_coboundary_candidates_carry_umbrella_and_match_global_recompute():
         if checked >= 5:
             break
     assert checked > 0, 'no (mu, y) draw exercised a varying pair-separation umbrella term'
+
+def test_seed_alone_reproduces_python_reference_trajectory():
+    # The constructor trap this gates: seed= must seed BOTH the compiled kernel's
+    # RNG (unconditionally) AND, when rng= is omitted, the python-side self.rng --
+    # or two gases built identically from seed= alone silently diverge on the
+    # python reference path (sweep_reference draws from self.rng) even though they
+    # agree on the fast path.  Before the fix, self.rng fell back to an unseeded
+    # numpy.random.default_rng() whenever rng= was not given, so this test would
+    # fail (different .D trajectories) even with matching seed=.
+    N = 4
+    S = supervillain.action.NoIntersections(Lattice(4, N), kappa=0.2)
+    kw = dict(openSurfaceFugacity=0.2, intersectionFugacity=0.3, sectorWeightCap=512)
+    g1 = SurfaceWormGas(S, seed=7, **kw)
+    g2 = SurfaceWormGas(S, seed=7, **kw)
+
+    st1 = FState(S)
+    st2 = FState(S)
+    Ds1 = []
+    Ds2 = []
+    for _ in range(300):
+        g1.sweep_reference(st1, 1)
+        g2.sweep_reference(st2, 1)
+        Ds1.append(st1.D)
+        Ds2.append(st2.D)
+
+    assert Ds1 == Ds2
+    assert np.array_equal(st1.F, st2.F)
