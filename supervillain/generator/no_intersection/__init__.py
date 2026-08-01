@@ -1,5 +1,13 @@
 #!/usr/bin/env python
 
+r"""Generators for the Jacobson No Intersections model.  Alongside the
+:class:`DefectGas` roster :func:`Hammer` assembles --- which transports
+defects at fixed $dn = 0$ --- the :class:`SurfaceWormGas` is an $F$-space
+extended-ensemble alternative that relaxes and prices *both* constraints,
+emitting exactness-gated physical configurations; see
+:mod:`~.surface_worm` for its full account.
+"""
+
 from .worm import IntersectionWorm
 from .free_target_worm import FreeTargetWorm
 from .defect_gas import DefectGas, DefectGasFugacityTuner, DefectGasWeightTuner
@@ -8,6 +16,7 @@ from .link_heatbath import ConstrainedLinkHeatbath
 from .wrapping import WrappingLoopUpdate
 from .planar import PlanarFluxUpdate
 from .scattershot import ScattershotUpdate
+from .surface_worm import SurfaceWormGas, SectorWeightTuner, PairUmbrellaTuner
 
 import supervillain.generator.villain as _villain
 import supervillain.generator.combining as _combining
