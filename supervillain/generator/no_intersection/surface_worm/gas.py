@@ -55,11 +55,13 @@ against THIS reference rather than trusted on seed-independence alone.
 
 import numpy as np
 
+from supervillain.batch import Batch
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
 from supervillain.lattice import d, wedge
 
 from . import kernel
+from .accumulator import CorrelatorAccumulator
 from .kernel import scalar_green, pot, stencils
 from .reconstruct import reconstruct_n, draw_phi
 from .staircase import primitive_2form
@@ -127,21 +129,23 @@ class SurfaceWormGas(ReadWriteable, Generator):
     hardWaitFactor: int
         Safety-horizon multiplier on the fast path (a later task).
     measure: bool
-        Whether this gas accumulates correlator statistics.  Stored here;
-        the accumulator itself is constructed in a later task (this task's
-        moves never tick one).
+        Whether this gas accumulates correlator statistics.  When true,
+        :attr:`accumulator` is a fresh :class:`~.accumulator.CorrelatorAccumulator`
+        sharing :attr:`pairUmbrella` with the acceptance; :meth:`step` ticks it via
+        :meth:`sweep_measured` and :meth:`emit` attaches its harvest to the record.
+        When false, :attr:`accumulator` is ``None`` and moves never tick one.
     seed: int, optional
-        Seeds the compiled kernel's own RNG stream in a later task
-        (``_build_nb``); kept as plain data here.
+        Seeds the compiled kernel's own RNG stream (``_build_nb``); kept as plain
+        data here.
     rng: numpy.random.Generator, optional
         The stream the python reference moves draw from.  Defaults to
         ``numpy.random.default_rng()``.
     absoluteChargeCap: int
-        Forwarded to the accumulator constructed in a later task.
+        Forwarded to :attr:`accumulator` when ``measure`` is true.
     squaredChargeCap: int
-        Forwarded to the accumulator constructed in a later task.
+        Forwarded to :attr:`accumulator` when ``measure`` is true.
     chargeBinWidth: int
-        Forwarded to the accumulator constructed in a later task.
+        Forwarded to :attr:`accumulator` when ``measure`` is true.
     """
 
     def __init__(self, S, openSurfaceFugacity=None, sectorWeights=None,
@@ -287,13 +291,23 @@ class SurfaceWormGas(ReadWriteable, Generator):
         self.pCob = float(pCob)
         self.maxWaitTicks = int(maxWaitTicks)
         self.hardWaitFactor = int(hardWaitFactor)
-        # Accumulator plumbing: 'measure' is stored now, but the accumulator itself
-        # is built in a later task -- this task's moves never tick one.
+        # Accumulator plumbing.  A gas built with measure=False carries no accumulator
+        # at all (rather than an unused one) so step()/emit() can gate on `is not None`.
         self.measure = bool(measure)
-        self.accumulator = None
         self.absoluteChargeCap = int(absoluteChargeCap)
         self.squaredChargeCap = int(squaredChargeCap)
         self.chargeBinWidth = int(chargeBinWidth)
+        self.accumulator = (
+            CorrelatorAccumulator(self.N, self.intersectionFugacity,
+                                  absoluteChargeCap=self.absoluteChargeCap,
+                                  squaredChargeCap=self.squaredChargeCap,
+                                  chargeBinWidth=self.chargeBinWidth)
+            if self.measure else None)
+        if self.accumulator is not None:
+            # SAME object the acceptance reads (self.pairUmbrella, set above): the
+            # accumulator's per-bin division by w_2 (weights.py's warning) must undo
+            # exactly the bias the acceptance introduced, not a stale or independent copy.
+            self.accumulator.pairUmbrella = self.pairUmbrella
         # Generator-protocol chain state: the FState the compiled sweep evolves,
         # as opposed to the emitted (n, phi) Ensemble.generate hands step() --
         # see step()'s docstring for why the latter is ignored.  Lazily built
@@ -753,6 +767,62 @@ class SurfaceWormGas(ReadWriteable, Generator):
         self.targetedProposals += int(ctr[4])
         return state
 
+    def sweep_measured(self, state, nticks, stride=None, pCob=None):
+        r"""``nticks`` accumulator ticks, each preceded by ``stride`` compiled moves.
+
+        The measuring counterpart of :meth:`sweep`, and the only measurement path that
+        is affordable beyond $N=4$: :meth:`sweep_reference` ticks after *every* move
+        but runs the moves in python (~$10^2$/s against the kernel's ~$10^5$/s), which
+        at $N=12$ is minutes per sweep.
+
+        .. note ::
+            Ticking at a stride is **unbiased**, not an approximation.  Everything the
+            accumulator reports is a ratio of sector dwell counts
+            ($\Theta_{\Delta x} = \langle\texttt{Theta\_Theta}\rangle/\langle\texttt{VacuumTicks}\rangle$),
+            and a fixed-stride sample of a stationary chain is a sample of the
+            stationary distribution, so every such ratio keeps its expectation and the
+            stride cancels.  What a stride costs is samples per unit work --- and
+            consecutive moves touch one plaquette out of $6V$, so per-move ticking was
+            ~$6V$-fold redundant to begin with.
+
+        .. warning ::
+            Requires ``measure=True``; raises otherwise rather than silently running an
+            expensive unmeasured chain.
+
+        Parameters
+        ----------
+        state: supervillain.generator.no_intersection.surface_worm.state.FState
+            Mutated in place.
+        nticks: int
+            How many ticks to record.
+        stride: int, optional
+            Compiled moves between consecutive ticks; defaults to :attr:`stride`.
+            Choose it so the $O(V)$ python tick is a small fraction of the batch: a few
+            thousand moves suffices at $N \geq 8$.
+        pCob: float, optional
+            Coboundary-move probability; defaults to the constructor's ``pCob``.
+
+        Returns
+        -------
+        FState
+            ``state``, for chaining.
+
+        Raises
+        ------
+        ValueError
+            If :attr:`measure` is false --- there is no accumulator to tick.
+        """
+        if not self.measure or self.accumulator is None:
+            raise ValueError('sweep_measured requires the gas to be constructed with '
+                             'measure=True; there is no accumulator to tick.')
+        if stride is None:
+            stride = self.stride
+        for _ in range(nticks):
+            self.sweep(state, stride, pCob=pCob)
+            state.refresh_charge()
+            self.accumulator.tick(state)
+        return state
+
     def setSectorWeights(self, weights):
         r"""Swap the open-surface weight table $w(D)$ in place.
 
@@ -831,9 +901,10 @@ class SurfaceWormGas(ReadWriteable, Generator):
         Returns
         -------
         dict
-            ``{'n': ..., 'phi': ...}``, plus harvested accumulator keys when
-            :attr:`measure` is set and :attr:`accumulator` exists (``None`` until a
-            later task wires it up, in which case no harvest keys are added).
+            ``{'n': ..., 'phi': ...}``, plus the harvested
+            :class:`~.accumulator.CorrelatorAccumulator` keys when :attr:`measure` is
+            set (``accumulator`` is ``None``, and no harvest keys are added, only when
+            ``measure=False``).
 
         Raises
         ------
@@ -907,15 +978,16 @@ class SurfaceWormGas(ReadWriteable, Generator):
         from that :attr:`_state` does not already carry.  (Use :meth:`warm_start`
         to seed :attr:`_state` from a configuration instead.)
 
-        Advances :attr:`ticksPerStep` batches of :attr:`stride` moves (via
-        :meth:`sweep`; a later task switches this to a measuring sweep that ticks
-        the accumulator), then --- since the joint vacuum the extended ensemble
-        needs for :meth:`emit` is not guaranteed after a fixed number of moves ---
-        keeps sweeping in 10-tick chunks of :attr:`stride` moves until
-        :attr:`_state` is a :attr:`~.state.FState.legal_vacuum`, warning once at
-        :attr:`maxWaitTicks` extra ticks and giving up with a ``RuntimeError`` at
-        ``hardWaitFactor`` times that (the chain is not stuck, just accumulating;
-        see the warning message).  Finally :meth:`emit`\ s :attr:`_state`.
+        Advances :attr:`ticksPerStep` batches of :attr:`stride` moves --- via
+        :meth:`sweep_measured` (ticking the accumulator once per batch) when
+        :attr:`measure` is set, else plain :meth:`sweep` --- then, since the joint
+        vacuum the extended ensemble needs for :meth:`emit` is not guaranteed after a
+        fixed number of moves, keeps sweeping in 10-tick chunks of :attr:`stride`
+        moves the same way until :attr:`_state` is a
+        :attr:`~.state.FState.legal_vacuum`, warning once at :attr:`maxWaitTicks`
+        extra ticks and giving up with a ``RuntimeError`` at ``hardWaitFactor`` times
+        that (the chain is not stuck, just accumulating; see the warning message).
+        Finally :meth:`emit`\ s :attr:`_state`.
 
         Parameters
         ----------
@@ -935,12 +1007,18 @@ class SurfaceWormGas(ReadWriteable, Generator):
         """
         if self._state is None:
             self._state = FState(self.S)
-        for _ in range(self.ticksPerStep):
-            self.sweep(self._state, self.stride)
+        if self.measure:
+            self.sweep_measured(self._state, self.ticksPerStep)
+        else:
+            for _ in range(self.ticksPerStep):
+                self.sweep(self._state, self.stride)
         waited = 0
         hardWaitTicks = self.maxWaitTicks * self.hardWaitFactor
         while not self._state.legal_vacuum and waited < hardWaitTicks:
-            self.sweep(self._state, 10 * self.stride)
+            if self.measure:
+                self.sweep_measured(self._state, 10)
+            else:
+                self.sweep(self._state, 10 * self.stride)
             waited += 10
             if waited == self.maxWaitTicks:
                 self.warned += 1
@@ -969,15 +1047,25 @@ class SurfaceWormGas(ReadWriteable, Generator):
         dict
             Empty when :attr:`measure` is false --- :meth:`step`/:meth:`emit`
             return only ``{'n', 'phi'}`` in that case, which
-            ``Ensemble.generate`` already allocates.  A later task, once the
-            accumulator exists, sizes its harvest keys here from a fresh
-            accumulator's own harvest (so a new observable registers itself
-            automatically instead of failing at the first :meth:`step` with a
-            ``KeyError``).
+            ``Ensemble.generate`` already allocates.  Otherwise, one
+            :class:`~supervillain.batch.Batch` per key of a **fresh**
+            :class:`~.accumulator.CorrelatorAccumulator`'s harvest, shaped from that
+            harvest's own arrays rather than hard-coded --- so a new observable added
+            to the accumulator registers itself automatically instead of failing at
+            the first :meth:`step` with a ``KeyError``.
         """
         if not self.measure:
             return {}
-        return {}
+        template = CorrelatorAccumulator(
+            self.N, self.intersectionFugacity,
+            absoluteChargeCap=self.absoluteChargeCap,
+            squaredChargeCap=self.squaredChargeCap,
+            chargeBinWidth=self.chargeBinWidth).harvest()
+        obs = {}
+        for key, value in template.items():
+            v = np.asarray(value)
+            obs[key] = Batch(steps, shape=v.shape, dtype=v.dtype)
+        return obs
 
     def equilibrate(self, moves):
         r"""Advance the Generator-protocol chain state without emitting, e.g. to
