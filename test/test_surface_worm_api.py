@@ -8,13 +8,13 @@ back into the constructor.
 
 def test_public_api():
     from supervillain.generator.no_intersection import (
-        SurfaceWormGas, SectorWeightTuner, PairUmbrellaTuner)
+        SurfaceWormGas, SectorWeightTuner, PairUmbrellaTuner, TransportTuner)
 
 
 def test_subpackage_api():
     from supervillain.generator.no_intersection.surface_worm import (
         SurfaceWormGas, SectorWeights, PairUmbrella, FState,
-        CorrelatorAccumulator, SectorWeightTuner, PairUmbrellaTuner)
+        CorrelatorAccumulator, SectorWeightTuner, PairUmbrellaTuner, TransportTuner)
 
 
 def test_no_winding_option_remains():

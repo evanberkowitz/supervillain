@@ -16,7 +16,7 @@ from .link_heatbath import ConstrainedLinkHeatbath
 from .wrapping import WrappingLoopUpdate
 from .planar import PlanarFluxUpdate
 from .scattershot import ScattershotUpdate
-from .surface_worm import SurfaceWormGas, SectorWeightTuner, PairUmbrellaTuner
+from .surface_worm import SurfaceWormGas, SectorWeightTuner, PairUmbrellaTuner, TransportTuner
 
 import supervillain.generator.villain as _villain
 import supervillain.generator.combining as _combining

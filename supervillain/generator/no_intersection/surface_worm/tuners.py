@@ -18,13 +18,14 @@ purely on convergence diagnostics rather than against a reference.
 .. note ::
 
     A straight port of the audited standalone scripts
-    (``tune_sector_weights.py``'s ``visit_histogram``/``tune`` and
+    (``tune_sector_weights.py``'s ``visit_histogram``/``tune``,
     ``tune_pair_umbrella.py``'s ``achievable_shells``/``measure``/``update``/
-    ``OffsetBisector``/``coverage`` in the no-intersections lab notebook's
-    ``j-vacuum-2026-07-31`` snapshot), with the free functions folded into
-    methods of two tuner classes and the dict-keyed ``cfg`` re-expressed as
-    :class:`~.state.FState`.  See ``test_surface_worm_tuners.py`` for the
-    gates.
+    ``OffsetBisector``/``coverage``, and ``transport_tuner.py``'s
+    ``stage``/``score_flips``/``__main__`` decision loop, in the
+    no-intersections lab notebook's ``j-vacuum-2026-07-31`` snapshot), with
+    the free functions folded into methods of three tuner classes and the
+    dict-keyed ``cfg`` re-expressed as :class:`~.state.FState`.  See
+    ``test_surface_worm_tuners.py`` for the gates.
 """
 
 import time
@@ -717,3 +718,417 @@ class PairUmbrellaTuner:
             log('  WARNING: no healthy iteration ever completed; returning the last table')
             best = umbrella
         return best
+
+
+class TransportTuner:
+    r"""Grow the $w(D)$ cap against the transport physics, not against
+    $\Theta$-measurement health.
+
+    Finding 7 (the source notebook's ``NOTES.md``): every $J$-changing
+    excursion --- a self-intersection winding change --- carries charge
+    through a wide-open surface, and every one of them hit the hard $w(D)$
+    cap.  :class:`SectorWeightTuner` chooses that cap for $\Theta$
+    measurement health (occupied-range flatness), which throttles exactly
+    the excursions that transport $J$.  This tuner chooses the cap instead
+    by staging: grow the cap, flatten $w(D)$ at each stage with an internal
+    :class:`SectorWeightTuner`, measure what the stage bought, and stop by
+    the transport physics rather than by a pressure heuristic.
+
+    Recipe (v4), earned by three documented failures in the source notebook:
+
+    * **untargeted tuning** (v2's lesson): the internal
+      :class:`SectorWeightTuner` at each stage flattens with
+      ``targetFraction=tuneTargetFraction`` (0.0 by default) even though the
+      stage *measurement* and eventual production sampling use
+      ``targetFraction``.  v1 and v2 tuned at the production
+      ``targetFraction=0.8`` and both chose designs scoring 0.00 / 0.53
+      flips/Mmove against 3.52--5.40 for tables tuned untargeted --- pushing
+      the proposal toward already-open cells during *tuning* degrades the
+      histogram the table learns from.
+    * **corner-dwell over pressure** (v1's lesson): v1 grew the cap while
+      top-of-range *pressure* (dwell in the top ``pressureFrac`` of the $D$
+      range) persisted and stopped when it vanished --- and was fooled: a
+      badly-flattened stage table blocks the approach to the cap, which
+      reads as zero pressure while transporting *nothing* (v1's first run
+      chose such a stage and scored 0 flips/40M).  Low pressure is ambiguous
+      between "expansion exhausted" and "tune failed"; the **transport
+      corner dwell** ($D \geq$ ``cornerFrac``$\cdot$cap with $Q > 0$, the
+      finding-7 proxy --- an 18% flip-conversion rate per excursion at
+      $N=4$) is not, so it is what :meth:`tune` actually decides on.
+      ``pressureFrac``/``pressureEps`` are still accepted and still recorded
+      in :attr:`history` (a stage's ``pressure``/``topFloor`` fields), but
+      --- as in the source --- play no role in the stop decision.
+    * **multi-seed mean-corner / min-returns** (finding 12): the chain is
+      bistable, so a single equilibration lands in a basin and a one-seed
+      measurement scores the basin draw, not the table.  Each stage
+      equilibrates ``stageSeeds`` independent chains; transport is judged by
+      the **mean** corner dwell across seeds and the constraint by the
+      **minimum** returns (the floor must hold whichever basin production
+      happens to fall into).
+    * **retries only when transport looks dead**: a stage whose corner dwell
+      falls below half the running best is re-tuned (up to ``retries``
+      extra attempts, different seeds) before being accepted --- a healthy
+      stage is never retried, since retrying a merely-lower-but-live stage
+      would waste budget chasing noise rather than a bad flatten.
+
+    :meth:`tune` keeps the best stage **by corner dwell** among those
+    meeting the return floor, and stops on one of three verdicts:
+    constraint-binds (a stage's minimum returns fell below ``returnFloor``),
+    turnover (two consecutive caps scored below half the running best), or
+    ``capMax`` exhaustion.  Unlike the source script, it raises
+    :class:`RuntimeError` rather than calling ``SystemExit`` when no cap
+    ever satisfies the floor.
+
+    .. warning ::
+        **Known limitation** (v4, observed 2026-07-31): large-cap stages
+        need *more* tune budget than small ones to flatten reliably, and
+        this tuner does not scale ``tuneIterations``/``tuneTicks`` with
+        ``cap`` --- v4 chose cap 12 at fixed budget while a brute-force
+        cap-24 flattening (generous, hand-tuned budget) reached 5.40
+        flips/Mmove against v4's 4.20.  Budget scaling with cap is the next
+        lever on this design, not a change to the decision logic above.
+
+    Parameters
+    ----------
+    S: supervillain.action.NoIntersections
+        The action; sets $N$ and $\kappa$.
+    intersectionFugacity: float
+        Self-intersection fugacity $\eta_q$, forwarded to every internal
+        gas and tuner unchanged.
+    openSurfaceFugacity: float
+        Starting fugacity for each stage's internal
+        :class:`SectorWeightTuner` (its own ``openSurfaceFugacity``).
+    targetFraction: float
+        Defect-adjacent proposal targeting used for stage **measurement**
+        and (implicitly) production sampling --- see ``tuneTargetFraction``
+        for why tuning itself uses a different value.
+    pCob: float
+        Coboundary-move probability, forwarded everywhere.
+    pairUmbrella: supervillain.generator.no_intersection.surface_worm.weights.PairUmbrella, optional
+        Held fixed throughout; defaults to the identity
+        (:meth:`~.weights.PairUmbrella.off`), matching
+        :class:`~.gas.SurfaceWormGas`'s own default.
+    cap0, capStep, capMax: int
+        The cap ladder: start at ``cap0``, grow by ``capStep`` each accepted
+        stage, never exceed ``capMax``.
+    pressureFrac: float
+        Top fraction of the $D$ range whose dwell defines a stage's
+        ``pressure`` diagnostic (recorded, not decided on --- see the class
+        docstring).
+    pressureEps: float
+        Retained for the design-npz schema and as a documented diagnostic
+        threshold; **not read by** :meth:`tune`'s decision loop (the
+        corner-dwell logic superseded it --- see the class docstring's
+        "corner-dwell over pressure" note).
+    cornerFrac: float
+        The transport corner is $D \geq$ ``cornerFrac``$\cdot$cap with
+        $Q > 0$ --- the finding-7 proxy :meth:`tune` actually decides on.
+    returnFloor: int
+        Minimum vacuum returns a stage's **worst** seed must show (the
+        $\Theta$-health constraint); below this the cap growth stops with a
+        constraint-binds verdict.
+    stageSeeds: int
+        Independent equilibrations per stage measurement (finding 12).
+    retries: int
+        Extra tune attempts per cap when a stage's corner dwell looks dead
+        (below half the running best).
+    tuneTargetFraction: float
+        ``targetFraction`` used **only** while flattening $w(D)$ at each
+        stage; see the class docstring's "untargeted tuning" note for why
+        this is 0.0 by default even though ``targetFraction`` (production)
+        is not.
+    tuneIterations, tuneTicks, stride, damping: int, int, int, float
+        Forwarded to each stage's internal :class:`SectorWeightTuner`.
+    measureTicks: int
+        Compiled-move samples per stage measurement chain.
+    equilibrate: int
+        Compiled moves to burn in before each stage measurement chain, and
+        before :meth:`score_flips`'s validation chain.
+    seed: int, optional
+        Base seed.  When ``None``, one integer is drawn here so every
+        derived seed below is reproducible from :attr:`seed` alone even
+        though the caller never supplied one.  Stage seeds are derived
+        exactly as the source script derived them: the internal
+        :class:`SectorWeightTuner` at cap ``cap``, attempt ``attempt`` uses
+        ``seed + cap + 7919*attempt``; the ``s``-th measurement chain at
+        that stage uses ``seed + cap + 271*s + 7919*attempt`` (both ``seed=``
+        and ``rng=numpy.random.default_rng(...)``, the same reproducibility
+        guard :class:`SectorWeightTuner` and :class:`PairUmbrellaTuner` use).
+
+    Attributes
+    ----------
+    history: list of dict
+        One entry per cap actually staged (in increasing cap order):
+        ``cap``, ``pressure`` (mean top-of-range dwell fraction), ``returns``
+        (minimum vacuum returns across seeds), ``cornerFrac`` (mean corner
+        dwell fraction), ``cornerSpread`` (its standard deviation across
+        seeds), ``vacuumFrac`` (mean $D=0$ dwell fraction), ``topFloor``
+        (the $D$ threshold ``pressure`` was measured above).
+    verdict: str
+        The stopping reason: a constraint-binds message, a turnover
+        message, or ``"capMax {capMax} reached"``.
+    best: dict
+        The chosen stage's diagnostic dict, an element of :attr:`history`.
+    """
+
+    def __init__(self, S, intersectionFugacity, openSurfaceFugacity=0.09,
+                 targetFraction=0.8, pCob=0.2, pairUmbrella=None,
+                 cap0=12, capStep=6, capMax=64, pressureFrac=0.15,
+                 pressureEps=0.02, cornerFrac=0.75, returnFloor=50,
+                 stageSeeds=3, retries=2, tuneTargetFraction=0.0,
+                 tuneIterations=20, tuneTicks=3000, measureTicks=4000,
+                 stride=200, equilibrate=2_000_000, damping=0.8, seed=None):
+        self.S = S
+        self.intersectionFugacity = float(intersectionFugacity)
+        self.openSurfaceFugacity = float(openSurfaceFugacity)
+        self.targetFraction = float(targetFraction)
+        self.pCob = float(pCob)
+        self.pairUmbrella = (pairUmbrella if pairUmbrella is not None
+                             else PairUmbrella.off(S.Lattice.N))
+        self.cap0 = int(cap0)
+        self.capStep = int(capStep)
+        self.capMax = int(capMax)
+        self.pressureFrac = float(pressureFrac)
+        self.pressureEps = float(pressureEps)
+        self.cornerFrac = float(cornerFrac)
+        self.returnFloor = int(returnFloor)
+        self.stageSeeds = int(stageSeeds)
+        self.retries = int(retries)
+        self.tuneTargetFraction = float(tuneTargetFraction)
+        self.tuneIterations = int(tuneIterations)
+        self.tuneTicks = int(tuneTicks)
+        self.measureTicks = int(measureTicks)
+        self.stride = int(stride)
+        self.equilibrate = int(equilibrate)
+        self.damping = float(damping)
+        # A bare None here would make every "seed + cap + ..." derivation below
+        # raise; drawing one integer up front keeps every derived seed
+        # reproducible from `self.seed` alone, exactly as if the caller had
+        # passed it explicitly.
+        self.seed = (int(np.random.default_rng().integers(2 ** 31)) if seed is None
+                     else int(seed))
+        self.history = []
+        self.verdict = None
+        self.best = None
+        self._bestWeights = None
+
+    def _stage(self, cap, attempt):
+        r"""One flatten-and-measure stage at a fixed ``cap``.
+
+        Flattens $w(D)$ over $[0, \texttt{cap}]$ with a fresh internal
+        :class:`SectorWeightTuner` (untargeted --- see the class docstring),
+        then measures the frozen table with :attr:`stageSeeds` independent
+        chains, aggregating the transport corner dwell by its **mean** and
+        the vacuum returns by their **minimum** across seeds (finding 12).
+
+        Parameters
+        ----------
+        cap: int
+            The $D$ cap to flatten and measure at.
+        attempt: int
+            Which retry this is (0 for the first attempt); folded into every
+            seed derived here so a retry is decorrelated from the attempt it
+            follows rather than repeating it.
+
+        Returns
+        -------
+        (SectorWeights, dict)
+            The stage's flattened table, and its diagnostic dict (the same
+            shape appended to :attr:`history`).
+        """
+        tuneSeed = self.seed + cap + 7919 * attempt
+        weights = SectorWeightTuner(
+            self.S, self.intersectionFugacity, cap,
+            openSurfaceFugacity=self.openSurfaceFugacity,
+            iterations=self.tuneIterations, ticks=self.tuneTicks,
+            stride=self.stride, damping=self.damping, pCob=self.pCob,
+            targetFraction=self.tuneTargetFraction, seed=tuneSeed,
+        ).tune(log=lambda *a, **k: None)
+
+        cornerFloor = max(1, int(np.ceil(self.cornerFrac * cap)))
+        topFloor = max(1, int(np.floor((1.0 - self.pressureFrac) * cap)))
+        corners, returnss, pressures, vacs = [], [], [], []
+        for s in range(self.stageSeeds):
+            gasSeed = self.seed + cap + 271 * s + 7919 * attempt
+            gas = SurfaceWormGas(
+                self.S, sectorWeights=weights,
+                intersectionFugacity=self.intersectionFugacity,
+                sectorWeightCap=cap, targetFraction=self.targetFraction,
+                pairUmbrella=self.pairUmbrella, measure=False,
+                seed=gasSeed, rng=np.random.default_rng(gasSeed))
+            state = FState(self.S)
+            gas.sweep(state, self.equilibrate, pCob=self.pCob)
+            hist = np.zeros(cap + 1, dtype=np.int64)
+            corner = returns = 0
+            prevVac = False
+            for _ in range(self.measureTicks):
+                gas.sweep(state, self.stride, pCob=self.pCob)
+                D, Q = state.D, state.Q
+                if D <= cap:
+                    hist[D] += 1
+                if D >= cornerFloor and Q > 0:
+                    corner += 1
+                vac = (D == 0 and Q == 0)
+                if vac and not prevVac:
+                    returns += 1
+                prevVac = vac
+            open_dwell = hist[1:].sum()
+            corners.append(corner / self.measureTicks)
+            returnss.append(returns)
+            pressures.append(hist[topFloor:].sum() / open_dwell if open_dwell else 0.0)
+            vacs.append(hist[0] / self.measureTicks)
+
+        diag = dict(cap=cap, pressure=float(np.mean(pressures)),
+                    returns=int(min(returnss)),
+                    cornerFrac=float(np.mean(corners)),
+                    cornerSpread=float(np.std(corners)),
+                    vacuumFrac=float(np.mean(vacs)), topFloor=topFloor)
+        return weights, diag
+
+    def tune(self, log=print):
+        r"""Grow the cap, staging by staging; return the chosen table.
+
+        The v4 decision loop, content-ported from the source script's
+        ``__main__``: per cap, tune up to ``retries + 1`` times (only
+        re-tuning when the previous attempt's corner dwell looked dead ---
+        below half the running best) and keep the attempt with the largest
+        corner dwell; then apply the return floor, keep-best-by-corner, and
+        two-strike turnover logic described in the class docstring.
+
+        Parameters
+        ----------
+        log: callable, optional
+            Called with one string per accepted stage and at the verdict;
+            defaults to :func:`print`.
+
+        Returns
+        -------
+        SectorWeights
+            The chosen stage's table; its ``.cap`` carries the chosen cap
+            (the same convention as everywhere else in this module --- no
+            separate cap return).
+
+        Raises
+        ------
+        RuntimeError
+            If no cap ever satisfies ``returnFloor`` (the source script's
+            ``SystemExit``, replaced so a caller can catch it).
+        """
+        self.history = []
+        best, bestW = None, None
+        cap, weak_streak = self.cap0, 0
+        verdict = f'capMax {self.capMax} reached'
+        while cap <= self.capMax:
+            attempt_best, attempt_bestW = None, None
+            for attempt in range(self.retries + 1):
+                weights, diag = self._stage(cap, attempt)
+                if attempt_best is None or diag['cornerFrac'] > attempt_best['cornerFrac']:
+                    attempt_best, attempt_bestW = diag, weights
+                # A healthy stage needs no retry; only re-tune when transport looks dead.
+                if best is None or diag['cornerFrac'] >= 0.5 * best['cornerFrac']:
+                    break
+            diag, weights = attempt_best, attempt_bestW
+            self.history.append(diag)
+            log(f'  cap {cap:3d}: pressure {diag["pressure"]:.3f}  returns(min) '
+                f'{diag["returns"]:4d}  corner dwell {diag["cornerFrac"]:.4f}'
+                f'±{diag["cornerSpread"]:.4f}  P(vac) {diag["vacuumFrac"]:.3f}')
+            if diag['returns'] < self.returnFloor:
+                verdict = (f'constraint binds: returns {diag["returns"]} < floor '
+                           f'{self.returnFloor} at cap {cap}')
+                break
+            if best is None or diag['cornerFrac'] > best['cornerFrac']:
+                best, bestW = diag, weights
+                weak_streak = 0
+            elif diag['cornerFrac'] < 0.5 * best['cornerFrac']:
+                weak_streak += 1
+                if weak_streak >= 2:
+                    verdict = (f'turnover: corner dwell below half the best '
+                               f'({best["cornerFrac"]:.4f} at cap {best["cap"]}) '
+                               f'for two consecutive caps')
+                    break
+            else:
+                weak_streak = 0
+            cap += self.capStep
+
+        if best is None:
+            raise RuntimeError(
+                f'no cap satisfied the return floor {self.returnFloor}; '
+                'lower cap0 or the floor')
+        self.verdict = verdict
+        self.best = best
+        self._bestWeights = bestW
+        log(f'  VERDICT: {verdict}')
+        log(f'  chosen cap {best["cap"]}: pressure {best["pressure"]:.3f}, returns '
+            f'{best["returns"]}, corner dwell {best["cornerFrac"]:.4f}')
+        return bestW
+
+    def score_flips(self, warmStartConfiguration=None, budget=40_000_000):
+        r"""Validate the chosen design directly, in $J$ flips per move.
+
+        Runs a gas at the chosen (cap, table) design in 20-move batches,
+        and at every :attr:`~.state.FState.legal_vacuum` visit reads $J$ via
+        :meth:`~.state.FState.intersection_winding` --- replacing the source
+        script's primitive-reconstruction-plus-``IntersectionWinding.Villain``
+        route with the same integers computed directly from $F$ (audited by
+        :meth:`~.state.FState.intersection_winding`'s own docstring) --- and
+        counts how often $J$ differs from the previous vacuum visit.
+
+        Parameters
+        ----------
+        warmStartConfiguration: dict, optional
+            A Villain configuration (as ``S.configurations(...)`` produces)
+            to start from via :meth:`~.state.FState.from_configuration`. A
+            cold start (default) must first *nucleate* the transporting
+            network from $F = 0$, a stochastic wait that confounded every
+            earlier single-seed cold score in the source notebook (finding
+            13: "0 flips" and "0.53/Mmove" scores there were nucleation
+            roulette as much as table quality) --- a cold score here carries
+            the same caveat: it measures the basin draw, not just the
+            table.
+        budget: int
+            Minimum compiled moves to advance; the loop stops once at least
+            this many moves have run (in units of the 20-move batch, so the
+            actual count may exceed ``budget`` slightly).
+
+        Returns
+        -------
+        (int, int, float)
+            ``(flips, moves, chargedFraction)`` --- the number of $J$
+            changes observed across vacuum visits, the moves actually run,
+            and the fraction of 20-move batches ending with $Q > 0$ (the
+            source script's ``P(Q>0)`` diagnostic).
+
+        Raises
+        ------
+        RuntimeError
+            If called before :meth:`tune`.
+        """
+        if self.best is None:
+            raise RuntimeError('score_flips requires tune() to have been called first')
+        cap = self.best['cap']
+        seed = self.seed + 1000
+        gas = SurfaceWormGas(
+            self.S, sectorWeights=self._bestWeights,
+            intersectionFugacity=self.intersectionFugacity,
+            sectorWeightCap=cap, targetFraction=self.targetFraction,
+            pairUmbrella=self.pairUmbrella, measure=False,
+            seed=seed, rng=np.random.default_rng(seed))
+        state = (FState.from_configuration(self.S, warmStartConfiguration)
+                 if warmStartConfiguration is not None else FState(self.S))
+        gas.sweep(state, self.equilibrate, pCob=self.pCob)
+
+        moves = flips = charged = batches = 0
+        Jprev = None
+        while moves < budget:
+            gas.sweep(state, 20, pCob=self.pCob)
+            moves += 20
+            batches += 1
+            if state.Q > 0:
+                charged += 1
+            if state.legal_vacuum:
+                J = state.intersection_winding()
+                if Jprev is not None and np.any(J != Jprev):
+                    flips += 1
+                Jprev = J
+        chargedFraction = charged / batches if batches else 0.0
+        return flips, moves, chargedFraction

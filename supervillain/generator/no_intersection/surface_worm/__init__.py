@@ -121,7 +121,8 @@ Exports
 
 The public API, re-exported from
 :mod:`supervillain.generator.no_intersection`: :class:`~.gas.SurfaceWormGas`,
-:class:`~.tuners.SectorWeightTuner`, :class:`~.tuners.PairUmbrellaTuner`.
+:class:`~.tuners.SectorWeightTuner`, :class:`~.tuners.PairUmbrellaTuner`,
+:class:`~.tuners.TransportTuner`.
 Also importable from this subpackage directly, for power users who want the
 pieces rather than the assembled sampler:
 :class:`~.weights.SectorWeights`, :class:`~.weights.PairUmbrella`,
@@ -132,4 +133,4 @@ from .gas import SurfaceWormGas
 from .weights import SectorWeights, PairUmbrella
 from .state import FState
 from .accumulator import CorrelatorAccumulator
-from .tuners import SectorWeightTuner, PairUmbrellaTuner
+from .tuners import SectorWeightTuner, PairUmbrellaTuner, TransportTuner
