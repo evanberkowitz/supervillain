@@ -9,57 +9,51 @@ import numpy as np
 from supervillain.h5 import ReadWriteable
 
 
-# ============================================================================
-# SectorWeights
-# ============================================================================
-
-_sector_weights_docstring = r"""A sector weight table $w(D)$ for the `SurfaceWormGas`, indexed by the number of
-open-surface cells $D = \#\{dF \neq 0\}$.
-
-The gas prices open surfaces with a single fugacity, $\eta_{dF}^D$ --- which is a weight
-**linear in the exponent**, $\log w(D) = D\log\eta_{dF}$.  A linear weight can only shift
-the $D$-distribution, never broaden it, and measurement at $N=8$, $\kappa=0.03$ showed
-that is fatal: a factor 1.1 in $\eta_{dF}$ drops the closed-shell residency by $\geq10^4$
-(0.09 gives $\langle D\rangle=3.7$, $P(D{=}0)=0.33$; 0.10 gives $\langle D\rangle=18.6$,
-$P(D{=}0)<5\times10^{-5}$), and $P(D{=}0)=0.33$ at $\langle D\rangle=3.7$ is nothing like
-Poisson's $e^{-3.7}=0.025$.  So the $D$-distribution is strongly bimodal --- isolated
-bubbles versus a system-spanning open network --- and the gas must cross that to reach the
-configurations whose boundary can wrap the torus and change the topological sector.
-Crossing a suppressed intermediate region is the multicanonical problem, and it needs a
-*non-linear* $\log w(D)$: more than one number, by necessity rather than by choice.
-
-.. note ::
-    **A weight on $D$ cannot bias $\Theta$.**  The intersection correlator is a ratio of two
-    sector dwells taken **both** on the closed shell $D = 0$ --- the pair sector's divided
-    by its price $V\eta_q^2$, the vacuum's by 1 --- so the common factor $w(0)$ cancels
-    exactly, for the same reason $\eta_{dF}$ cancels.  What the table changes is which
-    configurations the chain *travels through*, never the distribution it samples on the
-    shell where the measurement lives.
-
-.. warning ::
-    $D$ is an imperfect collective variable, and knowingly so.  The $dF\neq0$ cells form the
-    **boundary of an open surface** --- an extended, closed object --- so two configurations
-    with equal $D$ can be one long torus-wrapping loop or several small bubbles.  A
-    $w(D)$ table averages over exactly the distinction that governs wrapping.  It is the
-    right first attempt because it is cheap, learnable, and matches the `DefectGas`
-    `sectorWeights` precedent; if flat-in-$D$ sampling still fails to wrap, the collective
-    variable is the thing to change, not the tuning.
-
-.. seealso ::
-    ``tune_sector_weights.py`` learns a table by iterative histogram flattening rather than
-    by hand.
-"""
-
 class SectorWeights(ReadWriteable):
     r"""$\log w(D)$ on $D = 0 \ldots \texttt{cap}$, closed by a hard wall (or a linear tail).
 
+    A sector weight table $w(D)$ for the `SurfaceWormGas`, indexed by the number of
+    open-surface cells $D = \#\{dF \neq 0\}$.
+
+    The gas prices open surfaces with a single fugacity, $\eta_{dF}^D$ --- which is a weight
+    **linear in the exponent**, $\log w(D) = D\log\eta_{dF}$.  A linear weight can only shift
+    the $D$-distribution, never broaden it, and measurement at $N=8$, $\kappa=0.03$ showed
+    that is fatal: a factor 1.1 in $\eta_{dF}$ drops the closed-shell residency by $\geq10^4$
+    (0.09 gives $\langle D\rangle=3.7$, $P(D{=}0)=0.33$; 0.10 gives $\langle D\rangle=18.6$,
+    $P(D{=}0)<5\times10^{-5}$), and $P(D{=}0)=0.33$ at $\langle D\rangle=3.7$ is nothing like
+    Poisson's $e^{-3.7}=0.025$.  So the $D$-distribution is strongly bimodal --- isolated
+    bubbles versus a system-spanning open network --- and the gas must cross that to reach the
+    configurations whose boundary can wrap the torus and change the topological sector.
+    Crossing a suppressed intermediate region is the multicanonical problem, and it needs a
+    *non-linear* $\log w(D)$: more than one number, by necessity rather than by choice.
+
     Whatever a move proposes, $w$ must be a genuine function of $D$ or the acceptance is
     undefined; both settings satisfy that, one by extrapolating and one by vanishing.
+
+    .. note ::
+        **A weight on $D$ cannot bias $\Theta$.**  The intersection correlator is a ratio of two
+        sector dwells taken **both** on the closed shell $D = 0$ --- the pair sector's divided
+        by its price $V\eta_q^2$, the vacuum's by 1 --- so the common factor $w(0)$ cancels
+        exactly, for the same reason $\eta_{dF}$ cancels.  What the table changes is which
+        configurations the chain *travels through*, never the distribution it samples on the
+        shell where the measurement lives.
 
     .. warning ::
         The default is now the **hard wall**, which changes the sampled ensemble rather than
         only the tuning bookkeeping. See the PROVISIONAL note in ``__init__`` for why the
         linear tail failed and what would have to be rechecked to go back to it.
+
+        $D$ is an imperfect collective variable, and knowingly so.  The $dF\neq0$ cells form the
+        **boundary of an open surface** --- an extended, closed object --- so two configurations
+        with equal $D$ can be one long torus-wrapping loop or several small bubbles (Evan).  A
+        $w(D)$ table averages over exactly the distinction that governs wrapping.  It is the
+        right first attempt because it is cheap, learnable, and matches the `DefectGas`
+        `sectorWeights` precedent; if flat-in-$D$ sampling still fails to wrap, the collective
+        variable is the thing to change, not the tuning.
+
+    .. seealso ::
+        ``tune_sector_weights.py`` learns a table by iterative histogram flattening rather than
+        by hand.
 
     Parameters
     ----------
@@ -198,40 +192,35 @@ class SectorWeights(ReadWriteable):
         return SectorWeights(filled, self.tailSlope, self.hardWall)
 
 
-# ============================================================================
-# PairUmbrella
-# ============================================================================
-
-_pair_umbrella_docstring = r"""A pair-separation umbrella $w_2(r)$ for the charge-$\pm1$ sector of the SurfaceWormGas.
-
-The correlator's large-$|\Delta x|$ bins are censored because a defect pair at separation $r$
-has equilibrium weight $\propto \Theta(r)$, which is small --- and *how* small is the very
-thing being measured, so no cost argument here assumes a functional form.  The fix is the
-same one used on $D$: bias toward the rare states and divide the bias out.
-
-Indexed by the **squared** minimal-image separation $r^2$, which is the integer the lattice
-actually produces and what ``MaxPairSeparationSquared`` already reports; $r^2$ runs
-$0 \ldots N^2$.
-
-.. warning ::
-    **$w_2$ does not cancel from $\Theta$, unlike $w(D)$.**  $w(D)$ divides out because the
-    pair dwell and the vacuum dwell both sit at $D=0$, so a common factor cancels in the
-    ratio.  $w_2$ is $r$-dependent while the numerator is $r$-resolved, so it must be divided
-    out **bin by bin** in the accumulator.  Getting that wrong does not look like a bug --- it
-    looks like a correlator *shape*.
-
-.. note ::
-    **Do not punish leaving the pair sector**.  If $w_2 > 1$ at large $r$ --- the whole
-    point --- then a configuration out at large separation carries a large weight and any move
-    *out* of the $Q=2$ sector costs $1/w_2(r)$.  The chain pins at large $r$ and stops
-    returning to $Q=0$, which is fatal rather than slow: the vacuum dwell is $\Theta$'s
-    denominator, so the measurement destroys itself exactly when the umbrella starts working.
-    :meth:`normalized` fixes the sector's *mean* weight to 1 so entering and leaving are
-    unbiased on average, and ``VacuumReturns`` is the run-time check that it worked.
-"""
-
 class PairUmbrella(ReadWriteable):
     r"""$\log w_2(r^2)$ on the $\pm1$ pair sector; identically 1 everywhere else.
+
+    A pair-separation umbrella $w_2(r)$ for the charge-$\pm1$ sector of the SurfaceWormGas.
+
+    The correlator's large-$|\Delta x|$ bins are censored because a defect pair at separation $r$
+    has equilibrium weight $\propto \Theta(r)$, which is small --- and *how* small is the very
+    thing being measured, so no cost argument here assumes a functional form.  The fix is the
+    same one used on $D$: bias toward the rare states and divide the bias out.
+
+    Indexed by the **squared** minimal-image separation $r^2$, which is the integer the lattice
+    actually produces and what ``MaxPairSeparationSquared`` already reports; $r^2$ runs
+    $0 \ldots N^2$.
+
+    .. warning ::
+        **$w_2$ does not cancel from $\Theta$, unlike $w(D)$.**  $w(D)$ divides out because the
+        pair dwell and the vacuum dwell both sit at $D=0$, so a common factor cancels in the
+        ratio.  $w_2$ is $r$-dependent while the numerator is $r$-resolved, so it must be divided
+        out **bin by bin** in the accumulator.  Getting that wrong does not look like a bug --- it
+        looks like a correlator *shape*.
+
+    .. note ::
+        **Do not punish leaving the pair sector** (Evan).  If $w_2 > 1$ at large $r$ --- the whole
+        point --- then a configuration out at large separation carries a large weight and any move
+        *out* of the $Q=2$ sector costs $1/w_2(r)$.  The chain pins at large $r$ and stops
+        returning to $Q=0$, which is fatal rather than slow: the vacuum dwell is $\Theta$'s
+        denominator, so the measurement destroys itself exactly when the umbrella starts working.
+        :meth:`normalized` fixes the sector's *mean* weight to 1 so entering and leaving are
+        unbiased on average, and ``VacuumReturns`` is the run-time check that it worked.
 
     Parameters
     ----------
