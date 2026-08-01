@@ -928,8 +928,8 @@ class SurfaceWormGas(ReadWriteable, Generator):
         r"""Reconstruct a full Villain configuration $(n, \varphi)$ from ``state``,
         which must already be a :attr:`~.state.FState.legal_vacuum` ($D = Q = 0$,
         every period zero) --- the joint vacuum is what the extended-ensemble weight
-        $\pi_\text{ext}$ (module docstring) reduces to the true $F$-marginal
-        $\pi(F) \propto e^{-2\pi^2\kappa C(F)}\cdot Z_\text{wind}(F)$ on.
+        $\pi_{\text{ext}}$ (module docstring) reduces to the true $F$-marginal
+        $\pi(F) \propto e^{-2\pi^2\kappa C(F)}\cdot Z_{\text{wind}}(F)$ on.
 
         $n \leftarrow$ an integer primitive of $F$ (:func:`~.reconstruct.reconstruct_n`)
         carrying a winding $M$ freshly resampled from its exact conditional

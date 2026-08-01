@@ -876,3 +876,76 @@ We provide the :func:`~supervillain.generator.no_intersection.Hammer` function t
 
 .. autofunction:: supervillain.generator.no_intersection.Hammer
 
+The surface worm gas
+====================
+
+Every sampler above updates $n$, and that choice has a structural consequence: a move that
+preserves $q = 0$ exactly can never change the topological winding $J$ of the current
+$j = n \wedge dn$, because for any closed change the shift of $j$ is exact and its periods are
+untouched.  The $\theta$-sector stiffness of :class:`~supervillain.observable.IntersectionWindingSquared`
+is therefore *censored, not measured* by the whole $n$-space roster: the sector only moves when an
+open surface's boundary sweeps a non-contractible cycle while charge rides the slack it provides,
+and the constraint-preserving moves never open a surface at all.
+
+The :class:`~supervillain.generator.no_intersection.SurfaceWormGas` tells the defect-gas joke one
+more time, in the variable where the mechanism lives.  It works in **F-space** --- the integer
+2-form $F$ that stands in for $dn$ --- and relaxes *both* physical constraints at once, pricing
+them instead of forbidding them:
+
+.. math ::
+
+   \pi_{\text{ext}}(F) \propto e^{-2\pi^{2}\kappa\, C(F)}\; w(D(F))\;
+   \eta_{q}^{Q(F)}\; Z_{\text{wind}}(F)\; w_{2}(r),
+
+with $C(F)$ the coexact norm (the exact $\phi$-marginal of the Villain action), $D$ the number of
+open-surface cells ($dF \neq 0$), $Q$ the number of intersecting hypercubes ($F \wedge F \neq 0$),
+$Z_{\text{wind}}$ the winding-sector sum that makes the sampled marginal the physical one (folded
+into the chain unconditionally --- emitted configurations are physical *raw*, and there is no
+importance weight to double-count), and $w_{2}$ a pair-separation umbrella on the charge-$\pm1$
+sector.  The moves are a uniform (or defect-targeted) plaquette toggle with manifest detailed
+balance and an exact coboundary heatbath --- a local move, the 6-plaquette coboundary of one unit
+link translated to a random anchor.
+
+Physical configurations are emitted from the **legal vacuum**: $D = 0$, $Q = 0$, *and* all six
+2-cycle periods of $F$ zero.  The last condition is easy to forget and load-bearing: on the torus
+closed is not exact, a worm that recloses around a non-contractible 2-cycle leaves $F$ with a
+nontrivial $H^{2}$ class for which *no* $n$ with $dn = F$ exists, and emission reconstructs
+$(n, \phi)$ from $F$ --- an integer staircase primitive, the harmonic winding resampled from its
+exact conditional, and $\phi$ drawn from its exact Gaussian conditional.  Because open surfaces and
+intersections are ordinary priced states of the gas, the sector-changing excursions the $n$-space
+roster cannot make are just traffic here: at $N = 4$ the emitted stream's $J$ random-walks with
+transitions on most rows, where the Hammer started cold stays imprisoned at $J = 0$.
+
+.. autoclass:: supervillain.generator.no_intersection.SurfaceWormGas
+   :members:
+   :show-inheritance:
+
+Tuning the gas
+--------------
+
+Three tuners, three objectives; they are not interchangeable, and the two $w(D)$ tuners
+deliberately optimize *conflicting* goals.  The
+:class:`~supervillain.generator.no_intersection.SectorWeightTuner` flattens $w(D)$ at a fixed,
+moderate cap --- the default for $\Theta$-correlator work and pilots, since the correlator's
+statistics are bought with closed-shell dwell.  The
+:class:`~supervillain.generator.no_intersection.PairUmbrellaTuner` learns the orthogonal
+$w_{2}(r)$ table that un-censors the correlator's large-separation bins.  The
+:class:`~supervillain.generator.no_intersection.TransportTuner` instead chooses the **cap** by the
+$J$-transport physics --- growing it stage by stage and keeping the design with the most
+transport-corner dwell subject to a vacuum-return floor --- spending exactly the dwell the
+correlator wants in order to buy the deep charged excursions that flip the sector.  Reach for it
+only when $J$ flips per unit compute is the figure of merit, at volumes where flips demonstrably
+fire.
+
+.. autoclass:: supervillain.generator.no_intersection.SectorWeightTuner
+   :members:
+   :show-inheritance:
+
+.. autoclass:: supervillain.generator.no_intersection.PairUmbrellaTuner
+   :members:
+   :show-inheritance:
+
+.. autoclass:: supervillain.generator.no_intersection.TransportTuner
+   :members:
+   :show-inheritance:
+
