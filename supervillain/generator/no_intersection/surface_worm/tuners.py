@@ -831,7 +831,11 @@ class TransportTuner:
         Independent equilibrations per stage measurement (finding 12).
     retries: int
         Extra tune attempts per cap when a stage's corner dwell looks dead
-        (below half the running best).
+        (below half the running best).  Must be $\geq 0$ --- ``tune()``'s
+        attempt loop is ``range(retries + 1)``, so a negative value would
+        leave that range empty and the loop's ``attempt_best`` unset;
+        raises :class:`ValueError` here instead of failing confusingly deep
+        inside :meth:`tune`.
     tuneTargetFraction: float
         ``targetFraction`` used **only** while flattening $w(D)$ at each
         stage; see the class docstring's "untargeted tuning" note for why
@@ -894,6 +898,12 @@ class TransportTuner:
         self.returnFloor = int(returnFloor)
         self.stageSeeds = int(stageSeeds)
         self.retries = int(retries)
+        if self.retries < 0:
+            # range(retries + 1) is what tune()'s attempt loop actually iterates;
+            # a negative value makes that range empty, so attempt_best/attempt_bestW
+            # never get set and tune() dies on a confusing "NoneType is not
+            # subscriptable" deep inside the loop instead of here, at construction.
+            raise ValueError(f'retries must be >= 0, got {self.retries}.')
         self.tuneTargetFraction = float(tuneTargetFraction)
         self.tuneIterations = int(tuneIterations)
         self.tuneTicks = int(tuneTicks)

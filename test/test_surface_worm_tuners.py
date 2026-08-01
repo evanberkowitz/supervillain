@@ -88,15 +88,16 @@ from supervillain.generator.no_intersection.surface_worm.tuners import Transport
 
 
 def test_transport_tuner_smoke():
-    # measureTicks bumped from the brief's 200 to 8_000 (still ~3s wall time): at
-    # openSurfaceFugacity=0.2/cap 6-10/kappa=0.2, D is small as advertised, but the
-    # JOINT vacuum this tuner's `returns` diagnostic needs also requires periods=0
-    # (see FState.legal_vacuum) -- unwinding a wrapped 2-cycle back to periods=0 is a
-    # slow coboundary-driven diffusion independent of intersectionFugacity (verified:
-    # identical trajectories from 0.008 down to 0.001), and at 200 ticks x stride 40
-    # this particular seed never completes one such unwind (confirmed directly: the
-    # first return lands at tick ~7879 of an unbudgeted run). Not a correctness bug --
-    # see the tuner's docstring and task-1-report.md for the measurement.
+    # measureTicks bumped from the brief's 200 to 8_000 (still ~3s wall time).
+    # `_stage`'s `returns` counter gates on the simple D==0 and Q==0 -- no periods
+    # check -- and at openSurfaceFugacity=0.2 (4x the emit tests' healthy 0.05,
+    # test_surface_worm_emit.py) combined with intersectionFugacity=0.3, Q sits at a
+    # nonzero equilibrium (measured mean ~13-15, minimum observed 2, over thousands
+    # of ticks) while D=0 only a minority of the time (measured P(D=0) ~0.30 at this
+    # openSurfaceFugacity, vs 1.0 at 0.05) -- so the simple joint event D=0 AND Q=0
+    # is rare on its own, and 200 ticks is not enough to see one reliably for every
+    # seed. Not a correctness bug -- see the tuner's docstring and task-1-report.md
+    # for the measurement.
     t = TransportTuner(_S(), intersectionFugacity=0.3, openSurfaceFugacity=0.2,
                        targetFraction=0.0, pCob=0.5,
                        cap0=6, capStep=4, capMax=10, stageSeeds=1, retries=0,
@@ -176,9 +177,9 @@ def test_transport_tuner_verdict_logic(monkeypatch):
 
 
 def test_transport_tuner_score_flips():
-    # measureTicks bumped from 200 to 8_000 -- same joint-vacuum budget reason as
-    # test_transport_tuner_smoke above; tune() must succeed here too before
-    # score_flips() has a design to validate.
+    # measureTicks bumped from 200 to 8_000 -- same D=0-and-Q=0-is-rare budget
+    # reason as test_transport_tuner_smoke above; tune() must succeed here too
+    # before score_flips() has a design to validate.
     t = TransportTuner(_S(), intersectionFugacity=0.3, openSurfaceFugacity=0.2,
                        targetFraction=0.0, pCob=0.5,
                        cap0=6, capStep=4, capMax=6, stageSeeds=1, retries=0,
@@ -190,3 +191,10 @@ def test_transport_tuner_score_flips():
     t.tune()
     flips, moves, charged = t.score_flips(budget=4_000)
     assert isinstance(flips, int) and moves >= 4_000 and 0.0 <= charged <= 1.0
+
+
+def test_transport_tuner_rejects_negative_retries():
+    import pytest as _pytest
+    with _pytest.raises(ValueError):
+        TransportTuner(_S(), intersectionFugacity=0.3, openSurfaceFugacity=0.2,
+                       retries=-1, seed=1)
