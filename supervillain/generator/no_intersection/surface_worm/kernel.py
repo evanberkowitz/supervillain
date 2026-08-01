@@ -10,9 +10,8 @@ scratch.  This module builds those stencils once (cached per lattice size $N$) a
 the scalar lattice Green's function that turns a single-plaquette toggle into an
 $O(V)$ (not $O(V^2)$) update of the incremental potential.
 
-Layout: tables and builders (this file, Task 3) first, so the batch ``njit``
-kernel appended later (Task 7's :func:`gas_batch` and its helpers) has a natural
-place to land after them.
+Layout: tables and builders come first; the batch ``njit`` kernel (``gas_batch``
+and its helpers) is appended below them, after everything it depends on.
 
 .. note ::
     All of this is a straight port of the audited reference implementation
