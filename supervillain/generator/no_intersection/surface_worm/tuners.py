@@ -696,7 +696,16 @@ class PairUmbrellaTuner:
                     log(f'  converged at iteration {it}: every achievable shell has '
                         f'>= {self.minCount} visits')
                     self.history.append(record)
-                    best, bestScore = umbrella, score
+                    # Rebuild from the JUST-UPDATED shape (not `umbrella`, which was
+                    # measured under the PRE-update shape): the source's convergence
+                    # branch deliberately hands back the table incorporating this
+                    # iteration's flattening refinement, not the one that produced
+                    # the convergent measurement. The non-converged path above keeps
+                    # `umbrella` on purpose (that IS what was measured, and its score
+                    # is what the comparison is against); only the converged exit
+                    # gets the extra refinement because there is no next iteration
+                    # left to measure it under.
+                    best, bestScore = table(shape, bisector.offset), score
                     break
 
             self.history.append(record)
