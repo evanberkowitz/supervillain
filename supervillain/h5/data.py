@@ -70,6 +70,12 @@ class Data:
                     break
             except Exception as e:
                 logger.error(str(e))
+                # A strategy may raise AFTER creating group[key] (e.g. the Dict
+                # strategy on tuple-valued keys, issue #65); without cleanup the
+                # pickle fallback below collides with the partial write and the
+                # whole to_h5 dies on an OSError instead of falling back.
+                if key in group:
+                    del group[key]
         else: # Wow, a real-life instance of for/else!
             logger.debug(f"Writing {group.name}/{key} by pickling.")
             group[key] = np.void(pickle.dumps(value))
