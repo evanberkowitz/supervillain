@@ -320,11 +320,12 @@ class SurfaceWormGas(ReadWriteable, Generator):
             # accumulator's per-bin division by w_2 (weights.py's warning) must undo
             # exactly the bias the acceptance introduced, not a stale or independent copy.
             self.accumulator.pairUmbrella = self.pairUmbrella
-        # Generator-protocol chain state: the FState the compiled sweep evolves,
-        # as opposed to the emitted (n, phi) Ensemble.generate hands step() --
-        # see step()'s docstring for why the latter is ignored.  Lazily built
-        # (FState(S), the cold vacuum) on first use by step()/equilibrate(), or
-        # set directly by warm_start().
+        # Generator-protocol chain state: the FState the compiled sweep evolves.
+        # step() ALWAYS rebuilds it from the incoming configuration's n (the
+        # composition contract -- see step()'s docstring); a configuration
+        # without 'n' (e.g. step({})) trusts the internal state, which is how
+        # a mid-excursion chain (equilibrate()) is advanced without a reset.
+        # warm_start() sets it directly.
         self._state = None
         # step()'s emit-wait bookkeeping: how many times the maxWaitTicks warning
         # fired, and the extra-tick count each step actually waited (for report()).
@@ -1034,13 +1035,30 @@ class SurfaceWormGas(ReadWriteable, Generator):
         r"""``Generator`` protocol: advance the chain and emit a physical
         configuration.
 
-        ``configuration`` is IGNORED.  The chain's state lives in :attr:`_state`
-        (an :class:`~.state.FState`), lazily built cold on first use; the
-        ``configuration`` ``Ensemble.generate`` passes in is the *previously
-        emitted* ``(n, phi)``, a reconstruction downstream of the chain, not the
-        state the chain itself evolves --- so there is nothing in it to resume
-        from that :attr:`_state` does not already carry.  (Use :meth:`warm_start`
-        to seed :attr:`_state` from a configuration instead.)
+        The chain **always resumes from the incoming configuration**: its
+        state is rebuilt as $F = dn$ of ``configuration['n']`` before any
+        moves are made.  (Until 2026-08-04 the incoming configuration was
+        ignored outright --- an optimization that silently broke the Generator
+        protocol's composition contract: in a
+        :class:`~supervillain.generator.combining.Sequentially` every other
+        generator's changes to $n$, and hence to $F = dn$, were discarded.
+        The rebuild is essentially free next to the sweep's moves, and a
+        round-trip of the chain's own emission is lossless, since at every
+        step boundary the chain is a legal vacuum with $F = dn$ of it.)
+
+        The one state a configuration cannot carry is a **mid-excursion**
+        chain (open/charged $F$, e.g. after :meth:`equilibrate`): to advance
+        such a chain without resetting it, call ``step({})`` --- a
+        configuration with no ``'n'`` trusts the internal state.
+
+        .. warning::
+            A chunked driver that calls ``generate(..., start='cold')``
+            repeatedly, relying on the seed being ignored, now gets what it
+            asks for --- a cold restart per chunk.  Pass the last emitted row
+            as ``start`` instead; that is what ``start`` means.  Likewise
+            ``equilibrate()`` followed by ``generate(..., start='cold')``
+            discards the equilibration --- bridge with ``first = step({})``
+            and ``generate(..., start=first)``.
 
         Advances :attr:`ticksPerStep` batches of :attr:`stride` moves --- via
         :meth:`sweep_measured` (ticking the accumulator once per batch) when
@@ -1069,7 +1087,18 @@ class SurfaceWormGas(ReadWriteable, Generator):
             If the joint vacuum is not reached within ``hardWaitFactor *
             maxWaitTicks`` extra ticks.
         """
-        if self._state is None:
+        try:
+            has_n = configuration is not None and configuration['n'] is not None
+        except (KeyError, TypeError, IndexError):
+            has_n = False
+        if has_n:
+            # ALWAYS resume from the incoming configuration (Evan, 2026-08-04):
+            # building F = dn is essentially free next to the sweep's moves,
+            # and unconditional resume is what makes this generator compose
+            # with every other one.  A round-trip of our own emission is
+            # lossless (the chain is a legal vacuum with F = dn of it).
+            self._state = FState.from_configuration(self.S, configuration)
+        elif self._state is None:
             self._state = FState(self.S)
         if self.measure:
             self.sweep_measured(self._state, self.ticksPerStep)
