@@ -907,6 +907,9 @@ class TransportTuner:
         # whole pipeline (flattening, stage measurement, score_flips) tunes
         # and scores ONE sampler.
         self.gasFactory = gasFactory if gasFactory is not None else SurfaceWormGas
+        # the previous cap stage's learned table, seeding the next stage's
+        # flattening (see _stage) -- None until the first stage completes
+        self._stageWeights = None
         self.S = S
         self.intersectionFugacity = float(intersectionFugacity)
         self.openSurfaceFugacity = float(openSurfaceFugacity)
@@ -972,14 +975,28 @@ class TransportTuner:
             shape appended to :attr:`history`).
         """
         tuneSeed = self.seed + cap + 7919 * attempt
+        # Seed each stage's flattening from the PREVIOUS stage's learned table,
+        # extended along its own tail slope.  Flattening a wide range from the
+        # bare fugacity table is the multicanonical range problem -- at large
+        # cap the chain never reaches the top bins, so the table there stays
+        # unlearned and the stage measures a barrier of its own making.  The
+        # previous stage's table already carries the compensation up to its
+        # own cap, so each stage only has to learn the increment.
+        seed_table = None
+        if self._stageWeights is not None and self._stageWeights.cap < cap:
+            prev = self._stageWeights
+            extra = prev.logWeight[-1] + prev.tailSlope * np.arange(1, cap - prev.cap + 1)
+            seed_table = SectorWeights(np.concatenate([prev.logWeight, extra]),
+                                       prev.tailSlope, hardWall=True)
         weights = SectorWeightTuner(
             self.S, self.intersectionFugacity, cap,
             openSurfaceFugacity=self.openSurfaceFugacity,
             iterations=self.tuneIterations, ticks=self.tuneTicks,
             stride=self.stride, damping=self.damping, pCob=self.pCob,
             targetFraction=self.tuneTargetFraction, seed=tuneSeed,
-            gasFactory=self.gasFactory,
+            gasFactory=self.gasFactory, seedWeights=seed_table,
         ).tune(log=lambda *a, **k: None)
+        self._stageWeights = weights
 
         cornerFloor = max(1, int(np.ceil(self.cornerFrac * cap)))
         topFloor = max(1, int(np.floor((1.0 - self.pressureFrac) * cap)))
