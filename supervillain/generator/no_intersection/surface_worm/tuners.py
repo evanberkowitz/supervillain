@@ -135,12 +135,19 @@ class SectorWeightTuner:
     def __init__(self, S, intersectionFugacity, cap, openSurfaceFugacity=0.09,
                  iterations=20, ticks=2000, stride=200, damping=0.7,
                  targetFlatness=1.5, minimumReachable=3, pCob=0.6,
-                 targetFraction=0.8, seed=None, gasFactory=None):
+                 targetFraction=0.8, seed=None, gasFactory=None,
+                 seedWeights=None):
         # gasFactory: a SurfaceWormGas-compatible callable (e.g. a subclass, or
         # functools.partial with extra knobs preset).  A tuner must tune the
         # sampler that will actually run -- a table tuned against plain-SWG
         # kinetics is mistuned for a sampler with different kinetics.
         self.gasFactory = gasFactory if gasFactory is not None else SurfaceWormGas
+        # seedWeights: an initial table to flatten FROM, instead of the bare
+        # fugacity table.  Wide-range (large-cap) flattening is the standard
+        # multicanonical range problem; staging cap upward, seeding each stage
+        # from the previous stage's learned table (extended by its tail
+        # slope), is how a cap far beyond the bare table's reach is tuned.
+        self.seedWeights = seedWeights
         self.S = S
         self.intersectionFugacity = float(intersectionFugacity)
         self.cap = int(cap)
@@ -220,7 +227,12 @@ class SectorWeightTuner:
             $[0, \texttt{cap}]$ the chain never visited (see
             :meth:`~.weights.SectorWeights.interpolated`).
         """
-        weights = SectorWeights.fugacity(self.openSurfaceFugacity, cap=self.cap)
+        weights = (self.seedWeights if self.seedWeights is not None
+                   else SectorWeights.fugacity(self.openSurfaceFugacity, cap=self.cap))
+        if weights.cap != self.cap:
+            raise ValueError(
+                f'seedWeights has cap {weights.cap} but the tuner was built with '
+                f'cap {self.cap}; extend the seed table (tail slope) before seeding.')
         self.history = []
         # Which D are REACHABLE at all is LEARNED as the union of everything ever
         # seen, and flatness is judged on that set alone -- see SectorWeights'
