@@ -135,7 +135,12 @@ class SectorWeightTuner:
     def __init__(self, S, intersectionFugacity, cap, openSurfaceFugacity=0.09,
                  iterations=20, ticks=2000, stride=200, damping=0.7,
                  targetFlatness=1.5, minimumReachable=3, pCob=0.6,
-                 targetFraction=0.8, seed=None):
+                 targetFraction=0.8, seed=None, gasFactory=None):
+        # gasFactory: a SurfaceWormGas-compatible callable (e.g. a subclass, or
+        # functools.partial with extra knobs preset).  A tuner must tune the
+        # sampler that will actually run -- a table tuned against plain-SWG
+        # kinetics is mistuned for a sampler with different kinetics.
+        self.gasFactory = gasFactory if gasFactory is not None else SurfaceWormGas
         self.S = S
         self.intersectionFugacity = float(intersectionFugacity)
         self.cap = int(cap)
@@ -224,12 +229,12 @@ class SectorWeightTuner:
         everSeen = np.zeros(self.cap + 1, dtype=bool)
         sinceExpansion = 0          # iterations since the reachable set last grew
 
-        gas = SurfaceWormGas(self.S, sectorWeights=weights,
-                             intersectionFugacity=self.intersectionFugacity,
-                             sectorWeightCap=self.cap,
-                             targetFraction=self.targetFraction,
-                             measure=False, seed=self.seed,
-                             rng=np.random.default_rng(self.seed))
+        gas = self.gasFactory(self.S, sectorWeights=weights,
+                              intersectionFugacity=self.intersectionFugacity,
+                              sectorWeightCap=self.cap,
+                              targetFraction=self.targetFraction,
+                              measure=False, seed=self.seed,
+                              rng=np.random.default_rng(self.seed))
         state = FState(self.S)
 
         for it in range(self.iterations):
@@ -456,7 +461,9 @@ class PairUmbrellaTuner:
 
     def __init__(self, S, sectorWeights, intersectionFugacity, targetFraction, pCob,
                  iterations=20, ticks=6000, stride=100, equilibrate=2_000_000,
-                 targetOdds=0.5, seed=None):
+                 targetOdds=0.5, seed=None, gasFactory=None):
+        # see SectorWeightTuner: tune the sampler that will actually run
+        self.gasFactory = gasFactory if gasFactory is not None else SurfaceWormGas
         self.S = S
         self.sectorWeights = sectorWeights
         self.intersectionFugacity = float(intersectionFugacity)
@@ -563,11 +570,11 @@ class PairUmbrellaTuner:
             The harvested :class:`~.accumulator.CorrelatorAccumulator`
             observables.
         """
-        gas = SurfaceWormGas(self.S, sectorWeights=self.sectorWeights,
-                             intersectionFugacity=self.intersectionFugacity,
-                             sectorWeightCap=self.sectorWeights.cap,
-                             targetFraction=self.targetFraction,
-                             pairUmbrella=umbrella, measure=True,
+        gas = self.gasFactory(self.S, sectorWeights=self.sectorWeights,
+                              intersectionFugacity=self.intersectionFugacity,
+                              sectorWeightCap=self.sectorWeights.cap,
+                              targetFraction=self.targetFraction,
+                              pairUmbrella=umbrella, measure=True,
                              seed=seed, rng=np.random.default_rng(seed))
         state = FState(self.S)
         gas.sweep(state, equilibrate, pCob=self.pCob)
@@ -881,7 +888,13 @@ class TransportTuner:
                  pressureEps=0.02, cornerFrac=0.75, returnFloor=50,
                  stageSeeds=3, retries=2, tuneTargetFraction=0.0,
                  tuneIterations=20, tuneTicks=3000, measureTicks=4000,
-                 stride=200, equilibrate=2_000_000, damping=0.8, seed=None):
+                 stride=200, equilibrate=2_000_000, damping=0.8, seed=None,
+                 gasFactory=None):
+        # see SectorWeightTuner: tune the sampler that will actually run.
+        # Forwarded to the per-stage internal SectorWeightTuner too, so the
+        # whole pipeline (flattening, stage measurement, score_flips) tunes
+        # and scores ONE sampler.
+        self.gasFactory = gasFactory if gasFactory is not None else SurfaceWormGas
         self.S = S
         self.intersectionFugacity = float(intersectionFugacity)
         self.openSurfaceFugacity = float(openSurfaceFugacity)
@@ -953,6 +966,7 @@ class TransportTuner:
             iterations=self.tuneIterations, ticks=self.tuneTicks,
             stride=self.stride, damping=self.damping, pCob=self.pCob,
             targetFraction=self.tuneTargetFraction, seed=tuneSeed,
+            gasFactory=self.gasFactory,
         ).tune(log=lambda *a, **k: None)
 
         cornerFloor = max(1, int(np.ceil(self.cornerFrac * cap)))
@@ -960,7 +974,7 @@ class TransportTuner:
         corners, returnss, pressures, vacs = [], [], [], []
         for s in range(self.stageSeeds):
             gasSeed = self.seed + cap + 271 * s + 7919 * attempt
-            gas = SurfaceWormGas(
+            gas = self.gasFactory(
                 self.S, sectorWeights=weights,
                 intersectionFugacity=self.intersectionFugacity,
                 sectorWeightCap=cap, targetFraction=self.targetFraction,
@@ -1117,7 +1131,7 @@ class TransportTuner:
             raise RuntimeError('score_flips requires tune() to have been called first')
         cap = self.best['cap']
         seed = self.seed + 1000
-        gas = SurfaceWormGas(
+        gas = self.gasFactory(
             self.S, sectorWeights=self._bestWeights,
             intersectionFugacity=self.intersectionFugacity,
             sectorWeightCap=cap, targetFraction=self.targetFraction,
