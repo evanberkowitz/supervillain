@@ -50,7 +50,8 @@ class CorrelatorAccumulator:
         ``ClosedSectorTicks``).
     """
 
-    def __init__(self, N, intersectionFugacity, absoluteChargeCap=64, squaredChargeCap=64,
+    def __init__(self, N, intersectionFugacity, openCap=64,
+                 absoluteChargeCap=64, squaredChargeCap=64,
                  chargeBinWidth=1, sectorCap=64):
         self.N = int(N)
         self.V = self.N ** 4
@@ -65,6 +66,10 @@ class CorrelatorAccumulator:
         # the pair-sector occupancy because one was under-equilibrated.  An inline histogram
         # recorded by every production run cannot drift from the run it describes.
         self.sectorCap = int(sectorCap)
+        # D = #{cells with dF != 0}, the open-surface boundary.  Capped at the
+        # gas's own sector-weight cap: with a hard wall D cannot exceed it, and
+        # one extra bin catches the soft-wall case.
+        self.openCap = int(openCap)
         # Set by SurfaceWormGas to the SAME object its acceptance uses.  Left as None here
         # so a bare accumulator behaves exactly as before the umbrella existed.
         self.pairUmbrella = None
@@ -91,6 +96,15 @@ class CorrelatorAccumulator:
         self.maxSquaredCharge = 0
         self.maxPairSeparationSquared = 0
         self.sectorTicks = np.zeros(self.sectorCap + 1, dtype=np.int64)
+        # D histograms, the open-surface analogue of sectorTicks: one over ALL
+        # ticks (where the chain lives in D) and one restricted to the
+        # CHARGE-FREE sector Q = 0.  Both are needed and they answer different
+        # questions -- finding 7 of the j-vacuum campaign measured that
+        # charge-free open surfaces never flip J (0 flips in 8290 excursions),
+        # so the difference between these two histograms isolates the
+        # population that can actually transport J.
+        self.openTicks = np.zeros(self.openCap + 2, dtype=np.int64)
+        self.neutralOpenTicks = np.zeros(self.openCap + 2, dtype=np.int64)
         self.closedSectorTicks = np.zeros(self.sectorCap + 1, dtype=np.int64)
         # Pair separation over ALL ticks -- the umbrella tuner's input, and deliberately
         # NOT restricted to the closed shell: the separation only moves while dF != 0
@@ -120,6 +134,13 @@ class CorrelatorAccumulator:
         # measured at N=8, kappa=0.04 under the tuned table, only ~4% of ticks are closed.
         Q = int(state.Q)
         self.sectorTicks[min(Q, self.sectorCap)] += 1
+        # D histograms, recorded here for the same reason the sector histograms
+        # are: before the closed-shell early return, so they describe the whole
+        # chain rather than only the D = 0 shell (where D is 0 by definition).
+        Dbin = min(int(state.D), self.openCap + 1)
+        self.openTicks[Dbin] += 1
+        if Q == 0:
+            self.neutralOpenTicks[Dbin] += 1
         allSep = pair_separation_squared(state.chargeSites, self.N)
         if allSep is not None:
             self.pairSeparationTicks[allSep] += 1
@@ -244,6 +265,12 @@ class CorrelatorAccumulator:
             # separation starves the vacuum dwell that is Theta's denominator.
             'PairSeparationTicks': self.pairSeparationTicks.copy(),
             'SectorTicks': self.sectorTicks.copy(),
+            # D occupancy over all ticks, and over charge-free ticks only.  Their
+            # DIFFERENCE is the charged open-surface population -- the one that
+            # carries J (j-vacuum finding 7), and the one a transport tuner
+            # should be maximizing at the D scale flips actually need.
+            'OpenSurfaceTicks': self.openTicks.copy(),
+            'NeutralOpenSurfaceTicks': self.neutralOpenTicks.copy(),
             'ClosedSectorTicks': self.closedSectorTicks.copy(),
             'VacuumReturns': int(self.vacuumReturns),
             # Closed-but-non-exact ticks excluded from the closed-shell dwells above.

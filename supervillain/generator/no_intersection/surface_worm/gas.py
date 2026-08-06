@@ -311,6 +311,7 @@ class SurfaceWormGas(ReadWriteable, Generator):
         self.chargeBinWidth = int(chargeBinWidth)
         self.accumulator = (
             CorrelatorAccumulator(self.N, self.intersectionFugacity,
+                                  openCap=self.sectorWeights.cap,
                                   absoluteChargeCap=self.absoluteChargeCap,
                                   squaredChargeCap=self.squaredChargeCap,
                                   chargeBinWidth=self.chargeBinWidth)
@@ -1158,6 +1159,7 @@ class SurfaceWormGas(ReadWriteable, Generator):
             return {}
         template = CorrelatorAccumulator(
             self.N, self.intersectionFugacity,
+            openCap=self.sectorWeights.cap,
             absoluteChargeCap=self.absoluteChargeCap,
             squaredChargeCap=self.squaredChargeCap,
             chargeBinWidth=self.chargeBinWidth).harvest()
