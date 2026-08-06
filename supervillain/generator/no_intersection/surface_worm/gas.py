@@ -317,6 +317,18 @@ class SurfaceWormGas(ReadWriteable, Generator):
                                   chargeBinWidth=self.chargeBinWidth)
             if self.measure else None)
         if self.accumulator is not None:
+            # the table the D histograms are sampled under, so the ensemble can
+            # undo its own weighting downstream
+            lw = np.array([self.sectorWeights(int(D))
+                           for D in range(self.sectorWeights.cap + 2)])
+            self.accumulator.sectorLogWeight = lw
+            # 1/w(D), offset so the largest multiplier is 1 (log w spans a few
+            # hundred at large cap; e^{+300} would overflow float64 sums)
+            finite = lw[np.isfinite(lw)]
+            offset = float(finite.min()) if len(finite) else 0.0
+            self.accumulator.openReweightLogOffset = offset
+            self.accumulator._openReweight = np.where(
+                np.isfinite(lw), np.exp(-(np.clip(lw, offset, None) - offset)), 0.0)
             # SAME object the acceptance reads (self.pairUmbrella, set above): the
             # accumulator's per-bin division by w_2 (weights.py's warning) must undo
             # exactly the bias the acceptance introduced, not a stale or independent copy.

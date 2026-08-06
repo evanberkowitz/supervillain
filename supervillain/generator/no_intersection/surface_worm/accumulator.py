@@ -70,6 +70,12 @@ class CorrelatorAccumulator:
         # gas's own sector-weight cap: with a hard wall D cannot exceed it, and
         # one extra bin catches the soft-wall case.
         self.openCap = int(openCap)
+        # log w(D), set by the gas; harvested alongside the D histograms so the
+        # ensemble is self-contained for reweighting (the driver withholds the
+        # generator when it writes, so the table cannot be recovered from there)
+        self.sectorLogWeight = None
+        self._openReweight = None      # exp(-(log w - offset)), set by the gas
+        self.openReweightLogOffset = 0.0
         # Set by SurfaceWormGas to the SAME object its acceptance uses.  Left as None here
         # so a bare accumulator behaves exactly as before the umbrella existed.
         self.pairUmbrella = None
@@ -103,8 +109,22 @@ class CorrelatorAccumulator:
         # charge-free open surfaces never flip J (0 flips in 8290 excursions),
         # so the difference between these two histograms isolates the
         # population that can actually transport J.
+        # NOTE these are RAW TICK COUNTS, sampled from the extended ensemble
+        # INCLUDING the multicanonical weight: P_sampled(D) ~ rho(D) w(D), with
+        # rho the physical density of states.  A FLAT OpenSurfaceTicks therefore
+        # means "the table is well tuned", NOT "D is uniformly distributed".
+        # The physical distribution is OpenSurfaceTicks / w(D) -- which is why
+        # the harvest also emits SectorLogWeight, so an ensemble carries the
+        # table needed to undo its own weighting.
         self.openTicks = np.zeros(self.openCap + 2, dtype=np.int64)
         self.neutralOpenTicks = np.zeros(self.openCap + 2, dtype=np.int64)
+        # ... and the SAME histograms with w(D) divided out per bin, which is
+        # what makes them comparable ACROSS TUNINGS -- the DefectGas argument
+        # (the generator must do its own reweighting, or no two tuners' output
+        # can be compared).  Accumulated with a fixed offset so the e^{+|log w|}
+        # multipliers at large D cannot overflow; the offset is harvested.
+        self.openDistribution = np.zeros(self.openCap + 2, dtype=float)
+        self.neutralOpenDistribution = np.zeros(self.openCap + 2, dtype=float)
         self.closedSectorTicks = np.zeros(self.sectorCap + 1, dtype=np.int64)
         # Pair separation over ALL ticks -- the umbrella tuner's input, and deliberately
         # NOT restricted to the closed shell: the separation only moves while dF != 0
@@ -141,6 +161,15 @@ class CorrelatorAccumulator:
         self.openTicks[Dbin] += 1
         if Q == 0:
             self.neutralOpenTicks[Dbin] += 1
+        # reweighted: each tick contributes 1/w(D), so the harvested histogram
+        # is the distribution the chain WOULD have at w == 1 -- table-independent
+        # and therefore comparable across tunings.  _openReweight is
+        # exp(-(log w(D) - offset)) <= 1, precomputed by the gas.
+        if self._openReweight is not None:
+            r = self._openReweight[Dbin]
+            self.openDistribution[Dbin] += r
+            if Q == 0:
+                self.neutralOpenDistribution[Dbin] += r
         allSep = pair_separation_squared(state.chargeSites, self.N)
         if allSep is not None:
             self.pairSeparationTicks[allSep] += 1
@@ -271,6 +300,33 @@ class CorrelatorAccumulator:
             # should be maximizing at the D scale flips actually need.
             'OpenSurfaceTicks': self.openTicks.copy(),
             'NeutralOpenSurfaceTicks': self.neutralOpenTicks.copy(),
+            # the table those histograms were sampled under: divide by
+            # exp(SectorLogWeight[D]) to get the PHYSICAL D distribution
+            'SectorLogWeight': (np.zeros(self.openCap + 2) if self.sectorLogWeight is None
+                                else np.asarray(self.sectorLogWeight, dtype=float)),
+            # w(D) divided out per bin, in the spirit of the umbrella division
+            # above.  ** READ THE WARNING **: unlike the umbrella (weights O(1)
+            # over a bounded observable), log w(D) spans HUNDREDS of units, so
+            # 1/w multiplies the deepest-D bins by e^{+250} and the reweighted
+            # histogram is dominated by whichever few ticks reached the most
+            # suppressed D -- an effectively infinite-variance estimator.
+            # Measured at N=6: two tunings' reweighted histograms came out with
+            # total-variation distance 1.0 (disjoint).  And that is CORRECT
+            # physics, not a bug: the bare (w == 1) extended ensemble really is
+            # dominated by huge D, because open configurations vastly outnumber
+            # closed ones -- which is why the tuner exists at all.  So "reweight
+            # to w == 1" is not a usable reference for THIS observable.
+            #
+            # What IS comparable across tunings is a ratio AT FIXED D, where
+            # w(D) cancels exactly bin by bin -- above all
+            #     P(Q = 0 | D) = NeutralOpenSurfaceTicks / OpenSurfaceTicks,
+            # which separates charge-free open surfaces (never flip J) from
+            # charged ones (the only population that does).  Use that for
+            # cross-tuning comparison; use these arrays only for a narrow-range
+            # table where the reweighting is mild.
+            'OpenSurfaceDistribution': self.openDistribution.copy(),
+            'NeutralOpenSurfaceDistribution': self.neutralOpenDistribution.copy(),
+            'OpenSurfaceReweightLogOffset': float(self.openReweightLogOffset),
             'ClosedSectorTicks': self.closedSectorTicks.copy(),
             'VacuumReturns': int(self.vacuumReturns),
             # Closed-but-non-exact ticks excluded from the closed-shell dwells above.
