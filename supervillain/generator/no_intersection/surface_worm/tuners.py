@@ -136,7 +136,7 @@ class SectorWeightTuner:
                  iterations=20, ticks=2000, stride=200, damping=0.7,
                  targetFlatness=1.5, minimumReachable=3, pCob=0.6,
                  targetFraction=0.8, seed=None, gasFactory=None,
-                 seedWeights=None, smoothUpdate=2.0, smoothFinal=2.0):
+                 seedWeights=None, smoothUpdate=2.0, smoothTable=0.0, smoothFinal=2.0):
         # gasFactory: a SurfaceWormGas-compatible callable (e.g. a subclass, or
         # functools.partial with extra knobs preset).  A tuner must tune the
         # sampler that will actually run -- a table tuned against plain-SWG
@@ -162,6 +162,15 @@ class SectorWeightTuner:
         # and the by-construction discontinuity in the unvisited-bin boost,
         # while leaving real structure alone.  0 disables.
         self.smoothUpdate = float(smoothUpdate)
+        # smoothTable: relax the ACCUMULATED table every iteration too, not just
+        # the increment (regularized multicanonical).  Keeps the chain sampling
+        # under a smooth table throughout, so every histogram is gathered on a
+        # well-behaved landscape -- the stronger form of breaking the
+        # roughness feedback loop.  The cost is that repeated filtering
+        # compounds: the fixed point becomes "as flat as the smoothing allows",
+        # so the table cannot represent structure finer than this length.  Safe
+        # while that length stays well below the scale on which log rho varies.
+        self.smoothTable = float(smoothTable)
         self.smoothFinal = float(smoothFinal)
         self.S = S
         self.intersectionFugacity = float(intersectionFugacity)
@@ -324,6 +333,8 @@ class SectorWeightTuner:
             step = self.damping / (1.0 + sinceExpansion / 3.0)
             newLog = weights.logWeight + step * update
             weights = SectorWeights(newLog, weights.tailSlope, weights.hardWall)
+            if self.smoothTable:
+                weights = weights.smoothed(length=self.smoothTable)
 
         if self.smoothFinal:
             weights = weights.smoothed(length=self.smoothFinal)
