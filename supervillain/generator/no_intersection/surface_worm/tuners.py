@@ -136,7 +136,7 @@ class SectorWeightTuner:
                  iterations=20, ticks=2000, stride=200, damping=0.7,
                  targetFlatness=1.5, minimumReachable=3, pCob=0.6,
                  targetFraction=0.8, seed=None, gasFactory=None,
-                 seedWeights=None):
+                 seedWeights=None, smoothUpdate=2.0, smoothFinal=2.0):
         # gasFactory: a SurfaceWormGas-compatible callable (e.g. a subclass, or
         # functools.partial with extra knobs preset).  A tuner must tune the
         # sampler that will actually run -- a table tuned against plain-SWG
@@ -148,6 +148,21 @@ class SectorWeightTuner:
         # from the previous stage's learned table (extended by its tail
         # slope), is how a cap far beyond the bare table's reach is tuned.
         self.seedWeights = seedWeights
+        # Relaxation passes applied to each iteration's INCREMENT (not to the
+        # accumulated table): the increment is where the fresh estimator noise
+        # lives, and one part of it is discontinuous BY CONSTRUCTION -- bins
+        # reachable but unvisited this iteration get a flat boost equal to the
+        # largest correction any visited bin got, so neighbours can differ by
+        # that whole boost in one step.  Smoothing the increment denoises the
+        # new information without repeatedly filtering what the table already
+        # learned.  Rough tables also feed back: a kink distorts where the
+        # chain explores next iteration, making the next histogram worse.
+        # both in BINS (a diffusion length), not pass counts -- see
+        # SectorWeights.smoothed; ~2 bins damps the bin-scale estimator noise
+        # and the by-construction discontinuity in the unvisited-bin boost,
+        # while leaving real structure alone.  0 disables.
+        self.smoothUpdate = float(smoothUpdate)
+        self.smoothFinal = float(smoothFinal)
         self.S = S
         self.intersectionFugacity = float(intersectionFugacity)
         self.cap = int(cap)
@@ -265,8 +280,10 @@ class SectorWeightTuner:
             occupied = int(seenNow.sum())
             occFlat = (float(hist[seenNow].max() / hist[seenNow].min())
                        if seenNow.any() else np.inf)
+            d2 = np.diff(np.diff(weights.logWeight))
             self.history.append(dict(
                 iteration=it, flatness=flat, occupiedFlatness=occFlat,
+                roughness=float(np.abs(d2).mean()), maxKink=float(np.abs(d2).max()),
                 visited=occupied, reachable=int(everSeen.sum()), beyond=beyond,
                 histogram=hist.copy(), logWeight=weights.logWeight.copy(),
                 seconds=time.time() - t0))
@@ -293,10 +310,23 @@ class SectorWeightTuner:
             missed = everSeen & ~seen
             if missed.any():
                 update[missed] = update[seen].max() if seen.any() else 1.0
+            if self.smoothUpdate and len(update) >= 11:
+                lo = int(np.argmax(everSeen))
+                hi = int(len(everSeen) - np.argmax(everSeen[::-1]))
+                seg = update[lo:hi].copy()
+                for _ in range(max(1, int(np.ceil(self.smoothUpdate ** 2 / 0.5)))):
+                    if len(seg) < 3:
+                        break
+                    lap = np.zeros_like(seg)
+                    lap[1:-1] = seg[:-2] - 2 * seg[1:-1] + seg[2:]
+                    seg += 0.25 * lap
+                update[lo:hi] = seg
             step = self.damping / (1.0 + sinceExpansion / 3.0)
             newLog = weights.logWeight + step * update
             weights = SectorWeights(newLog, weights.tailSlope, weights.hardWall)
 
+        if self.smoothFinal:
+            weights = weights.smoothed(length=self.smoothFinal)
         unreachable = np.flatnonzero(~everSeen)
         if len(unreachable):
             log(f'  D never visited in [0, {self.cap}]: {list(unreachable)} '

@@ -108,6 +108,73 @@ class SectorWeights(ReadWriteable):
                 f'range={self.logWeight.min():.2f}..{self.logWeight.max():.2f}, '
                 f'tailSlope={self.tailSlope:.4f})')
 
+    def smoothed(self, length=2.0, rate=0.25, protect=2, passes=None):
+        r"""A copy with the table relaxed against its own roughness.
+
+        Multicanonical flattening estimates $\log w(D)$ bin by bin from finite
+        histograms, so it accumulates high-frequency NOISE on top of the smooth
+        trend.  That noise is not harmless: a curvature of a few log-units
+        between adjacent $D$ is an $e^{\text{few}}$ weight discontinuity, i.e. a
+        wall the chain cannot random-walk back across, and a table with one is
+        indistinguishable in the tuner's own diagnostics from a converged one
+        while producing a chain that never returns to the vacuum.  Measured at
+        N=6: tables with roughness $\langle|\Delta^2 \log w|\rangle \approx 2$
+        gave vacuum-visit rates 40x below tables at $\approx 0.6$, and two
+        cap ladders both broke at exactly the rung whose table was roughest.
+
+        The density of states is smooth in $D$ (it is a count of
+        configurations at a given boundary size), so the smooth part is the
+        signal and the rest is estimator noise.  This applies plain Jacobi
+        relaxation --- $\log w_i \mathrel{+}= \text{rate}\,(\log w_{i-1} -
+        2\log w_i + \log w_{i+1})$ --- which damps high frequencies fast while
+        leaving the low-frequency trend essentially untouched.
+
+        Parameters
+        ----------
+        length: float
+            Smoothing length in BINS.  Jacobi relaxation diffuses over
+            $\ell \approx \sqrt{n\,\text{rate}\cdot 2}$ after $n$ passes, so
+            the knob is expressed as $\ell$ and $n$ derived from it --- a fixed
+            pass count means different things at different caps, and 200 passes
+            ($\ell \approx 10$) erases a small table entirely.  The noise to
+            remove is bin-scale, so $\ell \approx 2$ is the right target: it
+            damps 1--2-bin structure and leaves anything broader alone.
+        passes: int, optional
+            Override the derived pass count (diagnostics; prefer ``length``).
+        rate: float
+            Jacobi step, stable for ``rate <= 0.5``.
+        protect: int
+            Leave this many bins at each end untouched.  $D = 0$ anchors the
+            table's normalization and the top bins carry the tail slope; both
+            are meaningful rather than noise.
+
+        Returns
+        -------
+        SectorWeights
+            A new table; ``self`` is unchanged.
+        """
+        n = int(passes) if passes is not None else max(1, int(np.ceil(length ** 2 / (2 * rate))))
+        lw = np.array(self.logWeight, dtype=float)
+        # never smooth away a table that has fewer bins than the smoothing
+        # length can resolve -- at small cap there is no bin-scale noise to
+        # remove, only signal
+        if len(lw) < 4 * protect + 3:
+            return SectorWeights(lw, self.tailSlope, self.hardWall)
+        finite = np.isfinite(lw)
+        work = lw.copy()
+        work[~finite] = np.interp(np.flatnonzero(~finite), np.flatnonzero(finite),
+                                  lw[finite]) if finite.any() else 0.0
+        lo, hi = protect, len(work) - protect
+        for _ in range(n):
+            if hi <= lo + 1:
+                break
+            interior = work[lo:hi]
+            lap = np.zeros_like(interior)
+            lap[1:-1] = interior[:-2] - 2 * interior[1:-1] + interior[2:]
+            work[lo:hi] = interior + rate * lap
+        work[~finite] = lw[~finite]
+        return SectorWeights(work, self.tailSlope, self.hardWall)
+
     @classmethod
     def fugacity(cls, openSurfaceFugacity, cap=64):
         r"""The table equivalent to a bare fugacity, $\log w(D) = D\log\eta_{dF}$.
