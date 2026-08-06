@@ -198,3 +198,78 @@ def test_transport_tuner_rejects_negative_retries():
     with _pytest.raises(ValueError):
         TransportTuner(_S(), intersectionFugacity=0.3, openSurfaceFugacity=0.2,
                        retries=-1, seed=1)
+
+
+def test_tuners_warm_start_measures_the_handed_background():
+    # The tuners construct their own F-chain, and did so ONLY at the trivial
+    # vacuum F = 0.  A chain that cannot nucleate out of the empty lattice
+    # within the tuning budget then flattens a table for a background that
+    # does not exist -- exactly what pinned the N=6 kappa=0.02 tune (starter
+    # collapsed to occupied 1/12, umbrella COLLAPSED at every iteration,
+    # P(vac) 0.88).  warmStart hands the chain an equilibrated configuration
+    # instead.
+    #
+    # Asserting on the tuned table would be asserting on Monte-Carlo noise, so
+    # this pins the mechanism instead: with warmStart the chain STARTS on the
+    # handed background (D > 0 reachable immediately), and the two tuners
+    # disagree about what they saw.  A cold chain on this action sits at the
+    # vacuum; the warm one cannot, because its F is not closed.
+    from supervillain.generator.no_intersection.surface_worm.state import FState
+
+    S = _S()
+    N = S.Lattice.N
+    rng = np.random.default_rng(20260806)
+    # a populated background: random integer n, whose F = dn is a genuine
+    # non-vacuum 2-form (this is the shape produce() hands the gas via start=)
+    cfg = {'n': rng.integers(-1, 2, size=(4,) + (N,) * 4).astype(np.int64),
+           'phi': np.zeros((N,) * 4)}
+
+    warm = FState.from_configuration(S, cfg)
+    cold = FState(S)
+    assert cold.legal_vacuum, 'cold start should be the trivial vacuum'
+    # the warm background is a real configuration, not the empty lattice
+    assert np.any(warm.F != 0), 'warm start must not collapse to F = 0'
+
+    t_cold = SectorWeightTuner(_S(), intersectionFugacity=0.3, cap=8,
+                               iterations=2, ticks=200, stride=50, seed=7)
+    t_warm = SectorWeightTuner(_S(), intersectionFugacity=0.3, cap=8,
+                               iterations=2, ticks=200, stride=50, seed=7,
+                               warmStart=cfg)
+    assert t_cold.warmStart is None and t_warm.warmStart is cfg
+    w_cold, w_warm = t_cold.tune(), t_warm.tune()
+    assert w_cold.cap == w_warm.cap == 8
+    # same seed, same budget, different background -> different learned table.
+    # (If warmStart were ignored these would be bit-identical.)
+    assert not np.allclose(w_cold.logWeight, w_warm.logWeight), \
+        'warmStart was ignored: identical tables from identical seeds'
+
+
+def test_transport_tuner_forwards_warm_start_to_its_stage_tuner():
+    # The TransportTuner flattens each cap stage with an internal
+    # SectorWeightTuner; if warmStart stopped at the outer object the stages
+    # would still measure the cold background, which is the whole bug.
+    from supervillain.generator.no_intersection.surface_worm.tuners import TransportTuner
+
+    S = _S()
+    N = S.Lattice.N
+    cfg = {'n': np.zeros((4,) + (N,) * 4, dtype=np.int64),
+           'phi': np.zeros((N,) * 4)}
+    t = TransportTuner(S, intersectionFugacity=0.3, openSurfaceFugacity=0.09,
+                       targetFraction=0.5, pCob=0.5, cap0=6, capStep=2, capMax=6,
+                       stageSeeds=1, retries=0, returnFloor=0,
+                       tuneIterations=1, tuneTicks=100, measureTicks=100,
+                       stride=50, equilibrate=1_000, seed=3, warmStart=cfg)
+    seen = {}
+    real = SectorWeightTuner.__init__
+
+    def spy(self, *a, **kw):
+        seen['warmStart'] = kw.get('warmStart', 'ABSENT')
+        return real(self, *a, **kw)
+
+    SectorWeightTuner.__init__ = spy
+    try:
+        t.tune()
+    finally:
+        SectorWeightTuner.__init__ = real
+    assert seen.get('warmStart') is cfg, \
+        f'stage tuner did not receive warmStart (got {seen.get("warmStart")!r})'

@@ -136,12 +136,22 @@ class SectorWeightTuner:
                  iterations=20, ticks=2000, stride=200, damping=0.7,
                  targetFlatness=1.5, minimumReachable=3, pCob=0.6,
                  targetFraction=0.8, seed=None, gasFactory=None,
-                 seedWeights=None, smoothUpdate=2.0, smoothTable=0.0, smoothFinal=2.0):
+                 seedWeights=None, smoothUpdate=2.0, smoothTable=0.0, smoothFinal=2.0,
+                 warmStart=None):
         # gasFactory: a SurfaceWormGas-compatible callable (e.g. a subclass, or
         # functools.partial with extra knobs preset).  A tuner must tune the
         # sampler that will actually run -- a table tuned against plain-SWG
         # kinetics is mistuned for a sampler with different kinetics.
         self.gasFactory = gasFactory if gasFactory is not None else SurfaceWormGas
+        # warmStart: a configuration dict to begin the internal F-chain FROM,
+        # instead of the trivial vacuum F = 0.  A tuner measures its histogram
+        # on whatever background its chain reaches, so a chain that cannot
+        # nucleate out of the empty lattice within the tuning budget tunes a
+        # table for a background that does not exist -- the cold-start
+        # pathology the vortex-sector work named "cold-start excursion
+        # physics".  Inside the hysteresis band, or at any (N, kappa) where
+        # nucleation is slow, hand this an equilibrated configuration.
+        self.warmStart = warmStart
         # seedWeights: an initial table to flatten FROM, instead of the bare
         # fugacity table.  Wide-range (large-cap) flattening is the standard
         # multicanonical range problem; staging cap upward, seeding each stage
@@ -271,7 +281,8 @@ class SectorWeightTuner:
                               targetFraction=self.targetFraction,
                               measure=False, seed=self.seed,
                               rng=np.random.default_rng(self.seed))
-        state = FState(self.S)
+        state = (FState.from_configuration(self.S, self.warmStart)
+                 if self.warmStart is not None else FState(self.S))
 
         for it in range(self.iterations):
             gas.setSectorWeights(weights)
@@ -516,9 +527,11 @@ class PairUmbrellaTuner:
 
     def __init__(self, S, sectorWeights, intersectionFugacity, targetFraction, pCob,
                  iterations=20, ticks=6000, stride=100, equilibrate=2_000_000,
-                 targetOdds=0.5, seed=None, gasFactory=None):
+                 targetOdds=0.5, seed=None, gasFactory=None, warmStart=None):
         # see SectorWeightTuner: tune the sampler that will actually run
         self.gasFactory = gasFactory if gasFactory is not None else SurfaceWormGas
+        # see SectorWeightTuner.warmStart
+        self.warmStart = warmStart
         self.S = S
         self.sectorWeights = sectorWeights
         self.intersectionFugacity = float(intersectionFugacity)
@@ -631,7 +644,8 @@ class PairUmbrellaTuner:
                               targetFraction=self.targetFraction,
                               pairUmbrella=umbrella, measure=True,
                              seed=seed, rng=np.random.default_rng(seed))
-        state = FState(self.S)
+        state = (FState.from_configuration(self.S, self.warmStart)
+                 if self.warmStart is not None else FState(self.S))
         gas.sweep(state, equilibrate, pCob=self.pCob)
         gas.accumulator.reset()
         gas.sweep_measured(state, ticks, stride=stride, pCob=self.pCob)
@@ -944,12 +958,15 @@ class TransportTuner:
                  stageSeeds=3, retries=2, tuneTargetFraction=0.0,
                  tuneIterations=20, tuneTicks=3000, measureTicks=4000,
                  stride=200, equilibrate=2_000_000, damping=0.8, seed=None,
-                 gasFactory=None):
+                 gasFactory=None, warmStart=None):
         # see SectorWeightTuner: tune the sampler that will actually run.
         # Forwarded to the per-stage internal SectorWeightTuner too, so the
         # whole pipeline (flattening, stage measurement, score_flips) tunes
         # and scores ONE sampler.
         self.gasFactory = gasFactory if gasFactory is not None else SurfaceWormGas
+        # see SectorWeightTuner.warmStart; forwarded to the per-stage internal
+        # SectorWeightTuner so every stage measures the same background
+        self.warmStart = warmStart
         # the previous cap stage's learned table, seeding the next stage's
         # flattening (see _stage) -- None until the first stage completes
         self._stageWeights = None
@@ -1038,6 +1055,7 @@ class TransportTuner:
             stride=self.stride, damping=self.damping, pCob=self.pCob,
             targetFraction=self.tuneTargetFraction, seed=tuneSeed,
             gasFactory=self.gasFactory, seedWeights=seed_table,
+            warmStart=self.warmStart,
         ).tune(log=lambda *a, **k: None)
         self._stageWeights = weights
 
@@ -1052,7 +1070,8 @@ class TransportTuner:
                 sectorWeightCap=cap, targetFraction=self.targetFraction,
                 pairUmbrella=self.pairUmbrella, measure=False,
                 seed=gasSeed, rng=np.random.default_rng(gasSeed))
-            state = FState(self.S)
+            state = (FState.from_configuration(self.S, self.warmStart)
+                     if self.warmStart is not None else FState(self.S))
             gas.sweep(state, self.equilibrate, pCob=self.pCob)
             hist = np.zeros(cap + 1, dtype=np.int64)
             corner = returns = 0
