@@ -334,10 +334,12 @@ class SectorWeightTuner:
             newLog = weights.logWeight + step * update
             weights = SectorWeights(newLog, weights.tailSlope, weights.hardWall)
             if self.smoothTable:
-                weights = weights.smoothed(length=self.smoothTable)
+                weights = weights.smoothed(length=self.smoothTable, reachable=everSeen)
 
         if self.smoothFinal:
-            weights = weights.smoothed(length=self.smoothFinal)
+            # only among reachable D: D = 1,2,3 (and 5) are geometrically
+            # impossible, and smoothing across them corrupts w(0)
+            weights = weights.smoothed(length=self.smoothFinal, reachable=everSeen)
         unreachable = np.flatnonzero(~everSeen)
         if len(unreachable):
             log(f'  D never visited in [0, {self.cap}]: {list(unreachable)} '

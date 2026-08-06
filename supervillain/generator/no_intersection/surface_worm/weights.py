@@ -108,7 +108,8 @@ class SectorWeights(ReadWriteable):
                 f'range={self.logWeight.min():.2f}..{self.logWeight.max():.2f}, '
                 f'tailSlope={self.tailSlope:.4f})')
 
-    def smoothed(self, length=2.0, rate=0.25, protect=2, passes=None):
+    def smoothed(self, length=2.0, rate=0.25, protect=2, passes=None,
+                 reachable=None):
         r"""A copy with the table relaxed against its own roughness.
 
         Multicanonical flattening estimates $\log w(D)$ bin by bin from finite
@@ -141,6 +142,19 @@ class SectorWeights(ReadWriteable):
             damps 1--2-bin structure and leaves anything broader alone.
         passes: int, optional
             Override the derived pass count (diagnostics; prefer ``length``).
+        reachable: array of bool, optional
+            Which $D$ are geometrically POSSIBLE.  Some are not: from the
+            vacuum a single plaquette toggle flips $dF$ on **four** cubes at
+            once, so $D$ jumps $0 \to 4$ and $D = 1, 2, 3$ (and $5$, measured)
+            are never visited at any statistics.  Relaxing across them is
+            actively harmful --- it averages meaningless bins into their
+            neighbours, and since $D=0$ neighbours the impossible $1,2,3$ that
+            corrupts the VACUUM weight, the one bin that sets how often the
+            chain can be measured at all.  Measured consequence: smoothing
+            without this mask cut the vacuum-visit rate ~20%.  When given,
+            relaxation is applied only among reachable bins; unreachable ones
+            are carried through untouched and do not enter their neighbours'
+            averages.
         rate: float
             Jacobi step, stable for ``rate <= 0.5``.
         protect: int
@@ -165,13 +179,20 @@ class SectorWeights(ReadWriteable):
         work[~finite] = np.interp(np.flatnonzero(~finite), np.flatnonzero(finite),
                                   lw[finite]) if finite.any() else 0.0
         lo, hi = protect, len(work) - protect
+        if reachable is None:
+            idx = np.arange(lo, hi)
+        else:
+            mask = np.asarray(reachable, dtype=bool)
+            idx = np.array([i for i in range(lo, hi) if mask[i]], dtype=int)
         for _ in range(n):
-            if hi <= lo + 1:
+            if len(idx) < 3:
                 break
-            interior = work[lo:hi]
-            lap = np.zeros_like(interior)
-            lap[1:-1] = interior[:-2] - 2 * interior[1:-1] + interior[2:]
-            work[lo:hi] = interior + rate * lap
+            # relax on the reachable SUBSEQUENCE: neighbours are the adjacent
+            # reachable bins, so impossible D neither receive nor contribute
+            seg = work[idx]
+            lap = np.zeros_like(seg)
+            lap[1:-1] = seg[:-2] - 2 * seg[1:-1] + seg[2:]
+            work[idx] = seg + rate * lap
         work[~finite] = lw[~finite]
         return SectorWeights(work, self.tailSlope, self.hardWall)
 
