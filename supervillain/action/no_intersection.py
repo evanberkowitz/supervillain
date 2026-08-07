@@ -71,3 +71,44 @@ class NoIntersections(Villain):
         '''
         dn = d(configuration['n'])
         return bool(np.isclose(wedge(dn, dn), 0).all())
+
+    def admissible_symmetries(self):
+        r'''
+        Which factors of the hypercubic-torus space group (see
+        :ref:`the lattice symmetries <space-group>`) this action admits, as
+        keyword arguments for
+        :meth:`~supervillain.generator.symmetry.Symmetry.all` /
+        :meth:`~supervillain.generator.symmetry.Symmetry.draw`.
+
+        .. warning ::
+            A genuine OVERRIDE of :meth:`Villain.admissible_symmetries
+            <supervillain.action.Villain.admissible_symmetries>`, not the
+            inherited answer, even though ``NoIntersections`` *is* a
+            ``Villain`` --- the action is invariant under the full space
+            group exactly as :class:`~supervillain.action.Villain` is, but
+            the no-intersection constraint $q = dn \wedge dn = 0$ is built
+            from a CUP PRODUCT, natural only under order-preserving cubical
+            maps.  A reflection carries $\cup$ into the opposite cup
+            product, which differs by a coboundary and moves $q$ hypercube
+            by hypercube even though $q \equiv 0$ on average survives.
+            Measured on 25 configurations of the $N=6$ transport ensemble:
+            every single, double, and triple axis flip breaks $q \equiv 0$
+            on 25 of 25; translations, permutations, and the full inversion
+            $x \to -x$ break it on none.
+
+        .. note ::
+            $\{I, -I\}$ is a genuine subgroup ($-I$ is central), so the
+            restricted set is still a group: uniform draws, closure under
+            inverses, and detailed balance all survive.  What is lost is
+            reach, not correctness.
+
+        Returns
+        -------
+        dict
+            Keyword arguments ``translations``, ``flip_sets``, and ``perms``
+            for :class:`~supervillain.generator.symmetry.Symmetry`, with
+            ``flip_sets`` restricted to the identity and the full inversion
+            $\{(), (0, \ldots, D-1)\}$.
+        '''
+        D = self.Lattice.D
+        return dict(translations=True, flip_sets=[(), tuple(range(D))], perms=True)

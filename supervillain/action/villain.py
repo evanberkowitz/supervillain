@@ -142,3 +142,36 @@ class Villain(ReadWriteable):
         dn = d(configuration['n'])
         zero = (np.mod(dn, self.W) if self.W < float('inf') else dn)
         return (zero == 0).all()
+
+    def admissible_symmetries(self):
+        r'''
+        Which factors of the hypercubic-torus space group (see
+        :ref:`the lattice symmetries <space-group>`) this action admits, as
+        keyword arguments for
+        :meth:`~supervillain.generator.symmetry.Symmetry.all` /
+        :meth:`~supervillain.generator.symmetry.Symmetry.draw`.
+
+        .. note ::
+            The full group.  $S = \frac{\kappa}{2}\sum_\ell (d\phi - 2\pi
+            n)_\ell^2$ is a sum over links of a quantity that only relabels
+            under any translation, sign flip, or axis permutation, so
+            $\Delta S = 0$ identically and every element of the space group
+            is admissible --- there is no constraint here to narrow it, only
+            the $[dn \equiv 0 \bmod W]$ winding constraint, which is likewise
+            unaffected because it too only relabels.
+
+        .. warning ::
+            :class:`~supervillain.action.NoIntersections` overrides this with
+            a genuinely restricted answer even though it *subclasses*
+            ``Villain`` --- its no-intersection constraint, not the action
+            above, is what narrows the group; see its docstring.
+
+        Returns
+        -------
+        dict
+            Keyword arguments ``translations``, ``flip_sets``, and ``perms``
+            for :class:`~supervillain.generator.symmetry.Symmetry`.
+            ``flip_sets=None`` means every one of the $2^D$ axis-flip
+            subsets.
+        '''
+        return dict(translations=True, flip_sets=None, perms=True)
