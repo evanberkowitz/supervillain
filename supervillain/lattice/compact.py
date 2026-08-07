@@ -1531,7 +1531,7 @@ def translate(f, shift):
     Returns
     -------
     Form
-        Same degree as ``f``.
+        The form ``f`` translated by ``shift``.
     """
     return Form(push(np.asarray(f), tuple(int(s) for s in shift)),
                 degree=f.degree, lattice=f.lattice)
@@ -1539,13 +1539,14 @@ def translate(f, shift):
 
 def reflect(f, flips):
     r"""
-    Negate the axes in ``flips``: a reflection through the origin's coordinate
-    hyperplanes.
+    Negate the axes in ``flips``: a reflection across the coordinate
+    hyperplanes through the origin.
 
     A $p$-form component labelled by the sorted tuple $I$ keeps its label ---
     sign flips do not permute directions --- but picks up an orientation sign
-    and a base-point shift, because a cell whose edge runs in a flipped
-    direction lands on the far side of its own image:
+    and a base-point shift.  The anchor of a cell is its minimal corner, and a
+    reflection sends the minimal corner to the maximal one, so the reflected
+    cell is anchored one step back along each flipped direction it spans:
 
     .. math ::
 
@@ -1553,12 +1554,6 @@ def reflect(f, flips):
         \omega_I\!\left(R\!\left(y + \sum_{\mu \in I \cap F} \hat e_\mu\right)\right)
 
     where $R$ negates every coordinate in $F$ modulo $N$.
-
-    .. note ::
-        In :ref:`interlaced <interlaced>` coordinates both cases collapse to a
-        single negation $\xi_\mu \to -\xi_\mu$, which is where this rule is
-        derived --- see :func:`supervillain.lattice.interlaced.reflect` and
-        :ref:`the symmetry section <space-group>` below.
 
     Parameters
     ----------
@@ -1570,7 +1565,8 @@ def reflect(f, flips):
     Returns
     -------
     Form
-        Same degree as ``f``.
+        The form ``f`` reflected across the coordinate hyperplanes through the
+        origin.
     """
     lattice, degree, D = f.lattice, f.degree, f.lattice.D
     a, F = np.asarray(f), set(int(m) for m in flips)
@@ -1590,26 +1586,21 @@ def permute(f, perm):
     Relabel the axes by the permutation ``perm``, so axis $\mu$ becomes axis
     ``perm[mu]``.
 
-    A $p$-form's components are labelled by SORTED direction tuples, so a
+    A $p$-form's components are labelled by sorted direction tuples, so a
     permutation does two things at once: it relabels which tuple each
     component carries, and --- because $\pi(I)$ generally is not sorted ---
     multiplies by the sign of the sort:
 
     .. math ::
 
-        \omega'_{\pi(I)}(Rx) = \omega_I(x) \;\Longrightarrow\;
+        \omega'_{\pi(I)}(\pi x) = \omega_I(x) \;\Longrightarrow\;
         \omega'_{\mathrm{sort}(\pi(I))} = \varepsilon\, \omega_I
 
-    .. warning ::
-        The sign belongs at the DESTINATION component $\mathrm{sort}(\pi(I))$,
-        not at $I$.  The two coincide whenever $\pi(I)$ is already sorted,
-        which is always true in $D = 2$ --- so a two-dimensional test alone
-        cannot distinguish the correct code from this bug.
+    The sign belongs at the destination component $\mathrm{sort}(\pi(I))$,
+    not at $I$.  The two coincide whenever $\pi(I)$ is already sorted,
+    which is always true in $D = 2$.
 
-    .. note ::
-        The lattice axes and the component index are pulled back by the SAME
-        $\pi^{-1}$.  Using $\pi$ for one and $\pi^{-1}$ for the other produces
-        a configuration that is not a relabelling of the original at all.
+    The same permutation is applied to both the lattice axes and component index.
 
     Parameters
     ----------
@@ -1622,7 +1613,7 @@ def permute(f, perm):
     Returns
     -------
     Form
-        Same degree as ``f``.
+        The form ``f`` with the axes (and components) relabelled by ``perm``.
     """
     lattice, degree, D = f.lattice, f.degree, f.lattice.D
     perm = tuple(int(m) for m in perm)
