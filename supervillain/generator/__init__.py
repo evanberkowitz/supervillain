@@ -8,3 +8,4 @@ import supervillain.generator.worldline
 import supervillain.generator.no_intersection
 import supervillain.generator.combining
 import supervillain.generator.monitor
+import supervillain.generator.symmetry
