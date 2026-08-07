@@ -266,11 +266,12 @@ These are exact symmetries rather than proposals to be tested.
 $\Delta S = 0$ identically, so the move is **always accepted** and carries no acceptance rate.
 Since nothing in the sampling statistics would register a symmetry applied wrongly, an action must declare which symmetries it admits; one is never assumed on its behalf.
 
-Which elements are admissible depends on the action, and specifically on its *constraint*.
-The Villain-type action $\frac{\kappa}{2}\sum_\ell (d\phi - 2\pi n)_\ell^2$ is a sum over links of a quantity that only relabels under translation, reflection, or permutation, so the action itself is invariant under the whole space group.
-A constraint need not be.
-Anything built linearly from $d$ or $\delta$ is carried along exactly, but the lattice wedge is a cup product, natural only under order-preserving cubical maps: a reflection carries it into the opposite cup product, which differs from it by a coboundary.
-A constraint built from a wedge can therefore fail hypercube by hypercube under a reflection even where the action does not move at all.
+Which elements are admissible depends on what the Boltzmann weight is built from.
+Anything assembled linearly from $d$ or $\delta$ is carried along exactly by every element of the space group.
+The lattice wedge is not: it is a cup product, natural only under order-preserving cubical maps, so a reflection carries it into the opposite cup product, which differs from it by a coboundary.
+A quantity built from a wedge can therefore fail hypercube by hypercube under a reflection, and it makes no difference whether that quantity sits in a constraint or in the action itself --- the no-intersection constraint is the $\theta \to \infty$ limit of a $\theta$-term $i \theta\, (dn \wedge dn)$.
+It happens that every action here is a sum of squares over links with no wedge in it, so among these formulations it is the constraint that discriminates; an action carrying a $\theta$-term at finite $\theta$ would restrict the group on its own.
+
 Each action declares the consequence through its ``admissible_symmetries``:
 
 .. list-table::
