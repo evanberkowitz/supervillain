@@ -520,8 +520,18 @@ class JointWeightTuner(SectorWeightTuner):
 
     axis = '(D,Q)'
 
-    def __init__(self, S, sectorWeights, chargeWeights, capD, capQ, **kw):
+    def __init__(self, S, sectorWeights, chargeWeights, capD, capQ,
+                 boostFloor=0.0, **kw):
         kw.pop('openSurfaceFugacity', None)
+        # boostFloor: the MINIMUM correction a reachable-but-unvisited cell receives.
+        # Without it such a cell gets `update[seen].max()` -- the largest correction any
+        # VISITED cell got -- so the frontier advances at O(1) per iteration while the
+        # range a 2D table needs is O(100) log units.  Measured: 60 iterations left the
+        # vacuum with zero visits under a table already favouring it by e^134, because it
+        # was still converging (q-pricing-2026-08-06 finding 14).  A floor is
+        # Wang--Landau in spirit: the frontier gets a generous fixed step.  0 keeps the
+        # 1D tuner's behaviour exactly.
+        self.boostFloor = float(boostFloor)
         super().__init__(S, getattr(chargeWeights, 'eta', 0.3), capD, **kw)
         self.sectorWeights = sectorWeights
         self.chargeWeights = chargeWeights
@@ -544,6 +554,8 @@ class JointWeightTuner(SectorWeightTuner):
         and how many sat in the joint vacuum."""
         hist = np.zeros((self.capD + 1, self.capQ + 1), dtype=np.int64)
         beyond = vacuum = 0
+        self.returns = 0
+        wasVacuum = False
         for _ in range(ticks):
             gas.sweep(state, stride, pCob=pCob)
             D, Q = int(state.D), int(state.Q)
@@ -551,7 +563,16 @@ class JointWeightTuner(SectorWeightTuner):
                 hist[D, Q] += 1
             else:
                 beyond += 1
-            vacuum += (D == 0 and Q == 0)
+            isVacuum = (D == 0 and Q == 0)
+            # Count RETURNS (entries into the vacuum), not dwell samples: dwell measures
+            # how long the chain sits there and returns measure how often it gets back,
+            # and it is the second that sets the emission rate.  Same edge-counting the
+            # TransportTuner uses for its return floor.  Both are strided, so a visit
+            # shorter than `stride` is invisible and a zero bounds the rate rather than
+            # proving there were none.
+            self.returns += (isVacuum and not wasVacuum)
+            wasVacuum = isVacuum
+            vacuum += isVacuum
         return hist, beyond, vacuum
 
     def tune(self, log=print):
@@ -591,11 +612,12 @@ class JointWeightTuner(SectorWeightTuner):
                 iteration=it, flatness=flat, histogram=hist.copy(),
                 logWeight=weights.logWeight.copy(), beyond=beyond,
                 visited=int((hist > 0).sum()), reachable=int(everSeen.sum()),
-                vacuumFraction=vacuum / max(1, self.ticks), seconds=time.time() - t0))
+                vacuumFraction=vacuum / max(1, self.ticks),
+                returns=int(self.returns), seconds=time.time() - t0))
             log(f'  iter {it:>3d}  occupied {int((hist > 0).sum()):>4d}/'
                 f'{int(everSeen.sum()):>4d} reachable  beyond {beyond:>5d}  '
                 f'flatness {flat:>9.3g}  vacuum {vacuum / max(1, self.ticks):>6.3f}  '
-                f'({time.time() - t0:.0f}s)')
+                f'returns {self.returns:>5d}  ({time.time() - t0:.0f}s)')
             if flat < self.targetFlatness and int(everSeen.sum()) >= self.minimumReachable \
                     and sinceExpansion >= 2:
                 log(f'  converged: flatness {flat:.3g} over {int(everSeen.sum())} cells')
@@ -609,7 +631,8 @@ class JointWeightTuner(SectorWeightTuner):
             update[seen] = -np.log(hist[seen] / hist[seen].mean())
             missed = everSeen & ~seen
             if missed.any():
-                update[missed] = update[seen].max() if seen.any() else 1.0
+                base = float(update[seen].max()) if seen.any() else 1.0
+                update[missed] = max(base, self.boostFloor)
             step = self.damping / (1.0 + sinceExpansion / 3.0)
             weights = JointWeightTable(weights.logWeight + step * update,
                                        weights.tailSlopeD, weights.tailSlopeQ,
