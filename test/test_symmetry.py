@@ -207,17 +207,19 @@ def test_inverse_undoes_the_element():
         Its entire subtlety --- the conjugation $\sigma = \pi^{-1}$, $G =
         \pi^{-1}(F)$, and which sign each shift component $b_\mu$ picks up
         --- lives in the point-group part $(F, \pi)$ alone.  Sweeping the
-        FULL point group ($2^D D! = 384$ elements at $D = 4$) exhausts every
-        one of those conjugation/sign patterns.  The dependence on the shift
-        $a$ itself is exactly LINEAR ($b_\mu = \pm a_{\pi(\mu)}$; no $a$
-        enters which sign is chosen), so sampling a handful of representative
-        shifts --- the zero shift plus several with distinct nonzero
-        components in distinct positions --- loses no coverage of the
+        FULL point group ($2^D D!$ elements: 48 at $D = 3$, 384 at $D = 4$)
+        exhausts every one of those conjugation/sign patterns.  The
+        dependence on the shift $a$ itself is exactly LINEAR
+        ($b_\mu = \pm a_{\pi(\mu)}$; no $a$ enters which sign is chosen), so
+        TWO shifts suffice: zero (isolates the point-group part with no
+        shift arithmetic at all) and one with a DISTINCT nonzero value on
+        every axis (so a bug that reads the wrong component of $a$, or
+        applies the wrong sign to it, changes the result rather than hiding
+        behind a repeated or zero entry).  This loses no coverage of the
         delicate part while cutting the $D = 4$ element count from
-        $N^D 2^D D! = 31104$ down to $8 \cdot 2^D D! \approx 3072$.  $D = 2$
-        ($N=5$: 200 elements) and $D = 3$ ($N=4$: 3072 elements) remain fully
-        exhaustive --- they're cheap enough that there is no reason to
-        sample them.
+        $N^D 2^D D! = 31104$ down to $2 \cdot 2^D D! = 768$.  $D = 2$
+        ($N = 5$: 200 elements) stays fully exhaustive, including every
+        shift --- cheap enough that there is no reason to sample it.
     """
     for D, N in ((2, 5), (3, 4), (4, 3)):
         lattice = Lattice(D, N)
@@ -613,7 +615,7 @@ def test_undeclared_action_fails_closed():
             self.Lattice = lattice
 
     with pytest.raises(NotImplementedError):
-        SpaceGroup(_NotYetEstablished(Lattice(3, 4)))
+        LatticeSymmetry(_NotYetEstablished(Lattice(3, 4)))
 
 
 # ---------------------------------------------------------------------------
