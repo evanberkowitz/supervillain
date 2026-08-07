@@ -54,3 +54,62 @@ Two Dimensions
 
 .. autoclass :: supervillain.lattice.Lattice2D
    :members:
+
+.. _space-group:
+
+Lattice Symmetries
+===================
+
+The periodic hypercubic lattice has more structure than translation invariance alone.
+Every lattice site can be shifted, every axis can be reflected through the origin, and every axis can be relabelled by a permutation, and each of these leaves the lattice looking exactly like itself.
+Together these generate the *space group*
+
+.. math ::
+
+   G = \mathbb{Z}_N^D \rtimes \left(\{\pm 1\}^D \rtimes S_D\right),
+   \qquad |G| = N^D \cdot 2^D \cdot D!
+
+--- translations, semidirect the hyperoctahedral point group $\{\pm 1\}^D \rtimes S_D$ of sign flips and axis permutations.
+This is *not* the Poincaré group: there are no boosts, the signature is Euclidean, and the group is discrete rather than continuous.
+
+.. note ::
+
+   $S_D$ is not the rotation subgroup of the point group.
+   An odd permutation has determinant $-1$; the transposition $x_{\mu} \leftrightarrow x_{\nu}$, for instance, is the mirror reflection across the diagonal hyperplane $x_{\mu} = x_{\nu}$.
+   And in even $D$ the point inversion $-I$ has determinant $(-1)^D = +1$, so it lies *inside* the rotation subgroup rather than pairing with it the way $\{I, -I\}$ does in odd dimensions --- the familiar 3-dimensional factorization "full point group = rotations $\times \{I, -I\}$" does not hold here.
+
+:func:`~supervillain.lattice.translate`, :func:`~supervillain.lattice.reflect`, and :func:`~supervillain.lattice.permute` implement the three factors of $G$ directly on a :class:`~supervillain.lattice.Form` of any degree, taking $\omega \mapsto \omega'$ for a group element $g$.
+Because a $p$-form's components are labelled by sorted direction tuples $I$ rather than raw axis indices, applying $g$ is more than moving array data around: a reflection or permutation can also relabel *which* component a value belongs to, and can introduce a sign.
+
+Translation is the simple case: $\varphi'(x) = \varphi(x - a)$ for every degree, with no component relabelling and no sign, because translating a cell never changes which directions it spans.
+
+A reflection negating the axes in a set $F$ keeps a component's direction label $I$ fixed --- sign flips do not permute directions --- but two subtleties appear.
+First, an orientation sign $(-1)^{\left|I \cap F\right|}$: the cell spans a direction in $F$ for each element of $I \cap F$, and flipping the direction a cell spans reverses its orientation.
+Second, a base-point shift: a cell whose edge runs in a flipped direction lands on the far side of its own image under the flip, so evaluating the transformed form at $y$ means evaluating the original at $y$ shifted by $\hat e_{\mu}$ for each $\mu \in I \cap F$, *before* negating.
+Explicitly,
+
+.. math ::
+
+    \omega'_I(y) = (-1)^{|I \cap F|}\;
+    \omega_I\!\left(R\!\left(y + \sum_{\mu \in I \cap F} \hat e_\mu\right)\right)
+
+where $R$ negates each coordinate in $F$ modulo $N$.
+The :ref:`interlaced <interlaced>` picture is where this rule is *derived*, not merely stated: there a component with directions $I$ sits at $\xi_{k} = 2x_{k} + [k \in I]$, and for both $\mu \notin I$ (even $\xi_{\mu} = 2x_{\mu}$) and $\mu \in I$ (odd $\xi_{\mu} = 2x_{\mu} + 1$) the map $x_{\mu} \to -x_{\mu}$ collapses to the SAME single coordinate negation $\xi_{\mu} \to -\xi_{\mu}$.
+The base-point shift that has to be made explicit on the compact array is automatic there; only the orientation sign remains to track, and it is applied at $I$ itself since flips never permute directions.
+See :func:`supervillain.lattice.interlaced.reflect`.
+
+A permutation $\pi$ relabels axis $\mu$ to axis $\pi(\mu)$, and because components are always stored under their *sorted* direction tuple, this does two things at once: it moves a component's data to the tuple $\mathrm{sort}(\pi(I))$, and --- whenever $\pi(I)$ is not already sorted --- it multiplies by the sign of the permutation that sorts it,
+
+.. math ::
+
+    \omega'_{\pi(I)}(Rx) = \omega_I(x) \;\Longrightarrow\;
+    \omega'_{\mathrm{sort}(\pi(I))} = \varepsilon\, \omega_I
+
+The sign belongs at the DESTINATION component $\mathrm{sort}(\pi(I))$, not at the source $I$: the two coincide whenever $\pi(I)$ happens to already be sorted, which is *always* true when $D = 2$, so a two-dimensional test cannot distinguish correct code from this particular bug --- it only shows up once $D \geq 3$.
+The interlaced picture makes the position half of this automatic (a plain axis transpose moves both the site and the parity pattern together) but not the sign, which must still be applied at the destination; see :func:`supervillain.lattice.interlaced.permute`.
+
+.. autofunction :: supervillain.lattice.translate
+
+.. autofunction :: supervillain.lattice.reflect
+
+.. autofunction :: supervillain.lattice.permute

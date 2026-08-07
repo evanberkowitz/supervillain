@@ -254,6 +254,79 @@ Finally, we provide a convenience function which provides an ergodic generator.
 
 .. autofunction :: supervillain.generator.worldline.Hammer
 
+------------------
+Lattice Symmetries
+------------------
+
+Every formulation lives on the same periodic hypercubic lattice, and that lattice has :ref:`a symmetry group <space-group>` of its own --- translations, axis reflections, and axis permutations --- independent of $\phi$, $n$, $m$, or any other field content.
+Applying a random element of this group is therefore a formulation-agnostic generator: it draws a :class:`~supervillain.generator.symmetry.Symmetry` and relabels every field the action declares, exactly as :func:`~supervillain.lattice.translate`, :func:`~supervillain.lattice.reflect`, and :func:`~supervillain.lattice.permute` act on a single :class:`~supervillain.lattice.Form`.
+It belongs here rather than under either formulation-specific section above.
+
+These moves are not Metropolis proposals in the usual sense: they are *exact symmetries*, not approximations to be tested and possibly rejected.
+$\Delta S = 0$ identically whenever the group element is one the action admits, so every :class:`~supervillain.generator.symmetry.LatticeSymmetry` move is **always accepted** and there is no acceptance rate at all.
+That is also the danger: an ordinary buggy generator reveals itself through a pathological acceptance rate, but an always-accepted move that is subtly wrong corrupts the ensemble while every downstream diagnostic still looks healthy.
+For this reason the classes below are gated unusually strictly --- exhaustively, not by sampling, and (for the array transformations underneath them) against a second, independently derived implementation in the :ref:`interlaced <interlaced>` picture --- and any new action that wants to use them must say explicitly which symmetries it admits rather than have one assumed for it.
+
+Whether a given element of the space group is admissible is **action-dependent**, and the dependence is on the *constraint*, not directly on the action.
+The Villain-type action itself, $\frac{\kappa}{2}\sum_\ell (d\phi - 2\pi n)_\ell^2$, is a sum over links of a quantity that only relabels under translation, reflection, or permutation, so it is invariant under the full space group no matter which constraint (if any) is layered on top.
+What can differ is whether that constraint survives a *reflection*: a reflection is exact for $d$ and hence for anything built linearly from $d$ or $\delta$, but the lattice wedge product is a cup product, natural only under order-preserving cubical maps, so a reflection carries it into the opposite cup product --- differing by a coboundary --- and any constraint built from a wedge can break hypercube by hypercube even though the action itself does not move.  Each action's ``admissible_symmetries`` method records what was actually measured:
+
+.. list-table::
+   :header-rows: 1
+
+   * - action
+     - constraint
+     - built from
+     - admissible flip sets
+     - admissible group order
+   * - :class:`~supervillain.action.Villain`
+     - none (or $[dn \equiv 0 \bmod W]$, itself linear)
+     - ---
+     - all $2^D$
+     - $N^D \cdot 2^D \cdot D!$
+   * - :class:`~supervillain.action.Worldline`
+     - $\delta m = 0$
+     - linear in $m$
+     - all $2^D$
+     - $N^D \cdot 2^D \cdot D!$
+   * - :class:`~supervillain.action.NoIntersections`
+     - $q = dn \wedge dn = 0$
+     - wedge (cup product)
+     - $\{(), (0,\ldots,D-1)\}$
+     - $N^D \cdot 2 \cdot D!$
+
+The Worldline row is not "unconstrained, so it gets everything": $\delta m = 0$ *is* a constraint, but $\delta \sim {\star}d{\star}$ carries two Hodge stars whose orientation factors cancel each other, so $\delta$ commutes with every element of the space group exactly and the constraint is unaffected.  NoIntersections' constraint has no such cancellation, so its admissible flip sets shrink to just the identity and the full inversion $x \to -x$ --- still a genuine subgroup (the inversion is central), so uniformity, closure under inverses, and detailed balance all survive; what is lost is reach, not correctness.
+
+.. autoclass :: supervillain.generator.symmetry.Symmetry
+   :members:
+
+.. autofunction :: supervillain.generator.symmetry.all_flip_sets
+
+.. autoclass :: supervillain.generator.symmetry.LatticeSymmetry
+   :members:
+
+.. autoclass :: supervillain.generator.symmetry.Translation
+   :members:
+
+:class:`~supervillain.generator.symmetry.Reflection` is where the action-dependence becomes visible at the API level: rather than silently sampling fewer elements than its name promises, it refuses outright when the action's admissible flip sets are a proper subset of all $2^D$.
+
+.. autoclass :: supervillain.generator.symmetry.Reflection
+   :members:
+
+.. autoclass :: supervillain.generator.symmetry.AxisPermutation
+   :members:
+
+:class:`~supervillain.generator.symmetry.SpaceGroup` takes the opposite approach to the same problem: rather than refusing, it *narrows* to the largest admissible subgroup and its ``report`` names the group actually sampled, so it never claims reach it does not have.
+
+.. autoclass :: supervillain.generator.symmetry.SpaceGroup
+   :members:
+
+Charge conjugation is a different kind of symmetry: it acts on the *field values* rather than on lattice coordinates, so it is not built from a :class:`~supervillain.generator.symmetry.Symmetry` and does not subclass :class:`~supervillain.generator.symmetry.LatticeSymmetry`.
+It is admissible for **every** action with no whitelist at all, including :class:`~supervillain.action.NoIntersections`: the constraint $q = F \wedge F$ (with $F = dn$) is QUADRATIC in $F$, so $n \to -n$ sends $F \to -F$ and $q \to (-F)\wedge(-F) = F \wedge F = q$ identically --- the constraint is left invariant outright, not merely zero-preserving, because charge conjugation never touches the lattice map the wedge depends on.
+
+.. autoclass :: supervillain.generator.symmetry.Conjugation
+   :members:
+
 --------------------
 Combining Generators
 --------------------
