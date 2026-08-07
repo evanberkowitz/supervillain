@@ -132,11 +132,19 @@ class ExactHeatbath(ReadWriteable, Generator):
             kstar = g[0, *color] / (4 * np.pi * D)
             ksel = self._draw(kstar)
 
-            change_z = L.zeros(0)
+            # z must carry n's integer dtype: L.zeros defaults to float, and since d
+            # faithfully preserves the dtype it is handed, a float z makes dn float and
+            # silently widens the *integer* field n to float64 on `n = n + dn`.  The
+            # drawn values are integral either way (ksel comes from _draw as an int),
+            # so nothing numerical changes -- but everything downstream that treats n
+            # as exactly integral (h5 dtype, equality, mod-W arithmetic) would be
+            # working on floats after a single Hammer sweep.
+            change_z = L.zeros(0, dtype=n.dtype)
             change_z[0, *color] = ksel
 
             dn = d(change_z)
             n = n + dn
+            # r is the float residual dφ − 2πn, so this addition is float by design
             r = r - 2 * np.pi * dn
 
         return cfg | {'n': n}

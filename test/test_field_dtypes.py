@@ -75,3 +75,54 @@ def test_worldline_v_is_float_when_W_infinite():
     out = supervillain.generator.worldline.Hammer(S).step(S.configurations(1)[0])
     assert np.issubdtype(np.asarray(out['m']).dtype, np.integer)
     assert np.issubdtype(np.asarray(out['v']).dtype, np.floating)
+
+
+@pytest.mark.parametrize('D', [2, 3])
+def test_exact_heatbath_does_not_widen_n(D):
+    # Regression: ExactHeatbath built its scratch 0-form with L.zeros(0), which
+    # defaults to float.  `d` faithfully preserves the dtype it is handed (see
+    # test_d_and_delta_preserve_input_dtype), so dn came out float and
+    # `n = n + dn` silently widened the INTEGER field n to float64 -- after a
+    # single sweep, everything downstream treating n as exactly integral (h5
+    # dtype, equality, mod-W arithmetic) was working on floats.
+    #
+    # This targets the generator directly rather than only through Hammer, so
+    # the test still bites if Hammer's composition changes.  It was the only
+    # one of the thirteen Villain generators with this pattern.
+    L = supervillain.lattice.Lattice(D=D, N=4)
+    S = supervillain.action.Villain(L, kappa=0.5, W=1)
+    g = supervillain.generator.villain.ExactHeatbath(S)
+    cfg = S.configurations(1)[0]
+    for _ in range(3):          # one sweep sufficed, but the loop pins it under iteration
+        cfg = g.step(cfg)
+    assert np.issubdtype(np.asarray(cfg['n']).dtype, np.integer)
+
+
+def test_exact_heatbath_values_unchanged_by_the_dtype_fix():
+    # The fix must be numerically a no-op: the pre-fix float path already drew
+    # integral values (ksel is an int from _draw), so only the container was
+    # wrong.  Force the old float behaviour back and check the chains agree
+    # bit-for-bit under a shared seed -- if they ever diverge, the dtype was
+    # carrying real information and the fix would be a physics change.
+    from supervillain.lattice.compact import Lattice as CompactLattice
+
+    def run(force_float, seed=20260806, steps=20):
+        L = supervillain.lattice.Lattice(D=2, N=4)
+        S = supervillain.action.Villain(L, kappa=0.5, W=1)
+        g = supervillain.generator.villain.ExactHeatbath(
+            S, rng=np.random.default_rng(seed))
+        cfg = S.configurations(1)[0]
+        original = CompactLattice.zeros
+        if force_float:
+            CompactLattice.zeros = (
+                lambda self, p, dtype=float: original(self, p, dtype=float))
+        try:
+            for _ in range(steps):
+                cfg = g.step(cfg)
+        finally:
+            CompactLattice.zeros = original
+        return np.asarray(cfg['n'])
+
+    fixed, legacy = run(False), run(True)
+    assert np.all(legacy == np.rint(legacy)), 'pre-fix values were not integral'
+    assert np.array_equal(fixed, legacy.astype(np.int64))
