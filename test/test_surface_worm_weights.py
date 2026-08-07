@@ -9,7 +9,7 @@ def test_fugacity_table_is_linear():
     lg = np.log(0.09)
     for D in range(17):
         assert np.isclose(w(D), D * lg)
-    assert np.isclose(w.delta(3, 5), 2 * lg)
+    assert np.isclose(w.change(3, 5), 2 * lg)
 
 def test_hard_wall_is_minus_inf():
     w = SectorWeights.fugacity(0.09, cap=8)

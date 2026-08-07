@@ -61,9 +61,12 @@ class Pricing(ReadWriteable):
 
     ``__call__(n)``
         $\log w(n)$, broadcasting over an array of counts.
-    ``delta(old, new)``
+    ``change(old, new)``
         $\log w(\texttt{new}) - \log w(\texttt{old})$ as a float --- what an acceptance
-        needs, and the only method the sampler's hot path calls.
+        needs, and the only method the sampler's hot path calls.  Not ``delta``: $\delta$
+        is the **codifferential** everywhere else here
+        (:func:`supervillain.lattice.delta`), and a weight table's finite difference is
+        not that.
     ``arrays()``
         ``(logWeight, tailSlope, hardWall)``, the plain form the compiled kernel takes.
         Every price is representable this way: a table on $[0, \texttt{cap}]$ plus a rule

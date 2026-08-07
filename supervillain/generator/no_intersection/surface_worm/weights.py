@@ -217,8 +217,13 @@ class SectorWeights(ReadWriteable):
             out = np.where(D > self.cap, -np.inf, out)
         return out
 
-    def delta(self, old, new):
-        r"""$\log w(\texttt{new}) - \log w(\texttt{old})$ --- what an acceptance needs."""
+    def change(self, old, new):
+        r"""$\log w(\texttt{new}) - \log w(\texttt{old})$ --- what an acceptance needs.
+
+        Named ``change`` rather than ``delta`` because $\delta$ is the **codifferential**
+        throughout this library (:func:`supervillain.lattice.delta`), and a weight table's
+        finite difference is not that.
+        """
         return float(self(new)) - float(self(old))
 
     def price(self, n):

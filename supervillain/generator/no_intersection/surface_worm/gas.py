@@ -511,7 +511,7 @@ class SurfaceWormGas(ReadWriteable, Generator):
         # OLD and NEW total D rather than multiplying the increment by a constant.  For
         # the default fugacity table the two agree identically, since log w is then
         # linear in D.
-        dLogSector = self.sectorWeights.delta(state.D, state.D + dD)
+        dLogSector = self.sectorWeights.change(state.D, state.D + dD)
         # Hastings ratio q(x'->x)/q(x->x').  Identically zero for the uniform proposal,
         # so targetFraction=0 leaves the old acceptance untouched.
         openBefore = sum(1 for (cell, _) in cube_new if dF[cell] != 0)
@@ -528,7 +528,7 @@ class SurfaceWormGas(ReadWriteable, Generator):
         # Same story as dLogSector one axis over: read the table at the OLD and NEW
         # total Q rather than multiplying the increment by a constant.  Identical for a
         # Fugacity, since log w is then linear in Q.
-        dLogCharge = self.chargeWeights.delta(state.Q, state.Q + dQ)
+        dLogCharge = self.chargeWeights.change(state.Q, state.Q + dQ)
         lnA = (-twopi2k * dC + dLogSector + dLogCharge + dLogWinding + dLogProposal
                + dLogUmbrella)
         return (lnA, dD, dQ, cube_new, q_new, idx)
@@ -702,7 +702,7 @@ class SurfaceWormGas(ReadWriteable, Generator):
                 for (h, q0, dq1h) in aff:
                     dQ += (1 if q0 + Delta * dq1h != 0 else 0) - (1 if q0 != 0 else 0)
                 logw[i] = (-twopi2k * (2 * Delta * L + Delta * Delta * Kc)
-                           + self.chargeWeights.delta(state.Q, state.Q + dQ)
+                           + self.chargeWeights.change(state.Q, state.Q + dQ)
                            + self._log_winding_weight(state.winding + Delta * shift) - base
                            + self._coboundary_umbrella_log_weight(state, aff, int(Delta)))
             edge = np.exp(max(logw[0], logw[-1]) - logw.max())
@@ -972,6 +972,35 @@ class SurfaceWormGas(ReadWriteable, Generator):
         """
         self.sectorWeights = weights
         self._sectorLogWeight, self._sectorTailSlope, self._sectorHardWall = weights.arrays()
+        return self
+
+    def setChargeWeights(self, weights):
+        r"""Swap the intersection price in place, the way
+        :meth:`setSectorWeights` swaps the open-surface one --- so a tuner can carry the
+        gas *and its state* across iterations instead of rebuilding both.
+
+        The measurement normalizations follow the price, so the accumulator is retargeted
+        too: leaving it on the old table would divide the sector dwells by a price the
+        sampler is no longer charging, which is exactly how a correlator gets silently
+        misnormalized.
+
+        Parameters
+        ----------
+        weights: supervillain.generator.no_intersection.surface_worm.pricing.Pricing
+            The replacement price on $Q$.
+
+        Returns
+        -------
+        SurfaceWormGas
+            ``self``, for chaining.
+        """
+        self.chargeWeights = weights
+        self.intersectionFugacity = getattr(weights, 'eta', None)
+        (self._chargeLogWeight, self._chargeTailSlope,
+         self._chargeHardWall) = weights.arrays()
+        if self.accumulator is not None:
+            self.accumulator.chargeWeights = weights
+            self.accumulator.intersectionFugacity = self.intersectionFugacity
         return self
 
     # ---- emit: physical (n, phi) configurations, and the Generator protocol

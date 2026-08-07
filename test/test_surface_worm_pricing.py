@@ -49,7 +49,7 @@ def test_fugacity_is_affine_and_uncapped():
     f = Fugacity(ETA, cap=8)
     assert f.hardWall is False
     for a, b in ((0, 1), (3, 5), (7, 11), (11, 7)):
-        assert f.delta(a, b) == pytest.approx((b - a) * np.log(ETA), abs=1e-13)
+        assert f.change(a, b) == pytest.approx((b - a) * np.log(ETA), abs=1e-13)
 
 
 def test_fugacity_rejects_nonpositive():
