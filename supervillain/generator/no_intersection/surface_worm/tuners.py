@@ -554,6 +554,11 @@ class JointWeightTuner(SectorWeightTuner):
         and how many sat in the joint vacuum."""
         hist = np.zeros((self.capD + 1, self.capQ + 1), dtype=np.int64)
         beyond = vacuum = 0
+        # Which axis overflows is the interesting question, not that one did: a chain
+        # that leaves the window in D is doing something quite different from one that
+        # leaves in Q, and a single `beyond` cannot tell them apart.  Recorded separately
+        # so a window can be widened on the axis that actually binds.
+        self.beyondD = self.beyondQ = 0
         self.returns = 0
         wasVacuum = False
         for _ in range(ticks):
@@ -563,6 +568,8 @@ class JointWeightTuner(SectorWeightTuner):
                 hist[D, Q] += 1
             else:
                 beyond += 1
+                self.beyondD += (D > self.capD)
+                self.beyondQ += (Q > self.capQ)
             isVacuum = (D == 0 and Q == 0)
             # Count RETURNS (entries into the vacuum), not dwell samples: dwell measures
             # how long the chain sits there and returns measure how often it gets back,
@@ -613,11 +620,13 @@ class JointWeightTuner(SectorWeightTuner):
                 logWeight=weights.logWeight.copy(), beyond=beyond,
                 visited=int((hist > 0).sum()), reachable=int(everSeen.sum()),
                 vacuumFraction=vacuum / max(1, self.ticks),
-                returns=int(self.returns), seconds=time.time() - t0))
+                returns=int(self.returns), beyondD=int(self.beyondD),
+                beyondQ=int(self.beyondQ), seconds=time.time() - t0))
             log(f'  iter {it:>3d}  occupied {int((hist > 0).sum()):>4d}/'
                 f'{int(everSeen.sum()):>4d} reachable  beyond {beyond:>5d}  '
                 f'flatness {flat:>9.3g}  vacuum {vacuum / max(1, self.ticks):>6.3f}  '
-                f'returns {self.returns:>5d}  ({time.time() - t0:.0f}s)')
+                f'returns {self.returns:>5d}  beyond D/Q {self.beyondD}/{self.beyondQ}  '
+                f'({time.time() - t0:.0f}s)')
             if flat < self.targetFlatness and int(everSeen.sum()) >= self.minimumReachable \
                     and sinceExpansion >= 2:
                 log(f'  converged: flatness {flat:.3g} over {int(everSeen.sum())} cells')
