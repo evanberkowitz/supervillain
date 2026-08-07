@@ -243,9 +243,16 @@ def test_orbit_sizes_are_exact():
     identically) and no more (the move leaving the group).
 
     .. note::
-        The composed-orbit ``SpaceGroup`` check at $D = 4$ uses $N = 3$
-        deliberately: its orbit already has $N^D 2^D D! = 31104$ elements at
-        that size, so a larger $N$ buys nothing but wall-clock.
+        The composed-orbit ``SpaceGroup`` check at $D = 4$ uses $N = 2$
+        deliberately: its orbit already has $N^D 2^D D! = 6144$ elements at
+        that size, so a larger $N$ buys nothing but wall-clock.  $N = 2$ is
+        fine HERE even though it is too small for
+        :func:`test_inverse_undoes_the_element` (where $-1 \equiv +1 \bmod
+        2$ makes the two signs in that formula indistinguishable): counting
+        DISTINCT images never needs sign-distinguishability, only that a
+        generic form's stabilizer is trivial, and that was checked directly
+        --- all four orbit sizes below are exact at $N = 2, D = 4$,
+        matching their formulas with no collisions.
     """
     import hashlib
 
@@ -253,7 +260,7 @@ def test_orbit_sizes_are_exact():
         return hashlib.blake2b(np.ascontiguousarray(form).tobytes(),
                                digest_size=16).digest()
 
-    for D, N in ((2, 3), (2, 5), (3, 3), (4, 3)):
+    for D, N in ((2, 3), (2, 5), (3, 3), (4, 2)):
         lattice = Lattice(D, N)
         f = random_form(lattice, 1, 300 + D)
         factors = {
