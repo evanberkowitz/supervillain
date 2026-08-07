@@ -24,6 +24,8 @@ divided by its known price $V\eta_q^2$ here, and the vacuum sector's price is 1.
 
 import numpy as np
 
+from .pricing import Fugacity
+
 from .weights import pair_separation_squared
 
 
@@ -50,12 +52,21 @@ class CorrelatorAccumulator:
         ``ClosedSectorTicks``).
     """
 
-    def __init__(self, N, intersectionFugacity, openCap=64,
+    def __init__(self, N, intersectionFugacity=None, openCap=64,
                  absoluteChargeCap=64, squaredChargeCap=64,
-                 chargeBinWidth=1, sectorCap=64):
+                 chargeBinWidth=1, sectorCap=64, chargeWeights=None):
         self.N = int(N)
         self.V = self.N ** 4
-        self.intersectionFugacity = float(intersectionFugacity)
+        # The sector dwells are divided by the price the sampler charged for them, and
+        # that price is no longer necessarily a power of a fugacity: it is
+        # chargeWeights.price(Q) = w(Q)/w(0).  For a Fugacity that is exactly eta**Q, so
+        # every number this class has ever produced is unchanged.
+        if intersectionFugacity is not None and chargeWeights is not None:
+            raise ValueError('at most one of intersectionFugacity and chargeWeights.')
+        self.chargeWeights = (chargeWeights if chargeWeights is not None
+                              else Fugacity(0.3 if intersectionFugacity is None
+                                            else intersectionFugacity))
+        self.intersectionFugacity = getattr(self.chargeWeights, 'eta', None)
         self.absoluteChargeCap = int(absoluteChargeCap)
         self.squaredChargeCap = int(squaredChargeCap)
         self.chargeBinWidth = int(chargeBinWidth)
@@ -262,9 +273,9 @@ class CorrelatorAccumulator:
             'Ticks': int(self.ticks),
             'ClosedTicks': int(self.closedTicks),
             'VacuumTicks': int(self.vacuumTicks),
-            'Theta_Theta': self.pair / (self.V * self.intersectionFugacity ** 2),
+            'Theta_Theta': self.pair / (self.V * float(self.chargeWeights.price(2))),
             'Theta_Theta_WeightSquared': (self.pairWeightSquared
-                                          / (self.V * self.intersectionFugacity ** 2) ** 2),
+                                          / (self.V * float(self.chargeWeights.price(2))) ** 2),
             'Theta_Theta_Counts': self.pairCounts.copy(),
             # Per class, not a uniform / eta_q**4: the SWG prices intersections PER
             # OCCUPIED CELL (Q counts cells with q != 0), and the four ordered classes
@@ -281,7 +292,8 @@ class CorrelatorAccumulator:
             # Upstream-fix note: the notebook audit toolchain (no-intersections repo,
             # correlator.py) still carries the uncorrected uniform / etaQ**4 version this
             # replaces; port this fix there too before trusting its FourDefectDistribution.
-            'FourDefectDistribution': self.fourDefect / self.intersectionFugacity ** np.array([4, 3, 3, 2]),
+            'FourDefectDistribution': self.fourDefect / np.asarray(
+                self.chargeWeights.price(np.array([4, 3, 3, 2])), dtype=float),
             'AbsoluteIntersectionChargeDistribution': self.absoluteCharge.copy(),
             'SquaredIntersectionChargeDistribution': self.squaredCharge.copy(),
             'MaxAbsoluteIntersectionCharge': int(self.maxAbsoluteCharge),

@@ -221,6 +221,18 @@ class SectorWeights(ReadWriteable):
         r"""$\log w(\texttt{new}) - \log w(\texttt{old})$ --- what an acceptance needs."""
         return float(self(new)) - float(self(old))
 
+    def price(self, n):
+        r"""$w(n)/w(0)$ on the linear scale --- the factor a measurement divides out to
+        recover a physical dwell ratio from a priced one.
+
+        Part of the :class:`~.pricing.Pricing` protocol, which this class and
+        :class:`~.pricing.Fugacity` both satisfy by duck typing (``pricing`` imports this
+        module, so the protocol cannot be a base class here without a cycle).
+        :class:`~.pricing.Fugacity` overrides this with $\eta^n$, which is exactly rather
+        than nearly equal to the exponential below.
+        """
+        return np.exp(np.asarray(self(n), dtype=float) - float(self(0)))
+
     def arrays(self):
         r"""``(logWeight, tailSlope, hardWall)`` in the plain form the numba kernel takes."""
         return np.ascontiguousarray(self.logWeight), self.tailSlope, self.hardWall

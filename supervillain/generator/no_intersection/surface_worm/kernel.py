@@ -534,7 +534,7 @@ def cob_log_umbrella(D, nCharge, chargeList, qflat, hhFlat, vv, nu, N, table, po
 
 @njit(cache=True)
 def gas_batch(nmoves, p_cob, F, dF, q, G, g0, counts, ctr,
-                  N, V, kappa, lg_q, self_energy,
+                  N, V, kappa, chargeLogWeight, chargeTailSlope, chargeHardWall, self_energy,
                   dsten_cc, dsten_off, dsten_sign,
                   w_pc, w_rel, w_v, w_gid, w_nterm, w_ngroup, ghrel,
                   cob_pc, cob_off, cob_sign, Kcob, Harr,
@@ -550,7 +550,14 @@ def gas_batch(nmoves, p_cob, F, dF, q, G, g0, counts, ctr,
     open-surface weight table w(D); with the default fugacity table log w is linear in D
     and this reproduces the old ``dD * log(eta_dF)`` pricing exactly.  There is no separate
     ``lg_dF`` argument: the table is the sole open-surface price, and passing both was the
-    ambiguity ``SurfaceWormGas.__init__`` now rejects."""
+    ambiguity ``SurfaceWormGas.__init__`` now rejects.
+
+    ``chargeLogWeight``/``chargeTailSlope``/``chargeHardWall`` are the same three for the
+    intersection count Q, and arrived the same way and for the same reason: a bare scalar
+    price is linear in the exponent, so it can shift the Q distribution but never broaden
+    it, and Q is the axis a torus-wrapping sheet's saddle actually lives on.  A
+    ``Fugacity`` reproduces the old scalar pricing exactly, so the migration is testable
+    rather than a leap."""
     # Occupancy list of open cells, so the targeted draw is O(1) instead of an O(V) scan.
     # Rebuilt once per batch (O(4V), negligible against thousands of moves) and maintained
     # incrementally on every accepted toggle by swapping with the last entry.
@@ -677,7 +684,11 @@ def gas_batch(nmoves, p_cob, F, dF, q, G, g0, counts, ctr,
                         q0 = q[hh[u, 0], hh[u, 1], hh[u, 2], hh[u, 3]]
                         nv = q0 + D * vv[u]
                         dQ += (1 if nv != 0 else 0) - (1 if q0 != 0 else 0)
-                    lw = (-twopi2k * (2.0 * D * L + D * D * Kc) + dQ * lg_q
+                    lw = (-twopi2k * (2.0 * D * L + D * D * Kc)
+                          + (log_sector_weight(counts[1] + dQ, chargeLogWeight,
+                                               chargeTailSlope, chargeHardWall)
+                             - log_sector_weight(counts[1], chargeLogWeight,
+                                                 chargeTailSlope, chargeHardWall))
                           + (log_winding_1d(winding[0] + D * shift0, quantum, windingCoefficient)
                              + log_winding_1d(winding[1] + D * shift1, quantum, windingCoefficient)
                              + log_winding_1d(winding[2] + D * shift2, quantum, windingCoefficient)
@@ -855,7 +866,11 @@ def gas_batch(nmoves, p_cob, F, dF, q, G, g0, counts, ctr,
                         v1 = affNew[kk]
                 if (v0 == 1 and v1 == -1) or (v0 == -1 and v1 == 1):
                     logUmbAfter = pairUmbrellaLog[sep2_flat(postList[0], postList[1], N)]
-            lnA = (-twopi2k * dC + dLogSector + dQ * lg_q + dLogWinding + dLogProposal
+            dLogCharge = (log_sector_weight(counts[1] + dQ, chargeLogWeight,
+                                           chargeTailSlope, chargeHardWall)
+                          - log_sector_weight(counts[1], chargeLogWeight,
+                                              chargeTailSlope, chargeHardWall))
+            lnA = (-twopi2k * dC + dLogSector + dLogCharge + dLogWinding + dLogProposal
                    + logUmbAfter - logUmbBefore)
             if np.log(np.random.random()) < lnA:
                 ctr[1] += 1

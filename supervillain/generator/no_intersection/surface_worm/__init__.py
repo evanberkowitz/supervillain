@@ -154,6 +154,7 @@ pieces rather than the assembled sampler:
 """
 
 from .gas import SurfaceWormGas
+from .pricing import Pricing, Fugacity, WeightTable
 from .weights import SectorWeights, PairUmbrella
 from .state import FState
 from .accumulator import CorrelatorAccumulator

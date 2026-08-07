@@ -67,6 +67,7 @@ from .reconstruct import reconstruct_n, draw_phi
 from .staircase import primitive_2form
 from .state import FState
 from .weights import SectorWeights, PairUmbrella, pair_separation_squared
+from .pricing import Fugacity
 
 
 class SurfaceWormGas(ReadWriteable, Generator):
@@ -91,8 +92,21 @@ class SurfaceWormGas(ReadWriteable, Generator):
         lets the chain cross the suppressed intermediate $D$ region between
         isolated bubbles and a spanning network; a linear one (any fugacity)
         can only shift the distribution, never broaden it.
-    intersectionFugacity: float
-        The self-intersection price $\eta_q$.
+    intersectionFugacity: float, optional
+        The simple price on $Q$: $\eta_q$, wrapped as a :class:`~.pricing.Fugacity`.
+        Exactly one of this and ``chargeWeights`` may be given; neither means the
+        historical default $\eta_q = 0.3$.
+    chargeWeights: supervillain.generator.no_intersection.surface_worm.pricing.Pricing, optional
+        The general price on $Q$ --- a tuned :data:`~.pricing.WeightTable`.  A single
+        fugacity is linear in the exponent and can only *shift* the $Q$ distribution,
+        never broaden it; a table is what lets the chain cross a suppressed $Q$ (see
+        :mod:`~.pricing`).  The measured saddle for growing a torus-wrapping sheet at
+        $N=6$, $\kappa=0.03$ is ~88% intersection price and ~1% action, so this is the
+        binding axis.
+    chargeWeightCap: int
+        The cap for the ``Fugacity`` built from ``intersectionFugacity`` (ignored when
+        ``chargeWeights`` is given).  Bookkeeping only: a fugacity's linear tail
+        continues past it, so it does not bound $Q$.
     sectorWeightCap: int
         The cap passed to ``SectorWeights.fugacity`` when ``openSurfaceFugacity``
         is given directly (ignored when ``sectorWeights`` is given).
@@ -153,7 +167,8 @@ class SurfaceWormGas(ReadWriteable, Generator):
     """
 
     def __init__(self, S, openSurfaceFugacity=None, sectorWeights=None,
-                 intersectionFugacity=0.3, sectorWeightCap=64, targetFraction=0.0,
+                 intersectionFugacity=None, chargeWeights=None, chargeWeightCap=64,
+                 sectorWeightCap=64, targetFraction=0.0,
                  pairUmbrella=None, ticksPerStep=1000, stride=200, pCob=0.5,
                  maxWaitTicks=200000, hardWaitFactor=10, measure=True,
                  seed=None, rng=None, absoluteChargeCap=64, squaredChargeCap=64,
@@ -175,8 +190,25 @@ class SurfaceWormGas(ReadWriteable, Generator):
         self.N = S.Lattice.N
         self.V = self.N ** 4
         self.kappa = float(S.kappa)
-        self.intersectionFugacity = float(intersectionFugacity)
-        self.lg_q = np.log(self.intersectionFugacity)
+        # The intersection price, on the same footing as the open-surface one: exactly
+        # one spelling, since Fugacity IS the affine table and accepting both silently
+        # lets one win.  Neither given keeps the historical default, so every existing
+        # caller is unaffected and a gas built the old way is bit-identical.
+        if intersectionFugacity is not None and chargeWeights is not None:
+            raise ValueError(
+                'at most one of intersectionFugacity and chargeWeights is allowed; got '
+                f'intersectionFugacity={intersectionFugacity!r} and '
+                f'chargeWeights={chargeWeights!r}.  A tuned table already carries the '
+                'intersection price -- pass intersectionFugacity only to Fugacity() '
+                'when seeding a tuning run.')
+        self.chargeWeights = (chargeWeights if chargeWeights is not None
+                              else Fugacity(0.3 if intersectionFugacity is None
+                                            else intersectionFugacity, cap=chargeWeightCap))
+        # Kept for reporting and for the tuners that still take a scalar; None once the
+        # price stops being affine, so nothing can read a fugacity off a tuned table.
+        self.intersectionFugacity = getattr(self.chargeWeights, 'eta', None)
+        (self._chargeLogWeight, self._chargeTailSlope,
+         self._chargeHardWall) = self.chargeWeights.arrays()
         # Sector weight on the open-surface count D.  Defaults to the bare fugacity
         # written as a table, so an untuned gas is EXACTLY the old sampler -- which is
         # what makes the table's introduction testable rather than a leap.
@@ -310,7 +342,7 @@ class SurfaceWormGas(ReadWriteable, Generator):
         self.squaredChargeCap = int(squaredChargeCap)
         self.chargeBinWidth = int(chargeBinWidth)
         self.accumulator = (
-            CorrelatorAccumulator(self.N, self.intersectionFugacity,
+            CorrelatorAccumulator(self.N, chargeWeights=self.chargeWeights,
                                   openCap=self.sectorWeights.cap,
                                   absoluteChargeCap=self.absoluteChargeCap,
                                   squaredChargeCap=self.squaredChargeCap,
@@ -390,7 +422,7 @@ class SurfaceWormGas(ReadWriteable, Generator):
         chargeSites = {tuple(int(v) for v in h): int(qg[tuple(h)]) for h in np.argwhere(qg != 0)}
         return (-2 * np.pi ** 2 * self.kappa * C
                 + float(self.sectorWeights(int((dFg != 0).sum())))
-                + int((qg != 0).sum()) * self.lg_q
+                + float(self.chargeWeights(int((qg != 0).sum())))
                 + self._log_winding_weight(self.winding_of(F))
                 + self.pairUmbrella.logW(pair_separation_squared(chargeSites, N)))
 
@@ -493,7 +525,11 @@ class SurfaceWormGas(ReadWriteable, Generator):
         dLogUmbrella = self.pairUmbrella.delta(
             pair_separation_squared(state.chargeSites, N),
             pair_separation_squared(self._charge_sites_after(state, q_new), N))
-        lnA = (-twopi2k * dC + dLogSector + dQ * self.lg_q + dLogWinding + dLogProposal
+        # Same story as dLogSector one axis over: read the table at the OLD and NEW
+        # total Q rather than multiplying the increment by a constant.  Identical for a
+        # Fugacity, since log w is then linear in Q.
+        dLogCharge = self.chargeWeights.delta(state.Q, state.Q + dQ)
+        lnA = (-twopi2k * dC + dLogSector + dLogCharge + dLogWinding + dLogProposal
                + dLogUmbrella)
         return (lnA, dD, dQ, cube_new, q_new, idx)
 
@@ -666,7 +702,7 @@ class SurfaceWormGas(ReadWriteable, Generator):
                 for (h, q0, dq1h) in aff:
                     dQ += (1 if q0 + Delta * dq1h != 0 else 0) - (1 if q0 != 0 else 0)
                 logw[i] = (-twopi2k * (2 * Delta * L + Delta * Delta * Kc)
-                           + dQ * self.lg_q
+                           + self.chargeWeights.delta(state.Q, state.Q + dQ)
                            + self._log_winding_weight(state.winding + Delta * shift) - base
                            + self._coboundary_umbrella_log_weight(state, aff, int(Delta)))
             edge = np.exp(max(logw[0], logw[-1]) - logw.max())
@@ -827,7 +863,8 @@ class SurfaceWormGas(ReadWriteable, Generator):
         winding = np.ascontiguousarray(state.winding, dtype=np.int64)
         periods = np.ascontiguousarray(state.periods, dtype=np.int64)
         kernel.gas_batch(nmoves, pCob, state.F, state.dF, state.q, state.G, self.g0,
-                      counts, ctr, self.N, self.V, self.kappa, self.lg_q,
+                      counts, ctr, self.N, self.V, self.kappa,
+                      self._chargeLogWeight, self._chargeTailSlope, self._chargeHardWall,
                       self.self_energy, *self._nb[:-2],
                       self.windingSensitivity, winding, periods, self.N ** 3,
                       self._windingCoefficient, 1e-14, 256,
@@ -1170,7 +1207,7 @@ class SurfaceWormGas(ReadWriteable, Generator):
         if not self.measure:
             return {}
         template = CorrelatorAccumulator(
-            self.N, self.intersectionFugacity,
+            self.N, chargeWeights=self.chargeWeights,
             openCap=self.sectorWeights.cap,
             absoluteChargeCap=self.absoluteChargeCap,
             squaredChargeCap=self.squaredChargeCap,
