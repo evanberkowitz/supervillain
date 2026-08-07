@@ -614,9 +614,17 @@ class JointWeightTuner(SectorWeightTuner):
             weights = JointWeightTable(weights.logWeight + step * update,
                                        weights.tailSlopeD, weights.tailSlopeQ,
                                        weights.hardWall)
+            # Fill the unreached cells EVERY iteration, not only at the end as the 1D
+            # tuner does.  In 1D the unvisited set is a few bins behind the frontier; in
+            # 2D it is most of the grid, and the corner that matters sits behind it, so a
+            # table that is only repaired at the end never offers the chain the moves
+            # that would have reached it.  Measured without this: D spanning 0-24 while Q
+            # never passed 6, and zero corner visits.
+            weights = weights.interpolated(everSeen)
             if self.smoothTable:
                 weights = weights.smoothed(length=self.smoothTable, reachable=everSeen)
 
+        weights = weights.interpolated(everSeen)
         if self.smoothFinal:
             weights = weights.smoothed(length=self.smoothFinal, reachable=everSeen)
         unseen = int((~everSeen).sum())

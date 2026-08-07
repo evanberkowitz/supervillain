@@ -260,3 +260,49 @@ class JointWeightTable(ReadWriteable):
             work = work + step
         return JointWeightTable(np.where(finite, work, self.logWeight),
                                 self.tailSlopeD, self.tailSlopeQ, self.hardWall)
+
+    def interpolated(self, visited, passes=400):
+        r"""A copy with $\log w$ filled in across cells the tuning never reached.
+
+        The 2D counterpart of :meth:`~.weights.SectorWeights.interpolated`, and it matters
+        *more* here.  A tuner can only learn $\log w$ where the chain went, and it leaves
+        everything else alone --- which makes an unvisited cell **self-perpetuating**: it
+        is never boosted, so it is never reached, so it stays unvisited.  In 1D the
+        unvisited set is a few bins and linear interpolation repairs it.  In 2D the
+        unvisited set is most of the grid (measured: 560 of 625 cells after 40
+        iterations), and the region that matters --- the corner where $D$ and $Q$ are
+        large *together* --- sits behind it.  Without this the joint tuner opens one axis
+        and stalls on the other, which is what a first run did: $D$ spanning 0--24 while
+        $Q$ never passed 6.
+
+        The fill is harmonic: solve $\nabla^2 \log w = 0$ on the unvisited cells with
+        the visited ones held fixed (Jacobi relaxation with Dirichlet data).  That is the
+        2D generalization of "linear between the learned neighbours", and it is the right
+        one for the same reason: $\log w \approx -\log\Omega$, and the density of
+        states is smooth in both counts, so a gap should get the value its neighbours
+        imply rather than a stale one.  The chain is then *offered* the move and the
+        sampling decides whether the state exists.
+
+        .. note ::
+            This cannot bias $\Theta$.  The correlator is a ratio of two dwells taken
+            both on the closed shell, so any $w$ cancels there --- a wrong fill costs
+            efficiency, never correctness.
+
+        Parameters
+        ----------
+        visited: array of bool
+            Which $(D, Q)$ the tuning actually sampled; the rest are filled.
+        passes: int
+            Jacobi sweeps.  The default resolves gaps a few tens of cells across.
+        """
+        known = np.asarray(visited, dtype=bool)
+        if not known.any() or known.all():
+            return JointWeightTable(self.logWeight, self.tailSlopeD, self.tailSlopeQ,
+                                    self.hardWall)
+        work = np.where(known, self.logWeight, float(self.logWeight[known].mean()))
+        for _ in range(passes):
+            padded = np.pad(work, 1, mode='edge')
+            neighbours = 0.25 * (padded[:-2, 1:-1] + padded[2:, 1:-1]
+                                 + padded[1:-1, :-2] + padded[1:-1, 2:])
+            work = np.where(known, self.logWeight, neighbours)
+        return JointWeightTable(work, self.tailSlopeD, self.tailSlopeQ, self.hardWall)
