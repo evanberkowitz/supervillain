@@ -331,3 +331,38 @@ def test_joint_tuner_runs_and_seeds_from_the_marginals():
     for h in t.history:
         assert h['histogram'].shape == (7, 6)     # 2D, not a marginal
         assert 0.0 <= h['vacuumFraction'] <= 1.0
+
+
+def test_joint_tuner_boost_floor_and_return_counting():
+    r"""The two features the overnight campaign needed.
+
+    ``boostFloor`` sets the *minimum* correction a reachable-but-unvisited cell gets.
+    Without it such a cell receives ``update[seen].max()`` --- the largest correction any
+    **visited** cell got --- so the frontier crawls at $O(1)$ per iteration while a 2D
+    table needs $O(10^2)$ log units of range, which is exactly why 60 iterations left the
+    vacuum unvisited under a table already favouring it by $e^{134}$.
+
+    And the history must carry ``returns`` (entries into the joint vacuum) separately from
+    the dwell fraction: dwell says how long the chain sits there, returns say how often it
+    gets back, and it is the second that sets the emission rate.
+    """
+    from supervillain.generator.no_intersection import JointWeightTuner
+    S = supervillain.action.NoIntersections(Lattice(4, 4), kappa=0.2)
+    wD, wQ = SectorWeights.fugacity(0.2, cap=6), Fugacity(ETA, cap=5)
+
+    kw = dict(capD=6, capQ=5, iterations=3, ticks=60, stride=20, seed=3,
+              targetFraction=0.0, smoothTable=0.0, smoothFinal=0.0)
+    lo = JointWeightTuner(S, wD, wQ, boostFloor=0.0, **kw)
+    hi = JointWeightTuner(S, wD, wQ, boostFloor=25.0, **kw)
+    assert lo.boostFloor == 0.0 and hi.boostFloor == 25.0
+    a, b = lo.tune(log=lambda *_: None), hi.tune(log=lambda *_: None)
+
+    # A large floor must push the table further -- more range, in the direction that
+    # opens the window.  If boostFloor were inert the two would be identical.
+    spread = lambda t: float(t.logWeight.max() - t.logWeight.min())
+    assert spread(b) > spread(a), f'boostFloor did not widen the table: {spread(b)} vs {spread(a)}'
+
+    for h in lo.history:
+        assert 'returns' in h and h['returns'] >= 0
+        # a return is an ENTRY, so there can never be more entries than dwell samples
+        assert h['returns'] <= h['vacuumFraction'] * lo.ticks + 1
