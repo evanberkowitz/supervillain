@@ -521,7 +521,8 @@ class JointWeightTuner(SectorWeightTuner):
     axis = '(D,Q)'
 
     def __init__(self, S, sectorWeights, chargeWeights, capD, capQ,
-                 boostFloor=0.0, **kw):
+                 boostFloor=0.0, rangeStart=None, rangeEnd=None,
+                 targetDecay=0.0, targetDecayQ=None, targetDecayQEnd=None, **kw):
         kw.pop('openSurfaceFugacity', None)
         # boostFloor: the MINIMUM correction a reachable-but-unvisited cell receives.
         # Without it such a cell gets `update[seen].max()` -- the largest correction any
@@ -532,6 +533,69 @@ class JointWeightTuner(SectorWeightTuner):
         # Wang--Landau in spirit: the frontier gets a generous fixed step.  0 keeps the
         # 1D tuner's behaviour exactly.
         self.boostFloor = float(boostFloor)
+        # ADIABATIC RANGE RAMP (Evan).  The failure mode this cures: iteration 0 samples
+        # under the production seed and is vacuum-rich, the first update expands the
+        # frontier, the chain is pulled out and never returns -- so the vacuum is never
+        # re-sampled and the table can never learn to bring it back.  Measured at 8x12:
+        # 841 -> 55 -> 0 vacuum returns in three iterations.
+        #
+        # The cure is to stop the table running away from the chain.  After each update
+        # clip log w to [-R, 0], with R ramped from `rangeStart` to `rangeEnd` across the
+        # run.  Small R is a nearly-uniform table -- the chain behaves like production and
+        # samples the vacuum well; growing R lets the far cells be suppressed a little
+        # more each iteration, so the chain is always in equilibrium with a table only
+        # slightly more aggressive than the one it just equilibrated to.
+        #
+        # This is the adiabatic version of the `alpha` knob, without alpha's defect of
+        # presupposing a converged target table to interpolate towards: here the target
+        # IS the table being learned.  The upper clip at 0 encodes the one thing we know
+        # a priori -- the vacuum should be the most-weighted cell, since it is where
+        # emission happens.  None disables the ramp entirely.
+        self.rangeStart = None if rangeStart is None else float(rangeStart)
+        self.rangeEnd = None if rangeEnd is None else float(rangeEnd)
+        # TARGET DISTRIBUTION (Evan).  Flatness is the wrong objective here, and not by a
+        # little: a flat target over (D, Q) has no interior fixed point, because the
+        # density of states keeps growing outward, so the tuner keeps pulling the chain
+        # away from the vacuum -- measured, at cap 108 the chain still spent 15% of its
+        # time beyond D = 108.  Worse, the vacuum is a single extreme cell that flatness
+        # deliberately visits only 1/N_cells of the time, and the chain loses it entirely.
+        #
+        # So target a MILD PREFERENCE for the vacuum instead of flatness:
+        #
+        #     pi_target(D, Q)  proportional to  exp(-targetDecay * (D + Q)),
+        #
+        # which is normalizable on the unbounded domain (a fixed point exists), has its
+        # maximum at (0,0) (recurrence, hence emission, by construction), and still
+        # reaches the corner at a known, tunable suppression -- at targetDecay = 0.15 the
+        # wrapping-sheet corner D+Q ~ 28 sits at 1.5% of the vacuum's occupancy, which is
+        # perfectly samplable.  targetDecay = 0 recovers exact flatness.
+        #
+        # The update generalizes accordingly: pi ~ Omega*w = target, and H ~ Omega*w, so
+        # log w_new = log w + log target - log H.  With a constant target that is the
+        # familiar -log(H/mean).
+        self.targetDecay = float(targetDecay)
+        # A LOOSENED FUGACITY, not flatness (Evan).  The two axes are not alike and should
+        # not get the same target.  Production already achieves a FLAT D-distribution (that
+        # is what its w(D) table is for) and returns to the vacuum perfectly well from
+        # D = 83 -- 2555 vacuum visits in 2e8 moves at cap 120.  What production does NOT
+        # flatten is Q: the fugacity gives log w = Q log(eta_q), a decay of
+        # lambda_Q = -log(0.012) = 4.42 per intersection, and that steep restoring force is
+        # what keeps the chain near Q = 0 and hence able to return.
+        #
+        # Flattening Q removes that force entirely, which is what killed every run here.
+        # (My first attempt at a decaying target used lambda = 0.15-0.30 -- 15x to 29x
+        # LOOSER than the fugacity, i.e. essentially flat.  It failed for exactly this
+        # reason.)  So: target flat in D, and in Q a *loosened* fugacity,
+        #
+        #     pi_target(D, Q)  proportional to  exp(-lambda_Q(t) * Q),
+        #
+        # with lambda_Q ramped from the production value down to a chosen floor.  At
+        # lambda_Q = 1 reaching Q = 16 costs 16 instead of 71 -- an e^55 relaxation -- while
+        # <Q>_target stays 0.58, so the vacuum remains the modal state and emission
+        # survives.  None keeps the isotropic `targetDecay` behaviour.
+        self.targetDecayQ = None if targetDecayQ is None else float(targetDecayQ)
+        self.targetDecayQEnd = (self.targetDecayQ if targetDecayQEnd is None
+                                else float(targetDecayQEnd))
         super().__init__(S, getattr(chargeWeights, 'eta', 0.3), capD, **kw)
         self.sectorWeights = sectorWeights
         self.chargeWeights = chargeWeights
@@ -613,7 +677,17 @@ class JointWeightTuner(SectorWeightTuner):
             grew = bool((~everSeen & (hist > 0)).any())
             everSeen |= hist > 0
             sinceExpansion = 0 if grew else sinceExpansion + 1
-            reach = hist[everSeen]
+            # Success is now "H/target is constant", not "H is constant".
+            if self.targetDecayQ is not None:
+                frac = it / max(1, self.iterations - 1)
+                lamQ = self.targetDecayQ + frac * (self.targetDecayQEnd - self.targetDecayQ)
+                logTarget = -lamQ * np.broadcast_to(np.arange(self.capQ + 1),
+                                                    (self.capD + 1, self.capQ + 1)).copy()
+            else:
+                logTarget = -self.targetDecay * (np.add.outer(np.arange(self.capD + 1),
+                                                              np.arange(self.capQ + 1)))
+            ratio = hist / np.exp(logTarget - logTarget.max())
+            reach = ratio[everSeen]
             flat = float(reach.max() / reach.min()) if (reach > 0).all() else np.inf
             self.history.append(dict(
                 iteration=it, flatness=flat, histogram=hist.copy(),
@@ -637,14 +711,21 @@ class JointWeightTuner(SectorWeightTuner):
             # boosting those forever is what makes a multicanonical table oscillate.
             update = np.zeros_like(weights.logWeight)
             seen = hist > 0
-            update[seen] = -np.log(hist[seen] / hist[seen].mean())
+            lt = logTarget[seen]
+            update[seen] = ((lt - lt.mean())
+                            - (np.log(hist[seen]) - np.log(hist[seen]).mean()))
             missed = everSeen & ~seen
             if missed.any():
                 base = float(update[seen].max()) if seen.any() else 1.0
                 update[missed] = max(base, self.boostFloor)
             step = self.damping / (1.0 + sinceExpansion / 3.0)
-            weights = JointWeightTable(weights.logWeight + step * update,
-                                       weights.tailSlopeD, weights.tailSlopeQ,
+            newLog = weights.logWeight + step * update
+            if self.rangeStart is not None:
+                frac = it / max(1, self.iterations - 1)
+                R = self.rangeStart + frac * ((self.rangeEnd if self.rangeEnd is not None
+                                               else self.rangeStart) - self.rangeStart)
+                newLog = np.clip(newLog - newLog[0, 0], -abs(R), 0.0)
+            weights = JointWeightTable(newLog, weights.tailSlopeD, weights.tailSlopeQ,
                                        weights.hardWall)
             # Fill the unreached cells EVERY iteration, not only at the end as the 1D
             # tuner does.  In 1D the unvisited set is a few bins behind the frontier; in
