@@ -1496,6 +1496,152 @@ def wedge(a, b):
 
 
 # ---------------------------------------------------------------------------
+# Lattice symmetries  translate / reflect / permute
+# ---------------------------------------------------------------------------
+
+def _negate_axes(a, flips, D):
+    r"""Map $x_\mu \to -x_\mu \bmod N$ on each lattice axis in ``flips``.
+
+    ``a`` may carry any number of leading component axes; the trailing $D$ are
+    the lattice.  Index $j \to (-j) \bmod N$ is a reverse followed by a roll of
+    one.
+    """
+    lead = a.ndim - D
+    for mu in flips:
+        axis = lead + mu
+        a = np.roll(np.flip(a, axis=axis), 1, axis=axis)
+    return a
+
+
+def translate(f, shift):
+    r"""
+    Translate a form: $\omega'(x) = \omega(x - a)$.
+
+    .. note ::
+        Degree-independent --- a translation neither mixes components nor
+        introduces a sign, so every degree is the same roll.
+
+    Parameters
+    ----------
+    f : Form
+        Any degree.
+    shift : sequence of int
+        One integer per direction, $a$.
+
+    Returns
+    -------
+    Form
+        Same degree as ``f``.
+    """
+    return Form(push(np.asarray(f), tuple(int(s) for s in shift)),
+                degree=f.degree, lattice=f.lattice)
+
+
+def reflect(f, flips):
+    r"""
+    Negate the axes in ``flips``: a reflection through the origin's coordinate
+    hyperplanes.
+
+    A $p$-form component labelled by the sorted tuple $I$ keeps its label ---
+    sign flips do not permute directions --- but picks up an orientation sign
+    and a base-point shift, because a cell whose edge runs in a flipped
+    direction lands on the far side of its own image:
+
+    .. math ::
+
+        \omega'_I(y) = (-1)^{|I \cap F|}\;
+        \omega_I\!\left(R\!\left(y + \sum_{\mu \in I \cap F} \hat e_\mu\right)\right)
+
+    where $R$ negates every coordinate in $F$ modulo $N$.
+
+    .. note ::
+        In :ref:`interlaced <interlaced>` coordinates both cases collapse to a
+        single negation $\xi_\mu \to -\xi_\mu$, which is where this rule is
+        derived --- see :func:`supervillain.lattice.interlaced.reflect` and
+        :ref:`the symmetry section <space-group>` below.
+
+    Parameters
+    ----------
+    f : Form
+        Any degree.
+    flips : sequence of int
+        The axes to negate, $F$.
+
+    Returns
+    -------
+    Form
+        Same degree as ``f``.
+    """
+    lattice, degree, D = f.lattice, f.degree, f.lattice.D
+    a, F = np.asarray(f), set(int(m) for m in flips)
+    if degree == 0:
+        return Form(_negate_axes(a, F, D), degree=0, lattice=lattice)
+    out = np.empty_like(a)
+    for I, source in lattice.comp_index[degree].items():
+        both = [m for m in I if m in F]
+        out[source] = (-1) ** len(both) * pull(
+            _negate_axes(a[source], F, D),
+            tuple(1 if m in both else 0 for m in range(D)))
+    return Form(out, degree=degree, lattice=lattice)
+
+
+def permute(f, perm):
+    r"""
+    Relabel the axes by the permutation ``perm``, so axis $\mu$ becomes axis
+    ``perm[mu]``.
+
+    A $p$-form's components are labelled by SORTED direction tuples, so a
+    permutation does two things at once: it relabels which tuple each
+    component carries, and --- because $\pi(I)$ generally is not sorted ---
+    multiplies by the sign of the sort:
+
+    .. math ::
+
+        \omega'_{\pi(I)}(Rx) = \omega_I(x) \;\Longrightarrow\;
+        \omega'_{\mathrm{sort}(\pi(I))} = \varepsilon\, \omega_I
+
+    .. warning ::
+        The sign belongs at the DESTINATION component $\mathrm{sort}(\pi(I))$,
+        not at $I$.  The two coincide whenever $\pi(I)$ is already sorted,
+        which is always true in $D = 2$ --- so a two-dimensional test alone
+        cannot distinguish the correct code from this bug.
+
+    .. note ::
+        The lattice axes and the component index are pulled back by the SAME
+        $\pi^{-1}$.  Using $\pi$ for one and $\pi^{-1}$ for the other produces
+        a configuration that is not a relabelling of the original at all.
+
+    Parameters
+    ----------
+    f : Form
+        Any degree.
+    perm : sequence of int
+        A permutation of ``range(D)``; ``perm[mu]`` is the image of axis
+        ``mu``.
+
+    Returns
+    -------
+    Form
+        Same degree as ``f``.
+    """
+    lattice, degree, D = f.lattice, f.degree, f.lattice.D
+    perm = tuple(int(m) for m in perm)
+    inverse = np.argsort(np.asarray(perm))
+    a = np.asarray(f)
+    lead = a.ndim - D
+    spatial = np.transpose(
+        a, axes=tuple(range(lead)) + tuple(lead + int(i) for i in inverse))
+    if degree == 0:
+        return Form(spatial, degree=0, lattice=lattice)
+    out = np.empty_like(a)
+    for I, source in lattice.comp_index[degree].items():
+        image = [perm[m] for m in I]
+        destination = lattice.comp_index[degree][tuple(sorted(image))]
+        out[destination] = _perm_sign(image) * spatial[source]
+    return Form(out, degree=degree, lattice=lattice)
+
+
+# ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
 
