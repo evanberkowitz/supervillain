@@ -443,6 +443,30 @@ def log_sector_weight(D, table, tailSlope, hardWall):
 
 
 @njit(cache=True)
+def log_joint_weight(D, Q, table, tailSlopeD, tailSlopeQ, hardWall):
+    r"""log w(D, Q) -- the compiled twin of ``JointWeightTable.__call__``.
+
+    The factorized roster prices the two counts independently, which cannot boost the
+    CORNER (large D and large Q together) where a torus-wrapping sheet lives.  This
+    reads one 2D table instead of two 1D ones.  Outside the window the two linear tails
+    apply, or -inf under a hard wall -- still a genuine function of (D, Q), so detailed
+    balance holds and the reverse of a forbidden move is equally forbidden.
+    """
+    capD = table.shape[0] - 1
+    capQ = table.shape[1] - 1
+    if hardWall and (D > capD or Q > capQ):
+        return -np.inf
+    d = D if D <= capD else capD
+    q = Q if Q <= capQ else capQ
+    out = table[d, q]
+    if D > capD:
+        out += (D - capD) * tailSlopeD
+    if Q > capQ:
+        out += (Q - capQ) * tailSlopeQ
+    return out
+
+
+@njit(cache=True)
 def sep2_flat(i0, i1, N):
     r"""Squared minimal-image separation between two flat 4D cell indices.
 
@@ -540,6 +564,7 @@ def gas_batch(nmoves, p_cob, F, dF, q, G, g0, counts, ctr,
                   cob_pc, cob_off, cob_sign, Kcob, Harr,
                   windingSensitivity, winding, periods, quantum, windingCoefficient,
                   edgeTolerance, windowCap, sectorLogWeight, sectorTailSlope, sectorHardWall,
+                  jointLogWeight, jointTailSlopeD, jointTailSlopeQ, jointHardWall,
                   targetFraction, revPc, revOff, openList, openPos,
                   pairUmbrellaLog, chargeList, chargePos, affIdx, affNew, postList,
                   affIdxApplied):
@@ -557,7 +582,12 @@ def gas_batch(nmoves, p_cob, F, dF, q, G, g0, counts, ctr,
     price is linear in the exponent, so it can shift the Q distribution but never broaden
     it, and Q is the axis a torus-wrapping sheet's saddle actually lives on.  A
     ``Fugacity`` reproduces the old scalar pricing exactly, so the migration is testable
-    rather than a leap."""
+    rather than a leap.
+
+    ``jointLogWeight`` is the 2D table w(D, Q).  When it is EMPTY (size 0) the two
+    factorized tables above are used and every existing run is bit-identical; when it is
+    present it replaces both, because a product of per-axis prices cannot boost the
+    corner where large D and large Q occur together."""
     # Occupancy list of open cells, so the targeted draw is O(1) instead of an O(V) scan.
     # Rebuilt once per batch (O(4V), negligible against thousands of moves) and maintained
     # incrementally on every accepted toggle by swapping with the last entry.
@@ -685,10 +715,17 @@ def gas_batch(nmoves, p_cob, F, dF, q, G, g0, counts, ctr,
                         nv = q0 + D * vv[u]
                         dQ += (1 if nv != 0 else 0) - (1 if q0 != 0 else 0)
                     lw = (-twopi2k * (2.0 * D * L + D * D * Kc)
-                          + (log_sector_weight(counts[1] + dQ, chargeLogWeight,
-                                               chargeTailSlope, chargeHardWall)
-                             - log_sector_weight(counts[1], chargeLogWeight,
-                                                 chargeTailSlope, chargeHardWall))
+                          + ((log_joint_weight(counts[0], counts[1] + dQ, jointLogWeight,
+                                               jointTailSlopeD, jointTailSlopeQ,
+                                               jointHardWall)
+                              - log_joint_weight(counts[0], counts[1], jointLogWeight,
+                                                 jointTailSlopeD, jointTailSlopeQ,
+                                                 jointHardWall))
+                             if jointLogWeight.size > 0 else
+                             (log_sector_weight(counts[1] + dQ, chargeLogWeight,
+                                                chargeTailSlope, chargeHardWall)
+                              - log_sector_weight(counts[1], chargeLogWeight,
+                                                  chargeTailSlope, chargeHardWall)))
                           + (log_winding_1d(winding[0] + D * shift0, quantum, windingCoefficient)
                              + log_winding_1d(winding[1] + D * shift1, quantum, windingCoefficient)
                              + log_winding_1d(winding[2] + D * shift2, quantum, windingCoefficient)
@@ -866,10 +903,19 @@ def gas_batch(nmoves, p_cob, F, dF, q, G, g0, counts, ctr,
                         v1 = affNew[kk]
                 if (v0 == 1 and v1 == -1) or (v0 == -1 and v1 == 1):
                     logUmbAfter = pairUmbrellaLog[sep2_flat(postList[0], postList[1], N)]
-            dLogCharge = (log_sector_weight(counts[1] + dQ, chargeLogWeight,
-                                           chargeTailSlope, chargeHardWall)
-                          - log_sector_weight(counts[1], chargeLogWeight,
-                                              chargeTailSlope, chargeHardWall))
+            if jointLogWeight.size > 0:
+                dLogSector = 0.0
+                dLogCharge = (log_joint_weight(counts[0] + dD, counts[1] + dQ,
+                                              jointLogWeight, jointTailSlopeD,
+                                              jointTailSlopeQ, jointHardWall)
+                              - log_joint_weight(counts[0], counts[1], jointLogWeight,
+                                                 jointTailSlopeD, jointTailSlopeQ,
+                                                 jointHardWall))
+            else:
+                dLogCharge = (log_sector_weight(counts[1] + dQ, chargeLogWeight,
+                                               chargeTailSlope, chargeHardWall)
+                              - log_sector_weight(counts[1], chargeLogWeight,
+                                                  chargeTailSlope, chargeHardWall))
             lnA = (-twopi2k * dC + dLogSector + dLogCharge + dLogWinding + dLogProposal
                    + logUmbAfter - logUmbBefore)
             if np.log(np.random.random()) < lnA:

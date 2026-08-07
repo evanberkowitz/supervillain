@@ -34,7 +34,7 @@ import numpy as np
 
 from .gas import SurfaceWormGas
 from .state import FState
-from .pricing import Fugacity
+from .pricing import Fugacity, JointWeightTable
 from .weights import SectorWeights, PairUmbrella
 
 
@@ -149,7 +149,15 @@ class SectorWeightTuner:
 
     def _gas_kwargs(self, weights):
         r"""How to build the internal gas with ``weights`` on :attr:`axis` and the
-        *other* axis held at whatever this tuner was given."""
+        *other* axis held at whatever this tuner was given.
+
+        The other axis may be pinned to a learned ``chargeWeights`` table rather than a
+        fugacity, which is what the **alternation** of the two marginals needs: each
+        tuner must see the other's current table, or the two halves are each tuned
+        against a background the composed sampler never has.
+        """
+        if self.chargeWeights is not None:
+            return dict(sectorWeights=weights, chargeWeights=self.chargeWeights)
         return dict(sectorWeights=weights,
                     intersectionFugacity=self.intersectionFugacity,
                     sectorWeightCap=self.cap)
@@ -164,7 +172,7 @@ class SectorWeightTuner:
                  targetFlatness=1.5, minimumReachable=3, pCob=0.6,
                  targetFraction=0.8, seed=None, gasFactory=None,
                  seedWeights=None, smoothUpdate=2.0, smoothTable=0.0, smoothFinal=2.0,
-                 warmStart=None):
+                 warmStart=None, chargeWeights=None):
         # gasFactory: a SurfaceWormGas-compatible callable (e.g. a subclass, or
         # functools.partial with extra knobs preset).  A tuner must tune the
         # sampler that will actually run -- a table tuned against plain-SWG
@@ -179,6 +187,10 @@ class SectorWeightTuner:
         # physics".  Inside the hysteresis band, or at any (N, kappa) where
         # nucleation is slow, hand this an equilibrated configuration.
         self.warmStart = warmStart
+        # chargeWeights: pin the OTHER axis to a learned table instead of the bare
+        # intersectionFugacity.  Only meaningful when alternating the two marginals;
+        # None keeps the historical behaviour exactly.
+        self.chargeWeights = chargeWeights
         # seedWeights: an initial table to flatten FROM, instead of the bare
         # fugacity table.  Wide-range (large-cap) flattening is the standard
         # multicanonical range problem; staging cap upward, seeding each stage
@@ -465,6 +477,152 @@ class ChargeWeightTuner(SectorWeightTuner):
 
     def _seed_table(self):
         return Fugacity(self.intersectionFugacity, cap=self.cap)
+
+
+class JointWeightTuner(SectorWeightTuner):
+    r"""Learn a joint $w(D, Q)$ by 2D histogram flattening.
+
+    The factorized roster cannot reach the object that matters.  Measured
+    (q-pricing-2026-08-06 findings 6--8): alternating the two marginals **stalls**, and
+    not for want of tuning care --- small-step alternation and a starved coboundary move
+    both fail the same way.  Both marginal tables anchor $\log w(0) = 0$ and each
+    flattens its own axis against that zero, so their product over-favours the corner
+    they both call cheapest, $(0,0)$, and neither tuner can see it because each measures
+    one axis.  Once the chain is pinned at $D = 0$ the increment $-\log(H/\bar H)$ over a
+    single occupied bin is identically zero and the $D$ table comes back byte-identical
+    forever.  Flattening two marginals flattens the joint only if the counts are
+    independent, and they are not: opening a surface at sheet occupancy $\approx0.44$
+    *makes* intersections.
+
+    So this flattens the 2D histogram directly, and the target is the **corner**: a
+    torus-wrapping sheet lives at $D \approx 12$, $Q \approx 16$ *together*.
+
+    Seeding is :meth:`~.pricing.JointWeightTable.from_marginals`, so iteration 0 **is**
+    the factorized sampler and the joint's introduction is testable rather than a leap.
+
+    .. warning ::
+        The cost of the joint is bins: $(\text{cap}_D{+}1)(\text{cap}_Q{+}1)$ against
+        $\text{cap}_D + \text{cap}_Q + 2$, filled from the same budget.  Expect to need
+        far more ticks per iteration than either marginal tuner, and watch
+        ``vacuumFraction`` --- emission is gated on $D = Q = 0$, so a table that opens
+        both axes and does not come back is worse than the fugacities it replaced.
+
+    Parameters
+    ----------
+    S: supervillain.action.NoIntersections
+    sectorWeights, chargeWeights: the marginal prices to seed the joint from.
+    capD, capQ: int
+        The window the table resolves.
+    **kw:
+        As :class:`SectorWeightTuner`, except that ``smoothTable`` is the 2D smoothing
+        length (see :meth:`~.pricing.JointWeightTable.smoothed`).
+    """
+
+    axis = '(D,Q)'
+
+    def __init__(self, S, sectorWeights, chargeWeights, capD, capQ, **kw):
+        kw.pop('openSurfaceFugacity', None)
+        super().__init__(S, getattr(chargeWeights, 'eta', 0.3), capD, **kw)
+        self.sectorWeights = sectorWeights
+        self.chargeWeights = chargeWeights
+        self.capD = int(capD)
+        self.capQ = int(capQ)
+
+    def _seed_table(self):
+        return JointWeightTable.from_marginals(self.sectorWeights, self.chargeWeights,
+                                               capD=self.capD, capQ=self.capQ)
+
+    def _set_price(self, gas, weights):
+        return gas.setJointWeights(weights)
+
+    def _gas_kwargs(self, weights):
+        return dict(sectorWeights=self.sectorWeights, chargeWeights=self.chargeWeights,
+                    jointWeights=weights)
+
+    def visit_histogram(self, gas, state, ticks, stride, cap, pCob=0.6):
+        r"""2D visit counts over $(D, Q)$, plus how many samples fell outside the window
+        and how many sat in the joint vacuum."""
+        hist = np.zeros((self.capD + 1, self.capQ + 1), dtype=np.int64)
+        beyond = vacuum = 0
+        for _ in range(ticks):
+            gas.sweep(state, stride, pCob=pCob)
+            D, Q = int(state.D), int(state.Q)
+            if D <= self.capD and Q <= self.capQ:
+                hist[D, Q] += 1
+            else:
+                beyond += 1
+            vacuum += (D == 0 and Q == 0)
+        return hist, beyond, vacuum
+
+    def tune(self, log=print):
+        r"""Flatten the 2D histogram; return the learned :class:`~.pricing.JointWeightTable`.
+
+        The same loop as :meth:`SectorWeightTuner.tune` with the histogram, the learned
+        reachable set and the smoothing all one dimension larger.  The convergence test
+        is deliberately the same: flatness over the *ever-reachable* cells, which is
+        ``inf`` while any of them goes unvisited --- and in 2D that is a much stronger
+        demand, so expect it to be the budget that binds.
+        """
+        weights = self.seedWeights if self.seedWeights is not None else self._seed_table()
+        self.history = []
+        everSeen = np.zeros((self.capD + 1, self.capQ + 1), dtype=bool)
+        sinceExpansion = 0
+
+        gas = self.gasFactory(self.S, targetFraction=self.targetFraction,
+                              measure=False, seed=self.seed,
+                              rng=np.random.default_rng(self.seed),
+                              **self._gas_kwargs(weights))
+        state = (FState.from_configuration(self.S, self.warmStart)
+                 if self.warmStart is not None else FState(self.S))
+
+        for it in range(self.iterations):
+            self._set_price(gas, weights)
+            t0 = time.time()
+            gas.sweep(state, 5 * self.stride, pCob=self.pCob)
+            hist, beyond, vacuum = self.visit_histogram(gas, state, self.ticks,
+                                                        self.stride, self.capD,
+                                                        pCob=self.pCob)
+            grew = bool((~everSeen & (hist > 0)).any())
+            everSeen |= hist > 0
+            sinceExpansion = 0 if grew else sinceExpansion + 1
+            reach = hist[everSeen]
+            flat = float(reach.max() / reach.min()) if (reach > 0).all() else np.inf
+            self.history.append(dict(
+                iteration=it, flatness=flat, histogram=hist.copy(),
+                logWeight=weights.logWeight.copy(), beyond=beyond,
+                visited=int((hist > 0).sum()), reachable=int(everSeen.sum()),
+                vacuumFraction=vacuum / max(1, self.ticks), seconds=time.time() - t0))
+            log(f'  iter {it:>3d}  occupied {int((hist > 0).sum()):>4d}/'
+                f'{int(everSeen.sum()):>4d} reachable  beyond {beyond:>5d}  '
+                f'flatness {flat:>9.3g}  vacuum {vacuum / max(1, self.ticks):>6.3f}  '
+                f'({time.time() - t0:.0f}s)')
+            if flat < self.targetFlatness and int(everSeen.sum()) >= self.minimumReachable \
+                    and sinceExpansion >= 2:
+                log(f'  converged: flatness {flat:.3g} over {int(everSeen.sum())} cells')
+                break
+
+            # log w -= log H on the visited cells; reachable-but-unvisited cells get the
+            # largest correction any visited cell got.  NEVER cells never seen at all --
+            # boosting those forever is what makes a multicanonical table oscillate.
+            update = np.zeros_like(weights.logWeight)
+            seen = hist > 0
+            update[seen] = -np.log(hist[seen] / hist[seen].mean())
+            missed = everSeen & ~seen
+            if missed.any():
+                update[missed] = update[seen].max() if seen.any() else 1.0
+            step = self.damping / (1.0 + sinceExpansion / 3.0)
+            weights = JointWeightTable(weights.logWeight + step * update,
+                                       weights.tailSlopeD, weights.tailSlopeQ,
+                                       weights.hardWall)
+            if self.smoothTable:
+                weights = weights.smoothed(length=self.smoothTable, reachable=everSeen)
+
+        if self.smoothFinal:
+            weights = weights.smoothed(length=self.smoothFinal, reachable=everSeen)
+        unseen = int((~everSeen).sum())
+        if unseen:
+            log(f'  (D,Q) cells never visited: {unseen} of {everSeen.size}')
+        return weights
 
 
 class _OffsetBisector:

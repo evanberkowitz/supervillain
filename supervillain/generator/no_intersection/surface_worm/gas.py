@@ -67,7 +67,7 @@ from .reconstruct import reconstruct_n, draw_phi
 from .staircase import primitive_2form
 from .state import FState
 from .weights import SectorWeights, PairUmbrella, pair_separation_squared
-from .pricing import Fugacity
+from .pricing import Fugacity, JointWeightTable
 
 
 class SurfaceWormGas(ReadWriteable, Generator):
@@ -168,7 +168,7 @@ class SurfaceWormGas(ReadWriteable, Generator):
 
     def __init__(self, S, openSurfaceFugacity=None, sectorWeights=None,
                  intersectionFugacity=None, chargeWeights=None, chargeWeightCap=64,
-                 sectorWeightCap=64, targetFraction=0.0,
+                 jointWeights=None, sectorWeightCap=64, targetFraction=0.0,
                  pairUmbrella=None, ticksPerStep=1000, stride=200, pCob=0.5,
                  maxWaitTicks=200000, hardWaitFactor=10, measure=True,
                  seed=None, rng=None, absoluteChargeCap=64, squaredChargeCap=64,
@@ -209,6 +209,12 @@ class SurfaceWormGas(ReadWriteable, Generator):
         self.intersectionFugacity = getattr(self.chargeWeights, 'eta', None)
         (self._chargeLogWeight, self._chargeTailSlope,
          self._chargeHardWall) = self.chargeWeights.arrays()
+        # A JOINT price on (D, Q), which -- unlike the factorized pair above -- can boost
+        # the corner where both counts are large together.  None keeps the factorized
+        # roster and every existing run bit-identical; the kernel branches on an empty
+        # array, so there is one compiled path and no duplicated acceptance.
+        self.jointWeights = jointWeights
+        self._set_joint_arrays()
         # Sector weight on the open-surface count D.  Defaults to the bare fugacity
         # written as a table, so an untuned gas is EXACTLY the old sampler -- which is
         # what makes the table's introduction testable rather than a leap.
@@ -421,8 +427,10 @@ class SurfaceWormGas(ReadWriteable, Generator):
         qg = np.asarray(wedge(f, f)).astype(np.int64).reshape((N,) * 4)
         chargeSites = {tuple(int(v) for v in h): int(qg[tuple(h)]) for h in np.argwhere(qg != 0)}
         return (-2 * np.pi ** 2 * self.kappa * C
-                + float(self.sectorWeights(int((dFg != 0).sum())))
-                + float(self.chargeWeights(int((qg != 0).sum())))
+                + (float(self.jointWeights(int((dFg != 0).sum()), int((qg != 0).sum())))
+                   if self.jointWeights is not None
+                   else float(self.sectorWeights(int((dFg != 0).sum())))
+                        + float(self.chargeWeights(int((qg != 0).sum()))))
                 + self._log_winding_weight(self.winding_of(F))
                 + self.pairUmbrella.logW(pair_separation_squared(chargeSites, N)))
 
@@ -528,7 +536,12 @@ class SurfaceWormGas(ReadWriteable, Generator):
         # Same story as dLogSector one axis over: read the table at the OLD and NEW
         # total Q rather than multiplying the increment by a constant.  Identical for a
         # Fugacity, since log w is then linear in Q.
-        dLogCharge = self.chargeWeights.change(state.Q, state.Q + dQ)
+        if self.jointWeights is not None:
+            dLogSector = 0.0
+            dLogCharge = self.jointWeights.change(state.D, state.Q,
+                                                  state.D + dD, state.Q + dQ)
+        else:
+            dLogCharge = self.chargeWeights.change(state.Q, state.Q + dQ)
         lnA = (-twopi2k * dC + dLogSector + dLogCharge + dLogWinding + dLogProposal
                + dLogUmbrella)
         return (lnA, dD, dQ, cube_new, q_new, idx)
@@ -702,7 +715,9 @@ class SurfaceWormGas(ReadWriteable, Generator):
                 for (h, q0, dq1h) in aff:
                     dQ += (1 if q0 + Delta * dq1h != 0 else 0) - (1 if q0 != 0 else 0)
                 logw[i] = (-twopi2k * (2 * Delta * L + Delta * Delta * Kc)
-                           + self.chargeWeights.change(state.Q, state.Q + dQ)
+                           + (self.jointWeights.change(state.D, state.Q, state.D, state.Q + dQ)
+                              if self.jointWeights is not None
+                              else self.chargeWeights.change(state.Q, state.Q + dQ))
                            + self._log_winding_weight(state.winding + Delta * shift) - base
                            + self._coboundary_umbrella_log_weight(state, aff, int(Delta)))
             edge = np.exp(max(logw[0], logw[-1]) - logw.max())
@@ -869,6 +884,8 @@ class SurfaceWormGas(ReadWriteable, Generator):
                       self.windingSensitivity, winding, periods, self.N ** 3,
                       self._windingCoefficient, 1e-14, 256,
                       self._sectorLogWeight, self._sectorTailSlope, self._sectorHardWall,
+                      self._jointLogWeight, self._jointTailSlopeD,
+                      self._jointTailSlopeQ, self._jointHardWall,
                       self.targetFraction, self._nb[-2], self._nb[-1],
                       self._openList, self._openPos,
                       np.ascontiguousarray(self.pairUmbrella.logWeight),
@@ -972,6 +989,40 @@ class SurfaceWormGas(ReadWriteable, Generator):
         """
         self.sectorWeights = weights
         self._sectorLogWeight, self._sectorTailSlope, self._sectorHardWall = weights.arrays()
+        return self
+
+    def _set_joint_arrays(self):
+        r"""Refresh the compiled kernel's view of the joint price.  An empty array is the
+        sentinel for "factorized"; the kernel tests ``size > 0``."""
+        if self.jointWeights is None:
+            self._jointLogWeight = np.zeros((0, 0))
+            self._jointTailSlopeD = self._jointTailSlopeQ = 0.0
+            self._jointHardWall = False
+        else:
+            (self._jointLogWeight, self._jointTailSlopeD,
+             self._jointTailSlopeQ, self._jointHardWall) = self.jointWeights.arrays()
+
+    def setJointWeights(self, weights):
+        r"""Install (or, with ``None``, remove) a joint price on $(D, Q)$, the way
+        :meth:`setSectorWeights` and :meth:`setChargeWeights` swap the factorized ones ---
+        so a joint tuner can carry the gas and its state across iterations.
+
+        While a joint table is installed it **replaces both** factorized prices; they are
+        kept on the object for reporting and for seeding
+        (:meth:`~.pricing.JointWeightTable.from_marginals`), but nothing reads them in the
+        acceptance.
+
+        Parameters
+        ----------
+        weights: supervillain.generator.no_intersection.surface_worm.pricing.JointWeightTable or None
+
+        Returns
+        -------
+        SurfaceWormGas
+            ``self``, for chaining.
+        """
+        self.jointWeights = weights
+        self._set_joint_arrays()
         return self
 
     def setChargeWeights(self, weights):

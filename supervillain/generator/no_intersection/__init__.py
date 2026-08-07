@@ -17,6 +17,8 @@ from .wrapping import WrappingLoopUpdate
 from .planar import PlanarFluxUpdate
 from .scattershot import ScattershotUpdate
 from .surface_worm import (SurfaceWormGas, SectorWeightTuner, ChargeWeightTuner,
+                           JointWeightTuner,
+                           JointWeightTable,
                            PairUmbrellaTuner, TransportTuner)
 
 import supervillain.generator.villain as _villain

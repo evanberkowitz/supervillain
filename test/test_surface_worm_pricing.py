@@ -222,3 +222,112 @@ def test_charge_tuner_requires_a_pinned_open_surface_table():
     S = supervillain.action.NoIntersections(Lattice(4, 4), kappa=0.2)
     with pytest.raises(TypeError):
         ChargeWeightTuner(S, ETA, cap=6)
+
+
+# ----------------------------------------------------------------- joint w(D, Q)
+
+def _joint_gas(joint, **kw):
+    S = supervillain.action.NoIntersections(Lattice(4, 4), kappa=0.2)
+    return S, SurfaceWormGas(S, openSurfaceFugacity=0.2, intersectionFugacity=ETA,
+                             jointWeights=joint, sectorWeightCap=512, seed=5, **kw)
+
+
+def test_joint_from_marginals_reproduces_the_factorized_price():
+    r"""The joint that **is** a factorized pair must price every configuration the same,
+    or the joint's introduction is a leap rather than a test.
+
+    Machine precision, not bit-identity: $w(D,Q) - w(D_0,Q_0)$ sums the two marginals
+    before differencing where the factorized path differences before summing, and float
+    addition is not associative."""
+    from supervillain.generator.no_intersection.surface_worm.pricing import JointWeightTable
+    wD = SectorWeights.fugacity(0.2, cap=512)
+    wQ = Fugacity(ETA, cap=64)
+    joint = JointWeightTable.from_marginals(wD, wQ)
+    _, factorized = _gas(intersectionFugacity=ETA)
+    _, jointGas = _joint_gas(joint)
+    rng = np.random.default_rng(4)
+    for _ in range(6):
+        F = np.zeros((6,) + (4,) * 4, dtype=int)
+        for _k in range(4):
+            F[(int(rng.integers(0, 6)),) + tuple(int(v) for v in rng.integers(0, 4, 4))] = 1
+        a, b = factorized._log_extended_weight(F), jointGas._log_extended_weight(F)
+        assert np.isfinite(a) and a == pytest.approx(b, abs=1e-9)
+
+
+def test_joint_reaches_the_compiled_acceptance():
+    r"""Guards against the 2D lookup being inert: the kernel branches on an empty array,
+    so a mis-plumbed joint would silently fall back to the factorized pair and every
+    joint tuning would be a no-op that looked like a converged one."""
+    from supervillain.generator.no_intersection.surface_worm.pricing import JointWeightTable
+    wD = SectorWeights.fugacity(0.2, cap=24)
+    wQ = Fugacity(ETA, cap=24)
+    base = JointWeightTable.from_marginals(wD, wQ)
+    # hardWall off on BOTH: a wall censors states to -inf, and a comparison that requires
+    # both sides finite then silently skips exactly the large-(D,Q) states under test.
+    flat = JointWeightTable(base.logWeight, base.tailSlopeD, base.tailSlopeQ,
+                            hardWall=False)
+    # The minimal NON-FACTORIZABLE perturbation: log w = aD + bQ + c*DQ.  The cross term
+    # is precisely what a product of per-axis prices cannot represent, so if the joint
+    # path is inert this test cannot pass by accident.
+    D, Q = np.meshgrid(np.arange(25), np.arange(25), indexing='ij')
+    boosted = JointWeightTable(flat.logWeight + 0.05 * D * Q,
+                               flat.tailSlopeD, flat.tailSlopeQ, hardWall=False)
+
+    S, a = _joint_gas(flat, ticksPerStep=300, stride=50)
+    _, b = _joint_gas(boosted, ticksPerStep=300, stride=50)
+    rng = np.random.default_rng(9)
+    differ = 0
+    for _ in range(8):
+        F = np.zeros((6,) + (4,) * 4, dtype=int)
+        for _k in range(3):
+            x = np.array(rng.integers(0, 4, size=4))
+            c = int(rng.integers(0, 6))
+            mu, nu = [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)][c]
+            shift = np.zeros(4, dtype=int); shift[mu] = shift[nu] = 1
+            F[(c,) + tuple(x)] = 1
+            F[(5 - c,) + tuple((x + shift) % 4)] = 1
+        wa, wb = a._log_extended_weight(F), b._log_extended_weight(F)
+        if np.isfinite(wa) and np.isfinite(wb) and abs(wa - wb) > 1e-6:
+            differ += 1
+    assert differ > 0, 'the corner boost never reached the weight'
+
+
+def test_joint_smoothing_and_h5(tmp_path):
+    import h5py
+    from supervillain.generator.no_intersection.surface_worm.pricing import JointWeightTable
+    rng = np.random.default_rng(2)
+    rough = JointWeightTable(rng.normal(size=(9, 7)), -1.0, -2.0, hardWall=False)
+    smooth = rough.smoothed(length=2.0)
+    curvature = lambda t: np.abs(np.diff(np.diff(t.logWeight, axis=0), axis=0)).mean()
+    assert curvature(smooth) < curvature(rough)
+    assert smooth.logWeight.shape == rough.logWeight.shape
+    assert smooth.logWeight[0, 0] == 0.0            # anchored, as only differences matter
+    with h5py.File(tmp_path / 'joint.h5', 'w') as h:
+        rough.to_h5(h.create_group('joint'))
+    with h5py.File(tmp_path / 'joint.h5', 'r') as h:
+        back = JointWeightTable.from_h5(h['joint'])
+    assert np.array_equal(back.logWeight, rough.logWeight)
+    assert back.capD == 8 and back.capQ == 6
+
+
+def test_joint_tuner_runs_and_seeds_from_the_marginals():
+    r"""Iteration 0 must **be** the factorized sampler, so the joint's introduction is
+    testable; and the tuner must histogram $(D,Q)$, not one of them."""
+    from supervillain.generator.no_intersection import JointWeightTuner
+    from supervillain.generator.no_intersection.surface_worm.pricing import JointWeightTable
+    S = supervillain.action.NoIntersections(Lattice(4, 4), kappa=0.2)
+    wD, wQ = SectorWeights.fugacity(0.2, cap=6), Fugacity(ETA, cap=5)
+    t = JointWeightTuner(S, wD, wQ, capD=6, capQ=5, iterations=2, ticks=40, stride=20,
+                         seed=3, targetFraction=0.0)
+    seed = t._seed_table()
+    assert isinstance(seed, JointWeightTable) and seed.logWeight.shape == (7, 6)
+    # the seed is the factorized product, up to the anchor
+    assert seed.logWeight == pytest.approx(
+        np.asarray(wD(np.arange(7)))[:, None] + np.asarray(wQ(np.arange(6)))[None, :]
+        - (float(wD(0)) + float(wQ(0))), abs=1e-12)
+    learned = t.tune(log=lambda *_: None)
+    assert learned.logWeight.shape == (7, 6)
+    assert len(t.history) == 2
+    for h in t.history:
+        assert h['histogram'].shape == (7, 6)     # 2D, not a marginal
+        assert 0.0 <= h['vacuumFraction'] <= 1.0

@@ -132,3 +132,131 @@ class Fugacity(WeightTable, Pricing):
         reproduces it nearly.  The accumulator divides its sector dwells by this.
         """
         return np.asarray(self.eta, dtype=float) ** np.asarray(n)
+
+
+class JointWeightTable(ReadWriteable):
+    r"""A price on **both** counts at once, $\log w(D, Q)$ --- what the factorized
+    :class:`Pricing` roster provably cannot express.
+
+    A roster of per-axis prices is a product $w_{dF}(D)\,w_q(Q)$, and flattening the two
+    marginals flattens the joint only if the counts are *independent*.  They are not:
+    opening a surface on a background at sheet occupancy $\approx 0.44$ **makes**
+    intersections.  Measured consequence (q-pricing-2026-08-06 findings 6--8): both
+    marginal tables anchor $\log w(0) = 0$ and each flattens its own axis against that
+    zero, so their product over-favours the corner they both call cheapest, $(0,0)$ ---
+    and neither tuner can see it, because each measures one axis.  The $D$ half then sits
+    on one bin, where the multicanonical increment $-\log(H/\bar H)$ is identically zero,
+    and its table comes back byte-identical forever.  That is a trap, not slow
+    convergence, and no amount of alternation escapes it.
+
+    The object this has to reach is the **corner**: a torus-wrapping sheet lives at
+    $D \approx 12$, $Q \approx 16$ *together* (h2-relaxation-2026-08-06 finding 6).
+
+    .. note ::
+        :meth:`from_marginals` builds the joint that **is** a given factorized pair, so a
+        gas holding it reproduces the factorized sampler to machine precision and the
+        joint's introduction is testable rather than a leap --- the same device
+        :meth:`~.weights.SectorWeights.fugacity` used for $D$ and :class:`Fugacity` for
+        $Q$.  It is machine precision rather than bit-identity because
+        $w(D,Q) - w(D_0,Q_0)$ sums the two marginals before differencing where the
+        factorized path differences before summing, and float addition is not
+        associative.
+
+    Parameters
+    ----------
+    logWeight: numpy.ndarray
+        $\log w(D, Q)$, shape ``(capD + 1, capQ + 1)``.  Normalized to
+        $\log w(0,0) = 0$ on construction, since only differences matter.
+    tailSlopeD, tailSlopeQ: float
+        Continuation slopes past each cap when ``hardWall`` is false.
+    hardWall: bool
+        Close the window: $w = 0$ beyond either cap, so a move proposing outside it is
+        rejected.  Detailed balance survives because $w$ is still a genuine function of
+        $(D, Q)$ and the reverse of a forbidden move is equally forbidden.
+    """
+
+    def __init__(self, logWeight, tailSlopeD, tailSlopeQ, hardWall=True):
+        self.logWeight = np.asarray(logWeight, dtype=float).copy()
+        if self.logWeight.ndim != 2:
+            raise ValueError(f'a joint table is 2D; got shape {self.logWeight.shape}.')
+        self.logWeight -= self.logWeight[0, 0]
+        self.tailSlopeD = float(tailSlopeD)
+        self.tailSlopeQ = float(tailSlopeQ)
+        self.hardWall = bool(hardWall)
+        self.capD = self.logWeight.shape[0] - 1
+        self.capQ = self.logWeight.shape[1] - 1
+
+    @classmethod
+    def from_marginals(cls, sectorWeights, chargeWeights, capD=None, capQ=None):
+        r"""The joint that *is* the factorized pair: $\log w(D,Q) = \log w_{dF}(D) +
+        \log w_q(Q)$, evaluated on the grid.  Seed a joint tuning from here."""
+        capD = sectorWeights.cap if capD is None else int(capD)
+        capQ = chargeWeights.cap if capQ is None else int(capQ)
+        D = np.arange(capD + 1)
+        Q = np.arange(capQ + 1)
+        table = np.asarray(sectorWeights(D))[:, None] + np.asarray(chargeWeights(Q))[None, :]
+        return cls(table, sectorWeights.tailSlope, chargeWeights.tailSlope,
+                   hardWall=bool(sectorWeights.hardWall or chargeWeights.hardWall))
+
+    def __str__(self):
+        return (f'JointWeightTable(capD={self.capD}, capQ={self.capQ}, '
+                f'range={self.logWeight.min():.2f}..{self.logWeight.max():.2f})')
+
+    def __call__(self, D, Q):
+        r"""$\log w(D, Q)$, broadcasting; $-\infty$ outside the window under a hard wall,
+        else the two linear tails."""
+        D = np.asarray(D)
+        Q = np.asarray(Q)
+        out = (self.logWeight[np.minimum(D, self.capD), np.minimum(Q, self.capQ)]
+               + np.maximum(D - self.capD, 0) * self.tailSlopeD
+               + np.maximum(Q - self.capQ, 0) * self.tailSlopeQ)
+        if self.hardWall:
+            out = np.where((D > self.capD) | (Q > self.capQ), -np.inf, out)
+        return out
+
+    def change(self, oldD, oldQ, newD, newQ):
+        r"""$\log w(\text{new}) - \log w(\text{old})$ --- what an acceptance needs.
+
+        Not ``delta``: $\delta$ is the codifferential everywhere else here."""
+        return float(self(newD, newQ)) - float(self(oldD, oldQ))
+
+    def price(self, D, Q):
+        r"""$w(D,Q)/w(0,0)$ on the linear scale --- what a measurement divides out."""
+        return np.exp(np.asarray(self(D, Q), dtype=float) - float(self(0, 0)))
+
+    def arrays(self):
+        r"""``(logWeight, tailSlopeD, tailSlopeQ, hardWall)``, the plain form the compiled
+        kernel takes."""
+        return (np.ascontiguousarray(self.logWeight), self.tailSlopeD,
+                self.tailSlopeQ, self.hardWall)
+
+    def smoothed(self, length=2.0, rate=0.2, reachable=None):
+        r"""A copy relaxed against its own roughness, in **both** directions.
+
+        The 2D analogue of :meth:`~.weights.SectorWeights.smoothed`, and needed for the
+        same reason: multicanonical flattening estimates $\log w$ bin by bin from finite
+        histograms, so it accumulates high-frequency noise, and a curvature of a few log
+        units between adjacent bins is an $e^{\text{few}}$ wall the chain cannot random-walk
+        back across --- indistinguishable, in the tuner's own diagnostics, from a converged
+        table.  It bites *harder* in 2D, where a $(\text{cap}_D{+}1)(\text{cap}_Q{+}1)$
+        grid is filled from the same budget that filled two rows.
+
+        ``reachable`` is a 2D boolean mask of the $(D,Q)$ cells that are geometrically
+        possible.  Relaxing across impossible cells averages meaningless bins into their
+        neighbours; in 1D those were $D = 1,2,3$, and in 2D the impossible set is large
+        and not known in advance, so it is *learned* (the union of everything the chain
+        has ever visited) exactly as the 1D tuner learns its own.
+        """
+        passes = max(1, int(np.ceil(length ** 2 / (4 * rate))))
+        work = self.logWeight.copy()
+        mask = (np.ones_like(work, dtype=bool) if reachable is None
+                else np.asarray(reachable, dtype=bool))
+        finite = np.isfinite(work) & mask
+        for _ in range(passes):
+            lap = np.zeros_like(work)
+            lap[1:-1, :] += work[:-2, :] - 2 * work[1:-1, :] + work[2:, :]
+            lap[:, 1:-1] += work[:, :-2] - 2 * work[:, 1:-1] + work[:, 2:]
+            step = np.where(finite, rate * lap, 0.0)
+            work = work + step
+        return JointWeightTable(np.where(finite, work, self.logWeight),
+                                self.tailSlopeD, self.tailSlopeQ, self.hardWall)

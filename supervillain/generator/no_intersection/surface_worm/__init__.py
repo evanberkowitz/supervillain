@@ -154,9 +154,9 @@ pieces rather than the assembled sampler:
 """
 
 from .gas import SurfaceWormGas
-from .pricing import Pricing, Fugacity, WeightTable
+from .pricing import Pricing, Fugacity, WeightTable, JointWeightTable
 from .weights import SectorWeights, PairUmbrella
 from .state import FState
 from .accumulator import CorrelatorAccumulator
-from .tuners import (SectorWeightTuner, ChargeWeightTuner,
+from .tuners import (SectorWeightTuner, ChargeWeightTuner, JointWeightTuner,
                      PairUmbrellaTuner, TransportTuner)
