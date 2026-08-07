@@ -34,6 +34,7 @@ import numpy as np
 
 from .gas import SurfaceWormGas
 from .state import FState
+from .pricing import Fugacity
 from .weights import SectorWeights, PairUmbrella
 
 
@@ -132,6 +133,32 @@ class SectorWeightTuner:
         iteration), ``seconds``.
     """
 
+    #: Which count this tuner flattens.  Everything else in the class --- the
+    #: multicanonical increment, the learned reachable set, the smoothing, the
+    #: frontier-static convergence test --- is axis-agnostic, so a tuner for the
+    #: other axis is these four hooks and nothing more (:class:`ChargeWeightTuner`).
+    axis = 'D'
+
+    def _count(self, state):
+        r"""The count this tuner histograms, read off the chain's state."""
+        return int(state.D)
+
+    def _set_price(self, gas, weights):
+        r"""Install the learned table as the gas's price on :attr:`axis`."""
+        return gas.setSectorWeights(weights)
+
+    def _gas_kwargs(self, weights):
+        r"""How to build the internal gas with ``weights`` on :attr:`axis` and the
+        *other* axis held at whatever this tuner was given."""
+        return dict(sectorWeights=weights,
+                    intersectionFugacity=self.intersectionFugacity,
+                    sectorWeightCap=self.cap)
+
+    def _seed_table(self):
+        r"""The table to flatten from when no ``seedWeights`` is given: the bare
+        fugacity written out, so iteration 0 **is** the untuned sampler."""
+        return SectorWeights.fugacity(self.openSurfaceFugacity, cap=self.cap)
+
     def __init__(self, S, intersectionFugacity, cap, openSurfaceFugacity=0.09,
                  iterations=20, ticks=2000, stride=200, damping=0.7,
                  targetFlatness=1.5, minimumReachable=3, pCob=0.6,
@@ -198,8 +225,8 @@ class SectorWeightTuner:
         self.history = []
 
     def visit_histogram(self, gas, state, ticks, stride, cap, pCob=0.6):
-        r"""Histogram of $D$ over ``ticks`` samples spaced ``stride`` compiled
-        moves apart.
+        r"""Histogram of :attr:`axis` over ``ticks`` samples spaced ``stride``
+        compiled moves apart.
 
         Uses the compiled :meth:`~.gas.SurfaceWormGas.sweep`, so the tuner is
         affordable: flattening needs many iterations and each needs enough
@@ -216,26 +243,33 @@ class SectorWeightTuner:
         stride: int
             Compiled moves between samples.
         cap: int
-            $D$ above this is tallied in ``beyond`` instead of the histogram.
+            A count above this is tallied in ``beyond`` instead of the histogram.
         pCob: float
             Coboundary-move probability.
 
         Returns
         -------
         (numpy.ndarray, int)
-            ``(hist, beyond)`` --- counts for $D = 0 \ldots \texttt{cap}$,
-            and how many samples landed at $D > \texttt{cap}$.
+            ``(hist, beyond, vacuum)`` --- counts for the tuned count
+            $0 \ldots \texttt{cap}$, how many samples landed beyond the cap, and how
+            many sat in the joint vacuum $D = Q = 0$ (where emission happens).
         """
         hist = np.zeros(cap + 1, dtype=np.int64)
-        beyond = 0
+        beyond = vacuum = 0
         for _ in range(ticks):
             gas.sweep(state, stride, pCob=pCob)
-            D = int(state.D)
-            if D <= cap:
-                hist[D] += 1
+            n = self._count(state)
+            if n <= cap:
+                hist[n] += 1
             else:
                 beyond += 1
-        return hist, beyond
+            # The joint vacuum is where emission happens, so a table that opens its own
+            # axis and never comes back is WORSE than the fugacity it replaced -- the
+            # cap-affordability tension the TransportTuner measures on D (cap 30: 20%
+            # corner dwell, zero vacuum returns).  Counted here so no flattening run can
+            # report success without it having been looked at.
+            vacuum += (state.D == 0 and state.Q == 0)
+        return hist, beyond, vacuum
 
     def tune(self, log=print):
         r"""Run the flattening loop; return the learned table.
@@ -262,7 +296,7 @@ class SectorWeightTuner:
             :meth:`~.weights.SectorWeights.interpolated`).
         """
         weights = (self.seedWeights if self.seedWeights is not None
-                   else SectorWeights.fugacity(self.openSurfaceFugacity, cap=self.cap))
+                   else self._seed_table())
         if weights.cap != self.cap:
             raise ValueError(
                 f'seedWeights has cap {weights.cap} but the tuner was built with '
@@ -275,21 +309,20 @@ class SectorWeightTuner:
         everSeen = np.zeros(self.cap + 1, dtype=bool)
         sinceExpansion = 0          # iterations since the reachable set last grew
 
-        gas = self.gasFactory(self.S, sectorWeights=weights,
-                              intersectionFugacity=self.intersectionFugacity,
-                              sectorWeightCap=self.cap,
-                              targetFraction=self.targetFraction,
+        gas = self.gasFactory(self.S, targetFraction=self.targetFraction,
                               measure=False, seed=self.seed,
-                              rng=np.random.default_rng(self.seed))
+                              rng=np.random.default_rng(self.seed),
+                              **self._gas_kwargs(weights))
         state = (FState.from_configuration(self.S, self.warmStart)
                  if self.warmStart is not None else FState(self.S))
 
         for it in range(self.iterations):
-            gas.setSectorWeights(weights)
+            self._set_price(gas, weights)
             t0 = time.time()
             gas.sweep(state, 5 * self.stride, pCob=self.pCob)     # brief settle
-            hist, beyond = self.visit_histogram(gas, state, self.ticks, self.stride,
-                                                self.cap, pCob=self.pCob)
+            hist, beyond, vacuum = self.visit_histogram(gas, state, self.ticks,
+                                                        self.stride, self.cap,
+                                                        pCob=self.pCob)
             grew = bool((~everSeen & (hist > 0)).any())
             everSeen |= hist > 0
             sinceExpansion = 0 if grew else sinceExpansion + 1
@@ -306,10 +339,12 @@ class SectorWeightTuner:
                 roughness=float(np.abs(d2).mean()), maxKink=float(np.abs(d2).max()),
                 visited=occupied, reachable=int(everSeen.sum()), beyond=beyond,
                 histogram=hist.copy(), logWeight=weights.logWeight.copy(),
+                vacuumFraction=vacuum / max(1, self.ticks),
                 seconds=time.time() - t0))
             log(f'  iter {it:>3d}  occupied {occupied:>3d}/{int(everSeen.sum())} reachable  '
                 f'beyond cap {beyond:>5d}  flatness {flat:>9.3g}  '
-                f'(this iter {occFlat:>7.2f})  ({time.time() - t0:.0f}s)')
+                f'(this iter {occFlat:>7.2f})  vacuum {vacuum / max(1, self.ticks):>6.3f}  '
+                f'({time.time() - t0:.0f}s)')
 
             known = int(everSeen.sum())
             if flat < self.targetFlatness and known >= self.minimumReachable and sinceExpansion >= 2:
@@ -353,9 +388,83 @@ class SectorWeightTuner:
             weights = weights.smoothed(length=self.smoothFinal, reachable=everSeen)
         unreachable = np.flatnonzero(~everSeen)
         if len(unreachable):
-            log(f'  D never visited in [0, {self.cap}]: {list(unreachable)} '
+            log(f'  {self.axis} never visited in [0, {self.cap}]: {list(unreachable)} '
                 '(interpolated, NOT assumed empty -- see SectorWeights.interpolated)')
         return weights.interpolated(everSeen)
+
+
+class ChargeWeightTuner(SectorWeightTuner):
+    r"""Learn a $w(Q)$ table on the **intersection** count, by the same flattening
+    :class:`SectorWeightTuner` runs on the open-surface count.
+
+    Everything of substance is inherited: the multicanonical increment, the *learned*
+    reachable set, the damped step, the smoothed increment and table, the
+    frontier-static convergence test, and the refusal to boost bins never seen at all
+    (which is what stops the table oscillating).  Only four hooks differ --- which count
+    to read, which price to set, how to build the gas, and what to flatten from.
+
+    **Why this axis needs a table at all.**  $Q$ was priced by a single fugacity, which
+    is linear in the exponent and so can *shift* the $Q$ distribution but never *broaden*
+    it --- the argument :class:`~.weights.SectorWeights` was created to answer one axis
+    over.  And $Q$ is the axis that binds: growing a torus-wrapping sheet on a production
+    $N=6$, $\kappa=0.03$ background has a saddle that is ~88% intersection price and ~1%
+    action, needing $Q \approx 16$ against a fugacity that holds the chain at $Q \le 2$.
+
+    .. warning ::
+        **Watch ``vacuumFraction`` in the history, not just flatness.**  Emission is
+        gated on the joint vacuum $D = Q = 0$, so a $w(Q)$ that opens its own axis and
+        does not come back is *worse* than the fugacity it replaced.  This is the exact
+        analogue of the cap-affordability tension :class:`TransportTuner` measures on
+        $D$ (at cap 30, 20% transport-corner dwell with **zero** vacuum returns), and it
+        is not part of the convergence test --- flatness in $Q$ can be perfect while the
+        chain never returns.
+
+    .. note ::
+        This tunes ONE marginal, holding the other axis fixed.  A roster of per-axis
+        prices is a product $w_{dF}(D)\,w_q(Q)$ by construction (see
+        :mod:`~.pricing`), so alternating this tuner with
+        :class:`SectorWeightTuner` flattens the two **marginals** --- which is the most
+        the factorized form can reach, and strictly less than a joint $w(D,Q)$ that
+        boosts the corner where large $D$ and large $Q$ occur *together*.  Measure
+        whether the marginals suffice before building the joint.
+
+    Parameters
+    ----------
+    S: supervillain.action.NoIntersections
+        The action.
+    sectorWeights: supervillain.generator.no_intersection.surface_worm.weights.SectorWeights
+        The open-surface table to **pin** while $Q$ is flattened.  Required, and not
+        defaulted to a fugacity: tuning $Q$ against an untuned $D$ measures a background
+        the production sampler does not have.
+    intersectionFugacity: float
+        The price to flatten *from*, so iteration 0 is the untuned sampler.
+    cap: int
+        Top $Q$ the table resolves.
+    **kw:
+        As :class:`SectorWeightTuner` (``iterations``, ``ticks``, ``stride``,
+        ``damping``, ``targetFlatness``, ``minimumReachable``, ``pCob``,
+        ``targetFraction``, ``seed``, ``gasFactory``, ``seedWeights``, the smoothing
+        lengths, ``warmStart``).
+    """
+
+    axis = 'Q'
+
+    def __init__(self, S, sectorWeights, intersectionFugacity, cap, **kw):
+        kw.pop('openSurfaceFugacity', None)     # the D price is pinned, not seeded
+        super().__init__(S, intersectionFugacity, cap, **kw)
+        self.sectorWeights = sectorWeights
+
+    def _count(self, state):
+        return int(state.Q)
+
+    def _set_price(self, gas, weights):
+        return gas.setChargeWeights(weights)
+
+    def _gas_kwargs(self, weights):
+        return dict(sectorWeights=self.sectorWeights, chargeWeights=weights)
+
+    def _seed_table(self):
+        return Fugacity(self.intersectionFugacity, cap=self.cap)
 
 
 class _OffsetBisector:

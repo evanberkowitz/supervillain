@@ -158,4 +158,5 @@ from .pricing import Pricing, Fugacity, WeightTable
 from .weights import SectorWeights, PairUmbrella
 from .state import FState
 from .accumulator import CorrelatorAccumulator
-from .tuners import SectorWeightTuner, PairUmbrellaTuner, TransportTuner
+from .tuners import (SectorWeightTuner, ChargeWeightTuner,
+                     PairUmbrellaTuner, TransportTuner)

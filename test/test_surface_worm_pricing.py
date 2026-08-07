@@ -16,6 +16,7 @@ from supervillain.generator.no_intersection.surface_worm.gas import SurfaceWormG
 from supervillain.generator.no_intersection.surface_worm.accumulator import CorrelatorAccumulator
 from supervillain.generator.no_intersection.surface_worm.state import FState
 from supervillain.generator.no_intersection.surface_worm.pricing import Fugacity, WeightTable
+from supervillain.generator.no_intersection.surface_worm.weights import SectorWeights
 
 ETA = 0.05
 
@@ -191,3 +192,33 @@ def test_pricing_round_trips_through_h5(tmp_path):
     assert f2.eta == f.eta and f2.cap == f.cap
     assert f2.price(3) == f.price(3)
     assert np.array_equal(t2.logWeight, t.logWeight) and t2.hardWall == t.hardWall
+
+
+def test_charge_tuner_is_the_same_machine_on_the_other_axis():
+    r"""The $Q$ tuner is :class:`SectorWeightTuner` plus four hooks, so it must inherit
+    the damped increment, the learned reachable set, and the smoothing --- and it must
+    read $Q$, not $D$."""
+    from supervillain.generator.no_intersection import ChargeWeightTuner, SectorWeightTuner
+    S = supervillain.action.NoIntersections(Lattice(4, 4), kappa=0.2)
+    pinned = SectorWeights.fugacity(0.2, cap=8)
+    t = ChargeWeightTuner(S, pinned, ETA, cap=6, iterations=2, ticks=30, stride=20,
+                          seed=3, targetFraction=0.0)
+    assert isinstance(t, SectorWeightTuner) and t.axis == 'Q'
+    assert isinstance(t._seed_table(), Fugacity)
+    learned = t.tune(log=lambda *_: None)
+    assert learned.cap == 6
+    # It flattened Q: the history's histograms must respond to Q, and every iteration
+    # must have reported the vacuum fraction the warning insists on.
+    assert len(t.history) == 2
+    for h in t.history:
+        assert 'vacuumFraction' in h and 0.0 <= h['vacuumFraction'] <= 1.0
+        assert len(h['histogram']) == 7
+
+
+def test_charge_tuner_requires_a_pinned_open_surface_table():
+    r"""Tuning $Q$ against an untuned $D$ measures a background production does not
+    have, so the $D$ table is a required argument rather than a defaulted fugacity."""
+    from supervillain.generator.no_intersection import ChargeWeightTuner
+    S = supervillain.action.NoIntersections(Lattice(4, 4), kappa=0.2)
+    with pytest.raises(TypeError):
+        ChargeWeightTuner(S, ETA, cap=6)
