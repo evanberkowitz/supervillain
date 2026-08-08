@@ -154,6 +154,8 @@ pieces rather than the assembled sampler:
 """
 
 from .gas import SurfaceWormGas
+from .sheet import (WrappingSheetGas, wrapping_sheet, sheet_self_energy,
+                    transverse_axes)
 from .pricing import Pricing, Fugacity, WeightTable, JointWeightTable
 from .weights import SectorWeights, PairUmbrella
 from .state import FState

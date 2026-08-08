@@ -16,7 +16,8 @@ from .link_heatbath import ConstrainedLinkHeatbath
 from .wrapping import WrappingLoopUpdate
 from .planar import PlanarFluxUpdate
 from .scattershot import ScattershotUpdate
-from .surface_worm import (SurfaceWormGas, SectorWeightTuner, ChargeWeightTuner,
+from .surface_worm import (SurfaceWormGas, WrappingSheetGas,
+                           SectorWeightTuner, ChargeWeightTuner,
                            JointWeightTuner,
                            JointWeightTable,
                            PairUmbrellaTuner, TransportTuner)

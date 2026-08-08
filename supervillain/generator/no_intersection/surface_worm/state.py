@@ -191,6 +191,30 @@ class FState:
         emitted $n$ can represent (see :attr:`periods`)."""
         return self.D == 0 and self.Q == 0 and not self.periods.any()
 
+    def resync(self):
+        r"""Recompute *every* derived attribute from :attr:`F` alone, $O(V\log V)$.
+
+        .. note ::
+            This is the supported way to apply a change to :attr:`F` that is too
+            large or too nonlocal to be worth an incremental update --- a whole
+            wrapping sheet, a kernel vector, a state loaded from elsewhere.  The
+            sampler's own moves do **not** use it: they maintain :attr:`dF`,
+            :attr:`q`, :attr:`G`, :attr:`counts`, :attr:`winding` and
+            :attr:`periods` incrementally, which is what makes them affordable.
+
+        .. warning ::
+            Mutating :attr:`F` without calling this (or an equivalent incremental
+            update) leaves the state internally inconsistent, and the inconsistency
+            is silent --- :meth:`check` is what catches it.
+
+        Returns
+        -------
+        FState
+            ``self``, for chaining.
+        """
+        self._rebuild_all()
+        return self
+
     def refresh_charge(self):
         r"""Rebuild :attr:`absoluteCharge`, :attr:`squaredCharge`, and
         :attr:`chargeSites` from :attr:`q`, $O(V)$ plus one pass over the
