@@ -68,6 +68,13 @@ from .kernel import pot
 #: Plaquette components in the library's canonical order, $(01,02,03,12,13,23)$.
 COMPONENTS = ((0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3))
 
+#: For each component, the one whose two directions are the *complementary* pair --- the
+#: only component whose sheets a given component's sheets actually intersect, since
+#: $W\wedge W'$ needs all four indices distinct.  In the canonical order this is simply
+#: index reversal: $(01)\leftrightarrow(23)$, $(02)\leftrightarrow(13)$,
+#: $(03)\leftrightarrow(12)$.
+COMPLEMENT = (5, 4, 3, 2, 1, 0)
+
 
 def transverse_axes(c):
     r"""The two directions component ``c``'s wrapping sheet extends along.
@@ -116,6 +123,35 @@ def wrapping_sheet(N, c, i, j, sign=1):
     index[b] = j
     W[c][tuple(index)] = sign
     return W
+
+
+def sheet_dipole(N, c, i1, j1, i2, j2, sign=1):
+    r"""A **transported** sheet: $W_c(i_1,j_1) - W_c(i_2,j_2)$.
+
+    Closed (both terms are) and with **zero periods** (they cancel), hence *exact* --- so
+    adding it leaves the $H^2$ class untouched.  A dipole alone has
+    $\Delta\wedge\Delta = 0$ and deposits no charge and no $J$; it is only when two
+    dipoles in **complementary** components are added together that the cross term
+    $A\wedge B$ survives.  See :meth:`WrappingSheetGas.commutator_move`.
+
+    Parameters
+    ----------
+    N: int
+        Lattice extent.
+    c: int
+        Plaquette component, indexing :data:`COMPONENTS`.
+    i1, j1, i2, j2: int
+        The two placements, in ``COMPONENTS[c]``'s own two directions.
+    sign: int
+        $+1$ or $-1$.
+
+    Returns
+    -------
+    numpy.ndarray
+        ``int64`` of shape ``(6,) + (N,)*4``.
+    """
+    return (wrapping_sheet(N, c, i1, j1, sign)
+            + wrapping_sheet(N, c, i2, j2, -sign))
 
 
 def sheet_self_energy(N):
@@ -178,13 +214,16 @@ class WrappingSheetGas(SurfaceWormGas):
         returning it to $[F] = 0$) --- the quantity the move exists to make nonzero.
     """
 
-    def __init__(self, S, sheetEvery=10000, sheetAttempts=1, **kwargs):
+    def __init__(self, S, sheetEvery=10000, sheetAttempts=1, commutatorEvery=0, **kwargs):
         super().__init__(S, **kwargs)
         self.sheetEvery = int(sheetEvery)
         self.sheetAttempts = int(sheetAttempts)
+        self.commutatorEvery = int(commutatorEvery)
         self.sheetProposed = 0
         self.sheetAccepted = 0
         self.sheetClassVisits = 0
+        self.commutatorProposed = 0
+        self.commutatorAccepted = 0
 
     def __str__(self):
         return f'WrappingSheetGas(sheetEvery={self.sheetEvery})'
@@ -237,6 +276,69 @@ class WrappingSheetGas(SurfaceWormGas):
             self.sheetClassVisits += 1
         return True
 
+    def commutator_log_acceptance(self, state, spec):
+        r"""The exact Metropolis log-acceptance for the transport commutator ``spec``.
+
+        Parameters
+        ----------
+        state: supervillain.generator.no_intersection.surface_worm.state.FState
+            Not mutated.
+        spec: tuple
+            ``(c, i1, j1, i2, j2, k1, l1, k2, l2, s)`` --- the component, its dipole's two
+            placements, the complementary component's two placements, and the sign.
+
+        Returns
+        -------
+        (float, numpy.ndarray)
+            The log-acceptance and the proposed ``F``.
+        """
+        c, i1, j1, i2, j2, k1, l1, k2, l2, s = spec
+        N = self.N
+        F = (state.F + sheet_dipole(N, c, i1, j1, i2, j2, s)
+                     + sheet_dipole(N, COMPLEMENT[c], k1, l1, k2, l2, s))
+        return self._log_extended_weight(F) - self._log_extended_weight(state.F), F
+
+    def commutator_move(self, state):
+        r"""Propose the commutator of two sheet **transports** in complementary planes.
+
+        .. note ::
+            This is the move that keeps the class trivial.  Each dipole has zero periods,
+            so $[F]$ is untouched and the chain stays on the physical shell --- it cannot
+            be absorbed into the unpriced class direction the way a bare
+            :meth:`sheet_move` chain is.  What survives is the cross term $A\wedge B$
+            between complementary components, which deposits charge (exactly 4 quanta on
+            an empty background, the minimum) where neither dipole alone deposits any.
+
+        .. warning ::
+            $J$ cannot be read at the proposed state itself: $dj = q$, so $J$ is
+            slice-dependent wherever $Q \neq 0$, and this move always leaves $Q \neq 0$ on
+            an empty background.  The sampler has to heal the charge first, which is the
+            whole reason this is a *move* rather than a construction.
+
+        Parameters
+        ----------
+        state: supervillain.generator.no_intersection.surface_worm.state.FState
+            Mutated in place on acceptance.
+
+        Returns
+        -------
+        bool
+            Whether the move was accepted.
+        """
+        N = self.N
+        c = int(self.rng.integers(6))
+        placements = [int(v) for v in self.rng.integers(N, size=8)]
+        s = 1 if self.rng.random() < 0.5 else -1
+        spec = (c, *placements, s)
+        self.commutatorProposed += 1
+        lnA, F = self.commutator_log_acceptance(state, spec)
+        if lnA < 0 and self.rng.random() >= np.exp(lnA):
+            return False
+        state.F = F
+        state.resync()
+        self.commutatorAccepted += 1
+        return True
+
     def sweep(self, state, nmoves, pCob=None):
         r"""The parent's sweep, with a sheet move attempted every
         :attr:`sheetEvery` local moves.
@@ -255,15 +357,20 @@ class WrappingSheetGas(SurfaceWormGas):
         FState
             ``state``, for chaining.
         """
-        if self.sheetEvery <= 0:
+        every = [e for e in (self.sheetEvery, self.commutatorEvery) if e > 0]
+        if not every:
             return super().sweep(state, nmoves, pCob)
+        step = min(every)
         done = 0
         while done < nmoves:
-            chunk = min(self.sheetEvery, nmoves - done)
+            chunk = min(step, nmoves - done)
             super().sweep(state, chunk, pCob)
             done += chunk
             for _ in range(self.sheetAttempts):
-                self.sheet_move(state)
+                if self.sheetEvery > 0 and done % self.sheetEvery == 0:
+                    self.sheet_move(state)
+                if self.commutatorEvery > 0 and done % self.commutatorEvery == 0:
+                    self.commutator_move(state)
         return state
 
     def report(self):
@@ -275,7 +382,10 @@ class WrappingSheetGas(SurfaceWormGas):
             Multi-line summary.
         """
         p = max(self.sheetProposed, 1)
+        cp = max(self.commutatorProposed, 1)
         return (super().report()
                 + f'\nwrapping sheets: {self.sheetAccepted}/{self.sheetProposed} '
                   f'({self.sheetAccepted / p:.4f}), '
-                  f'{self.sheetClassVisits} landings at nonzero class')
+                  f'{self.sheetClassVisits} landings at nonzero class'
+                + f'\ntransport commutators: {self.commutatorAccepted}/'
+                  f'{self.commutatorProposed} ({self.commutatorAccepted / cp:.4f})')

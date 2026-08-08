@@ -18,7 +18,8 @@ from supervillain.action import NoIntersections
 from supervillain.generator.no_intersection import SurfaceWormGas, WrappingSheetGas
 from supervillain.generator.no_intersection.surface_worm.kernel import pot
 from supervillain.generator.no_intersection.surface_worm.sheet import (
-    COMPONENTS, sheet_self_energy, transverse_axes, wrapping_sheet)
+    COMPLEMENT, COMPONENTS, sheet_dipole, sheet_self_energy, transverse_axes,
+    wrapping_sheet)
 from supervillain.generator.no_intersection.surface_worm.state import FState
 from supervillain.generator.no_intersection.surface_worm.weights import SectorWeights
 from supervillain.lattice import Lattice, d, wedge
@@ -229,3 +230,68 @@ def test_report_mentions_the_sheet(S):
                            chargeWeights=cheap_charge(),
                            seed=1, rng=np.random.default_rng(1))
     assert 'wrapping sheets' in gas.report()
+
+
+# ------------------------------------------------- the transport commutator
+
+@pytest.mark.parametrize('c', range(6))
+def test_dipole_is_exact_and_deposits_nothing(S, c):
+    r"""A single transported sheet has zero periods (so the class is untouched) and no
+    self-intersection --- it is the *pair* in complementary planes that deposits."""
+    st = FState(S, sheet_dipole(N, c, 0, 0, 2, 1))
+    assert st.D == 0
+    assert not st.periods.any(), 'a dipole must leave the class alone'
+    assert st.Q == 0, 'W ^ W vanishes within one component'
+    assert st.legal_vacuum
+    assert not np.asarray(st.intersection_winding()).any()
+
+
+@pytest.mark.parametrize('c', (0, 1, 2))
+def test_transport_commutator_deposits_the_minimal_charge(S, c):
+    r"""Two dipoles in **complementary** planes deposit exactly 4 quanta of charge on the
+    empty background, while each alone deposits none --- so the whole deposit is the cross
+    term $A\wedge B$.  And the class stays trivial, which is what lets a chain carrying
+    this move keep emitting.
+    """
+    A = sheet_dipole(N, c, 0, 0, 2, 1)
+    B = sheet_dipole(N, COMPLEMENT[c], 1, 2, 3, 0)
+    st = FState(S, A + B)
+    assert st.D == 0, 'both dipoles are closed'
+    assert not st.periods.any(), 'the commutator must stay on the legal class shell'
+    assert st.Q == 4, f'expected the minimal 4 quanta, got {st.Q}'
+
+
+def test_commutator_move_is_exactly_balanced_and_not_inert():
+    r"""Symmetric proposal, and it must actually fire somewhere it is affordable."""
+    S = NoIntersections(Lattice(4, N), 0.02)
+    gas = WrappingSheetGas(S, sheetEvery=0, commutatorEvery=100,
+                           openSurfaceFugacity=0.5, chargeWeights=cheap_charge(),
+                           targetFraction=0.8, measure=False, pCob=0.35,
+                           seed=5, rng=np.random.default_rng(5))
+    state = FState(S)
+    spec = (0, 0, 0, 2, 1, 1, 2, 3, 0, 1)
+    forward, F = gas.commutator_log_acceptance(state, spec)
+    back, F0 = gas.commutator_log_acceptance(FState(S, F),
+                                             (0, 0, 0, 2, 1, 1, 2, 3, 0, -1))
+    assert forward == pytest.approx(-back, rel=1e-9, abs=1e-9)
+    assert (F0 == state.F).all(), 'the reverse move must return the original F'
+
+    gas.sweep(state, 20000)
+    assert gas.commutatorProposed > 0
+    assert gas.commutatorAccepted > 0, 'the commutator never fired'
+    state.check()
+
+
+def test_commutator_preserves_the_class_along_a_chain():
+    r"""The property the bare sheet move lacks: a commutator chain must never leave
+    $[F] = 0$, so it cannot be absorbed into the unpriced class direction."""
+    S = NoIntersections(Lattice(4, N), 0.02)
+    gas = WrappingSheetGas(S, sheetEvery=0, commutatorEvery=100,
+                           openSurfaceFugacity=0.5, chargeWeights=cheap_charge(),
+                           measure=False, pCob=0.35, seed=3,
+                           rng=np.random.default_rng(3))
+    state = FState(S)
+    for _ in range(20):
+        gas.sweep(state, 1000)
+        if state.D == 0:
+            assert not state.periods.any(), 'the commutator chain left the class shell'
