@@ -5,6 +5,7 @@ from supervillain.h5 import ReadWriteable
 from supervillain.batch import Batch
 from supervillain.configurations import Configurations
 from supervillain.lattice import Lattice, Form, d
+from supervillain.generator.symmetry import all_flip_sets
 
 import logging
 logger = logging.getLogger(__name__)
@@ -153,8 +154,8 @@ class Villain(ReadWriteable):
         -------
         dict
             Keyword arguments ``translations``, ``flip_sets``, and ``perms``
-            for :class:`~supervillain.generator.symmetry.Symmetry`.
-            ``flip_sets=None`` means every one of the $2^D$ axis-flip
-            subsets.
+            for :class:`~supervillain.generator.symmetry.Symmetry`, with
+            ``flip_sets`` every one of the $2^D$ axis-flip subsets.
         '''
-        return dict(translations=True, flip_sets=None, perms=True)
+        return dict(translations=True,
+                    flip_sets=all_flip_sets(self.Lattice.D), perms=True)
