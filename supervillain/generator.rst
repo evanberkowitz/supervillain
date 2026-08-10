@@ -273,36 +273,47 @@ Writing $R$ for the action of a group element on forms, an operator $\mathcal{O}
 
     R\left(\mathcal{O}\omega\right) = \pm\, \mathcal{O}\left(R\omega\right).
 
-The table gives that sign, and records which factors of the space group each operator is equivariant under.
+Each cell of the table gives that sign; ✗ marks an operator that is not equivariant under that factor in *either* sign, so that no convention could absorb it.
 
 .. list-table::
    :header-rows: 1
 
    * - operator
-     - sign
      - translations
      - permutations
-     - sign flips
+     - full inversion
+     - partial flips
    * - :func:`~supervillain.lattice.d`, :func:`~supervillain.lattice.delta`, :func:`~supervillain.lattice.laplacian`
      - $+1$
-     - yes
-     - yes
-     - yes
+     - $+1$
+     - $+1$
+     - $+1$
    * - :func:`~supervillain.lattice.star`
-     - $\det R$
-     - yes
-     - yes
-     - no
+     - $+1$
+     - $\det \pi$
+     - ✗
+     - ✗
    * - :func:`~supervillain.lattice.wedge`, $a \wedge b$
      - $+1$
-     - yes
-     - yes
-     - no
+     - $+1$
+     - ✗
+     - ✗
    * - :func:`~supervillain.lattice.wedge`, $a \wedge a$
      - $+1$
-     - yes
-     - yes
-     - the full inversion only
+     - $+1$
+     - $(-1)^p$
+     - ✗
+
+.. Every row of the table above is checked, both the equivariance and the
+   failures, by test_d_equivariance, test_delta_equivariance,
+   test_laplacian_equivariance, test_star_equivariance and
+   test_wedge_equivariance in test/test_symmetry.py.  The star and general
+   wedge rows assert that a sign flip breaks them in BOTH directions, so
+   neither is a sign convention that could be absorbed; the cup-square row
+   asserts the (-1)^p and that partial flips break it either way.
+   test_inner_product_invariance covers the invariance the delta row rests
+   on.  The two identities in the note below are test_star_star and
+   test_hodge_inner_product in test/test_lattice.py.
 
 $d$ is the coboundary of the cell complex --- pure combinatorics of which cell borders which --- so it commutes with any relabelling of cells, and $\delta$ is its adjoint  with respect to the cell-wise inner product :eq:`d-delta-formal-adjoint`, which the space group leaves invariant.
 The wedge and the star instead carry base-point shifts tied to the *sense* of a direction, and a sign flip reverses that sense.

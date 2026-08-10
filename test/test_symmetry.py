@@ -40,7 +40,9 @@ from math import factorial
 import numpy as np
 import pytest
 
-from supervillain.lattice import Lattice, Form, d, delta, wedge, translate, reflect, permute
+from supervillain.lattice import (
+    Lattice, Form, d, delta, star, wedge, laplacian, translate, reflect, permute,
+)
 import supervillain.lattice.interlaced as interlaced
 from supervillain.generator.symmetry import (
     Symmetry, all_flip_sets, LatticeSymmetry, Translation, Reflection,
@@ -146,27 +148,251 @@ def _scalars(S, phi, n):
 # dense/interlaced agreement.  All data-free, all exact (integer arithmetic).
 # ---------------------------------------------------------------------------
 
-def test_d_equivariant_at_every_degree():
-    r"""Every transformation commutes with the exterior derivative:
-    $R(d\omega) = d(R\omega)$ at every degree, $D = 2, 3, 4, 5$."""
+def _moves(D):
+    r"""Representative elements of each factor of the space group, as
+    ``(kind, flips, perm, shift)``.
+
+    ``kind`` is ``'translation'``, ``'permutation'``, or ``'flip'``, so a test
+    can assert a different verdict per factor --- which is the whole point,
+    since :func:`~supervillain.lattice.star` and
+    :func:`~supervillain.lattice.wedge` are equivariant under the first two
+    and not the third.
+    """
+    identity = tuple(range(D))
+    yield ('translation', (), identity, (1,) + (0,) * (D - 1))
+    yield ('translation', (), identity, identity)
+    for perm in itertools.permutations(range(D)):
+        yield ('permutation', (), perm, (0,) * D)
+    for flips in all_flip_sets(D):
+        if flips:
+            yield ('flip', flips, identity, (0,) * D)
+
+
+def _apply(f, flips, perm, shift):
+    r"""A space-group element applied to a form, in the same order
+    :meth:`~supervillain.generator.symmetry.Symmetry.apply` uses."""
+    return translate(reflect(permute(f, perm), flips), shift)
+
+
+def _determinant(D, flips, perm):
+    r"""$\det R$ for the signed permutation matrix of an element."""
+    M = np.zeros((D, D), dtype=int)
+    for mu in range(D):
+        M[perm[mu], mu] = -1 if mu in flips else 1
+    return int(round(np.linalg.det(M)))
+
+
+def test_d_equivariance():
+    r"""$d$ is equivariant under every element of the space group:
+    $R(d\omega) = d(R\omega)$, at every degree, $D = 2, 3, 4, 5$.
+
+    $d$ is the coboundary of the cell complex --- pure combinatorics of which
+    cell borders which --- so it survives any relabelling of cells.
+    """
     for D, N in ((2, 6), (3, 4), (4, 4), (5, 3)):
         lattice = Lattice(D, N)
         for degree in range(D):
             f = random_form(lattice, degree, 100 + D * 10 + degree)
-            df = d(f)
-            # The SAME move applied to both f and d(f).
-            movers = (
-                [lambda g, s=s: translate(g, s)
-                 for s in ((1,) + (0,) * (D - 1), tuple(range(D)))]
-                + [lambda g, fl=fl: reflect(g, fl) for fl in all_flip_sets(D)]
-                + [lambda g, p=p: permute(g, p) for p in itertools.permutations(range(D))]
-            )
-            for move in movers:
-                lhs = np.asarray(move(df))
-                rhs = np.asarray(d(move(f)))
+            assert np.asarray(d(f)).any(), (
+                f'D={D} degree={degree}: d of the reference form vanishes, '
+                'which would make its equivariance vacuous')
+            for kind, flips, perm, shift in _moves(D):
+                lhs = np.asarray(_apply(d(f), flips, perm, shift))
+                rhs = np.asarray(d(_apply(f, flips, perm, shift)))
                 assert np.array_equal(lhs, rhs), (
-                    f'D={D} degree={degree}: a transformation does not '
-                    f'commute with d')
+                    f'D={D} degree={degree}: d is not equivariant under the '
+                    f'{kind} flips={flips} perm={perm} shift={shift}')
+
+
+def test_delta_equivariance():
+    r"""$\delta$ is equivariant under every element of the space group, at
+    every degree.
+
+    This is what :meth:`Worldline.admissible_symmetries
+    <supervillain.action.Worldline.admissible_symmetries>` rests on.  It
+    follows from :func:`test_d_equivariance` together with
+    ``test_compact_adjointness`` in :source:`test/test_lattice.py`: $\delta$
+    is the adjoint of $d$ under the cell-wise inner product, which the space
+    group leaves invariant (checked below).  Note that it does NOT follow
+    from $\delta \sim {\star} d {\star}$ --- :func:`test_star_equivariance`
+    shows ${\star}$ is not equivariant under a sign flip at all.
+    """
+    for D, N in ((2, 6), (3, 4), (4, 4)):
+        lattice = Lattice(D, N)
+        for degree in range(1, D + 1):
+            f = random_form(lattice, degree, 200 + D * 10 + degree)
+            assert np.asarray(delta(f)).any(), (
+                f'D={D} degree={degree}: delta of the reference form vanishes')
+            for kind, flips, perm, shift in _moves(D):
+                lhs = np.asarray(_apply(delta(f), flips, perm, shift))
+                rhs = np.asarray(delta(_apply(f, flips, perm, shift)))
+                assert np.array_equal(lhs, rhs), (
+                    f'D={D} degree={degree}: delta is not equivariant under '
+                    f'the {kind} flips={flips} perm={perm} shift={shift}')
+
+
+def test_inner_product_invariance():
+    r"""The cell-wise inner product $\langle \omega, \eta \rangle = \sum_c
+    \omega_c \eta_c$ is invariant under every element of the space group.
+
+    Together with :func:`test_d_equivariance` this is *why*
+    :func:`test_delta_equivariance` holds: an element that permutes cells and
+    squares signs cannot change a sum over cells, so the adjoint of an
+    equivariant operator is equivariant.
+    """
+    for D, N in ((2, 6), (3, 4), (4, 4)):
+        lattice = Lattice(D, N)
+        for degree in range(D + 1):
+            a = random_form(lattice, degree, 300 + D * 10 + degree)
+            b = random_form(lattice, degree, 400 + D * 10 + degree)
+            reference = int((np.asarray(a) * np.asarray(b)).sum())
+            assert reference != 0, (
+                f'D={D} degree={degree}: vanishing reference inner product')
+            for kind, flips, perm, shift in _moves(D):
+                Ra = _apply(a, flips, perm, shift)
+                Rb = _apply(b, flips, perm, shift)
+                got = int((np.asarray(Ra) * np.asarray(Rb)).sum())
+                assert got == reference, (
+                    f'D={D} degree={degree}: the inner product changed from '
+                    f'{reference} to {got} under the {kind} flips={flips} '
+                    f'perm={perm} shift={shift}')
+
+
+def test_laplacian_equivariance():
+    r"""$\Delta$ is equivariant under every element of the space group.
+
+    It is built from $d$ and $\delta$, so this follows from
+    :func:`test_d_equivariance` and :func:`test_delta_equivariance`; it is
+    asserted directly so the operator table in :doc:`the sampling docs
+    </supervillain/generator>` is checked row by row rather than by
+    inference.
+    """
+    for D, N in ((2, 6), (3, 4), (4, 4)):
+        lattice = Lattice(D, N)
+        for degree in range(D + 1):
+            f = random_form(lattice, degree, 500 + D * 10 + degree)
+            assert np.asarray(laplacian(f)).any(), (
+                f'D={D} degree={degree}: the Laplacian of the reference '
+                'form vanishes')
+            for kind, flips, perm, shift in _moves(D):
+                lhs = np.asarray(_apply(laplacian(f), flips, perm, shift))
+                rhs = np.asarray(laplacian(_apply(f, flips, perm, shift)))
+                assert np.array_equal(lhs, rhs), (
+                    f'D={D} degree={degree}: the Laplacian is not equivariant '
+                    f'under the {kind} flips={flips} perm={perm} shift={shift}')
+
+
+def test_star_equivariance():
+    r"""${\star}$ is equivariant up to $\det R$ under translations and axis
+    permutations, and NOT equivariant under any sign flip.
+
+    The $\det R$ is ${\star}$'s continuum behaviour --- it is orientation-odd
+    there too --- so equivariance means $R({\star}\omega) = \det R \;
+    {\star}(R\omega)$.
+
+    .. warning::
+        The failure under a sign flip is asserted in BOTH directions: not
+        equal to $+{\star}(R\omega)$ and not equal to $-{\star}(R\omega)$
+        either.  It is not a sign convention that could be absorbed; the base
+        point shifts, and no overall sign repairs it.  Note that orientation
+        is not what breaks it --- odd permutations are orientation-reversing
+        and pass.
+    """
+    for D, N in ((2, 6), (3, 4), (4, 4)):
+        lattice = Lattice(D, N)
+        for degree in range(D + 1):
+            f = random_form(lattice, degree, 600 + D * 10 + degree)
+            assert np.asarray(star(f)).any(), (
+                f'D={D} degree={degree}: the star of the reference form vanishes')
+            for kind, flips, perm, shift in _moves(D):
+                lhs = np.asarray(_apply(star(f), flips, perm, shift))
+                rhs = np.asarray(star(_apply(f, flips, perm, shift)))
+                signed = _determinant(D, set(flips), perm) * rhs
+                if kind == 'flip':
+                    assert not np.array_equal(lhs, signed) and \
+                           not np.array_equal(lhs, -signed), (
+                        f'D={D} degree={degree}: star is unexpectedly '
+                        f'equivariant under the flip {flips}.  If this now '
+                        'holds, the operator table in the sampling docs and '
+                        'the admissible symmetries of the constrained '
+                        'actions are both too conservative.')
+                else:
+                    assert np.array_equal(lhs, signed), (
+                        f'D={D} degree={degree}: star is not equivariant up '
+                        f'to det under the {kind} perm={perm} shift={shift}')
+
+
+def test_wedge_equivariance():
+    r"""$a \wedge b$ is equivariant under translations and axis permutations
+    and NOT under any sign flip; the cup square $a \wedge a$ is additionally
+    equivariant under the full inversion, up to $(-1)^p$.
+
+    The lattice wedge is a cup product, natural only under order-preserving
+    cubical maps, so a sign flip carries it into the opposite cup product ---
+    which differs by a coboundary and moves the result cell by cell.
+
+    .. note::
+        A general wedge fails under a sign flip in BOTH directions --- equal
+        to neither $+(Ra) \wedge (Rb)$ nor $-(Ra) \wedge (Rb)$ --- so it is
+        not a sign convention that could be absorbed.  The cup square is the
+        exception, and only for the FULL inversion:
+
+        .. math ::
+            R_{\mathrm{inv}}(a \wedge a) = (-1)^p\, (Ra) \wedge (Ra)
+
+        That is what leaves $\{I, -I\}$ admissible in
+        :meth:`NoIntersections.admissible_symmetries
+        <supervillain.action.NoIntersections.admissible_symmetries>` rather
+        than the identity alone.  The sign is irrelevant there, since
+        $(-1)^p \cdot 0 = 0$ --- what matters is that the cup square is
+        equivariant under the inversion at all, which a general wedge is not.
+    """
+    for D, N in ((2, 6), (3, 4), (4, 4)):
+        lattice = Lattice(D, N)
+        full_inversion = tuple(range(D))
+        for degree in range(1, D // 2 + 1):
+            a = random_form(lattice, degree, 700 + D * 10 + degree)
+            b = random_form(lattice, degree, 800 + D * 10 + degree)
+            assert np.asarray(wedge(a, b)).any(), (
+                f'D={D} degree={degree}: the reference wedge vanishes')
+            for kind, flips, perm, shift in _moves(D):
+                lhs = np.asarray(_apply(wedge(a, b), flips, perm, shift))
+                rhs = np.asarray(wedge(_apply(a, flips, perm, shift),
+                                       _apply(b, flips, perm, shift)))
+                if kind == 'flip':
+                    assert not np.array_equal(lhs, rhs), (
+                        f'D={D} degree={degree}: a general wedge is '
+                        f'unexpectedly equivariant under the flip {flips}')
+                else:
+                    assert np.array_equal(lhs, rhs), (
+                        f'D={D} degree={degree}: the wedge is not equivariant '
+                        f'under the {kind} perm={perm} shift={shift}')
+
+            # The cup square under the full inversion, up to (-1)^p.
+            if not np.asarray(wedge(a, a)).any():
+                continue
+            identity = tuple(range(D))
+            inverted = np.asarray(_apply(wedge(a, a), full_inversion,
+                                         identity, (0,) * D))
+            Ra = _apply(a, full_inversion, identity, (0,) * D)
+            assert np.array_equal(inverted, (-1) ** degree
+                                  * np.asarray(wedge(Ra, Ra))), (
+                f'D={D} degree={degree}: the cup square should be equivariant '
+                f'under the full inversion up to (-1)^{degree}; this is what '
+                'leaves {I, -I} admissible for NoIntersections')
+
+            # ... but not under a PARTIAL flip, in either sign.
+            for flips in all_flip_sets(D):
+                if not flips or flips == full_inversion:
+                    continue
+                partial = np.asarray(_apply(wedge(a, a), flips, identity, (0,) * D))
+                Pa = _apply(a, flips, identity, (0,) * D)
+                square = np.asarray(wedge(Pa, Pa))
+                assert not np.array_equal(partial, square) and \
+                       not np.array_equal(partial, -square), (
+                    f'D={D} degree={degree}: the cup square is unexpectedly '
+                    f'equivariant under the partial flip {flips}, which would '
+                    'widen the admissible group for NoIntersections')
 
 
 def _inverse_test_group(lattice):
