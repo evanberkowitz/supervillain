@@ -263,44 +263,64 @@ Drawing an element of that group and applying it to every field is therefore a g
 It carries a configuration to a physically identical one, applying :func:`~supervillain.lattice.translate`, :func:`~supervillain.lattice.reflect`, and :func:`~supervillain.lattice.permute` to each :class:`~supervillain.lattice.Form` the action declares.
 
 These are exact symmetries rather than proposals to be tested.
-$\Delta S = 0$ identically, so the move is **always accepted** and carries no acceptance rate.
+$\Delta S = 0$ identically, so they are always accepted.
 Since nothing in the sampling statistics would register a symmetry applied wrongly, an action must declare which symmetries it admits; one is never assumed on its behalf.
 
-Which elements are admissible depends on what the Boltzmann weight is built from.
-Anything assembled linearly from $d$ or $\delta$ is carried along exactly by every element of the space group.
-The lattice wedge is not: it is a cup product, natural only under order-preserving cubical maps, so a reflection carries it into the opposite cup product, which differs from it by a coboundary.
-A quantity built from a wedge can therefore fail hypercube by hypercube under a reflection, and it makes no difference whether that quantity sits in a constraint or in the action itself --- the no-intersection constraint is the $\theta \to \infty$ limit of a $\theta$-term $i \theta\, (dn \wedge dn)$.
-It happens that every action here is a sum of squares over links with no wedge in it, so among these formulations it is the constraint that discriminates; an action carrying a $\theta$-term at finite $\theta$ would restrict the group on its own.
+Which elements are admissible depends on what the Boltzmann weight is built from, because the lattice operators are not all equally well behaved.
+Writing $R$ for the action of a group element on forms, an operator $\mathcal{O}$ is *equivariant* under that element when it commutes with $R$ up to whatever sign its continuum counterpart carries,
 
-Each action declares the consequence through its ``admissible_symmetries``:
+.. math ::
+
+    R\left(\mathcal{O}\omega\right) = \pm\, \mathcal{O}\left(R\omega\right).
+
+The table gives that sign, and records which factors of the space group each operator is equivariant under.
 
 .. list-table::
    :header-rows: 1
 
-   * - action
-     - constraint
-     - built from
-     - admissible flip sets
-     - admissible group order
-   * - :class:`~supervillain.action.Villain`
-     - none (or $[dn \equiv 0 \bmod W]$, itself linear)
-     - ---
-     - all $2^D$
-     - $N^D \cdot 2^D \cdot D!$
-   * - :class:`~supervillain.action.Worldline`
-     - $\delta m = 0$
-     - linear in $m$
-     - all $2^D$
-     - $N^D \cdot 2^D \cdot D!$
-   * - :class:`~supervillain.action.NoIntersections`
-     - $q = dn \wedge dn = 0$
-     - wedge (cup product)
-     - $\{(), (0,\ldots,D-1)\}$
-     - $N^D \cdot 2 \cdot D!$
+   * - operator
+     - sign
+     - translations
+     - permutations
+     - sign flips
+   * - :func:`~supervillain.lattice.d`, :func:`~supervillain.lattice.delta`, :func:`~supervillain.lattice.laplacian`
+     - $+1$
+     - yes
+     - yes
+     - yes
+   * - :func:`~supervillain.lattice.star`
+     - $\det R$
+     - yes
+     - yes
+     - no
+   * - :func:`~supervillain.lattice.wedge`, $a \wedge b$
+     - $+1$
+     - yes
+     - yes
+     - no
+   * - :func:`~supervillain.lattice.wedge`, $a \wedge a$
+     - $+1$
+     - yes
+     - yes
+     - the full inversion only
 
-The Worldline constraint $\delta m = 0$ survives because $\delta \sim {\star}d{\star}$ carries two Hodge stars whose orientation factors cancel, so $\delta$ commutes with every element of the space group.
-The no-intersection constraint has no such cancellation, and its admissible sign flips reduce to the identity and the full inversion $x \to -x$.
+$d$ is the coboundary of the cell complex --- pure combinatorics of which cell borders which --- so it commutes with any relabelling of cells, and $\delta$ is its adjoint  with respect to the cell-wise inner product :eq:`d-delta-formal-adjoint`, which the space group leaves invariant.
+The wedge and the star instead carry base-point shifts tied to the *sense* of a direction, and a sign flip reverses that sense.
+Note that orientation is not what matters: odd permutations are orientation-reversing and both operators handle them.
+
+So a Boltzmann weight assembled from $d$, $\delta$, and the inner product admits the whole space group, while one containing a wedge may not --- and it makes no difference whether the wedge sits in a constraint or in the action itself.
+Each action declares the consequence through its ``admissible_symmetries``.
+
+Among the built-in formulations only :class:`~supervillain.action.NoIntersections` is restricted, its constraint $q = dn \wedge dn = 0$ being a cup square.
+Its admissible sign flips are therefore the identity and the full inversion $x \to -x$.
 Those two are themselves a subgroup, the inversion being central, so uniform draws, closure under inverses, and detailed balance are all unaffected; what shrinks is the reach of a single move.
+
+.. note ::
+
+   Two lattice identities are worth knowing here, since neither is quite the continuum statement.
+   ${\star}{\star}$ is $(-1)^{p(D-p)}$ --- the continuum sign --- times a translation by one step in *every* direction.
+   And $\sum_x (a \wedge {\star} b) = \langle a, b \rangle$ exactly, so the inner product is recovered even though neither ${\star}$ nor $\wedge$ is equivariant under a sign flip on its own.
+   That is why $\delta$ is unaffected despite being expressible as ${\star} d {\star}$.
 
 .. autoclass :: supervillain.generator.symmetry.Symmetry
    :members:
