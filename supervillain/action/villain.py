@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import numpy as np
-from supervillain.h5 import ReadWriteable
+from supervillain.action.action import Action
 from supervillain.batch import Batch
 from supervillain.configurations import Configurations
 from supervillain.lattice import Lattice, Form, d
@@ -10,7 +10,7 @@ from supervillain.generator.symmetry import all_flip_sets
 import logging
 logger = logging.getLogger(__name__)
 
-class Villain(ReadWriteable):
+class Villain(Action):
     r'''
     'The' Villain action is just the straightforward
 
