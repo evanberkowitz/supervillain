@@ -11,9 +11,8 @@ class Action(ReadWriteable):
     :ref:`lattice symmetries <space-group>` it admits.
 
     Nothing here is implemented.  This class records the surface that
-    :class:`~supervillain.action.Villain`,
-    :class:`~supervillain.action.Worldline`, and
-    :class:`~supervillain.action.NoIntersections` all provide, so that
+    :class:`~supervillain.action.Villain` and
+    :class:`~supervillain.action.Worldline` both provide, so that
     generators and observables can be written against the interface rather
     than against a particular formulation.
 

@@ -25,9 +25,8 @@ groups, not about any particular action --- so it lives at the top level of
 and :mod:`~supervillain.generator.monitor`, rather than under ``villain`` or
 ``worldline``.  What varies by action is which subgroup is *admissible*; each
 action declares that itself via ``admissible_symmetries`` (see
-:meth:`supervillain.action.Villain.admissible_symmetries`,
-:meth:`supervillain.action.Worldline.admissible_symmetries`, and
-:meth:`supervillain.action.NoIntersections.admissible_symmetries`).
+:meth:`supervillain.action.Villain.admissible_symmetries` and
+:meth:`supervillain.action.Worldline.admissible_symmetries`).
 """
 
 import itertools
@@ -162,9 +161,8 @@ class Symmetry:
         .. note::
             ``flip_sets`` is an explicit whitelist rather than a boolean
             because the admissible flips for a constrained action are neither
-            all nor none.  :class:`~supervillain.action.NoIntersections`
-            admits exactly the identity and the full inversion; see
-            :meth:`~supervillain.action.NoIntersections.admissible_symmetries`.
+            all nor none: an action constrained by a cup square admits
+            exactly the identity and the full inversion.
 
         Parameters
         ----------
@@ -329,8 +327,8 @@ class LatticeSymmetry(ReadWriteable, Generator):
                 f'corrupt the ensemble silently, with no acceptance rate '
                 f'ever to reveal it.  Establish {type(S).__name__}\'s '
                 f'admissible group by measurement and add an '
-                f'admissible_symmetries() method (see Villain, Worldline, '
-                f'and NoIntersections) -- do not loosen this check.')
+                f'admissible_symmetries() method (see Villain and '
+                f'Worldline) -- do not loosen this check.')
         admissible = declare()
         D = S.Lattice.D
         allowed = (all_flip_sets(D) if admissible['flip_sets'] is None
@@ -466,9 +464,9 @@ class SpaceGroup(LatticeSymmetry):
     $N^D \cdot 2^D \cdot D!$ for actions (like
     :class:`~supervillain.action.Villain` and
     :class:`~supervillain.action.Worldline`) admitting the full space group;
-    $N^D \cdot 2 \cdot D!$ for
-    :class:`~supervillain.action.NoIntersections`, whose constraint admits
-    only the identity and the full inversion among the axis flips.
+    $N^D \cdot 2 \cdot D!$ for an action whose weight contains a wedge and
+    which therefore admits only the identity and the full inversion among the
+    axis flips.
 
     .. note::
         A single draw rather than a composition of the three single-factor

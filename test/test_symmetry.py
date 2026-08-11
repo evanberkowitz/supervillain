@@ -48,12 +48,37 @@ from supervillain.generator.symmetry import (
     Symmetry, all_flip_sets, LatticeSymmetry, Translation, Reflection,
     AxisPermutation, SpaceGroup, Conjugation,
 )
-from supervillain.action import Villain, NoIntersections, Worldline
+from supervillain.action import Villain, Worldline
 from supervillain.observable.wrapping import TorusWrapping
 from supervillain.observable.action import ActionDensity
 from supervillain.observable.energy import InternalEnergyDensity
 from supervillain.observable.winding import WindingSquared
 from supervillain.observable.spin import SpinMagnetizationSquared
+
+
+class WedgeConstrained(Villain):
+    r"""A formulation whose Boltzmann weight contains a WEDGE, and which
+    therefore admits only $\{I, -I\} \times S_D$ rather than the whole point
+    group.
+
+    The wedge is a cup product, natural only under order-preserving cubical
+    maps: a reflection carries it into the opposite cup product, differing by
+    a coboundary.  A cup *square* survives the full inversion even though a
+    general wedge does not, which is what leaves $\{I, -I\}$ --- see
+    :func:`test_wedge_equivariance`, which measures both halves of that claim.
+
+    .. note::
+        This exists so the tests below gate the CONTRACT --- an action
+        declares a restricted group, and the generators honour it --- rather
+        than one particular client of it.  The No-Intersection model, whose
+        constraint $q = dn \wedge dn = 0$ is exactly such a weight, is the
+        motivating case; its own declaration is gated with that model.
+    """
+
+    def admissible_symmetries(self):
+        D = self.Lattice.D
+        return dict(translations=True, flip_sets=[(), tuple(range(D))],
+                    perms=True)
 
 
 def random_form(lattice, degree, seed, dtype=np.int64, lo=-999, hi=1000):
@@ -341,9 +366,8 @@ def test_wedge_equivariance():
             R_{\mathrm{inv}}(a \wedge a) = (-1)^p\, (Ra) \wedge (Ra)
 
         That is what leaves $\{I, -I\}$ admissible in
-        :meth:`NoIntersections.admissible_symmetries
-        <supervillain.action.NoIntersections.admissible_symmetries>` rather
-        than the identity alone.  The sign is irrelevant there, since
+        :meth:`WedgeConstrained.admissible_symmetries` rather than the
+        identity alone.  The sign is irrelevant there, since
         $(-1)^p \cdot 0 = 0$ --- what matters is that the cup square is
         equivariant under the inversion at all, which a general wedge is not.
     """
@@ -379,7 +403,7 @@ def test_wedge_equivariance():
                                   * np.asarray(wedge(Ra, Ra))), (
                 f'D={D} degree={degree}: the cup square should be equivariant '
                 f'under the full inversion up to (-1)^{degree}; this is what '
-                'leaves {I, -I} admissible for NoIntersections')
+                'leaves {I, -I} admissible for a wedge-constrained action')
 
             # ... but not under a PARTIAL flip, in either sign.
             for flips in all_flip_sets(D):
@@ -392,7 +416,7 @@ def test_wedge_equivariance():
                        not np.array_equal(partial, -square), (
                     f'D={D} degree={degree}: the cup square is unexpectedly '
                     f'equivariant under the partial flip {flips}, which would '
-                    'widen the admissible group for NoIntersections')
+                    'widen the admissible group of a wedge-constrained action')
 
 
 def _inverse_test_group(lattice):
@@ -554,7 +578,7 @@ def test_dense_and_interlaced_agree_exactly():
 def test_topological_charge_equivariant_under_admissible_not_excluded():
     r"""$q = dn \wedge dn$ is a top-degree FORM, so it transforms
     covariantly: $q(g \cdot n) = g \cdot q(n)$.  This holds for every element
-    :class:`~supervillain.action.NoIntersections` admits, and --- because the
+    :class:`WedgeConstrained` admits, and --- because the
     whitelist must be exactly right in both directions, not merely
     conservative --- for NONE of the excluded flip sets.
 
@@ -566,7 +590,7 @@ def test_topological_charge_equivariant_under_admissible_not_excluded():
     """
     D, N = 4, 4
     lattice = Lattice(D, N)
-    S = NoIntersections(lattice, kappa=0.03)
+    S = WedgeConstrained(lattice, kappa=0.03)
     n = random_form(lattice, 1, 23)
     q = _charge(n)
     assert np.asarray(q).any(), (
@@ -609,7 +633,7 @@ def test_topological_charge_zero_survives_admissible_symmetry():
     """
     D, N = 4, 4
     lattice = Lattice(D, N)
-    S = NoIntersections(lattice, kappa=0.03)
+    S = WedgeConstrained(lattice, kappa=0.03)
     n = _degenerate_zero_charge_n(lattice, seed=99)
     assert not np.asarray(_charge(n)).any(), 'fixture does not satisfy q == 0'
 
@@ -641,14 +665,14 @@ def test_action_and_scalars_invariant_under_admissible_symmetry():
     observables = ('ActionDensity', 'InternalEnergyDensity', 'WindingSquared',
                    'SpinMagnetizationSquared')
 
-    NI = NoIntersections(lattice, kappa=0.03)
-    reference = _scalars(NI, phi, n)
+    constrained = WedgeConstrained(lattice, kappa=0.03)
+    reference = _scalars(constrained, phi, n)
     assert all(reference[o] != 0.0 for o in observables), (
         'a vanishing reference observable would make its invariance check vacuous')
-    factors = dict(NI.admissible_symmetries()) | {'translations': False}
+    factors = dict(constrained.admissible_symmetries()) | {'translations': False}
     checked = 0
     for g in Symmetry.all(lattice, **factors):
-        got = _scalars(NI, g.apply(phi), g.apply(n))
+        got = _scalars(constrained, g.apply(phi), g.apply(n))
         checked += 1
         for o in observables:
             relative = abs(reference[o] - got[o]) / max(abs(reference[o]), 1e-30)
@@ -681,7 +705,7 @@ def test_torus_wrapping_transforms_as_a_vector():
     """
     D, N = 4, 4
     lattice = Lattice(D, N)
-    S = NoIntersections(lattice, kappa=0.03)
+    S = WedgeConstrained(lattice, kappa=0.03)
     n = random_form(lattice, 1, 823)
     phi = random_form(lattice, 0, 1, dtype=float, lo=-np.pi, hi=np.pi)
     reference = np.asarray(TorusWrapping.Villain(S, phi, n))
@@ -794,18 +818,18 @@ def test_declared_field_with_unreadable_degree_raises():
 
 
 def test_reflection_refuses_a_constrained_action():
-    r"""``Reflection`` refuses :class:`~supervillain.action.NoIntersections`:
+    r"""``Reflection`` refuses a wedge-constrained action:
     a generator named for sign flips that cannot apply most of them would be
     a lie.  ``SpaceGroup`` (below) is the one that restricts honestly."""
-    NI = NoIntersections(Lattice(4, 3), kappa=0.03)
+    constrained = WedgeConstrained(Lattice(4, 3), kappa=0.03)
     with pytest.raises(ValueError):
-        Reflection(NI)
+        Reflection(constrained)
 
 
 def test_reflection_does_not_refuse_worldline():
     r"""``Reflection`` does NOT raise for
-    :class:`~supervillain.action.Worldline`: unlike ``NoIntersections``, it
-    admits the full space group and has no restriction to refuse."""
+    :class:`~supervillain.action.Worldline`: unlike
+    :class:`WedgeConstrained`, it admits the full space group and has no restriction to refuse."""
     Wl = Worldline(Lattice(4, 3), kappa=0.5, W=3)
     Reflection(Wl)     # must not raise
 
@@ -818,20 +842,20 @@ def test_space_group_narrows_and_reports_the_restricted_order():
     full = SpaceGroup(Villain(Lattice(D, N), kappa=0.03))
     assert full.order == N ** D * 2 ** D * factorial(D)
 
-    narrowed = SpaceGroup(NoIntersections(Lattice(D, N), kappa=0.03))
+    narrowed = SpaceGroup(WedgeConstrained(Lattice(D, N), kappa=0.03))
     assert narrowed.order == N ** D * 2 * factorial(D)
     assert str(narrowed.order) in narrowed.report()
 
 
 def test_space_group_draws_only_whitelisted_flip_sets():
-    r"""Over many draws, ``SpaceGroup(NoIntersections)`` never returns an
-    element outside its admissible flip-set whitelist."""
-    NI = NoIntersections(Lattice(4, 4), kappa=0.03)
-    allowed = set(NI.admissible_symmetries()['flip_sets'])
-    generator = SpaceGroup(NI, rng=np.random.default_rng(11))
+    r"""Over many draws, ``SpaceGroup`` of a wedge-constrained action never
+    returns an element outside its admissible flip-set whitelist."""
+    constrained = WedgeConstrained(Lattice(4, 4), kappa=0.03)
+    allowed = set(constrained.admissible_symmetries()['flip_sets'])
+    generator = SpaceGroup(constrained, rng=np.random.default_rng(11))
     for _ in range(200):
         assert generator.draw().flips in allowed, (
-            'SpaceGroup(NoIntersections) drew a flip set outside the '
+            'SpaceGroup drew a flip set outside the '
             'admissible whitelist')
 
 
@@ -857,7 +881,7 @@ def test_undeclared_action_fails_closed():
 
 def test_worldline_admits_the_full_space_group():
     r"""``Worldline`` admits the FULL space group: no reflection restriction,
-    unlike ``NoIntersections``.
+    unlike a wedge-constrained action.
 
     Builds a VALID configuration ``m = delta(w)`` for a random integer
     2-form ``w`` --- valid because $\delta \circ \delta = 0$ --- with ``v``

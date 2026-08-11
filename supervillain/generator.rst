@@ -322,8 +322,7 @@ Note that orientation is not what matters: odd permutations are orientation-reve
 So a Boltzmann weight assembled from $d$, $\delta$, and the inner product admits the whole space group, while one containing a wedge may not --- and it makes no difference whether the wedge sits in a constraint or in the action itself.
 Each action declares the consequence through its ``admissible_symmetries``.
 
-Among the built-in formulations only :class:`~supervillain.action.NoIntersections` is restricted, its constraint $q = dn \wedge dn = 0$ being a cup square.
-Its admissible sign flips are therefore the identity and the full inversion $x \to -x$.
+Both formulations above admit the whole group.  A formulation constrained by a cup square --- $q = dn \wedge dn = 0$, say --- does not: its admissible sign flips are the identity and the full inversion $x \to -x$ alone, since a cup square survives the inversion (up to a degree-dependent sign) even though a general wedge survives no flip at all.
 Those two are themselves a subgroup, the inversion being central, so uniform draws, closure under inverses, and detailed balance are all unaffected; what shrinks is the reach of a single move.
 
 .. note ::
@@ -358,8 +357,8 @@ Those two are themselves a subgroup, the inversion being central, so uniform dra
    :members:
 
 Charge conjugation acts on the field values rather than on lattice coordinates, so it is not built from a :class:`~supervillain.generator.symmetry.Symmetry`.
-It is admissible for every action, :class:`~supervillain.action.NoIntersections` included.
-The constraint $q = F \wedge F$, with $F = dn$, is quadratic in $F$, so $n \to -n$ sends $F \to -F$ and leaves $q$ invariant outright --- conjugation never touches the lattice map the cup product depends on.
+It is admissible for every action, including one a wedge restricts.
+A constraint $q = F \wedge F$, with $F = dn$, is quadratic in $F$, so $n \to -n$ sends $F \to -F$ and leaves $q$ invariant outright --- conjugation never touches the lattice map the cup product depends on.
 
 .. autoclass :: supervillain.generator.symmetry.Conjugation
    :members:
