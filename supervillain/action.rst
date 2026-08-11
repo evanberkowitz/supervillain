@@ -21,8 +21,8 @@ What it fixes is the programming surface: an action lives on a :class:`~supervil
    Because a configuration is a dictionary, code that does not know the
    formulation evaluates an action as ``S(**configuration)``.  Entries the
    configuration carries beyond the fields --- inline observables, or an
-   :ref:`importance weight <importance-weights>` --- are absorbed by each
-   action's ``**kwargs`` and ignored.
+   importance weight --- are absorbed by each action's ``**kwargs`` and
+   ignored.
 
 .. autoclass :: supervillain.action.Action
    :members:

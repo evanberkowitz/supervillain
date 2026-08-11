@@ -42,8 +42,8 @@ class Action(ReadWriteable):
             $(m, v)$.  Code that holds a configuration dictionary and does not
             know the formulation should call ``S(**configuration)``.  Every
             action must accept ``**kwargs``, so that entries a configuration carries
-            beyond the fields --- inline observables, or an
-            :ref:`importance weight <importance-weights>` --- are ignored.
+            beyond the fields --- inline observables, or an importance
+            weight --- are ignored.
 
         Returns
         -------

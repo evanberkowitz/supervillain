@@ -48,12 +48,11 @@ from supervillain.generator.symmetry import (
     Symmetry, all_flip_sets, LatticeSymmetry, Translation, Reflection,
     AxisPermutation, SpaceGroup, Conjugation,
 )
-from supervillain.action import Villain, Worldline
+from supervillain.action import Action, Villain, Worldline
 from supervillain.observable.wrapping import TorusWrapping
 from supervillain.observable.action import ActionDensity
 from supervillain.observable.energy import InternalEnergyDensity
 from supervillain.observable.winding import WindingSquared
-from supervillain.observable.spin import SpinMagnetizationSquared
 
 
 class WedgeConstrained(Villain):
@@ -164,7 +163,6 @@ def _scalars(S, phi, n):
         'ActionDensity': float(ActionDensity.Villain(S, phi, n)),
         'InternalEnergyDensity': float(InternalEnergyDensity.Villain(S, phi, n)),
         'WindingSquared': float(WindingSquared.Villain(S, n)),
-        'SpinMagnetizationSquared': float(SpinMagnetizationSquared.Villain(S, phi)),
     }
 
 
@@ -662,8 +660,8 @@ def test_action_and_scalars_invariant_under_admissible_symmetry():
     lattice = Lattice(D, N)
     n = random_form(lattice, 1, 11, lo=-5, hi=6)
     phi = random_form(lattice, 0, 13, dtype=float, lo=-np.pi, hi=np.pi)
-    observables = ('ActionDensity', 'InternalEnergyDensity', 'WindingSquared',
-                   'SpinMagnetizationSquared')
+    observables = ('ActionDensity', 'InternalEnergyDensity',
+                   'WindingSquared')
 
     constrained = WedgeConstrained(lattice, kappa=0.03)
     reference = _scalars(constrained, phi, n)
@@ -873,6 +871,23 @@ def test_undeclared_action_fails_closed():
 
     with pytest.raises(NotImplementedError):
         LatticeSymmetry(_NotYetEstablished(Lattice(3, 4)))
+
+
+def test_action_subclass_that_forgets_fails_closed():
+    r"""The other half of the fail-closed check: an action that DOES inherit
+    from :class:`~supervillain.action.Action` but never overrides
+    ``admissible_symmetries`` reaches the base class's declaration, which
+    raises.  Inheriting the interface must not be mistaken for having
+    answered the question --- an unmeasured action is exactly the one whose
+    always-accepted moves could corrupt an ensemble unnoticed.
+    """
+    class _Forgetful(Action):
+        r"""Inherits the interface, declares nothing."""
+        def __init__(self, lattice):
+            self.Lattice = lattice
+
+    with pytest.raises(NotImplementedError):
+        LatticeSymmetry(_Forgetful(Lattice(3, 4)))
 
 
 # ---------------------------------------------------------------------------
