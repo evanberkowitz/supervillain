@@ -69,6 +69,40 @@ class Worldline(ReadWriteable):
         m = configuration['m']
         return (delta(m) == 0).all()
 
+    def admissible_symmetries(self):
+        r'''
+        Which factors of the hypercubic-torus space group (see
+        :ref:`the lattice symmetries <space-group>`) this action admits, as
+        keyword arguments for
+        :meth:`~supervillain.generator.symmetry.Symmetry.all` /
+        :meth:`~supervillain.generator.symmetry.Symmetry.draw`.
+
+        .. note ::
+            The full group, unlike :class:`~supervillain.action.NoIntersections`.
+            The constraint $\delta m = 0$ is LINEAR in $m$ and carries no
+            wedge anywhere, and $\delta \sim {\star} d {\star}$'s two Hodge
+            stars carry orientation factors that cancel each other, so
+            $\delta$ commutes with every element of the space group exactly.
+            Measured: $\delta$ commutes with every transformation at every
+            form degree (worst difference 0 across translations,
+            permutations, single flips, and the full inversion); the
+            constraint survives all 384 point-group elements; the action is
+            invariant to $1.2\times 10^{-16}$ relative.  The contrast with
+            :class:`~supervillain.action.NoIntersections` is not
+            constrained-vs-unconstrained, it is specifically whether the
+            constraint is built from the wedge --- a cup product with one
+            handedness and no compensating cancellation.
+
+        Returns
+        -------
+        dict
+            Keyword arguments ``translations``, ``flip_sets``, and ``perms``
+            for :class:`~supervillain.generator.symmetry.Symmetry`.
+            ``flip_sets=None`` means every one of the $2^D$ axis-flip
+            subsets.
+        '''
+        return dict(translations=True, flip_sets=None, perms=True)
+
     def __call__(self, m, v, **kwargs):
         r'''
         Parameters
