@@ -542,26 +542,25 @@ def test_action_and_scalars_invariant_under_the_full_point_group():
 
 
 def test_torus_wrapping_transforms_as_a_vector():
-    r"""Under a permutation or the full inversion ``TorusWrapping`` moves as a
-    VECTOR: component $\mu$ goes to direction ``perm[mu]``, negated if $\mu$
-    was flipped --- not merely invariant.  This is the check that catches a
-    component/axis mismatch.
+    r"""``TorusWrapping`` is a VECTOR: component $\mu$ goes to direction
+    ``perm[mu]``, negated if that direction is flipped --- not merely
+    invariant.  This is the check that catches a component/axis mismatch.
+
+    .. warning::
+        The flip is indexed in the DESTINATION frame, because
+        :meth:`Symmetry.apply` permutes and *then* reflects, so its
+        ``flips`` name axes of the permuted lattice.  Reading them in the
+        source frame instead --- ``mu in g.flips`` rather than
+        ``g.perm[mu] in g.flips`` --- disagrees on 264 of the 384 elements
+        and yet is INVISIBLE on the 48 with ``flips`` empty or full, since
+        those two sets are the ones a permutation maps to themselves.  A
+        sweep restricted to a constrained action's admissible subgroup can
+        therefore not see this at all; the full sweep below is what pins the
+        convention down.
 
     The fixture's seed is fixed deliberately: ``TorusWrapping`` must have
     four DISTINCT nonzero components (verified below) so that no permutation
     or sign error can hide behind a repeated or zero entry.
-
-    .. warning::
-        The sweep is over the identity and the full inversion only, NOT all
-        $2^D$ flip sets, because the vector law is FALSE under a partial
-        flip: ``TorusWrapping`` is really a $(D-1)$-form, whose sign comes
-        from the permutation restricted to the COMPLEMENT of $\mu$.  Measured
-        counterexample at $D = 4$, ``flips=(2,)`` with ``perm=(0, 1, 3, 2)``:
-        the vector law predicts components $(-3318, -812)$ where the
-        observable gives $(+3318, +812)$.  The two laws agree on the
-        inversion --- $(-1)^{D-1} = -1$ per component at $D = 4$ --- which is
-        why this sweep is exactly right and a wider one would be wrong.  The
-        general $(D-1)$-form law has not been pinned down here.
     """
     D, N = 4, 4
     lattice = Lattice(D, N)
@@ -574,17 +573,18 @@ def test_torus_wrapping_transforms_as_a_vector():
         'this gate is weakened')
 
     checked = 0
-    for g in Symmetry.all(lattice, translations=False, perms=True,
-                          flip_sets=[(), tuple(range(D))]):
+    for g in Symmetry.all(lattice, translations=False):
         got = np.asarray(TorusWrapping.Villain(S, phi, g.apply(n)))
         expected = np.zeros(D, dtype=np.int64)
         for mu in range(D):
-            expected[g.perm[mu]] = (-1 if mu in g.flips else 1) * reference[mu]
+            destination = g.perm[mu]
+            sign = -1 if destination in g.flips else 1
+            expected[destination] = sign * reference[mu]
         assert np.array_equal(got, expected), (
             f'TorusWrapping did not transform as a vector under {g}: got '
             f'{got}, expected {expected}')
         checked += 1
-    assert checked == 2 * factorial(D)
+    assert checked == 2 ** D * factorial(D)
 
 
 def test_conjugation_leaves_action_and_charge_invariant():
