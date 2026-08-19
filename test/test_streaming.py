@@ -1079,3 +1079,16 @@ def test_autocorrelation_time_never_materializes_a_correlator(tmp_path):
         streamer.chunks = watched
         streamer.timeseries('Spin_Spin')
         assert max(alive) <= streamer.chunk
+
+
+def test_timeseries_of_nothing(tmp_path):
+    r'''A source cut away to nothing has no measurement to hand back, and should
+    say so rather than fail somewhere inside numpy.'''
+    path = villain_h5(tmp_path)
+
+    with h5.File(path, 'r') as f:
+        empty = EnsembleStreamer(f['ensemble'], chunk=9).cut(CONFIGURATIONS)
+        assert len(empty) == 0
+
+        with pytest.raises(RuntimeError):
+            empty.timeseries('ActionDensity')

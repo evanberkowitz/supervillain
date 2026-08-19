@@ -162,13 +162,28 @@ class SampleSource(ReadWriteable):
 
         .. warning::
            The configurations are still streamed and thrown away a chunk at a
-           time; what accumulates here is the *measurement*.  For a scalar that is
-           one number per sample --- under a percent of the ensemble, which is why
-           :meth:`autocorrelation_time` can afford to do this.  For a correlator it
-           is a number per site per sample, comparable to the ensemble itself, and
-           asking for it hands back the memory that streaming just saved.
+           time; what accumulates here is the *measurement*.  So this costs one
+           chunk of configurations plus the whole measurement --- one number per
+           sample for a scalar, which is why :meth:`autocorrelation_time` can
+           afford it, but a number per site per sample for a correlator, which is
+           comparable to the ensemble and hands back the memory that streaming
+           just saved.
         '''
-        return np.concatenate([values for _, values in self.values(name)], axis=0)
+        # Filled in place rather than concatenated from a list of chunks, which
+        # would hold every chunk and the joined result at the same time --- twice
+        # the peak, for the one case where the peak is worth caring about.
+        chunks = self.values(name)
+        try:
+            start, first = next(chunks)
+        except StopIteration:
+            raise RuntimeError(
+                f'{name} has no samples to measure; this source offers none.') from None
+
+        measurement = np.empty((len(self),) + first.shape[1:], dtype=first.dtype)
+        measurement[start:start + len(first)] = first
+        for start, values in chunks:
+            measurement[start:start + len(values)] = values
+        return measurement
 
     def autocorrelation_time(self, observables=None, every=False):
         r'''
