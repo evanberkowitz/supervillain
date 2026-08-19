@@ -16,6 +16,14 @@ the measurement of an observable a chunk of samples at a time.  Configurations
 are merely how a streamer produces those values --- a blocking produces them by
 averaging --- which is why that, rather than access to configurations, is the
 contract a :class:`StreamingBootstrap` consumes.
+
+A source's length must say how many samples it offers *now*, not how many it
+offered when it was written.  Ensembles grow: :meth:`~.Ensemble.continue_from`
+and :meth:`~.Extendable.extend_h5` make that easy and a production campaign does
+it constantly, and a resampling drawn over the shorter chain describes only its
+beginning.  A length read back from disk cannot detect that, so any source that
+stores a length derived from another must re-derive it when it is read back and
+refuse if the two disagree.
 '''
 
 import os
@@ -108,9 +116,9 @@ class EnsembleStreamer(ReadWriteable):
     Hands a stored :class:`~.Ensemble` out a few configurations at a time, so that
     an ensemble too large to read can still be analyzed.
 
-    Making one is cheap.  It reads only the :attr:`Action`, the number of
-    configurations, and the :attr:`weight` of each, and leaves the configurations
-    themselves on disk until :meth:`chunks` asks for them.  Each chunk comes back
+    Making one is cheap.  It reads only the :attr:`Action` and, one number per
+    configuration, the :attr:`weight` and :attr:`index`; the configurations
+    themselves stay on disk until :meth:`chunks` asks for them.  Each chunk comes back
     as an ordinary in-memory :class:`~.Ensemble`, so you can measure any
     :ref:`primary observable <primary observables>` on it in the usual way.
 
@@ -181,6 +189,12 @@ class EnsembleStreamer(ReadWriteable):
         r'''Whether the ensemble this streamer presents can still be reached.'''
         return self._source is not None
 
+    def _require_source(self):
+        if self._source is None:
+            raise RuntimeError(
+                'EnsembleStreamer source ensemble unavailable (broken h5 link); '
+                'there is no ensemble to present.')
+
     def cut(self, start):
         r'''
         Drop the first ``start`` configurations, as :meth:`.Ensemble.cut` does.
@@ -191,6 +205,7 @@ class EnsembleStreamer(ReadWriteable):
         -------
         EnsembleStreamer
         '''
+        self._require_source()
         return EnsembleStreamer(self._source, chunk=self.chunk,
                                 start=self.start + start * self.stride,
                                 stride=self.stride)
@@ -209,6 +224,7 @@ class EnsembleStreamer(ReadWriteable):
         -------
         EnsembleStreamer
         '''
+        self._require_source()
         return EnsembleStreamer(self._source, chunk=self.chunk,
                                 start=self.start, stride=self.stride * stride)
 
@@ -274,10 +290,7 @@ class EnsembleStreamer(ReadWriteable):
         RuntimeError
             If the ensemble this streamer was made from can no longer be found.
         '''
-        if self._source is None:
-            raise RuntimeError(
-                'EnsembleStreamer source ensemble unavailable (broken h5 link); '
-                'only cached observables can be estimated.')
+        self._require_source()
         fields = self._source['configuration/fields']
         for start in range(0, self._length, self.chunk):
             stop = min(start + self.chunk, self._length)
@@ -375,6 +388,12 @@ class StreamingBlocking(ReadWriteable):
        thing to measure on --- observables have to be measured on configurations
        and *then* averaged, since measuring an average is not averaging a
        measurement for anything nonlinear.
+
+    .. note::
+       A block cannot be handed out before all of its samples have been measured,
+       so this holds up to ``width`` measurements at once --- or the source's
+       chunk, whichever is larger.  With a width of a few autocorrelation times
+       that is nothing; if you block very wide, size the two together.
 
     .. seealso::
        :class:`~.Blocking`, for an ensemble that fits in memory.
@@ -497,6 +516,31 @@ class StreamingBlocking(ReadWriteable):
         '''
         return sample_autocorrelation_time(self, observables=observables, every=every)
 
+    @classmethod
+    def from_h5(cls, group, strict=True, _top=True):
+        r'''
+        Read a blocking back, and check that the ensemble underneath is still the
+        one it was blocked from.
+        '''
+        o = super().from_h5(group, strict=strict, _top=_top)
+
+        # How many blocks there are, and how many leading samples get dropped to
+        # make them come out evenly, both depend on how many samples there are.
+        # Those were computed once and stored; if the ensemble has grown since,
+        # they describe a shorter chain than the one now on disk, and every value
+        # blocked through them would silently be a value of that shorter chain.
+        if o.available:
+            samples = len(o.source)
+            drop = samples % o.width
+            blocks = (samples - drop) // o.width
+            if (drop, blocks) != (o.drop, o.blocks):
+                raise ValueError(
+                    f'{group.name} blocks {o.blocks} × {o.width} samples (dropping '
+                    f'{o.drop}), but its source now offers {samples} samples, which '
+                    f'block into {blocks} (dropping {drop}).  Block the longer '
+                    'ensemble afresh rather than reusing this.')
+        return o
+
 
 class StreamingBootstrap(Bootstrap):
     r'''
@@ -574,6 +618,9 @@ class StreamingBootstrap(Bootstrap):
         self.Action = streamer.Action
         r'''The action underlying the ensemble.'''
         cfgs = len(streamer)
+        if cfgs < 1:
+            raise ValueError(
+                'there is nothing to resample; the source offers no samples at all.')
         if indices is not None:
             indices = np.asarray(indices)
             if indices.ndim != 2 or indices.shape[0] != cfgs:

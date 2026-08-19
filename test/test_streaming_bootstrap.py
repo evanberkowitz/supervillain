@@ -551,16 +551,28 @@ def test_a_block_is_not_a_configuration(tmp_path):
     '''
     path = villain_h5(tmp_path)
 
+    width = 4
+
     with h5.File(path, 'r') as f:
-        streamed = StreamingBlocking(EnsembleStreamer(f['ensemble'], chunk=9), width=4)
+        streamer = EnsembleStreamer(f['ensemble'], chunk=9)
+        streamed = StreamingBlocking(streamer, width=width)
 
         assert not hasattr(streamed, 'chunks')
         assert not hasattr(streamed, 'phi')
         assert not hasattr(streamed, 'configuration')
 
+        # The premise: n really is integer-valued, so its average really is not a
+        # field of the model.  If that ever stopped being true this test would be
+        # arguing for a restriction that no longer had a reason.
+        for _, sub in streamer.chunks():
+            n = np.asarray(Batch.as_array(sub.n))
+            assert np.issubdtype(n.dtype, np.integer)
+            assert not np.issubdtype(n.mean(axis=0).dtype, np.integer)
+            break
+
         # It is a source of samples, though, and its samples are blocks.
-        assert len(streamed) == CONFIGURATIONS // 4
-        assert streamed.timeseries('ActionDensity').shape == (CONFIGURATIONS // 4,)
+        assert len(streamed) == CONFIGURATIONS // width
+        assert streamed.timeseries('ActionDensity').shape == (CONFIGURATIONS // width,)
 
 
 def test_blocking_width_auto(tmp_path):
@@ -656,3 +668,101 @@ def test_blocking_divides_by_the_block_weight(tmp_path):
         # And the point of dividing: blocked and unblocked estimate the same thing.
         assert (blocking.weight * blocking.timeseries('ActionDensity')).sum() / blocking.weight.sum() \
                 == pytest.approx((weight * observable).sum() / weight.sum())
+
+
+def test_a_chunk_is_a_bound_not_a_suggestion(tmp_path):
+    r'''Nothing a streamer hands out may exceed its chunk --- that number is the
+    whole promise, and an off-by-one in the strided read would break it silently
+    on the final piece.'''
+    path = villain_h5(tmp_path, configurations=120)
+
+    with h5.File(path, 'r') as f:
+        for chunk in (1, 7, 17, 119, 120, 121):
+            for streamer in (EnsembleStreamer(f['ensemble'], chunk=chunk),
+                             EnsembleStreamer(f['ensemble'], chunk=chunk).every(3),
+                             EnsembleStreamer(f['ensemble'], chunk=chunk).cut(11)):
+                sizes = [len(values) for _, values in streamer.values('ActionDensity')]
+                assert sizes, chunk
+                assert max(sizes) <= chunk, (chunk, sizes)
+                assert sum(sizes) == len(streamer), (chunk, sizes)
+
+
+@pytest.mark.parametrize('chunk,width', ((7, 30), (3, 30), (2, 40), (64, 30)))
+def test_blocking_drop_spanning_several_chunks(tmp_path, chunk, width):
+    r'''The samples dropped to make the blocking come out evenly can outnumber a
+    whole chunk, so dropping has to survive being spread over several of them ---
+    a case the widths that divide the ensemble never reach.'''
+    path = villain_h5(tmp_path, configurations=100)
+
+    with h5.File(path, 'r') as f:
+        memory = Blocking(supervillain.Ensemble.from_h5(f['ensemble']), width=width)
+        streamed = StreamingBlocking(EnsembleStreamer(f['ensemble'], chunk=chunk), width=width)
+
+        assert memory.drop > chunk or chunk >= width   # the case is actually exercised
+        assert streamed.drop == memory.drop
+        assert len(streamed) == len(memory)
+        for quantity in ('ActionDensity', 'Spin_Spin'):
+            assert np.allclose(streamed.timeseries(quantity),
+                               np.asarray(getattr(memory, quantity))), quantity
+
+
+def test_refuses_a_blocking_its_ensemble_has_outgrown(tmp_path):
+    r'''The counterpart of test_refuses_to_serve_a_bootstrap_its_ensemble_has_outgrown,
+    for the blocked path --- which the bootstrap's own check cannot see.
+
+    A blocking stores how many blocks it has and how many samples it dropped to
+    make them come out evenly.  Both were computed from a length, and its length
+    is what a StreamingBootstrap compares its indices against; so if the ensemble
+    grows, the number of blocks does not, the bootstrap's check passes, and every
+    stored result silently describes the shorter chain.'''
+    path = villain_h5(tmp_path)
+
+    with h5.File(path, 'r+') as f:
+        blocking = StreamingBlocking(EnsembleStreamer(f['ensemble'], chunk=9), width=4)
+        streaming = StreamingBootstrap(blocking, f.create_group('bootstrap'), draws=20)
+        stale, _ = streaming.estimate('ActionDensity')
+        blocks = len(blocking)
+
+    with h5.File(path, 'r+') as f:
+        supervillain.Ensemble.continue_from(
+                f['ensemble'], 2 * CONFIGURATIONS).extend_h5(f['ensemble'])
+
+    with h5.File(path, 'r+') as f:
+        # The blocking would otherwise look unchanged: same stored block count,
+        # so the bootstrap's own guard sees nothing wrong.
+        whole = supervillain.Ensemble.from_h5(f['ensemble'])
+        truth, _ = Bootstrap(Blocking(whole, width=4), draws=20).estimate('ActionDensity')
+        assert abs(float(stale) - float(truth)) > 1e-6
+        assert len(whole) // 4 != blocks
+
+        with pytest.raises(ValueError):
+            StreamingBootstrap.from_h5(f['bootstrap'])
+
+
+def test_views_reject_a_lost_ensemble(tmp_path):
+    r'''cut and every build a new streamer over the same source, so with no source
+    there is nothing to build one from.'''
+    path = villain_h5(tmp_path)
+
+    with h5.File(path, 'r') as f:
+        streamer = EnsembleStreamer(f['ensemble'], chunk=9)
+        streamer._source = None
+
+        with pytest.raises(RuntimeError):
+            streamer.cut(1)
+        with pytest.raises(RuntimeError):
+            streamer.every(2)
+
+
+def test_nothing_to_resample(tmp_path):
+    r'''Cutting an ensemble away entirely leaves a streamer with no samples;
+    bootstrapping it should say so, not build an empty resampling that fails
+    later and elsewhere.'''
+    path = villain_h5(tmp_path)
+
+    with h5.File(path, 'r+') as f:
+        empty = EnsembleStreamer(f['ensemble'], chunk=9).cut(CONFIGURATIONS)
+        assert len(empty) == 0
+
+        with pytest.raises(ValueError):
+            StreamingBootstrap(empty, f.create_group('bootstrap'), draws=5)
