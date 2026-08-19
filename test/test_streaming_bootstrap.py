@@ -766,3 +766,55 @@ def test_nothing_to_resample(tmp_path):
 
         with pytest.raises(ValueError):
             StreamingBootstrap(empty, f.create_group('bootstrap'), draws=5)
+
+
+def test_a_blocking_notices_growth_smaller_than_one_block(tmp_path):
+    r'''Growing an ensemble by less than a block width leaves the number of
+    blocks alone and moves only the drop, so a check on the block count alone
+    would wave it through.  Since samples = blocks*width + drop with drop < width,
+    comparing both is comparing the sample count, and nothing slips past.'''
+    path = villain_h5(tmp_path)
+    width = 8
+
+    with h5.File(path, 'r+') as f:
+        blocking = StreamingBlocking(EnsembleStreamer(f['ensemble'], chunk=9), width=width)
+        StreamingBootstrap(blocking, f.create_group('bootstrap'), draws=20).estimate('ActionDensity')
+        blocks, drop = blocking.blocks, blocking.drop
+
+    with h5.File(path, 'r+') as f:
+        supervillain.Ensemble.continue_from(f['ensemble'], 2).extend_h5(f['ensemble'])
+
+    with h5.File(path, 'r+') as f:
+        grown = StreamingBlocking(EnsembleStreamer(f['ensemble'], chunk=9), width=width)
+        assert grown.blocks == blocks      # the count alone notices nothing ...
+        assert grown.drop != drop          # ... and only the drop gives it away
+
+        with pytest.raises(ValueError):
+            StreamingBootstrap.from_h5(f['bootstrap'])
+
+
+def test_growth_a_strided_view_cannot_see_is_allowed(tmp_path):
+    r'''The guard must not cry wolf.  extend_h5 only appends, so a strided view of
+    a longer ensemble is a prefix-extension of the same view of the shorter one:
+    if its length has not changed it is looking at the identical configurations,
+    and a resampling drawn over them is still exactly valid.'''
+    path = villain_h5(tmp_path)
+
+    def view(f):
+        return EnsembleStreamer(f['ensemble'], chunk=9).cut(1).every(2)
+
+    with h5.File(path, 'r+') as f:
+        before = np.asarray(view(f).timeseries('ActionDensity'))
+        streaming = StreamingBootstrap(view(f), f.create_group('bootstrap'), draws=20)
+        mean, _ = streaming.estimate('ActionDensity')
+
+    # One more configuration, which a stride of two starting at one steps over.
+    with h5.File(path, 'r+') as f:
+        supervillain.Ensemble.continue_from(f['ensemble'], 1).extend_h5(f['ensemble'])
+
+    with h5.File(path, 'r+') as f:
+        assert np.array_equal(np.asarray(view(f).timeseries('ActionDensity')), before)
+
+        reloaded = StreamingBootstrap.from_h5(f['bootstrap'])   # must not raise
+        assert np.allclose(np.asarray(reloaded.estimate('ActionDensity')[0]),
+                           np.asarray(mean))
