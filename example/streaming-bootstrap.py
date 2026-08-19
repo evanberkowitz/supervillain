@@ -175,10 +175,14 @@ def compare(streaming, plain, quantity):
     susceptibilities among the derived quantities.  They have to be derived
     quantities: a susceptibility integrates a *normalized* correlator, and
     normalizing divides by an expectation value, which no single configuration can
-    supply.  Nothing scalar stands in for ``ActionTwoPoint`` or ``Links`` at all,
-    and :class:`~.WindingSquared` is not a summary of
-    :class:`~.Winding_Winding` --- it is that correlator at zero separation, the
-    contact term rather than the integral.
+    supply.  Nothing scalar stands in for ``ActionTwoPoint`` or ``Links`` at all.
+
+    :class:`~.WindingSquared` may look like it stands in for
+    :class:`~.Winding_Winding`, since the two agree exactly, but neither is built
+    from the other: both are computed from ``dn`` --- the one as the mean of
+    ``dn**2`` over plaquettes, the other as its correlator --- and they agree only
+    at zero separation, which is a contact term and not an integral over
+    separations.
 
     So this table is not a complete account of the correlators.  That a streamed
     correlator matches an in-memory one element by element is checked in
