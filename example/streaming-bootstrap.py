@@ -19,9 +19,8 @@ The script
     it left off, serving what it already streamed and streaming what it has not,
     and
  5. tabulates the two estimates, for every scalar observable and derived quantity
-    the action implements.  Correlators are left out: a susceptibility already
-    summarizes one, and a table of per-site estimates would bury the comparison,
-    and
+    the action implements.  Correlators are left out; a table of per-site
+    estimates would bury the comparison rather than sharpen it, and
  6. runs the whole analysis pipeline --- thermalize, decorrelate, block, bootstrap
     --- both ways, since an ensemble large enough to need streaming still needs
     all of it.
@@ -167,11 +166,23 @@ def compare(streaming, plain, quantity):
     r'''Estimate a scalar ``quantity`` both ways and reduce the pair to one row.
 
     Only scalars are compared.  A correlator carries one estimate per lattice
-    site, and its susceptibility is already a sufficient summary of it --- while
-    quoting a per-site table here would bury the comparison, and some of those
-    sites are fixed by construction anyway (a normalized correlator is
-    identically 1 at the origin, where both the estimates and their uncertainties
-    are roundoff and their ratio is meaningless).
+    site, and a per-site table would bury the comparison rather than sharpen it;
+    some of those sites are fixed by construction anyway (a normalized correlator
+    is identically 1 at the origin, where the estimates and their uncertainties
+    are both roundoff and their ratio is meaningless).
+
+    The spin and vortex correlators are still represented, by their
+    susceptibilities among the derived quantities.  They have to be derived
+    quantities: a susceptibility integrates a *normalized* correlator, and
+    normalizing divides by an expectation value, which no single configuration can
+    supply.  Nothing scalar stands in for ``ActionTwoPoint`` or ``Links`` at all,
+    and :class:`~.WindingSquared` is not a summary of
+    :class:`~.Winding_Winding` --- it is that correlator at zero separation, the
+    contact term rather than the integral.
+
+    So this table is not a complete account of the correlators.  That a streamed
+    correlator matches an in-memory one element by element is checked in
+    test/test_streaming.py, which is the right place for it.
 
     The streaming estimate is taken first, deliberately: it is the memory-bounded
     one, so it is always safe to ask, and a non-scalar is dropped before the plain
@@ -204,7 +215,8 @@ with h5.File(args.file, 'r+') as f:
     resumed = StreamingBootstrap.from_h5(f['bootstrap'])
 
     print(f'\n\nEvery scalar {S.__class__.__name__} implements, estimated both ways.')
-    print('Correlators are left out; their susceptibilities summarize them.\n')
+    print('Correlators are left out; the spin and vortex ones are represented by '
+          'their susceptibilities.\n')
 
     worst_discrepancy = 0.
 
