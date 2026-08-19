@@ -14,9 +14,13 @@ The script
  3. bootstraps the resulting ensemble two ways --- once by streaming it with an
     :class:`~.EnsembleStreamer` and a :class:`~.StreamingBootstrap`, once by
     reading it whole with :meth:`~.Ensemble.from_h5` and resampling it with a
-    plain :class:`~.Bootstrap` --- and compares the two, and
+    plain :class:`~.Bootstrap`,
  4. reopens the file to show that a :class:`~.StreamingBootstrap` picks up where
-    it left off, serving what it already streamed and streaming what it has not.
+    it left off, serving what it already streamed and streaming what it has not,
+    and
+ 5. tabulates the two estimates, for every scalar observable and derived quantity
+    the action implements.  Correlators are left out: a susceptibility already
+    summarizes one, and a table of per-site estimates would bury the comparison.
 
 The two bootstraps are given the *same* resampling indices.  They are therefore
 not merely consistent within errors; they must agree to floating point, since
@@ -32,7 +36,10 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 import supervillain
 from supervillain.analysis import Bootstrap, EnsembleStreamer, StreamingBootstrap
 from supervillain.analysis import Uncertain
-supervillain.observable.progress = tqdm
+
+# supervillain.observable.progress is left at its no-op default: the table below
+# measures every observable twice over, and a progress bar per measurement would
+# bury the output we actually care about.
 
 import logging
 logger = logging.getLogger(__name__)
@@ -48,15 +55,9 @@ parser.add_argument('--file', type=str, default='streaming-bootstrap.h5', help='
 
 args = parser.parse_args()
 
-# A scalar, two correlators, and two derived quantities built out of primaries.
-QUANTITIES = (
-        'ActionDensity',
-        'InternalEnergyDensity',
-        'Spin_Spin',
-        'Vortex_Vortex',
-        'InternalEnergyDensityVariance',
-        'SpinSusceptibility',
-        )
+# Streamed in step 3 and left on disk, so that step 4 has something to resume
+# from: a scalar, a correlator, and a derived quantity built out of primaries.
+SEEDED = ('ActionDensity', 'Spin_Spin', 'InternalEnergyDensityVariance')
 
 
 ####
@@ -92,12 +93,14 @@ for continuation in range(args.continuations):
         F.extend_h5(f['ensemble'])
 
 ####
-#### 3. Bootstrap the ensemble both ways and compare.
+#### 3. Bootstrap the ensemble both ways.
 ####
 
 with h5.File(args.file, 'r+') as f:
 
-    # The whole ensemble, in memory, resampled the ordinary way.
+    # The whole ensemble, in memory, resampled the ordinary way.  Reading it is
+    # eager, so `whole` and `plain` outlive the open file; only the streaming
+    # side needs the file to stay open.
     whole = supervillain.Ensemble.from_h5(f['ensemble'])
     plain = Bootstrap(whole, draws=args.draws)
 
@@ -109,27 +112,12 @@ with h5.File(args.file, 'r+') as f:
             streamer, f.create_group('bootstrap'), indices=plain.indices)
 
     print(f'\n{len(whole)} configurations of {S}')
-    print(f'{args.draws} draws; streaming {args.block} configurations at a time.\n')
-    print(f'{"quantity":35s} {"streaming":>26s} {"in memory":>26s} {"|Δ|/σ":>10s}')
-    print('-' * 101)
+    print(f'{args.draws} draws; streaming {args.block} configurations at a time.')
 
-    for quantity in QUANTITIES:
-        streamed_mean, streamed_error = (np.asarray(_).real for _ in streaming.estimate(quantity))
-        mean,          error          = (np.asarray(_).real for _ in plain.estimate(quantity))
-
-        # A correlator has one estimate per lattice site; quote the worst
-        # discrepancy over all of them, which is the only one that could hide a bug.
-        discrepancy = np.abs(streamed_mean - mean) / np.where(error == 0., np.inf, error)
-
-        # Report a representative component of a correlator, but the worst discrepancy.
-        report = () if mean.shape == () else np.unravel_index(np.argmax(discrepancy), mean.shape)
-        print(f'{quantity:35s} '
-              f'{str(Uncertain(streamed_mean[report], streamed_error[report])):>26s} '
-              f'{str(Uncertain(mean[report], error[report])):>26s} '
-              f'{discrepancy.max():10.2e}')
-
-    print('\nThe two agree to roundoff: they are the same sum, accumulated in a '
-          'different order.')
+    # Touching a quantity is what stores it, so this is all it takes to leave
+    # something on disk for the next pass to find.
+    for quantity in SEEDED:
+        streaming.estimate(quantity)
 
 ####
 #### 4. A streaming bootstrap resumes.  Reopening the file recovers everything
@@ -158,5 +146,80 @@ with h5.File(args.file, 'r+') as f:
     print(f'   {fresh}, freshly streamed: {Uncertain(float(mean), float(error))}')
     print(f'   ... and now on disk: {fresh in f["bootstrap"]}')
 
-print(f'\nEverything is in {args.file}; a plain Bootstrap.from_h5 of its '
-      '/bootstrap group reads these results on a machine that never sees the ensemble.')
+####
+#### 5. Every scalar the action implements, estimated both ways.
+####
+#### The streaming column comes from a bootstrap resumed off the disk: a handful
+#### of quantities are read back from step 3, the rest stream now.  Which is
+#### which makes no difference to the numbers, which is the point.
+####
+
+def compare(streaming, plain, quantity):
+    r'''Estimate a scalar ``quantity`` both ways and reduce the pair to one row.
+
+    Only scalars are compared.  A correlator carries one estimate per lattice
+    site, and its susceptibility is already a sufficient summary of it --- while
+    quoting a per-site table here would bury the comparison, and some of those
+    sites are fixed by construction anyway (a normalized correlator is
+    identically 1 at the origin, where both the estimates and their uncertainties
+    are roundoff and their ratio is meaningless).
+
+    The streaming estimate is taken first, deliberately: it is the memory-bounded
+    one, so it is always safe to ask, and a non-scalar is dropped before the plain
+    :class:`~.Bootstrap` ever builds its ``configurations × draws × sites``
+    tensor for it.
+
+    Returns ``None`` if the quantity is not a scalar, or if the action does not
+    implement it.
+    '''
+    try:
+        streamed_mean, streamed_error = (np.asarray(_) for _ in streaming.estimate(quantity))
+        if streamed_mean.shape != ():
+            return None
+        mean, error = (np.asarray(_) for _ in plain.estimate(quantity))
+    except NotImplementedError:
+        return None
+
+    # A zero uncertainty would divide badly: with no difference either, that is
+    # agreement; with a difference, it is infinitely many sigma, and inf says so.
+    discrepancy = abs(streamed_mean - mean) / (abs(error) if error != 0. else np.inf)
+
+    return (quantity,
+            Uncertain(streamed_mean.real, streamed_error.real),
+            Uncertain(mean.real, error.real),
+            discrepancy)
+
+
+with h5.File(args.file, 'r+') as f:
+
+    resumed = StreamingBootstrap.from_h5(f['bootstrap'])
+
+    print(f'\n\nEvery scalar {S.__class__.__name__} implements, estimated both ways.')
+    print('Correlators are left out; their susceptibilities summarize them.\n')
+
+    worst_discrepancy = 0.
+
+    for kind, registry in (('observables', supervillain.observables),
+                           ('derived quantities', supervillain.derivedQuantities)):
+
+        rows = [row for row in (compare(resumed, plain, q) for q in sorted(registry))
+                if row is not None]
+        worst_discrepancy = max(worst_discrepancy,
+                                max((row[-1] for row in rows), default=0.))
+
+        print(f'{kind:31s} {"streaming":>26s} {"in memory":>26s} {"|Δ|/σ":>10s}')
+        print('-' * 96)
+        for quantity, streamed, in_memory, discrepancy in rows:
+            print(f'{quantity:31s} {str(streamed):>26s} '
+                  f'{str(in_memory):>26s} {discrepancy:10.2e}')
+        print()
+
+# Not an article of faith --- the worst row in either table above.  Double
+# precision carries about 16 digits, so a disagreement below ~1e-9 of an
+# uncertainty is accumulated roundoff and anything above it is a real difference.
+print(f'\nThe two columns disagree by at most {worst_discrepancy:.2e} of an uncertainty:')
+print('roundoff, as it must be --- they are the same sum, accumulated in a different order.'
+      if worst_discrepancy < 1e-9 else
+      'MORE THAN ROUNDOFF.  The two should be identical resamplings; this is a bug.')
+print(f'Everything is in {args.file}; a plain Bootstrap.from_h5 of its /bootstrap '
+      'group reads these results on a machine that never sees the ensemble.')
