@@ -1,9 +1,17 @@
 #!/usr/bin/env python
 
-import numpy as np
+import os
+import pickle
 
-from supervillain.batch import Batch
-from supervillain.h5 import ReadWriteable
+import numpy as np
+import h5py
+
+import supervillain
+from supervillain.batch import Batch, resolve_batch_cls
+from supervillain.h5 import ReadWriteable, Data
+import supervillain.h5.extendable as extendable
+from supervillain.configurations import Configurations
+import supervillain.ensemble
 from supervillain.performance import Timer
 
 import logging
@@ -152,3 +160,392 @@ class Bootstrap(ReadWriteable):
         '''
         o = getattr(self, observable)
         return (np.mean(o, axis=0), np.std(o, axis=0))
+
+
+def _read_batch_block(field_group, start, stop):
+    r'''Reconstruct a :class:`~supervillain.batch.Batch` from configs
+    ``[start:stop]`` of a stored field group, mirroring the ``batch`` storage
+    strategy but slicing the ``data`` dataset instead of reading it whole.'''
+    if 'H5Batch_item_kwargs' not in field_group.attrs:
+        raise ValueError(
+            f'{field_group.name} is not a stored Batch; EnsembleStreamer only '
+            'streams Batch-valued configuration fields.')
+    tag = field_group.attrs.get('H5Batch_cls', '')
+    if isinstance(tag, bytes):
+        tag = tag.decode()
+    cls = resolve_batch_cls(tag) if tag else None
+    data = extendable.array(field_group['data'][start:stop])
+    item_kwargs = pickle.loads(field_group.attrs['H5Batch_item_kwargs'].tobytes())
+    return Batch(data, cls=cls, dtype=data.dtype, **item_kwargs)
+
+
+def _stream_weight(source_group):
+    r'''Derive the per-configuration importance weight of an on-disk ensemble,
+    without reading a single configuration field.
+
+    .. note::
+       Three sources are consulted, in order.  A generator that reweights emits
+       its contribution to the weight as an inline ``logWeight_<name>`` scalar
+       column, one per contributing generator; logs sum so that weights
+       multiply, and the namespacing keeps two generators composed with
+       :class:`~.Sequentially` from colliding.  Failing that, an explicitly
+       stored ``weight`` is read.  Failing that, the weights are all one.
+
+    .. warning::
+       The single global ``max`` subtracted from the summed logs is a
+       correctness requirement, not merely overflow safety.  The streaming
+       resample accumulates :math:`\left\langle O w \right\rangle` and
+       :math:`\left\langle w \right\rangle` separately, block by block, and the
+       :math:`e^{-\max}` offset cancels between them only if it is one constant
+       shared by every configuration.  A per-block maximum would silently bias
+       the estimate.
+
+    Only the cheap scalar ``data`` datasets are touched, so the whole weight
+    vector is materialized eagerly, before any block streams.
+
+    Parameters
+    ----------
+    source_group: h5py.Group
+        A group holding an :meth:`~.Ensemble.to_h5` dump.
+
+    Returns
+    -------
+    numpy.ndarray:
+        One weight per configuration.
+    '''
+    fields = source_group['configuration/fields']
+    logWeights = sorted(k for k in fields.keys() if k.startswith('logWeight_'))
+    if logWeights:
+        logWeight = np.sum([np.asarray(fields[k]['data'][:]) for k in logWeights], axis=0)
+        return np.exp(logWeight - logWeight.max())
+    if 'weight' in source_group:
+        return np.asarray(Batch.as_array(Data.read(source_group['weight'])))
+    name = next(iter(fields.keys()))
+    return np.ones(len(fields[name]['data']))
+
+
+class EnsembleStreamer(ReadWriteable):
+    r'''
+    Memory-bounded block iteration of an :class:`~.Ensemble` that lives on disk.
+
+    An :class:`~.Ensemble` read with :meth:`~.Ensemble.from_h5` holds every
+    configuration of every field at once, and a large ensemble of a large lattice
+    need not fit in memory.  A streamer instead reads only the cheap metadata ---
+    the configuration count, the per-configuration :attr:`weight`, and the
+    :attr:`Action` --- eagerly, and hands out the configurations a block at a time
+    through :meth:`blocks`.  Each block is a perfectly ordinary in-memory
+    :class:`~.Ensemble`, so every :ref:`primary observable <primary observables>`
+    measures on it in the usual way.
+
+    .. note::
+       A streamer is a *view* of its source, not a copy: :meth:`to_h5` writes an
+       h5 link (soft within one file, external across files) rather than the
+       configurations.  So :meth:`~.ReadWriteable.from_h5` resurrects a streamer
+       that reads the original ensemble, and a :class:`StreamingBootstrap`
+       reconstructs its streamer with no bookkeeping on your part.
+
+    .. warning::
+       Because the source is a link, moving or deleting the source ensemble
+       breaks the streamer.  A streamer whose link cannot be resolved still
+       reads back, with :attr:`Action` and :attr:`weight` set to ``None``, so
+       that a :class:`StreamingBootstrap` can serve quantities it has already
+       cached; :meth:`blocks` then raises a ``RuntimeError``.
+
+    .. seealso::
+       :class:`StreamingBootstrap`, which resamples the blocks a streamer yields.
+
+    Parameters
+    ----------
+    source_group: h5py.Group
+        A group holding an :meth:`~.Ensemble.to_h5` dump.
+    block: int
+        The maximum number of configurations to hold in memory at once.
+    '''
+
+    def __init__(self, source_group, block=64):
+        self._source = source_group
+        self.block = block
+        r'''The maximum number of configurations held in memory at once.'''
+        self.Action = Data.read(source_group['Action'])
+        r'''The action underlying the ensemble.'''
+        self.weight = _stream_weight(source_group)
+        r'''The importance weight of each configuration; see :func:`_stream_weight`.'''
+        self._length = len(np.asarray(self.weight))
+
+    def __len__(self):
+        return self._length
+
+    def blocks(self):
+        r'''
+        Iterate the ensemble in contiguous blocks of at most :attr:`block`
+        configurations.
+
+        Each ``sub_ensemble`` is a fresh in-memory :class:`~.Ensemble` carrying
+        only the sliced configuration fields, so any observable measured on it
+        recomputes from those fields alone.  Only one block is alive at a time.
+
+        Yields
+        ------
+        tuple:
+            ``(start, sub_ensemble)``, where ``start`` is the index of the
+            block's first configuration in the full ensemble.
+
+        Raises
+        ------
+        RuntimeError
+            If the link to the source ensemble is broken, so that there are no
+            configurations to stream.
+        '''
+        if self._source is None:
+            raise RuntimeError(
+                'EnsembleStreamer source ensemble unavailable (broken h5 link); '
+                'only cached observables can be estimated.')
+        fields = self._source['configuration/fields']
+        for start in range(0, self._length, self.block):
+            stop = min(start + self.block, self._length)
+            block_fields = {name: _read_batch_block(fields[name], start, stop)
+                            for name in fields}
+            cfgs = Configurations(block_fields)
+            sub = supervillain.ensemble.Ensemble(self.Action).from_configurations(cfgs)
+            yield start, sub
+
+    def to_h5(self, group, _top=True):
+        r'''
+        Write the streamer as :attr:`block` and a link to its source ensemble ---
+        an :class:`h5py.SoftLink` if the source lives in the same file as
+        ``group``, an :class:`h5py.ExternalLink` if it does not.  No
+        configuration is copied.
+        '''
+        group.attrs['block'] = self.block
+        source = self._source
+        if source is None:
+            raise RuntimeError(
+                'EnsembleStreamer source ensemble unavailable (broken h5 link); '
+                'there is no source to link to.')
+        source_path = source.name
+        source_file = source.file.filename
+        try:
+            same = os.path.samefile(source_file, group.file.filename)
+        except OSError:
+            same = (source_file == group.file.filename)
+        if same:
+            group['source'] = h5py.SoftLink(source_path)
+        else:
+            group['source'] = h5py.ExternalLink(source_file, source_path)
+
+    @classmethod
+    def from_h5(cls, group, strict=True, _top=True):
+        r'''
+        Follow the stored link back to the source ensemble and re-read its cheap
+        metadata.  If the link cannot be resolved the streamer still reads back,
+        but with :attr:`Action` and :attr:`weight` set to ``None`` and
+        :meth:`blocks` unavailable.
+        '''
+        o = cls.__new__(cls)
+        o.block = int(group.attrs['block'])
+        try:
+            source = group['source']
+            o._source = source
+            o.Action = Data.read(source['Action'])
+            o.weight = _stream_weight(source)
+            o._length = len(np.asarray(o.weight))
+        except (KeyError, OSError):
+            o._source = None
+            o.Action = None
+            o.weight = None
+            o._length = None
+        return o
+
+
+class StreamingBootstrap(Bootstrap):
+    r'''
+    A :class:`Bootstrap` that resamples an on-disk ensemble block by block,
+    writing each quantity through to a target h5 group as it is computed.
+
+    A :class:`Bootstrap` builds the whole ``configurations × draws × shape``
+    resample tensor at once.  For a correlator on a large lattice with many
+    configurations that tensor can be enormous --- far larger than the ensemble
+    itself --- even though the answer is only ``draws × shape``.
+
+    The way out is that the resample never needed the individual draws, only how
+    many times each configuration was drawn.  Writing
+
+    .. math::
+        n_{id} = \#\left\{ c\; :\; \texttt{indices}[c,d] = i \right\}
+
+    for the number of times configuration :math:`i` appears in draw :math:`d`,
+    the resampled expectation value is
+
+    .. math::
+        \left\langle O \right\rangle_d
+        = \frac{\sum_i n_{id}\, w_i\, O_i}{\sum_i n_{id}\, w_i}
+
+    which is exactly :meth:`Bootstrap._resample` on the same ``indices``, but
+    with the configuration index summed rather than stored.  Both sums accumulate
+    a block at a time, so the memory cost is one block of configurations plus the
+    ``draws × shape`` answer, no matter how long the Markov chain is.
+
+    .. note::
+       Every :ref:`primary observable <primary observables>` and
+       :class:`~.DerivedQuantity` access is routed through a gate that checks the
+       target group on disk, streams and persists the quantity if it is absent,
+       and returns it.  So *accessing* a quantity is what stores it
+       (write-through), and re-running skips whatever is already on disk
+       (resumable) --- which matters when the streaming pass is long enough that
+       you would rather not repeat it.  Derived quantities are inherited from
+       :class:`Bootstrap` unchanged; they compose out of already-streamed
+       primaries.
+
+    .. note::
+       The target group is a valid :class:`Bootstrap` layout from construction
+       onward, so a plain :meth:`Bootstrap.from_h5 <.ReadWriteable.from_h5>`
+       reads the streamed results on a machine that never sees the ensemble.
+       :meth:`from_h5` recovers the full streaming object, source link and all.
+
+    .. seealso::
+       :class:`EnsembleStreamer`, which supplies the blocks;
+       :source:`example/streaming-bootstrap.py`, which checks a streamed estimate
+       against an in-memory one.
+
+    Parameters
+    ----------
+    streamer: EnsembleStreamer
+        Source of blocks; owns ``block`` and the per-config ``weight``/``Action``.
+    target_group: h5py.Group
+        Where metadata and streamed observables are written (Bootstrap layout).
+    draws: int
+        The number of bootstrap resamplings.
+    indices: numpy.ndarray, optional
+        Resampling indices, configurations × draws, to use instead of fresh random
+        ones; they set ``draws``.  Pass another :class:`Bootstrap`\'s
+        :attr:`~.Bootstrap.indices` to resample the two identically, as when
+        comparing a streamed estimate against an in-memory one.  Overrides ``rng``.
+    rng: numpy.random.Generator, optional
+        Draws the resampling indices; defaults to the global RNG.
+    '''
+
+    # Names that must never be routed through the disk-cache gate (they are the
+    # object's own machinery, not observables/derived quantities).
+    _PASSTHROUGH = frozenset({
+        'target_group', 'streamer', 'draws', 'indices', 'Action', '_n',
+        '_resample_streaming', '_rebuild_counts', 'Ensemble', 'estimate',
+    })
+
+    def __init__(self, streamer, target_group, draws=100, indices=None, rng=None):
+        self.streamer = streamer
+        r'''The :class:`EnsembleStreamer` from which to resample.'''
+        self.target_group = target_group
+        r'''The h5 group into which streamed quantities are written.'''
+        self.Action = streamer.Action
+        r'''The action underlying the ensemble.'''
+        cfgs = len(streamer)
+        if indices is not None:
+            indices = np.asarray(indices)
+            if indices.ndim != 2 or indices.shape[0] != cfgs:
+                raise ValueError(
+                    f'indices should be ({cfgs}, draws) --- configurations × draws '
+                    f'--- but are {indices.shape}.')
+            self.indices = indices
+            draws = indices.shape[1]   # the given indices, not the default, set the draws.
+        elif rng is not None:
+            self.indices = rng.integers(0, cfgs, (cfgs, draws))
+        else:
+            self.indices = np.random.randint(0, cfgs, (cfgs, draws))
+        self.draws = draws
+        r'''The number of resamplings.'''
+        self._rebuild_counts()
+        # Construction-time metadata so the target is a valid, from_h5-readable
+        # Bootstrap layout from the first observable on.
+        Data.write(target_group, 'draws', self.draws)
+        Data.write(target_group, 'indices', self.indices)
+        Data.write(target_group, 'Action', self.Action)
+        Data.write(target_group, 'streamer', self.streamer)
+
+    @property
+    def Ensemble(self):
+        # DerivedQuantity.__get__ and the plot_* helpers reach the action through
+        # .Ensemble.Action; the streamer carries Action, weight, and __len__.
+        return self.streamer
+
+    def _rebuild_counts(self):
+        r'''Rebuild the count matrix ``n[i, d] = #{c : indices[c, d] == i}`` from
+        :attr:`indices`.  The counts are derived, not stored, so :meth:`from_h5`
+        rebuilds them; call it yourself only if you assign ``indices`` directly
+        rather than passing them to the constructor.'''
+        cfgs, draws = self.indices.shape
+        n = np.zeros((cfgs, draws), dtype=np.int64)
+        for d in range(draws):
+            n[:, d] = np.bincount(self.indices[:, d], minlength=cfgs)
+        self._n = n
+
+    def _resample_streaming(self, name):
+        r'''The memory-safe streaming resample of a primary observable ``name``.
+
+        Accumulates ``numerator[d] = sum_i n[i,d] w[i] obs[i]`` and
+        ``denominator[d] = sum_i n[i,d] w[i]`` block by block; the result
+        ``numerator / denominator`` equals :meth:`Bootstrap._resample` (given the
+        same ``indices``) to floating point.'''
+        weight = np.asarray(self.streamer.weight)
+        n = self._n
+        draws = self.draws
+        numerator = None
+        denominator = np.zeros(draws)
+        for start, sub in self.streamer.blocks():
+            obs = Batch.as_array(getattr(sub, name))
+            b = obs.shape[0]
+            wn = n[start:start + b] * weight[start:start + b, None]  # (b, draws)
+            contrib = np.einsum('bd,b...->d...', wn, obs)            # (draws, ...)
+            numerator = contrib if numerator is None else numerator + contrib
+            denominator += wn.sum(axis=0)
+        shape = (draws,) + (1,) * (numerator.ndim - 1)
+        return numerator / denominator.reshape(shape)
+
+    def __getattr__(self, name):
+        # Reached (via the tp_getattro hook) when `name` is neither a class nor an
+        # instance attribute.  Stream it only if it is a genuine primary
+        # observable; otherwise raise so a missing internal surfaces as an honest
+        # AttributeError instead of an accidental (recursive) resample.
+        if name.startswith('_') or name not in supervillain.observables:
+            raise AttributeError(name)
+        return self._resample_streaming(name)
+
+    def __getattribute__(self, name):
+        if name.startswith('__') or name in StreamingBootstrap._PASSTHROUGH:
+            return super().__getattribute__(name)
+        gated = (name in supervillain.observables) or (name in supervillain.derivedQuantities)
+        if not gated:
+            return super().__getattribute__(name)
+        # Already in hand.  This gate intercepts *every* access to a gated name,
+        # so without an in-memory check a correlator would be re-read from disk
+        # each time it is touched, making an innocent-looking loop expensive.
+        cached = super().__getattribute__('__dict__')
+        if name in cached:
+            return cached[name]
+        target = super().__getattribute__('target_group')
+        if target is not None and name in target:
+            value = Data.read(target[name])
+            cached[name] = value
+            return value
+        try:
+            value = super().__getattribute__(name)      # derived-quantity descriptor
+        except AttributeError:
+            value = super().__getattribute__('_resample_streaming')(name)  # primary
+        if target is not None and name not in target:
+            Data.write(target, name, np.asarray(value))
+        cached[name] = value
+        return value
+
+    @classmethod
+    def from_h5(cls, group, strict=True, _top=True):
+        r'''
+        Read back a streaming bootstrap, including everything it has already
+        streamed and the link to the ensemble it streamed from, so that further
+        quantities pick up where the last pass left off.
+        '''
+        # The inherited ReadWriteable.from_h5 reconstructs every field, including
+        # the streamer (via EnsembleStreamer.from_h5, which resolves the link) and
+        # the cached observable datasets; we only bind the live target handle.
+        o = super().from_h5(group, strict=strict, _top=_top)
+        o.target_group = group
+        o._rebuild_counts()   # the count matrix is derived from indices, not stored
+        return o
