@@ -240,6 +240,11 @@ class EnsembleStreamer(ReadWriteable):
     '''
 
     def __init__(self, source_group, block=64):
+        if block < 1:
+            # range(0, length, block) is empty for a non-positive stride, so
+            # blocks() would quietly yield nothing and a resample would come back
+            # with no configurations in it rather than an error.
+            raise ValueError(f'block should be at least 1 configuration, not {block}.')
         self._source = source_group
         self.block = block
         r'''The maximum number of configurations held in memory at once.'''
@@ -340,13 +345,22 @@ class StreamingBootstrap(Bootstrap):
     :class:`~.DerivedQuantity` a :class:`Bootstrap` offers is available here and
     means the same thing.  What differs is where the answer comes from: the
     ensemble on disk rather than the ensemble in memory.  Resampled the same way
-    the two agree to the last digit, so this is a way of affording an estimate,
-    not of approximating one.
+    the two differ only by floating-point roundoff --- they are the same sum added
+    up in a different order --- so this is a way of affording an estimate, not of
+    approximating one.
 
     .. note::
        Asking for a quantity is what saves it.  An analysis interrupted halfway
        through therefore resumes rather than restarts, and a quantity already
        computed costs nothing to ask for again.
+
+    .. warning::
+       A resampling is drawn over a fixed number of configurations, so a bootstrap
+       does not survive its ensemble being extended.  If you
+       :meth:`~.Ensemble.continue_from` an ensemble you have already bootstrapped,
+       bootstrap the longer one into a new group; reading the old one back against
+       the grown ensemble raises rather than report estimates of its beginning as
+       though they described the whole.
 
     .. note::
        The target group is an ordinary :class:`Bootstrap`, so
@@ -384,6 +398,12 @@ class StreamingBootstrap(Bootstrap):
     })
 
     def __init__(self, streamer, target_group, draws=100, indices=None, rng=None):
+        if 'indices' in target_group:
+            raise ValueError(
+                f'{target_group.name} already holds a StreamingBootstrap.  Read it '
+                'back with StreamingBootstrap.from_h5 to carry on with the '
+                'resampling it already used; constructing a new one here would draw '
+                'new indices, which would not describe the results already stored.')
         self.streamer = streamer
         r'''The :class:`EnsembleStreamer` from which to resample.'''
         self.target_group = target_group
@@ -462,6 +482,10 @@ class StreamingBootstrap(Bootstrap):
             contrib = np.einsum('bd,b...->d...', wn, obs)            # (draws, ...)
             numerator = contrib if numerator is None else numerator + contrib
             denominator += wn.sum(axis=0)
+        if numerator is None:
+            raise RuntimeError(
+                f'{name} could not be resampled: the streamer yielded no '
+                'configurations at all.')
         shape = (draws,) + (1,) * (numerator.ndim - 1)
         return numerator / denominator.reshape(shape)
 
@@ -491,6 +515,12 @@ class StreamingBootstrap(Bootstrap):
             value = Data.read(target[name])
             cached[name] = value
             return value
+        if target is not None and target.file.mode == 'r':
+            raise RuntimeError(
+                f'{name} has not been streamed yet, and {target.file.filename} is '
+                'open read-only, so it could not be saved.  Reopen the file with '
+                "mode 'r+' to stream new quantities; those already stored can be "
+                'read from a read-only file as they are.')
         try:
             value = super().__getattribute__(name)      # derived-quantity descriptor
         except AttributeError:
@@ -513,4 +543,17 @@ class StreamingBootstrap(Bootstrap):
         o = super().from_h5(group, strict=strict, _top=_top)
         o.target_group = group
         o._rebuild_counts()   # the count matrix is derived from indices, not stored
+
+        # The stored indices resample a fixed number of configurations.  If the
+        # ensemble has grown since -- continue_from and extend_h5 make that easy,
+        # and routine -- then every stored result describes a prefix of the
+        # ensemble now on disk.  Serving those as though they described the whole
+        # thing is the one way this class can be quietly wrong, so it does not.
+        configurations = o.indices.shape[0]
+        if o.streamer._source is not None and len(o.streamer) != configurations:
+            raise ValueError(
+                f'{group.name} resamples {configurations} configurations but its '
+                f'ensemble now has {len(o.streamer)}.  Every result stored here '
+                f'describes only the first {configurations}; bootstrap the extended '
+                'ensemble into a new group rather than adding to this one.')
         return o

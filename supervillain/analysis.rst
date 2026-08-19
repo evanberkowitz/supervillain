@@ -64,10 +64,11 @@ An :class:`~.EnsembleStreamer` hands a stored ensemble out a few configurations 
 You ask a :class:`~.StreamingBootstrap` for :ref:`observables <primary observables>` and derived quantities exactly as you would ask a :class:`~.Bootstrap`; how it gets them is its own business.
 
 This is not an approximation.
-Resampled the same way, a streamed estimate and an ordinary one agree to the last digit.
+Resampled the same way, a streamed estimate and an ordinary one differ only by floating-point roundoff, because they are the same sum added up in a different order.
 
 A :class:`~.StreamingBootstrap` also saves each result as soon as you ask for it.
 So an analysis interrupted halfway through picks up where it left off instead of starting over, and if you think of another quantity later you pay only for that one.
+If you :meth:`~.Ensemble.continue_from` an ensemble you have already bootstrapped, though, bootstrap the longer ensemble somewhere new: a resampling drawn over the shorter chain describes only its beginning, and rather than quietly tell you about the beginning while you are asking about the whole, it will refuse.
 What it has saved is an ordinary :class:`~.Bootstrap`, which you can read back with :meth:`~.ReadWriteable.from_h5` on a machine that never sees the ensemble at all.
 
 The script :source:`example/streaming-bootstrap.py` grows an ensemble on disk with :meth:`~.Ensemble.continue_from` and :meth:`~.Extendable.extend_h5`, bootstraps it both ways, and tabulates the agreement.

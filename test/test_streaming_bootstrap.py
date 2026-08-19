@@ -1,14 +1,22 @@
 #!/usr/bin/env python
 r"""Tests for the streaming bootstrap: EnsembleStreamer (memory-bounded block
 iteration of a serialized Ensemble) and StreamingBootstrap (block-accumulated
-resample with a write-through disk-cache gate).
+resample with a write-through disk cache).
 
-The load-bearing test is `test_streaming_equivalence`: given the SAME resampling
-indices, the streaming estimate must equal a plain Bootstrap's to floating point.
-Everything else here guards a property that would otherwise fail silently ---
-that blocks reassemble the ensemble exactly, that the h5 link survives a
-round trip, that cached quantities are served without touching the source, and
-that the importance weight is normalized by ONE global maximum.
+Two tests are load-bearing.  `test_streaming_equivalence` is the correctness
+claim: given the SAME resampling indices, the streaming estimate must equal a
+plain Bootstrap's to floating point.
+`test_refuses_to_serve_a_bootstrap_its_ensemble_has_outgrown` is the safety
+claim: a resampling is drawn over a fixed number of configurations, and once
+continue_from and extend_h5 have grown the ensemble past that, every stored
+result describes a prefix of what is on disk --- the one way this class could be
+quietly and plausibly wrong.
+
+The rest guard properties that would otherwise fail silently: that blocks
+reassemble the ensemble exactly, that the h5 link survives a round trip within a
+file and across two, that cached quantities are served without touching the
+source, that a target which cannot be written says so before streaming rather
+than after, and that the importance weight is normalized by ONE global maximum.
 """
 
 import numpy as np
@@ -310,3 +318,120 @@ def test_public_exports():
 
     assert exported_bootstrap is StreamingBootstrap
     assert exported_streamer is EnsembleStreamer
+
+
+def test_block_must_tile_the_ensemble(tmp_path):
+    r'''A non-positive block makes ``range(0, length, block)`` empty, so blocks()
+    would quietly hand back no configurations at all rather than complain.'''
+    path = villain_h5(tmp_path)
+
+    with h5.File(path, 'r') as f:
+        for block in (0, -1, -9):
+            with pytest.raises(ValueError):
+                EnsembleStreamer(f['ensemble'], block=block)
+
+
+def test_refuses_to_reuse_a_populated_target(tmp_path):
+    r'''Constructing a second bootstrap over a group that already holds one would
+    draw fresh indices, which do not describe the results already stored there.'''
+    path = villain_h5(tmp_path)
+
+    with h5.File(path, 'r+') as f:
+        streamer = EnsembleStreamer(f['ensemble'], block=9)
+        target = f.create_group('bootstrap')
+        StreamingBootstrap(streamer, target, draws=20).estimate('ActionDensity')
+
+        with pytest.raises(ValueError):
+            StreamingBootstrap(streamer, target, draws=20)
+
+
+def test_refuses_to_serve_a_bootstrap_its_ensemble_has_outgrown(tmp_path):
+    r'''The load-bearing safety test.  An ensemble grown by continue_from and
+    extend_h5 no longer matches indices drawn over the shorter chain, so every
+    result already stored describes a prefix of what is now on disk.  Serving
+    those as if they described the whole ensemble is the one way this class can be
+    quietly and plausibly wrong.'''
+    path = villain_h5(tmp_path)
+
+    with h5.File(path, 'r+') as f:
+        streamer = EnsembleStreamer(f['ensemble'], block=9)
+        streaming = StreamingBootstrap(streamer, f.create_group('bootstrap'), draws=20)
+        stale, _ = streaming.estimate('ActionDensity')
+
+    with h5.File(path, 'r+') as f:
+        supervillain.Ensemble.continue_from(
+                f['ensemble'], CONFIGURATIONS).extend_h5(f['ensemble'])
+
+    with h5.File(path, 'r+') as f:
+        # The stale estimate is a perfectly good bootstrap of the first half, and
+        # differs from the truth by far more than roundoff --- which is exactly why
+        # it must not come back unannounced.
+        whole = supervillain.Ensemble.from_h5(f['ensemble'])
+        assert len(whole) == 2 * CONFIGURATIONS
+        truth, error = Bootstrap(whole, draws=20).estimate('ActionDensity')
+        assert abs(float(stale) - float(truth)) > 1e-6
+
+        with pytest.raises(ValueError):
+            StreamingBootstrap.from_h5(f['bootstrap'])
+
+
+def test_read_only_target_serves_cached_and_refuses_fresh(tmp_path):
+    r'''Results already stored can be read from a read-only file; one that would
+    have to be saved must say so, and say so before streaming for it.'''
+    path = villain_h5(tmp_path)
+
+    with h5.File(path, 'r+') as f:
+        streamer = EnsembleStreamer(f['ensemble'], block=9)
+        streaming = StreamingBootstrap(streamer, f.create_group('bootstrap'), draws=20)
+        mean, _ = streaming.estimate('ActionDensity')
+
+    with h5.File(path, 'r') as f:
+        streaming = StreamingBootstrap.from_h5(f['bootstrap'])
+        cached, _ = streaming.estimate('ActionDensity')
+        assert np.allclose(np.asarray(cached), np.asarray(mean))
+
+        with pytest.raises(RuntimeError):
+            streaming.estimate('WindingSquared')
+
+
+def test_streams_across_files(tmp_path):
+    r'''A streamer whose source is in another file serializes as an external link,
+    so results can be written somewhere other than alongside the ensemble --- and
+    still find their way back to it.'''
+    source = villain_h5(tmp_path, file='source.h5')
+    target = tmp_path / 'target.h5'
+
+    with h5.File(source, 'r') as s, h5.File(target, 'w') as t:
+        streamer = EnsembleStreamer(s['ensemble'], block=9)
+        streaming = StreamingBootstrap(streamer, t.create_group('bootstrap'), draws=20)
+        mean, _ = streaming.estimate('ActionDensity')
+
+    # Nothing of the ensemble was copied; only a link to it.
+    with h5.File(target, 'r') as t:
+        link = t['bootstrap/streamer'].get('source', getlink=True)
+        assert isinstance(link, h5.ExternalLink)
+        assert 'configuration' not in t['bootstrap/streamer']
+
+    # Reopened on its own, the target follows that link back to the ensemble and
+    # streams a quantity it did not have before.
+    with h5.File(target, 'r+') as t:
+        streaming = StreamingBootstrap.from_h5(t['bootstrap'])
+        cached, _ = streaming.estimate('ActionDensity')
+        assert np.allclose(np.asarray(cached), np.asarray(mean))
+
+        fresh, _ = streaming.estimate('WindingSquared')
+        assert np.isfinite(np.asarray(fresh)).all()
+
+
+def test_only_batch_valued_fields_stream(tmp_path):
+    r'''EnsembleStreamer slices stored Batches.  A configuration field stored some
+    other way cannot be sliced, and must say so rather than be skipped.'''
+    from supervillain.analysis.bootstrap import _read_batch_block
+
+    path = villain_h5(tmp_path)
+    with h5.File(path, 'r+') as f:
+        impostor = f['ensemble/configuration/fields'].create_group('NotABatch')
+        impostor.create_dataset('data', data=np.zeros(CONFIGURATIONS))
+
+        with pytest.raises(ValueError):
+            _read_batch_block(impostor, 0, 4)
