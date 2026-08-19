@@ -135,7 +135,7 @@ with h5.File(args.file, 'r+') as f:
 
     cached = sorted(k for k in f['bootstrap'] if k in supervillain.observables
                     or k in supervillain.derivedQuantities)
-    print(f'\nResumed a bootstrap of {len(resumed.streamer)} configurations, with '
+    print(f'\nResumed a bootstrap of {len(resumed.source)} configurations, with '
           f'{len(cached)} quantities already on disk:')
     print('   ' + ', '.join(cached))
 

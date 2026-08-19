@@ -80,9 +80,13 @@ Cutting for thermalization and decimating for decorrelation are free.
 Deciding *how much* to cut and decimate is nearly free.
 :meth:`~.EnsembleStreamer.autocorrelation_time` measures as it streams, and only observables that :meth:`opt in <.Observable.autocorrelation>` are considered --- those are scalars, so it costs one number per configuration however large the lattice.
 
+.. autoclass:: supervillain.analysis.SampleSource
+   :no-special-members:
+   :members: values, timeseries, autocorrelation_time
+
 .. autoclass:: supervillain.analysis.EnsembleStreamer
    :no-special-members:
-   :members: cut, every, autocorrelation_time, values, timeseries, chunks
+   :members: cut, every, chunks
    :show-inheritance:
 
 Blocking takes real work, and it is usually what you want.
@@ -98,7 +102,7 @@ Neither the ensemble nor its unblocked timeseries is ever assembled, and only th
 
 .. autoclass:: supervillain.analysis.StreamingBlocking
    :no-special-members:
-   :members: values, timeseries, autocorrelation_time
+   :members: values
    :show-inheritance:
 
 Finally, resample.

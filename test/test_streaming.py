@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-r"""Tests for the streaming bootstrap: EnsembleStreamer (memory-bounded chunked
+r"""Tests for supervillain.analysis.streaming: EnsembleStreamer (memory-bounded chunked
 iteration of a serialized Ensemble) and StreamingBootstrap (chunk-accumulated
 resample with a write-through disk cache).
 
@@ -145,7 +145,7 @@ def test_write_through_roundtrip_and_portability(tmp_path):
     # streamer is rebuilt from the stored link.
     with h5.File(path, 'r+') as f:
         streaming = StreamingBootstrap.from_h5(f['bootstrap'])
-        assert isinstance(streaming.streamer, EnsembleStreamer)
+        assert isinstance(streaming.source, EnsembleStreamer)
 
         for quantity in QUANTITIES:
             mean, _ = streaming.estimate(quantity)
@@ -188,7 +188,7 @@ def test_resumability_no_recompute(tmp_path):
         assert streaming.ActionDensity is streaming.ActionDensity
 
         # Break the streamer, so that any recomputation would raise.
-        streaming.streamer._source = None
+        streaming.source._source = None
 
         cached_mean, cached_error = streaming.estimate('ActionDensity')
         assert np.allclose(np.asarray(cached_mean), np.asarray(mean))
@@ -200,7 +200,7 @@ def test_resumability_no_recompute(tmp_path):
         # Nor can a streamer with no source be re-serialized: there is nothing
         # left to link to, and a link to nothing would fail silently later.
         with pytest.raises(RuntimeError):
-            streaming.streamer.to_h5(f.create_group('relink'))
+            streaming.source.to_h5(f.create_group('relink'))
 
 
 def test_extended_ensemble_streams(tmp_path):
@@ -408,9 +408,10 @@ def test_streams_across_files(tmp_path):
 
     # Nothing of the ensemble was copied; only a link to it.
     with h5.File(target, 'r') as t:
-        link = t['bootstrap/streamer'].get('source', getlink=True)
+        # /bootstrap/source is the sample source; its own 'ensemble' is the link.
+        link = t['bootstrap/source'].get('ensemble', getlink=True)
         assert isinstance(link, h5.ExternalLink)
-        assert 'configuration' not in t['bootstrap/streamer']
+        assert 'configuration' not in t['bootstrap/source']
 
     # Reopened on its own, the target follows that link back to the ensemble and
     # streams a quantity it did not have before.
@@ -617,11 +618,11 @@ def test_a_view_survives_a_round_trip(tmp_path):
 
     with h5.File(path, 'r+') as f:
         reloaded = StreamingBootstrap.from_h5(f['bootstrap'])
-        assert isinstance(reloaded.streamer, StreamingBlocking)
-        assert reloaded.streamer.width == 5
-        assert reloaded.streamer.source.start == 20
-        assert reloaded.streamer.source.stride == 2
-        assert len(reloaded.streamer) == samples
+        assert isinstance(reloaded.source, StreamingBlocking)
+        assert reloaded.source.width == 5
+        assert reloaded.source.source.start == 20
+        assert reloaded.source.source.stride == 2
+        assert len(reloaded.source) == samples
 
         # And it can still stream something new through that same view.
         fresh, _ = reloaded.estimate('WindingSquared')
@@ -846,7 +847,7 @@ def test_a_second_handle_reads_what_the_first_streamed(tmp_path):
         assert 'WindingSquared' not in second.__dict__
 
         # Break the second one's link, so it cannot possibly recompute.
-        second.streamer._source = None
+        second.source._source = None
         from_disk, _ = second.estimate('WindingSquared')
         assert np.allclose(np.asarray(from_disk), np.asarray(streamed))
 
@@ -942,8 +943,8 @@ def test_a_dangling_link_degrades_rather_than_explodes(tmp_path):
 
     with h5.File(target, 'r+') as t:
         streaming = StreamingBootstrap.from_h5(t['bootstrap'])
-        assert not streaming.streamer.available
-        assert streaming.streamer.Action is None
+        assert not streaming.source.available
+        assert streaming.source.Action is None
 
         # Already computed: still perfectly readable.
         recovered, recovered_error = streaming.estimate('ActionDensity')

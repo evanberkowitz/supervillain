@@ -10,20 +10,9 @@ them they do what :meth:`~.Ensemble.cut`, :meth:`~.Ensemble.every`,
 :class:`~.Blocking`, and :class:`~.Bootstrap` do, without ever holding the whole
 ensemble.
 
-What each of these offers the next is a *source of samples*: an ``Action``, a
-``weight`` and an ``index`` per sample, a length, and ``values(name)`` yielding
-the measurement of an observable a chunk of samples at a time.  Configurations
-are merely how a streamer produces those values --- a blocking produces them by
-averaging --- which is why that, rather than access to configurations, is the
-contract a :class:`StreamingBootstrap` consumes.
-
-A source's length must say how many samples it offers *now*, not how many it
-offered when it was written.  Ensembles grow: :meth:`~.Ensemble.continue_from`
-and :meth:`~.Extendable.extend_h5` make that easy and a production campaign does
-it constantly, and a resampling drawn over the shorter chain describes only its
-beginning.  A length read back from disk cannot detect that, so any source that
-stores a length derived from another must re-derive it when it is read back and
-refuse if the two disagree.
+What each of these offers the next is a :class:`SampleSource`, which is where
+that contract --- and what a source must guarantee about its own length --- is
+written down.
 '''
 
 import os
@@ -111,7 +100,86 @@ def _stream_index_stride(source_group):
     return 1
 
 
-class EnsembleStreamer(ReadWriteable):
+class SampleSource(ReadWriteable):
+    r'''
+    Samples that can be asked for a chunk at a time, without ever all being in
+    memory.  This is what a :class:`StreamingBootstrap` resamples.
+
+    An :class:`EnsembleStreamer`'s samples are configurations; a
+    :class:`StreamingBlocking`'s are blocks of them.  Configurations are merely
+    how a streamer produces its measurements --- a blocking produces them by
+    averaging --- which is why this, rather than access to configurations, is the
+    contract the bootstrap consumes.
+
+    A subclass supplies :attr:`Action`; a ``weight`` and an ``index`` for each
+    sample; ``__len__``; :meth:`values`; and :attr:`available`.  It inherits the
+    rest.
+
+    .. warning::
+       ``__len__`` must say how many samples the source offers *now*, not how many
+       it offered when it was written.  Ensembles grow ---
+       :meth:`~.Ensemble.continue_from` and :meth:`~.Extendable.extend_h5` make
+       that easy, and a production campaign does it constantly --- and a resampling
+       drawn over the shorter chain describes only its beginning.  A length read
+       back from disk cannot notice that, so a source which stores a length
+       derived from another must re-derive it when it is read back and refuse if
+       the two disagree.
+    '''
+
+    @property
+    def measured(self):
+        r'''Nothing is measured ahead of time; a source measures on demand.'''
+        return set()
+
+    @property
+    def available(self):
+        r'''Whether the ensemble underneath can still be reached.'''
+        raise NotImplementedError
+
+    def values(self, name):
+        r'''
+        Measure observable ``name``, a chunk of samples at a time.
+
+        Yields
+        ------
+        tuple:
+            ``(start, values)``, where ``values`` holds the measurement on
+            samples ``[start:start+len(values)]``.
+        '''
+        raise NotImplementedError
+
+    def timeseries(self, name):
+        r'''
+        The measurement of observable ``name`` on every sample, as one array.
+
+        .. warning::
+           This materializes the whole timeseries, which is exactly what streaming
+           exists to avoid.  It is safe for the scalars that
+           :meth:`autocorrelation_time` needs --- a scalar costs one number per
+           sample --- and a poor idea for a correlator.
+        '''
+        return np.concatenate([values for _, values in self.values(name)], axis=0)
+
+    def autocorrelation_time(self, observables=None, every=False):
+        r'''
+        As :meth:`.Ensemble.autocorrelation_time`, but measuring as it streams:
+        the autocorrelation time of *these* samples, which for a
+        :class:`StreamingBlocking` means of the blocks rather than of the
+        configurations underneath.  That is the number blocking is meant to bring
+        down, and how you tell whether the width was wide enough.
+
+        Only observables that opt in via :meth:`.Observable.autocorrelation` are
+        considered, and those are scalars, so this costs one number per sample per
+        observable however large the lattice.
+
+        .. note::
+           An :class:`~.Ensemble` considers the observables it has already
+           measured; a source has measured nothing, so it considers them all.
+        '''
+        return sample_autocorrelation_time(self, observables=observables, every=every)
+
+
+class EnsembleStreamer(SampleSource):
     r'''
     Hands a stored :class:`~.Ensemble` out a few configurations at a time, so that
     an ensemble too large to read can still be analyzed.
@@ -180,11 +248,6 @@ class EnsembleStreamer(ReadWriteable):
         return self._length
 
     @property
-    def measured(self):
-        r'''Nothing is measured ahead of time; a streamer measures on demand.'''
-        return set()
-
-    @property
     def available(self):
         r'''Whether the ensemble this streamer presents can still be reached.'''
         return self._source is not None
@@ -246,33 +309,6 @@ class EnsembleStreamer(ReadWriteable):
         for start, sub in self.chunks():
             yield start, Batch.as_array(getattr(sub, name))
 
-    def timeseries(self, name):
-        r'''
-        The measurement of observable ``name`` on every configuration, as one
-        array.
-
-        .. warning::
-           This materializes the whole timeseries, which is exactly what a
-           streamer exists to avoid.  It is safe for the scalars that
-           :meth:`autocorrelation_time` needs --- a scalar costs one number per
-           configuration --- and a poor idea for a correlator.
-        '''
-        return np.concatenate([values for _, values in self.values(name)], axis=0)
-
-    def autocorrelation_time(self, observables=None, every=False):
-        r'''
-        As :meth:`.Ensemble.autocorrelation_time`, but measuring as it streams.
-
-        Only observables that opt in via :meth:`.Observable.autocorrelation` are
-        considered, and those are scalars, so this costs one number per
-        configuration per observable however large the lattice.
-
-        .. note::
-           An :class:`~.Ensemble` considers the observables it has already
-           measured; a streamer has measured nothing, so it considers them all.
-        '''
-        return sample_autocorrelation_time(self, observables=observables, every=every)
-
     def chunks(self):
         r'''
         Go through the ensemble in order, at most :attr:`chunk` configurations at
@@ -305,10 +341,10 @@ class EnsembleStreamer(ReadWriteable):
 
     def to_h5(self, group, _top=True):
         r'''
-        Write the streamer as :attr:`chunk` and a link to its source ensemble ---
-        an :class:`h5py.SoftLink` if the source lives in the same file as
-        ``group``, an :class:`h5py.ExternalLink` if it does not.  No
-        configuration is copied.
+        Write the streamer as its :attr:`chunk`, :attr:`start` and :attr:`stride`,
+        and an ``ensemble`` link to the ensemble it presents --- an
+        :class:`h5py.SoftLink` if that lives in the same file as ``group``, an
+        :class:`h5py.ExternalLink` if it does not.  No configuration is copied.
         '''
         group.attrs['chunk'] = self.chunk
         group.attrs['start'] = self.start
@@ -325,9 +361,9 @@ class EnsembleStreamer(ReadWriteable):
         except OSError:
             same = (source_file == group.file.filename)
         if same:
-            group['source'] = h5py.SoftLink(source_path)
+            group['ensemble'] = h5py.SoftLink(source_path)
         else:
-            group['source'] = h5py.ExternalLink(source_file, source_path)
+            group['ensemble'] = h5py.ExternalLink(source_file, source_path)
 
     @classmethod
     def from_h5(cls, group, strict=True, _top=True):
@@ -342,7 +378,7 @@ class EnsembleStreamer(ReadWriteable):
         o.start = int(group.attrs['start'])
         o.stride = int(group.attrs['stride'])
         try:
-            source = group['source']
+            source = group['ensemble']
             o._source = source
             o.Action = Data.read(source['Action'])
             o.weight = _stream_weight(source)[o.start::o.stride]
@@ -359,7 +395,7 @@ class EnsembleStreamer(ReadWriteable):
         return o
 
 
-class StreamingBlocking(ReadWriteable):
+class StreamingBlocking(SampleSource):
     r'''
     Averages consecutive samples of an :class:`EnsembleStreamer` together, without
     ever holding the unaveraged measurements.
@@ -438,11 +474,6 @@ class StreamingBlocking(ReadWriteable):
         return self.blocks
 
     @property
-    def measured(self):
-        r'''Nothing is measured ahead of time.'''
-        return set()
-
-    @property
     def available(self):
         r'''Whether the ensemble underneath can still be reached.'''
         return self.source.available
@@ -500,22 +531,6 @@ class StreamingBlocking(ReadWriteable):
                     (-1,) + (1,) * (blocked.ndim - 1))
             emitted += whole
 
-    def timeseries(self, name):
-        r'''
-        The blocked measurement of ``name`` on every block, as one array.  Safe
-        for the scalars :meth:`autocorrelation_time` needs; a poor idea for a
-        correlator, as in :meth:`.EnsembleStreamer.timeseries`.
-        '''
-        return np.concatenate([values for _, values in self.values(name)], axis=0)
-
-    def autocorrelation_time(self, observables=None, every=False):
-        r'''
-        The autocorrelation time *of the blocks*.  Blocking is meant to bring this
-        down to one; if it has not, the blocks are still correlated and the width
-        is too small.
-        '''
-        return sample_autocorrelation_time(self, observables=observables, every=every)
-
     @classmethod
     def from_h5(cls, group, strict=True, _top=True):
         r'''
@@ -544,9 +559,8 @@ class StreamingBlocking(ReadWriteable):
 
 class StreamingBootstrap(Bootstrap):
     r'''
-    A :class:`Bootstrap` that resamples an ensemble as an :class:`EnsembleStreamer`
-    hands it out, a few configurations at a time, and saves each result into a
-    target h5 group.
+    A :class:`Bootstrap` that resamples a :class:`SampleSource` as it hands its
+    samples out, a chunk at a time, and saves each result into a target h5 group.
 
     Every :ref:`primary observable <primary observables>` and
     :class:`~.DerivedQuantity` a :class:`Bootstrap` offers is available here and
@@ -582,8 +596,10 @@ class StreamingBootstrap(Bootstrap):
 
     Parameters
     ----------
-    streamer: EnsembleStreamer
-        Hands out the ensemble, and carries its ``Action`` and ``weight``.
+    source: SampleSource
+        Hands out the samples, and carries their ``Action`` and ``weight``.  An
+        :class:`EnsembleStreamer` to resample configurations, a
+        :class:`StreamingBlocking` to resample blocks of them.
     target_group: h5py.Group
         Where the results are saved.
     draws: int
@@ -603,24 +619,24 @@ class StreamingBootstrap(Bootstrap):
     # check changes no outcome, and test_machinery_names_are_shielded_from_the_gate
     # is what will notice if one ever appears.
     _PASSTHROUGH = frozenset({
-        'target_group', 'streamer', 'draws', 'indices', 'Action', '_n',
+        'target_group', 'source', 'draws', 'indices', 'Action', '_n',
         '_resample_streaming', '_rebuild_counts', 'Ensemble', 'estimate',
     })
 
-    def __init__(self, streamer, target_group, draws=100, indices=None, rng=None):
+    def __init__(self, source, target_group, draws=100, indices=None, rng=None):
         if 'indices' in target_group:
             raise ValueError(
                 f'{target_group.name} already holds a StreamingBootstrap.  Read it '
                 'back with StreamingBootstrap.from_h5 to carry on with the '
                 'resampling it already used; constructing a new one here would draw '
                 'new indices, which would not describe the results already stored.')
-        self.streamer = streamer
-        r'''The :class:`EnsembleStreamer` from which to resample.'''
+        self.source = source
+        r'''The :class:`SampleSource` from which to resample.'''
         self.target_group = target_group
         r'''The h5 group into which streamed quantities are written.'''
-        self.Action = streamer.Action
+        self.Action = source.Action
         r'''The action underlying the ensemble.'''
-        cfgs = len(streamer)
+        cfgs = len(source)
         if cfgs < 1:
             raise ValueError(
                 'there is nothing to resample; the source offers no samples at all.')
@@ -644,13 +660,13 @@ class StreamingBootstrap(Bootstrap):
         Data.write(target_group, 'draws', self.draws)
         Data.write(target_group, 'indices', self.indices)
         Data.write(target_group, 'Action', self.Action)
-        Data.write(target_group, 'streamer', self.streamer)
+        Data.write(target_group, 'source', self.source)
 
     @property
     def Ensemble(self):
         # DerivedQuantity.__get__ and the plot_* helpers reach the action through
-        # .Ensemble.Action; the streamer carries Action, weight, and __len__.
-        return self.streamer
+        # .Ensemble.Action; a SampleSource carries Action, weight, and __len__.
+        return self.source
 
     def _rebuild_counts(self):
         r'''Rebuild the count matrix ``n[i, d] = #{c : indices[c, d] == i}`` from
@@ -683,12 +699,12 @@ class StreamingBootstrap(Bootstrap):
         memory, however long the chain.  The result equals Bootstrap._resample on
         the same indices to floating point --- reassociating a sum is all that
         separates them, which is what test_streaming_equivalence checks.'''
-        weight = np.asarray(self.streamer.weight)
+        weight = np.asarray(self.source.weight)
         n = self._n
         draws = self.draws
         numerator = None
         denominator = np.zeros(draws)
-        for start, obs in self.streamer.values(name):
+        for start, obs in self.source.values(name):
             b = obs.shape[0]
             wn = n[start:start + b] * weight[start:start + b, None]  # (b, draws)
             contrib = np.einsum('bd,b...->d...', wn, obs)            # (draws, ...)
@@ -753,7 +769,7 @@ class StreamingBootstrap(Bootstrap):
         quantities pick up where the last pass left off.
         '''
         # The inherited ReadWriteable.from_h5 reconstructs every field, including
-        # the streamer (via EnsembleStreamer.from_h5, which resolves the link) and
+        # the source (via EnsembleStreamer.from_h5, which resolves the link) and
         # the cached observable datasets; we only bind the live target handle.
         o = super().from_h5(group, strict=strict, _top=_top)
         o.target_group = group
@@ -765,10 +781,10 @@ class StreamingBootstrap(Bootstrap):
         # ensemble now on disk.  Serving those as though they described the whole
         # thing is the one way this class can be quietly wrong, so it does not.
         configurations = o.indices.shape[0]
-        if o.streamer.available and len(o.streamer) != configurations:
+        if o.source.available and len(o.source) != configurations:
             raise ValueError(
                 f'{group.name} resamples {configurations} configurations but its '
-                f'ensemble now has {len(o.streamer)}.  Every result stored here '
+                f'ensemble now has {len(o.source)}.  Every result stored here '
                 f'describes only the first {configurations}; bootstrap the extended '
                 'ensemble into a new group rather than adding to this one.')
         return o
