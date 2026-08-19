@@ -366,11 +366,15 @@ class StreamingBlocking(ReadWriteable):
     signal; blocking averages that configuration in instead.
 
     .. note::
-       A block is not a configuration, so this deliberately offers no field
-       access and no :meth:`~.EnsembleStreamer.chunks`.  Observables have to be
-       measured on configurations and *then* averaged --- averaging the fields
-       first and measuring afterwards is a different, wrong quantity for anything
-       nonlinear.
+       A block is not a configuration, so this deliberately offers no field access
+       and no :meth:`~.EnsembleStreamer.chunks`.  The average of some
+       configurations need not even *be* one: the :class:`~.Villain` $n$ and the
+       :class:`~.Worldline` $m$ and $v$ are integers, and the mean of some
+       integers is not an integer, so the average does not live in the field space
+       at all.  Where the average does have the right type it is still the wrong
+       thing to measure on --- observables have to be measured on configurations
+       and *then* averaged, since measuring an average is not averaging a
+       measurement for anything nonlinear.
 
     .. seealso::
        :class:`~.Blocking`, for an ensemble that fits in memory.

@@ -541,10 +541,14 @@ def test_blocked_pipeline_equivalence(tmp_path):
 
 
 def test_a_block_is_not_a_configuration(tmp_path):
-    r'''Averaging fields and then measuring is not measuring and then averaging,
-    for any nonlinear observable.  So a blocking offers no configurations ---
-    rather than offer the unblocked ones, whose count would not even match its
-    own length.'''
+    r'''A blocking offers no configurations at all --- rather than offer the
+    unblocked ones, whose count would not even match its own length.
+
+    There is no blocked configuration to offer instead.  The Villain n and the
+    Worldline m and v are integers, so their average is not even of the right
+    type, let alone a configuration of the model; and where the type does survive,
+    measuring an average is still not averaging a measurement.
+    '''
     path = villain_h5(tmp_path)
 
     with h5.File(path, 'r') as f:
