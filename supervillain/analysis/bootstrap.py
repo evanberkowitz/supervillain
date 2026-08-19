@@ -182,8 +182,22 @@ def _read_batch_block(field_group, start, stop):
 def _stream_weight(source_group):
     r'''Derive the per-configuration importance weight of an on-disk ensemble,
     without reading a single configuration field.  Returns one weight per
-    configuration; see EnsembleStreamer.weight for what is read and why the
-    maximum subtracted from the summed logs must be a single global one.'''
+    configuration.
+
+    Three sources are consulted, in order.  A generator that reweights emits its
+    contribution as an inline logWeight_<name> scalar column, one per contributing
+    generator; logs sum so that weights multiply, and the namespacing keeps two
+    generators composed with Sequentially from colliding.  Failing that, an
+    explicitly stored weight is read.  Failing that, every configuration weighs
+    the same --- which is every ensemble, until a reweighting generator lands.
+
+    The single global max subtracted from the summed logs is a correctness
+    requirement, not merely overflow safety.  _resample_streaming accumulates
+    <Ow> and <w> separately, block by block, and the exp(-max) offset cancels
+    between them only if it is one constant shared by every configuration; a
+    per-block max would silently bias the estimate.  That is why the whole weight
+    vector is built eagerly, here, before any block streams -- and why only the
+    cheap scalar columns are touched, never the heavy fields.'''
     fields = source_group['configuration/fields']
     logWeights = sorted(k for k in fields.keys() if k.startswith('logWeight_'))
     if logWeights:
@@ -197,53 +211,25 @@ def _stream_weight(source_group):
 
 class EnsembleStreamer(ReadWriteable):
     r'''
-    Memory-bounded block iteration of an :class:`~.Ensemble` that lives on disk.
+    Hands a stored :class:`~.Ensemble` out a few configurations at a time, so that
+    an ensemble too large to read can still be analyzed.
 
-    An :class:`~.Ensemble` read with :meth:`~.Ensemble.from_h5` holds every
-    configuration of every field at once, and a large ensemble of a large lattice
-    need not fit in memory.  A streamer instead reads only the cheap metadata ---
-    the configuration count, the per-configuration :attr:`weight`, and the
-    :attr:`Action` --- eagerly, and hands out the configurations a block at a time
-    through :meth:`blocks`.  Each block is a perfectly ordinary in-memory
-    :class:`~.Ensemble`, so every :ref:`primary observable <primary observables>`
-    measures on it in the usual way.
+    Making one is cheap.  It reads only the :attr:`Action`, the number of
+    configurations, and the :attr:`weight` of each, and leaves the configurations
+    themselves on disk until :meth:`blocks` asks for them.  Each block comes back
+    as an ordinary in-memory :class:`~.Ensemble`, so you can measure any
+    :ref:`primary observable <primary observables>` on it in the usual way.
 
     .. note::
-       A streamer is a *view* of its source, not a copy: :meth:`to_h5` writes an
-       h5 link (soft within one file, external across files) rather than the
-       configurations.  So :meth:`~.ReadWriteable.from_h5` resurrects a streamer
-       that reads the original ensemble, and a :class:`StreamingBootstrap`
-       reconstructs its streamer with no bookkeeping on your part.
-
-    .. note::
-       The :attr:`weight` is derived from the stored ensemble by consulting three
-       sources in order.  A generator that reweights emits its contribution as an
-       inline ``logWeight_<name>`` scalar column, one per contributing generator;
-       logs sum so that weights multiply, and the namespacing keeps two
-       generators composed with :class:`~.Sequentially` from colliding.  Failing
-       that, an explicitly stored ``weight`` is read.  Failing that, every
-       configuration weighs the same.  Only the cheap scalar columns are touched,
-       never the heavy fields.
+       A streamer is a view of its source, not a copy of it.  Writing one stores a
+       link to the ensemble rather than the configurations, so a
+       :class:`StreamingBootstrap` finds its way back to the ensemble on its own
+       and you never have to say where it went.
 
     .. warning::
-       The single global ``max`` subtracted from the summed logs is a correctness
-       requirement, not merely overflow safety.  A :class:`StreamingBootstrap`
-       accumulates :math:`\left\langle O w \right\rangle` and
-       :math:`\left\langle w \right\rangle` separately, block by block, and the
-       :math:`e^{-\max}` offset cancels between them only if it is one constant
-       shared by every configuration.  A per-block maximum would silently bias
-       the estimate, which is why the whole weight vector is materialized eagerly
-       before any block streams.
-
-    .. warning::
-       Because the source is a link, moving or deleting the source ensemble
-       breaks the streamer.  A streamer whose link cannot be resolved still
-       reads back, with :attr:`Action` and :attr:`weight` set to ``None``, so
-       that a :class:`StreamingBootstrap` can serve quantities it has already
-       cached; :meth:`blocks` then raises a ``RuntimeError``.
-
-    .. seealso::
-       :class:`StreamingBootstrap`, which resamples the blocks a streamer yields.
+       Moving or deleting that ensemble breaks the link.  A streamer that cannot
+       find its source can no longer hand out configurations, though a
+       :class:`StreamingBootstrap` can still serve whatever it has already saved.
 
     Parameters
     ----------
@@ -260,8 +246,7 @@ class EnsembleStreamer(ReadWriteable):
         self.Action = Data.read(source_group['Action'])
         r'''The action underlying the ensemble.'''
         self.weight = _stream_weight(source_group)
-        r'''The importance weight of each configuration, derived from the stored
-        ensemble as described above.'''
+        r'''The importance weight of each configuration.'''
         self._length = len(np.asarray(self.weight))
 
     def __len__(self):
@@ -269,24 +254,20 @@ class EnsembleStreamer(ReadWriteable):
 
     def blocks(self):
         r'''
-        Iterate the ensemble in contiguous blocks of at most :attr:`block`
-        configurations.
-
-        Each ``sub_ensemble`` is a fresh in-memory :class:`~.Ensemble` carrying
-        only the sliced configuration fields, so any observable measured on it
-        recomputes from those fields alone.  Only one block is alive at a time.
+        Go through the ensemble in order, at most :attr:`block` configurations at
+        a time.  Each piece is an ordinary :class:`~.Ensemble` of its own, and
+        only one of them is in memory at once.
 
         Yields
         ------
         tuple:
-            ``(start, sub_ensemble)``, where ``start`` is the index of the
-            block's first configuration in the full ensemble.
+            ``(start, sub_ensemble)``, where ``start`` counts the configurations
+            that came before this piece.
 
         Raises
         ------
         RuntimeError
-            If the link to the source ensemble is broken, so that there are no
-            configurations to stream.
+            If the ensemble this streamer was made from can no longer be found.
         '''
         if self._source is None:
             raise RuntimeError(
@@ -351,60 +332,39 @@ class EnsembleStreamer(ReadWriteable):
 
 class StreamingBootstrap(Bootstrap):
     r'''
-    A :class:`Bootstrap` that resamples an on-disk ensemble block by block,
-    writing each quantity through to a target h5 group as it is computed.
+    A :class:`Bootstrap` that resamples an ensemble as an :class:`EnsembleStreamer`
+    hands it out, a few configurations at a time, and saves each result into a
+    target h5 group.
 
-    A :class:`Bootstrap` builds the whole ``configurations × draws × shape``
-    resample tensor at once.  For a correlator on a large lattice with many
-    configurations that tensor can be enormous --- far larger than the ensemble
-    itself --- even though the answer is only ``draws × shape``.
-
-    The way out is that the resample never needed the individual draws, only how
-    many times each configuration was drawn.  Writing
-
-    .. math::
-        n_{id} = \#\left\{ c\; :\; \texttt{indices}[c,d] = i \right\}
-
-    for the number of times configuration :math:`i` appears in draw :math:`d`,
-    the resampled expectation value is
-
-    .. math::
-        \left\langle O \right\rangle_d
-        = \frac{\sum_i n_{id}\, w_i\, O_i}{\sum_i n_{id}\, w_i}
-
-    which is exactly what a :class:`Bootstrap` computes on the same ``indices``,
-    but with the configuration index summed rather than stored.  Both sums accumulate
-    a block at a time, so the memory cost is one block of configurations plus the
-    ``draws × shape`` answer, no matter how long the Markov chain is.
+    Every :ref:`primary observable <primary observables>` and
+    :class:`~.DerivedQuantity` a :class:`Bootstrap` offers is available here and
+    means the same thing.  What differs is where the answer comes from: the
+    ensemble on disk rather than the ensemble in memory.  Resampled the same way
+    the two agree to the last digit, so this is a way of affording an estimate,
+    not of approximating one.
 
     .. note::
-       Every :ref:`primary observable <primary observables>` and
-       :class:`~.DerivedQuantity` access is routed through a gate that checks the
-       target group on disk, streams and persists the quantity if it is absent,
-       and returns it.  So *accessing* a quantity is what stores it
-       (write-through), and re-running skips whatever is already on disk
-       (resumable) --- which matters when the streaming pass is long enough that
-       you would rather not repeat it.  Derived quantities are inherited from
-       :class:`Bootstrap` unchanged; they compose out of already-streamed
-       primaries.
+       Asking for a quantity is what saves it.  An analysis interrupted halfway
+       through therefore resumes rather than restarts, and a quantity already
+       computed costs nothing to ask for again.
 
     .. note::
-       The target group is a valid :class:`Bootstrap` layout from construction
-       onward, so a plain :meth:`Bootstrap.from_h5 <.ReadWriteable.from_h5>`
-       reads the streamed results on a machine that never sees the ensemble.
-       :meth:`from_h5` recovers the full streaming object, source link and all.
+       The target group is an ordinary :class:`Bootstrap`, so
+       :meth:`~.ReadWriteable.from_h5` reads your results anywhere, with or
+       without the ensemble they came from.  Reading it back as a
+       :class:`StreamingBootstrap` instead recovers the link to the ensemble too,
+       so you can go on to ask for more.
 
     .. seealso::
-       :class:`EnsembleStreamer`, which supplies the blocks;
-       :source:`example/streaming-bootstrap.py`, which checks a streamed estimate
-       against an in-memory one.
+       :source:`example/streaming-bootstrap.py`, which bootstraps one ensemble
+       both ways and tabulates the agreement.
 
     Parameters
     ----------
     streamer: EnsembleStreamer
-        Source of blocks; owns ``block`` and the per-config ``weight``/``Action``.
+        Hands out the ensemble, and carries its ``Action`` and ``weight``.
     target_group: h5py.Group
-        Where metadata and streamed observables are written (Bootstrap layout).
+        Where the results are saved.
     draws: int
         The number of bootstrap resamplings.
     indices: numpy.ndarray, optional
@@ -473,10 +433,23 @@ class StreamingBootstrap(Bootstrap):
     def _resample_streaming(self, name):
         r'''The memory-safe streaming resample of a primary observable ``name``.
 
-        Accumulates ``numerator[d] = sum_i n[i,d] w[i] obs[i]`` and
-        ``denominator[d] = sum_i n[i,d] w[i]`` block by block; the result
-        ``numerator / denominator`` equals ``Bootstrap._resample`` (given the
-        same ``indices``) to floating point.'''
+        Bootstrap._resample builds obs[indices], a (configurations, draws, ...)
+        tensor, and averages it.  That tensor is what makes a correlator on a big
+        lattice unaffordable, and it is avoidable: the resample never needed the
+        draws themselves, only how many times each configuration was drawn.  With
+
+            n[i,d] = #{c : indices[c,d] == i}
+
+        the d-th resampled expectation value of O with weight w is
+
+            <O>_d = sum_i n[i,d] w[i] O[i] / sum_i n[i,d] w[i]
+
+        which is the same sum with the configuration index summed rather than
+        stored.  Numerator and denominator each accumulate a block at a time, so
+        nothing larger than one block plus the (draws, ...) answer is ever in
+        memory, however long the chain.  The result equals Bootstrap._resample on
+        the same indices to floating point --- reassociating a sum is all that
+        separates them, which is what test_streaming_equivalence checks.'''
         weight = np.asarray(self.streamer.weight)
         n = self._n
         draws = self.draws

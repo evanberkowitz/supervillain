@@ -55,41 +55,31 @@ The idea is that each draw *could* have been what your samples were with the sam
 Streaming the Bootstrap
 -----------------------
 
-A :class:`~.Bootstrap` reads the whole ensemble into memory and builds the whole resample at once.
-That is the right thing to do until it is not: a correlator has one number per lattice site, and resampling it costs a tensor of ``configurations × draws × sites`` numbers --- which can dwarf the ensemble it came from, even though the answer is only ``draws × sites``.
-A long chain on a big lattice can therefore fail to bootstrap on a machine that generated it without trouble.
+A :class:`~.Bootstrap` reads the whole ensemble into memory and resamples all of it at once.
+That is fine until it isn't.
+A correlator has a value on every site of the lattice, and resampling one can take far more memory than the ensemble itself; you may find that a long chain on a large lattice was easy to generate but is impossible to bootstrap.
 
-The way out is to notice that the resample never needed the draws themselves, only *how many times each configuration was drawn*.
-Let
+In that case you can bootstrap the ensemble where it sits, on disk.
+An :class:`~.EnsembleStreamer` hands a stored ensemble out a few configurations at a time, and a :class:`~.StreamingBootstrap` resamples it that way, never holding more than a small piece of it.
+You ask a :class:`~.StreamingBootstrap` for :ref:`observables <primary observables>` and derived quantities exactly as you would ask a :class:`~.Bootstrap`; how it gets them is its own business.
 
-.. math::
-   n_{id} = \#\left\{ c\; :\; \texttt{indices}[c,d] = i \right\}
+This is not an approximation.
+Resampled the same way, a streamed estimate and an ordinary one agree to the last digit.
 
-count the appearances of configuration $i$ in draw $d$.
-Then the resampled expectation value of a :ref:`primary observable <primary observables>` $O$ with importance weight $w$ is
+A :class:`~.StreamingBootstrap` also saves each result as soon as you ask for it.
+So an analysis interrupted halfway through picks up where it left off instead of starting over, and if you think of another quantity later you pay only for that one.
+What it has saved is an ordinary :class:`~.Bootstrap`, which you can read back with :meth:`~.ReadWriteable.from_h5` on a machine that never sees the ensemble at all.
 
-.. math::
-   \left\langle O \right\rangle_d = \frac{\sum_i n_{id}\, w_i\, O_i}{\sum_i n_{id}\, w_i}
-
-which is exactly what :class:`~.Bootstrap` computes, but with the configuration index *summed* rather than *stored*.
-Both sums accumulate a block of configurations at a time, so nothing bigger than one block and the answer is ever in memory, however long the Markov chain.
-
-Two classes implement this.
-An :class:`~.EnsembleStreamer` hands out the on-disk ensemble a block at a time; a :class:`~.StreamingBootstrap` accumulates the sums above and writes each quantity through to an h5 group as it is computed.
-Because a quantity is stored the moment it is accessed, a streaming pass that is interrupted --- or extended with a quantity you did not think to ask for the first time --- resumes rather than restarts.
-The stored group is an ordinary :class:`~.Bootstrap` layout, so the results read back with :meth:`~.ReadWriteable.from_h5` on a machine that never sees the ensemble.
-
-.. note::
-   The streamed estimate is not merely *consistent* with the in-memory one; on the same resampling ``indices`` the two agree to floating point, since they are the same sum accumulated in a different order.
-   :source:`example/streaming-bootstrap.py` grows an ensemble on disk with :meth:`~.Ensemble.continue_from` and :meth:`~.Extendable.extend_h5`, bootstraps it both ways, and checks exactly that.
+The script :source:`example/streaming-bootstrap.py` grows an ensemble on disk with :meth:`~.Ensemble.continue_from` and :meth:`~.Extendable.extend_h5`, bootstraps it both ways, and tabulates the agreement.
 
 .. autoclass:: supervillain.analysis.EnsembleStreamer
    :no-special-members:
-   :members: blocks, to_h5, from_h5
+   :members: blocks
+   :show-inheritance:
 
 .. autoclass:: supervillain.analysis.StreamingBootstrap
    :no-special-members:
-   :members: from_h5
+   :show-inheritance:
 
 Uncertainty
 -----------
