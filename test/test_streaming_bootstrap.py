@@ -610,3 +610,45 @@ def test_a_view_survives_a_round_trip(tmp_path):
         # And it can still stream something new through that same view.
         fresh, _ = reloaded.estimate('WindingSquared')
         assert np.isfinite(np.asarray(fresh)).all()
+
+
+def test_blocking_divides_by_the_block_weight(tmp_path):
+    r'''Each block must be <wO>_b / <w>_b, not <wO>_b.
+
+    Paired with the block's own average weight, dividing is what makes an average
+    over blocks telescope back to the average over configurations:
+
+        sum_b <w>_b (<wO>_b / <w>_b) / sum_b <w>_b  =  <wO> / <w>
+
+    Leaving it undivided lets a Bootstrap apply the weight a second time.  The
+    two agree exactly at unit weight --- which is every ensemble on main, and why
+    test_blocking_matches_in_memory cannot see the difference --- so this drives
+    genuinely unequal weights through to tell them apart.
+    '''
+    path = villain_h5(tmp_path, configurations=48)
+    width = 4
+
+    with h5.File(path, 'r') as f:
+        streamer = EnsembleStreamer(f['ensemble'], chunk=7)
+
+        rng = np.random.default_rng(11)
+        weight = rng.uniform(0.1, 3.0, size=len(streamer))
+        streamer.weight = weight
+
+        blocking = StreamingBlocking(streamer, width=width)
+        assert blocking.drop == 0
+
+        observable = np.asarray(
+                supervillain.Ensemble.from_h5(f['ensemble']).ActionDensity)
+
+        block_weight = weight.reshape(-1, width).mean(axis=1)
+        undivided = (observable * weight).reshape(-1, width).mean(axis=1)
+
+        assert np.allclose(blocking.weight, block_weight)
+        assert np.allclose(blocking.timeseries('ActionDensity'), undivided / block_weight)
+        # The undivided form is what we must NOT be producing.
+        assert not np.allclose(blocking.timeseries('ActionDensity'), undivided)
+
+        # And the point of dividing: blocked and unblocked estimate the same thing.
+        assert (blocking.weight * blocking.timeseries('ActionDensity')).sum() / blocking.weight.sum() \
+                == pytest.approx((weight * observable).sum() / weight.sum())

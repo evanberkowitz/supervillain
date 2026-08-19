@@ -473,7 +473,9 @@ class StreamingBlocking(ReadWriteable):
     ever holding the unaveraged measurements.
 
     :class:`~.Blocking` does the same thing to an :class:`~.Ensemble` it already
-    has in memory.  When the ensemble is too large for that, this does it as the
+    has in memory, and gives identical numbers as long as the configurations are
+    equally weighted --- which is every ensemble that carries no importance
+    weights.  When the ensemble is too large for that, this does it as the
     measurements stream past, so neither the ensemble nor its unblocked
     timeseries is ever assembled.  What comes out is a source of samples ---
     blocks --- that a :class:`StreamingBootstrap` resamples exactly as it would
@@ -547,9 +549,11 @@ class StreamingBlocking(ReadWriteable):
         r'''
         Measure observable ``name`` and average it into blocks as it streams.
 
-        Matches :meth:`.Blocking._block`: each block is the mean of $w O$ over its
-        samples, which pairs with the mean weight in :attr:`weight` to give the
-        ratio estimator when resampled.
+        Each block is $\left\langle wO\right\rangle_b / \left\langle w\right\rangle_b$,
+        which pairs with the block's own average weight in :attr:`weight` so that
+        an average over blocks telescopes back to the average over configurations.
+        With unit weights that is the plain block mean, and a streamed blocking and
+        an in-memory one give identical numbers.
 
         Yields
         ------
@@ -557,6 +561,13 @@ class StreamingBlocking(ReadWriteable):
             ``(start, values)``, where ``values`` holds the blocked measurement
             on blocks ``[start:start+len(values)]``.
         '''
+        # Divide each block by its own average weight, so that
+        #     sum_b <w>_b (<wO>_b / <w>_b) / sum_b <w>_b  =  <wO> / <w>
+        # and a Bootstrap of these blocks estimates what a Bootstrap of the
+        # configurations would.  Blocking._block on main omits that division and
+        # so lets the weight be applied twice; see the todo there.  Both give the
+        # plain block mean at unit weight, which is what
+        # test_blocking_matches_in_memory compares.
         weight = np.asarray(self.source.weight)
 
         held = None       # samples read but not yet part of a whole block
@@ -581,7 +592,10 @@ class StreamingBlocking(ReadWriteable):
             if whole == 0:
                 continue
             full, held = held[:whole * self.width], held[whole * self.width:]
-            yield emitted, full.reshape(whole, self.width, *full.shape[1:]).mean(axis=1)
+            blocked = full.reshape(whole, self.width, *full.shape[1:]).mean(axis=1)
+            block_weight = self.weight[emitted:emitted + whole]
+            yield emitted, blocked / block_weight.reshape(
+                    (-1,) + (1,) * (blocked.ndim - 1))
             emitted += whole
 
     def timeseries(self, name):
