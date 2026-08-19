@@ -139,17 +139,21 @@ with h5.File(args.file, 'r+') as f:
           f'{len(cached)} quantities already on disk:')
     print('   ' + ', '.join(cached))
 
-    # Read back with the bootstrap rather than recomputed; the ensemble is never
-    # touched for it.
-    mean, error = resumed.estimate('ActionDensity')
-    print(f'\n   ActionDensity, read back:   {Uncertain(float(mean), float(error))}')
-
-    # Not on disk, so this one streams the ensemble now, and is written through.
+    # One that was already stored, read back with the bootstrap rather than
+    # recomputed, and one that was not, which streams the ensemble now and is
+    # written through as it goes.
     fresh = 'WindingSquared'
     assert fresh not in cached
-    mean, error = resumed.estimate(fresh)
-    print(f'   {fresh}, freshly streamed: {Uncertain(float(mean), float(error))}')
-    print(f'   ... and now on disk: {fresh in f["bootstrap"]}')
+
+    asked = (('ActionDensity', 'read back'), (fresh, 'freshly streamed'))
+    label = {quantity: f'{quantity}, {how}:' for quantity, how in asked}
+    width = max(len(_) for _ in label.values())
+
+    print()
+    for quantity, _ in asked:
+        mean, error = resumed.estimate(quantity)
+        print(f'   {label[quantity]:{width}s} {Uncertain(float(mean), float(error))}')
+    print(f'   ... and {fresh} is now on disk: {fresh in f["bootstrap"]}')
 
 ####
 #### 5. Every scalar the action implements, estimated both ways.
@@ -243,8 +247,13 @@ with h5.File(args.file, 'r+') as f:
     streamer = EnsembleStreamer(f['ensemble'], chunk=args.chunk)
 
     tau = streamer.autocorrelation_time()
-    print(f'\n\nAutocorrelation time, measured by streaming: {tau}')
-    print(f'  ... and from the ensemble in memory:        {whole.autocorrelation_time()}')
+    measurements = (('measured by streaming', tau),
+                    ('from the ensemble in memory', whole.autocorrelation_time()))
+    width = max(len(label) for label, _ in measurements)
+
+    print('\n\nAutocorrelation time')
+    for label, value in measurements:
+        print(f'   {label:{width}s}   {value}')
 
     # Thermalize, decorrelate, block.  Blocking rather than decimating, because a
     # configuration that is rare and large is exactly the one every() would throw
