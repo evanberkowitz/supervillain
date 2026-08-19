@@ -27,7 +27,7 @@ import supervillain
 import supervillain.h5
 from supervillain.batch import Batch
 from supervillain.analysis import Bootstrap, Blocking
-from supervillain.analysis.bootstrap import (
+from supervillain.analysis.streaming import (
         EnsembleStreamer, StreamingBlocking, StreamingBootstrap, _stream_weight)
 import generate
 
@@ -426,7 +426,7 @@ def test_streams_across_files(tmp_path):
 def test_only_batch_valued_fields_stream(tmp_path):
     r'''EnsembleStreamer slices stored Batches.  A configuration field stored some
     other way cannot be sliced, and must say so rather than be skipped.'''
-    from supervillain.analysis.bootstrap import _read_batch_chunk
+    from supervillain.analysis.streaming import _read_batch_chunk
 
     path = villain_h5(tmp_path)
     with h5.File(path, 'r+') as f:
