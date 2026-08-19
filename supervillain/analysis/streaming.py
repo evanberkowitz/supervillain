@@ -10,9 +10,8 @@ them they do what :meth:`~.Ensemble.cut`, :meth:`~.Ensemble.every`,
 :class:`~.Blocking`, and :class:`~.Bootstrap` do, without ever holding the whole
 ensemble.
 
-What each of these offers the next is a :class:`SampleSource`, which is where
-that contract --- and what a source must guarantee about its own length --- is
-written down.
+What they hand each other is a SampleSource; the contract is written out above
+that class.
 '''
 
 import os
@@ -100,30 +99,39 @@ def _stream_index_stride(source_group):
     return 1
 
 
+# The contract, for anyone writing a new source rather than using one.  A subclass
+# supplies
+#
+#     Action        the action underlying the samples
+#     weight, index one of each, per sample
+#     __len__       how many samples there are
+#     values(name)  the measurement of an observable, a chunk of samples at a time
+#     available     whether the ensemble underneath can still be reached
+#
+# and inherits measured, timeseries, and autocorrelation_time.
+#
+# Configurations are only how a streamer produces its values; a blocking produces
+# them by averaging.  That is why values(), rather than any access to
+# configurations, is what StreamingBootstrap consumes: it resamples blocks and
+# configurations without knowing which it has.
+#
+# __len__ must report what the source offers NOW, not what it offered when it was
+# written.  Ensembles grow -- continue_from and extend_h5 make that easy, and a
+# production campaign does it constantly -- and a resampling drawn over the
+# shorter chain describes only its beginning.  A length read back from disk cannot
+# notice that, so a source which stores a length derived from another must
+# re-derive it on the way back in and refuse if the two disagree, as
+# StreamingBlocking.from_h5 does.  Getting this wrong does not crash; it serves a
+# stale analysis without complaint, which is how it went unnoticed the first time.
 class SampleSource(ReadWriteable):
     r'''
-    Samples that can be asked for a chunk at a time, without ever all being in
-    memory.  This is what a :class:`StreamingBootstrap` resamples.
+    Samples a :class:`StreamingBootstrap` can resample without their all being in
+    memory: an :class:`EnsembleStreamer`, whose samples are configurations, or a
+    :class:`StreamingBlocking`, whose samples are blocks of them.
 
-    An :class:`EnsembleStreamer`'s samples are configurations; a
-    :class:`StreamingBlocking`'s are blocks of them.  Configurations are merely
-    how a streamer produces its measurements --- a blocking produces them by
-    averaging --- which is why this, rather than access to configurations, is the
-    contract the bootstrap consumes.
-
-    A subclass supplies :attr:`Action`; a ``weight`` and an ``index`` for each
-    sample; ``__len__``; :meth:`values`; and :attr:`available`.  It inherits the
-    rest.
-
-    .. warning::
-       ``__len__`` must say how many samples the source offers *now*, not how many
-       it offered when it was written.  Ensembles grow ---
-       :meth:`~.Ensemble.continue_from` and :meth:`~.Extendable.extend_h5` make
-       that easy, and a production campaign does it constantly --- and a resampling
-       drawn over the shorter chain describes only its beginning.  A length read
-       back from disk cannot notice that, so a source which stores a length
-       derived from another must re-derive it when it is read back and refuse if
-       the two disagree.
+    Either offers how many samples there are, the weight and index of each, and
+    the measurement of an observable a chunk of samples at a time --- so the
+    bootstrap resamples either without knowing which it has.
     '''
 
     @property
