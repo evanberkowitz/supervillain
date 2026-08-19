@@ -597,8 +597,11 @@ class StreamingBootstrap(Bootstrap):
         Draws the resampling indices; defaults to the global RNG.
     '''
 
-    # Names that must never be routed through the disk-cache gate (they are the
-    # object's own machinery, not observables/derived quantities).
+    # Names of the object's own machinery, checked before the registries so that
+    # an observable sharing a name with one of them could never send the gate off
+    # to resample the machinery itself.  No such collision exists today --- so this
+    # check changes no outcome, and test_machinery_names_are_shielded_from_the_gate
+    # is what will notice if one ever appears.
     _PASSTHROUGH = frozenset({
         'target_group', 'streamer', 'draws', 'indices', 'Action', '_n',
         '_resample_streaming', '_rebuild_counts', 'Ensemble', 'estimate',
@@ -699,13 +702,16 @@ class StreamingBootstrap(Bootstrap):
         return numerator / denominator.reshape(shape)
 
     def __getattr__(self, name):
-        # Reached (via the tp_getattro hook) when `name` is neither a class nor an
-        # instance attribute.  Stream it only if it is a genuine primary
-        # observable; otherwise raise so a missing internal surfaces as an honest
-        # AttributeError instead of an accidental (recursive) resample.
-        if name.startswith('_') or name not in supervillain.observables:
-            raise AttributeError(name)
-        return self._resample_streaming(name)
+        # Reached only when __getattribute__ has raised AttributeError, which for
+        # a gated name it never does --- so nothing that could be streamed arrives
+        # here and there is nothing to do but raise.
+        #
+        # It has to be said explicitly, though, because Bootstrap.__getattr__
+        # would otherwise look the name up on .Ensemble --- which is the streamer
+        # --- and resample whatever it found: asking a StreamingBootstrap for
+        # .chunk would fetch the streamer's chunk size and try to bootstrap the
+        # integer 64.
+        raise AttributeError(name)
 
     def __getattribute__(self, name):
         if name.startswith('__') or name in StreamingBootstrap._PASSTHROUGH:

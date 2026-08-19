@@ -1012,3 +1012,25 @@ def test_a_blocking_measures_its_own_autocorrelation(tmp_path):
             assert 1 <= tau <= len(blocking)
 
         assert blocking.autocorrelation_time() == max(per_observable.values())
+
+
+def test_machinery_names_are_shielded_from_the_gate(tmp_path):
+    r'''__getattribute__ routes any name the observable or derived-quantity
+    registries claim through the disk cache.  If a registered name ever collided
+    with something the bootstrap uses for its own purposes, the gate would try to
+    resample the machinery; _PASSTHROUGH is what prevents that, and it is a hand
+    written list.  Nothing collides today, so the list is doing no work --- this
+    is what will fail if that changes.'''
+    path = villain_h5(tmp_path)
+
+    with h5.File(path, 'r+') as f:
+        streaming = StreamingBootstrap(EnsembleStreamer(f['ensemble'], chunk=9),
+                                       f.create_group('bootstrap'), draws=20)
+
+        # The machinery proper: what __init__ set, and what the class defines
+        # itself.  Not dir(), which includes every DerivedQuantity descriptor ---
+        # those are registered names and being gated is exactly their purpose.
+        own = set(streaming.__dict__) | set(vars(StreamingBootstrap))
+        registered = set(supervillain.observables) | set(supervillain.derivedQuantities)
+
+        assert own & registered <= StreamingBootstrap._PASSTHROUGH

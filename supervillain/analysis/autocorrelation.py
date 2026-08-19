@@ -3,6 +3,7 @@
 import numpy as np
 
 from supervillain.batch import Batch
+import supervillain
 
 import logging
 logger = logging.getLogger(__name__)
@@ -98,8 +99,6 @@ def sample_autocorrelation_time(source, observables=None, every=False):
     every: boolean
         If ``True`` returns a dictionary keyed by observable name.
     '''
-    import supervillain
-
     if observables is None:
         observables = set(o for o in source.measured
                           if supervillain.observables[o].autocorrelation(source))
