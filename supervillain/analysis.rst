@@ -75,7 +75,7 @@ The script :source:`example/streaming-bootstrap.py` grows an ensemble on disk wi
 
 .. autoclass:: supervillain.analysis.EnsembleStreamer
    :no-special-members:
-   :members: blocks
+   :members: chunks
    :show-inheritance:
 
 .. autoclass:: supervillain.analysis.StreamingBootstrap

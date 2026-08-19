@@ -162,8 +162,8 @@ class Bootstrap(ReadWriteable):
         return (np.mean(o, axis=0), np.std(o, axis=0))
 
 
-def _read_batch_block(field_group, start, stop):
-    r'''Reconstruct a :class:`~supervillain.batch.Batch` from configs
+def _read_batch_chunk(field_group, start, stop):
+    r'''Reconstruct a :class:`~supervillain.batch.Batch` from configurations
     ``[start:stop]`` of a stored field group, mirroring the ``batch`` storage
     strategy but slicing the ``data`` dataset instead of reading it whole.'''
     if 'H5Batch_item_kwargs' not in field_group.attrs:
@@ -193,10 +193,10 @@ def _stream_weight(source_group):
 
     The single global max subtracted from the summed logs is a correctness
     requirement, not merely overflow safety.  _resample_streaming accumulates
-    <Ow> and <w> separately, block by block, and the exp(-max) offset cancels
+    <Ow> and <w> separately, a chunk at a time, and the exp(-max) offset cancels
     between them only if it is one constant shared by every configuration; a
-    per-block max would silently bias the estimate.  That is why the whole weight
-    vector is built eagerly, here, before any block streams -- and why only the
+    per-chunk max would silently bias the estimate.  That is why the whole weight
+    vector is built eagerly, here, before any chunk streams -- and why only the
     cheap scalar columns are touched, never the heavy fields.'''
     fields = source_group['configuration/fields']
     logWeights = sorted(k for k in fields.keys() if k.startswith('logWeight_'))
@@ -216,7 +216,7 @@ class EnsembleStreamer(ReadWriteable):
 
     Making one is cheap.  It reads only the :attr:`Action`, the number of
     configurations, and the :attr:`weight` of each, and leaves the configurations
-    themselves on disk until :meth:`blocks` asks for them.  Each block comes back
+    themselves on disk until :meth:`chunks` asks for them.  Each chunk comes back
     as an ordinary in-memory :class:`~.Ensemble`, so you can measure any
     :ref:`primary observable <primary observables>` on it in the usual way.
 
@@ -235,18 +235,18 @@ class EnsembleStreamer(ReadWriteable):
     ----------
     source_group: h5py.Group
         A group holding an :meth:`~.Ensemble.to_h5` dump.
-    block: int
+    chunk: int
         The maximum number of configurations to hold in memory at once.
     '''
 
-    def __init__(self, source_group, block=64):
-        if block < 1:
-            # range(0, length, block) is empty for a non-positive stride, so
-            # blocks() would quietly yield nothing and a resample would come back
+    def __init__(self, source_group, chunk=64):
+        if chunk < 1:
+            # range(0, length, chunk) is empty for a non-positive stride, so
+            # chunks() would quietly yield nothing and a resample would come back
             # with no configurations in it rather than an error.
-            raise ValueError(f'block should be at least 1 configuration, not {block}.')
+            raise ValueError(f'chunk should be at least 1 configuration, not {chunk}.')
         self._source = source_group
-        self.block = block
+        self.chunk = chunk
         r'''The maximum number of configurations held in memory at once.'''
         self.Action = Data.read(source_group['Action'])
         r'''The action underlying the ensemble.'''
@@ -257,9 +257,9 @@ class EnsembleStreamer(ReadWriteable):
     def __len__(self):
         return self._length
 
-    def blocks(self):
+    def chunks(self):
         r'''
-        Go through the ensemble in order, at most :attr:`block` configurations at
+        Go through the ensemble in order, at most :attr:`chunk` configurations at
         a time.  Each piece is an ordinary :class:`~.Ensemble` of its own, and
         only one of them is in memory at once.
 
@@ -279,22 +279,22 @@ class EnsembleStreamer(ReadWriteable):
                 'EnsembleStreamer source ensemble unavailable (broken h5 link); '
                 'only cached observables can be estimated.')
         fields = self._source['configuration/fields']
-        for start in range(0, self._length, self.block):
-            stop = min(start + self.block, self._length)
-            block_fields = {name: _read_batch_block(fields[name], start, stop)
+        for start in range(0, self._length, self.chunk):
+            stop = min(start + self.chunk, self._length)
+            chunk_fields = {name: _read_batch_chunk(fields[name], start, stop)
                             for name in fields}
-            cfgs = Configurations(block_fields)
+            cfgs = Configurations(chunk_fields)
             sub = supervillain.ensemble.Ensemble(self.Action).from_configurations(cfgs)
             yield start, sub
 
     def to_h5(self, group, _top=True):
         r'''
-        Write the streamer as :attr:`block` and a link to its source ensemble ---
+        Write the streamer as :attr:`chunk` and a link to its source ensemble ---
         an :class:`h5py.SoftLink` if the source lives in the same file as
         ``group``, an :class:`h5py.ExternalLink` if it does not.  No
         configuration is copied.
         '''
-        group.attrs['block'] = self.block
+        group.attrs['chunk'] = self.chunk
         source = self._source
         if source is None:
             raise RuntimeError(
@@ -317,10 +317,10 @@ class EnsembleStreamer(ReadWriteable):
         Follow the stored link back to the source ensemble and re-read its cheap
         metadata.  If the link cannot be resolved the streamer still reads back,
         but with :attr:`Action` and :attr:`weight` set to ``None`` and
-        :meth:`blocks` unavailable.
+        :meth:`chunks` unavailable.
         '''
         o = cls.__new__(cls)
-        o.block = int(group.attrs['block'])
+        o.chunk = int(group.attrs['chunk'])
         try:
             source = group['source']
             o._source = source
@@ -465,8 +465,8 @@ class StreamingBootstrap(Bootstrap):
             <O>_d = sum_i n[i,d] w[i] O[i] / sum_i n[i,d] w[i]
 
         which is the same sum with the configuration index summed rather than
-        stored.  Numerator and denominator each accumulate a block at a time, so
-        nothing larger than one block plus the (draws, ...) answer is ever in
+        stored.  Numerator and denominator each accumulate a chunk at a time, so
+        nothing larger than one chunk plus the (draws, ...) answer is ever in
         memory, however long the chain.  The result equals Bootstrap._resample on
         the same indices to floating point --- reassociating a sum is all that
         separates them, which is what test_streaming_equivalence checks.'''
@@ -475,7 +475,7 @@ class StreamingBootstrap(Bootstrap):
         draws = self.draws
         numerator = None
         denominator = np.zeros(draws)
-        for start, sub in self.streamer.blocks():
+        for start, sub in self.streamer.chunks():
             obs = Batch.as_array(getattr(sub, name))
             b = obs.shape[0]
             wn = n[start:start + b] * weight[start:start + b, None]  # (b, draws)

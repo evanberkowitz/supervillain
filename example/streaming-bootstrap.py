@@ -50,7 +50,7 @@ parser.add_argument('--kappa', type=float, default=0.2, help='κ.  Small, so tha
 parser.add_argument('--configurations', type=int, default=1000, help='Configurations per generation pass.  Defaults to 1000.')
 parser.add_argument('--continuations', type=int, default=2, help='How many times to continue from disk and extend.  Defaults to 2.')
 parser.add_argument('--draws', type=int, default=100, help='Bootstrap resamplings.  Defaults to 100.')
-parser.add_argument('--block', type=int, default=64, help='Configurations held in memory at once while streaming.  Defaults to 64.')
+parser.add_argument('--chunk', type=int, default=64, help='Configurations held in memory at once while streaming.  Defaults to 64.')
 parser.add_argument('--file', type=str, default='streaming-bootstrap.h5', help='Where to write the ensemble.  Defaults to streaming-bootstrap.h5.')
 
 args = parser.parse_args()
@@ -104,15 +104,15 @@ with h5.File(args.file, 'r+') as f:
     whole = supervillain.Ensemble.from_h5(f['ensemble'])
     plain = Bootstrap(whole, draws=args.draws)
 
-    # The same ensemble, never held in memory, resampled block by block.  Handing
+    # The same ensemble, never held in memory, resampled a chunk at a time.  Handing
     # over the plain bootstrap's indices is what makes the comparison exact: the
     # two resample identically, so they must agree to roundoff.
-    streamer  = EnsembleStreamer(f['ensemble'], block=args.block)
+    streamer  = EnsembleStreamer(f['ensemble'], chunk=args.chunk)
     streaming = StreamingBootstrap(
             streamer, f.create_group('bootstrap'), indices=plain.indices)
 
     print(f'\n{len(whole)} configurations of {S}')
-    print(f'{args.draws} draws; streaming {args.block} configurations at a time.')
+    print(f'{args.draws} draws; streaming {args.chunk} configurations at a time.')
 
     # Touching a quantity is what stores it, so this is all it takes to leave
     # something on disk for the next pass to find.

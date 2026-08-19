@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-r"""Tests for the streaming bootstrap: EnsembleStreamer (memory-bounded block
-iteration of a serialized Ensemble) and StreamingBootstrap (block-accumulated
+r"""Tests for the streaming bootstrap: EnsembleStreamer (memory-bounded chunked
+iteration of a serialized Ensemble) and StreamingBootstrap (chunk-accumulated
 resample with a write-through disk cache).
 
 Two tests are load-bearing.  `test_streaming_equivalence` is the correctness
@@ -12,7 +12,7 @@ continue_from and extend_h5 have grown the ensemble past that, every stored
 result describes a prefix of what is on disk --- the one way this class could be
 quietly and plausibly wrong.
 
-The rest guard properties that would otherwise fail silently: that blocks
+The rest guard properties that would otherwise fail silently: that chunks
 reassemble the ensemble exactly, that the h5 link survives a round trip within a
 file and across two, that cached quantities are served without touching the
 source, that a target which cannot be written says so before streaming rather
@@ -55,33 +55,33 @@ def villain_h5(tmp_path, configurations=CONFIGURATIONS, file='streaming.h5'):
 
 
 def test_streamer_fidelity(tmp_path):
-    r'''The blocks a streamer yields must reassemble into the whole ensemble ---
+    r'''The chunks a streamer yields must reassemble into the whole ensemble ---
     both the stored configuration fields and an observable computed from them.'''
     path = villain_h5(tmp_path)
 
     with h5.File(path, 'r') as f:
         full = supervillain.Ensemble.from_h5(f['ensemble'])
-        streamer = EnsembleStreamer(f['ensemble'], block=7)
+        streamer = EnsembleStreamer(f['ensemble'], chunk=7)
 
         assert len(streamer) == len(full)
 
-        # A block boundary that divides the ensemble evenly would not notice an
-        # off-by-one in the final block; 7 does not divide 40.
-        assert len(full) % streamer.block != 0
+        # A chunk boundary that divides the ensemble evenly would not notice an
+        # off-by-one in the final chunk; 7 does not divide 40.
+        assert len(full) % streamer.chunk != 0
 
-        # Stored fields, block by block.
+        # Stored fields, a chunk at a time.
         for field in ('phi', 'n'):
-            blocks = [np.asarray(getattr(sub, field)) for _, sub in streamer.blocks()]
-            assert np.array_equal(np.concatenate(blocks, axis=0),
+            chunks = [np.asarray(getattr(sub, field)) for _, sub in streamer.chunks()]
+            assert np.array_equal(np.concatenate(chunks, axis=0),
                                   np.asarray(getattr(full, field)))
 
         # Starts must tile the ensemble contiguously from zero.
-        starts = [start for start, _ in streamer.blocks()]
-        assert starts == list(range(0, len(full), streamer.block))
+        starts = [start for start, _ in streamer.chunks()]
+        assert starts == list(range(0, len(full), streamer.chunk))
 
         # An observable computed (not stored inline) from the sliced fields.
-        blocks = [np.asarray(sub.Spin_Spin) for _, sub in streamer.blocks()]
-        assert np.allclose(np.concatenate(blocks, axis=0), np.asarray(full.Spin_Spin))
+        chunks = [np.asarray(sub.Spin_Spin) for _, sub in streamer.chunks()]
+        assert np.allclose(np.concatenate(chunks, axis=0), np.asarray(full.Spin_Spin))
 
 
 def test_streaming_equivalence(tmp_path):
@@ -93,7 +93,7 @@ def test_streaming_equivalence(tmp_path):
         full = supervillain.Ensemble.from_h5(f['ensemble'])
         reference = Bootstrap(full, draws=50)
 
-        streamer = EnsembleStreamer(f['ensemble'], block=9)
+        streamer = EnsembleStreamer(f['ensemble'], chunk=9)
         streaming = StreamingBootstrap(
                 streamer, f.create_group('bootstrap'), indices=reference.indices)
 
@@ -114,7 +114,7 @@ def test_indices_set_the_draws(tmp_path):
     path = villain_h5(tmp_path)
 
     with h5.File(path, 'r+') as f:
-        streamer = EnsembleStreamer(f['ensemble'], block=9)
+        streamer = EnsembleStreamer(f['ensemble'], chunk=9)
         configurations = len(streamer)
 
         indices = np.random.randint(0, configurations, (configurations, 13))
@@ -134,7 +134,7 @@ def test_write_through_roundtrip_and_portability(tmp_path):
     path = villain_h5(tmp_path)
 
     with h5.File(path, 'r+') as f:
-        streamer = EnsembleStreamer(f['ensemble'], block=9)
+        streamer = EnsembleStreamer(f['ensemble'], chunk=9)
         streaming = StreamingBootstrap(streamer, f.create_group('bootstrap'), draws=40)
 
         estimates = {q: streaming.estimate(q) for q in QUANTITIES}
@@ -179,7 +179,7 @@ def test_resumability_no_recompute(tmp_path):
     path = villain_h5(tmp_path)
 
     with h5.File(path, 'r+') as f:
-        streamer = EnsembleStreamer(f['ensemble'], block=9)
+        streamer = EnsembleStreamer(f['ensemble'], chunk=9)
         streaming = StreamingBootstrap(streamer, f.create_group('bootstrap'), draws=30)
         mean, error = streaming.estimate('ActionDensity')
 
@@ -223,11 +223,11 @@ def test_extended_ensemble_streams(tmp_path):
         full = supervillain.Ensemble.from_h5(f['ensemble'])
         assert len(full) == (1 + continuations) * CONFIGURATIONS
 
-        streamer = EnsembleStreamer(f['ensemble'], block=17)
+        streamer = EnsembleStreamer(f['ensemble'], chunk=17)
         assert len(streamer) == len(full)
 
-        blocks = [np.asarray(sub.phi) for _, sub in streamer.blocks()]
-        assert np.array_equal(np.concatenate(blocks, axis=0), np.asarray(full.phi))
+        chunks = [np.asarray(sub.phi) for _, sub in streamer.chunks()]
+        assert np.array_equal(np.concatenate(chunks, axis=0), np.asarray(full.phi))
 
         reference = Bootstrap(full, draws=30)
         streaming = StreamingBootstrap(
@@ -255,9 +255,9 @@ def test_stream_weight_logs_sum_with_one_global_max():
     global maximum.
 
     The global maximum is a correctness requirement, not overflow safety: the
-    streaming resample accumulates <Ow> and <w> separately across blocks, and the
+    streaming resample accumulates <Ow> and <w> separately across chunks, and the
     exp offset cancels between them only if every configuration shares it.  A
-    per-block --- or per-column --- maximum would silently bias the estimate.
+    per-chunk --- or per-column --- maximum would silently bias the estimate.
     '''
     a = np.array([0.0, 1.0, -2.0, 5.0, 3.0, -1.0, 0.5, 2.0])
     b = np.array([1.0, -3.0, 4.0, 0.0, 2.0, 1.5, -0.5, 1.0])
@@ -320,15 +320,15 @@ def test_public_exports():
     assert exported_streamer is EnsembleStreamer
 
 
-def test_block_must_tile_the_ensemble(tmp_path):
-    r'''A non-positive block makes ``range(0, length, block)`` empty, so blocks()
+def test_chunk_must_tile_the_ensemble(tmp_path):
+    r'''A non-positive chunk makes ``range(0, length, chunk)`` empty, so chunks()
     would quietly hand back no configurations at all rather than complain.'''
     path = villain_h5(tmp_path)
 
     with h5.File(path, 'r') as f:
-        for block in (0, -1, -9):
+        for chunk in (0, -1, -9):
             with pytest.raises(ValueError):
-                EnsembleStreamer(f['ensemble'], block=block)
+                EnsembleStreamer(f['ensemble'], chunk=chunk)
 
 
 def test_refuses_to_reuse_a_populated_target(tmp_path):
@@ -337,7 +337,7 @@ def test_refuses_to_reuse_a_populated_target(tmp_path):
     path = villain_h5(tmp_path)
 
     with h5.File(path, 'r+') as f:
-        streamer = EnsembleStreamer(f['ensemble'], block=9)
+        streamer = EnsembleStreamer(f['ensemble'], chunk=9)
         target = f.create_group('bootstrap')
         StreamingBootstrap(streamer, target, draws=20).estimate('ActionDensity')
 
@@ -354,7 +354,7 @@ def test_refuses_to_serve_a_bootstrap_its_ensemble_has_outgrown(tmp_path):
     path = villain_h5(tmp_path)
 
     with h5.File(path, 'r+') as f:
-        streamer = EnsembleStreamer(f['ensemble'], block=9)
+        streamer = EnsembleStreamer(f['ensemble'], chunk=9)
         streaming = StreamingBootstrap(streamer, f.create_group('bootstrap'), draws=20)
         stale, _ = streaming.estimate('ActionDensity')
 
@@ -381,7 +381,7 @@ def test_read_only_target_serves_cached_and_refuses_fresh(tmp_path):
     path = villain_h5(tmp_path)
 
     with h5.File(path, 'r+') as f:
-        streamer = EnsembleStreamer(f['ensemble'], block=9)
+        streamer = EnsembleStreamer(f['ensemble'], chunk=9)
         streaming = StreamingBootstrap(streamer, f.create_group('bootstrap'), draws=20)
         mean, _ = streaming.estimate('ActionDensity')
 
@@ -402,7 +402,7 @@ def test_streams_across_files(tmp_path):
     target = tmp_path / 'target.h5'
 
     with h5.File(source, 'r') as s, h5.File(target, 'w') as t:
-        streamer = EnsembleStreamer(s['ensemble'], block=9)
+        streamer = EnsembleStreamer(s['ensemble'], chunk=9)
         streaming = StreamingBootstrap(streamer, t.create_group('bootstrap'), draws=20)
         mean, _ = streaming.estimate('ActionDensity')
 
@@ -426,7 +426,7 @@ def test_streams_across_files(tmp_path):
 def test_only_batch_valued_fields_stream(tmp_path):
     r'''EnsembleStreamer slices stored Batches.  A configuration field stored some
     other way cannot be sliced, and must say so rather than be skipped.'''
-    from supervillain.analysis.bootstrap import _read_batch_block
+    from supervillain.analysis.bootstrap import _read_batch_chunk
 
     path = villain_h5(tmp_path)
     with h5.File(path, 'r+') as f:
@@ -434,4 +434,4 @@ def test_only_batch_valued_fields_stream(tmp_path):
         impostor.create_dataset('data', data=np.zeros(CONFIGURATIONS))
 
         with pytest.raises(ValueError):
-            _read_batch_block(impostor, 0, 4)
+            _read_batch_chunk(impostor, 0, 4)
