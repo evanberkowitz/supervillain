@@ -257,6 +257,11 @@ class EnsembleStreamer(ReadWriteable):
         A group holding an :meth:`~.Ensemble.to_h5` dump.
     chunk: int
         The maximum number of configurations to hold in memory at once.
+    start: int
+        How many leading configurations to skip.  Prefer :meth:`cut`, which says
+        what you mean and composes.
+    stride: int
+        Present one configuration in every ``stride``.  Prefer :meth:`every`.
     '''
 
     def __init__(self, source_group, chunk=64, start=0, stride=1):

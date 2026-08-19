@@ -52,68 +52,45 @@ The idea is that each draw *could* have been what your samples were with the sam
    :no-special-members:
    :members: plot_band, plot_correlator, estimate
 
-Streaming the Bootstrap
------------------------
+Streaming an Ensemble
+---------------------
 
-A :class:`~.Bootstrap` reads the whole ensemble into memory and resamples all of it at once.
-That is fine until it isn't.
-A correlator has a value on every site of the lattice, and resampling one can take far more memory than the ensemble itself; you may find that a long chain on a large lattice was easy to generate but is impossible to bootstrap.
+Everything above assumes the ensemble fits in memory.
+A long chain on a large lattice need not.
+A correlator has a value on every site, and resampling one can take far more memory than the ensemble itself, so you may find that an ensemble which was easy to generate is impossible to analyze.
 
-In that case you can bootstrap the ensemble where it sits, on disk.
-An :class:`~.EnsembleStreamer` hands a stored ensemble out a few configurations at a time, and a :class:`~.StreamingBootstrap` resamples it that way, never holding more than a small piece of it.
-You ask a :class:`~.StreamingBootstrap` for :ref:`observables <primary observables>` and derived quantities exactly as you would ask a :class:`~.Bootstrap`; how it gets them is its own business.
+In that case, leave it on disk and analyze it where it sits.
+An :class:`~.EnsembleStreamer` hands a stored ensemble out a few configurations at a time, and everything this page describes can be done that way, in the same order:
 
-This is not an approximation.
-Resampled the same way, a streamed estimate and an ordinary one differ only by floating-point roundoff, because they are the same sum added up in a different order.
+.. code:: python
 
-A :class:`~.StreamingBootstrap` also saves each result as soon as you ask for it.
-So an analysis interrupted halfway through picks up where it left off instead of starting over, and if you think of another quantity later you pay only for that one.
-If you :meth:`~.Ensemble.continue_from` an ensemble you have already bootstrapped, though, bootstrap the longer ensemble somewhere new: a resampling drawn over the shorter chain describes only its beginning, and rather than quietly tell you about the beginning while you are asking about the whole, it will refuse.
-What it has saved is an ordinary :class:`~.Bootstrap`, which you can read back with :meth:`~.ReadWriteable.from_h5` on a machine that never sees the ensemble at all.
+   # an ensemble that fits in memory
+   thermalized = ensemble.cut(1000)
+   decorrelated = Blocking(thermalized.every(2), width=8)
+   Bootstrap(decorrelated)
 
-The script :source:`example/streaming-bootstrap.py` grows an ensemble on disk with :meth:`~.Ensemble.continue_from` and :meth:`~.Extendable.extend_h5`, bootstraps it both ways, and tabulates the agreement.
+   # the same analysis of an ensemble that does not
+   thermalized = EnsembleStreamer(h5file['ensemble'], chunk=64).cut(1000)
+   decorrelated = StreamingBlocking(thermalized.every(2), width=8)
+   StreamingBootstrap(decorrelated, target)
 
-.. warning::
-   A streamer is not an :class:`~.Ensemble`, and does not pretend to be one.
-   In particular it has no :meth:`~.Ensemble.plot_history`, so :func:`~.comparison_plot.bootstraps` --- which plots the history of the ensemble underneath each bootstrap --- does not work on a :class:`~.StreamingBootstrap`.
-   Plot the history of an ensemble small enough to hold.
+Cutting for thermalization and decimating for decorrelation are free.
+:meth:`~.EnsembleStreamer.cut` and :meth:`~.EnsembleStreamer.every` change only which configurations the streamer presents and hand back another streamer; nothing is read and nothing is copied.
+
+Deciding *how much* to cut and decimate is nearly free.
+:meth:`~.EnsembleStreamer.autocorrelation_time` measures as it streams, and only observables that :meth:`opt in <.Observable.autocorrelation>` are considered --- those are scalars, so it costs one number per configuration however large the lattice.
 
 .. autoclass:: supervillain.analysis.EnsembleStreamer
    :no-special-members:
    :members: cut, every, autocorrelation_time, values, timeseries, chunks
    :show-inheritance:
 
-.. autoclass:: supervillain.analysis.StreamingBootstrap
-   :no-special-members:
-   :show-inheritance:
+Blocking takes real work, and it is usually what you want.
+:meth:`~.EnsembleStreamer.every` decorrelates by throwing configurations away, which is fine when each configuration looks much like its neighbours and much less fine near a phase transition, where an observable is small almost always and occasionally enormous.
+Discard the wrong configuration there and you discard the signal; blocking averages it in instead.
 
-Thermalizing, Decorrelating, and Blocking a Stream
---------------------------------------------------
-
-An ensemble too large to read still needs everything the sections above describe.
-You still have to cut the configurations that remember how the chain was started, and you still have to do something about autocorrelation --- arguably more so, since an ensemble that large was probably expensive enough that you would rather not throw it away.
-
-:meth:`~.EnsembleStreamer.cut` and :meth:`~.EnsembleStreamer.every` are free.
-They change only which configurations the streamer presents, and hand back another streamer; nothing is read and nothing is copied.
-
-:meth:`~.EnsembleStreamer.autocorrelation_time` is nearly free.
-Only observables that :meth:`opt in <.Observable.autocorrelation>` are considered and those are scalars, so measuring them costs one number per configuration however large the lattice.
-
-Blocking is the one that takes real work, and it is usually the one you want.
-:meth:`~.EnsembleStreamer.every` decorrelates by throwing configurations away, which is fine when every configuration looks much like its neighbours and much less fine near a phase transition, where the observable is small almost always and occasionally enormous.
-Discard the wrong configuration there and you discard the signal.
-Blocking averages it in instead.
-
-:class:`~.StreamingBlocking` does to a streamer what :class:`~.Blocking` does to an :class:`~.Ensemble`, averaging the measurements as they stream past --- so neither the ensemble nor its unblocked timeseries is ever assembled, and only the blocks, which are smaller by the width, come out the far end.
-The two pipelines read alike:
-
-.. code:: python
-
-   # an ensemble that fits in memory
-   Bootstrap(Blocking(ensemble.cut(1000).every(2), width=8))
-
-   # the same quantity, from an ensemble that does not
-   StreamingBootstrap(StreamingBlocking(streamer.cut(1000).every(2), width=8), target)
+:class:`~.StreamingBlocking` does to a streamer what :class:`~.Blocking` does to an :class:`~.Ensemble`, averaging the measurements as they stream past.
+Neither the ensemble nor its unblocked timeseries is ever assembled, and only the blocks --- smaller than the configurations by the width --- come out the far end.
 
 .. note::
    Block last.
@@ -123,6 +100,25 @@ The two pipelines read alike:
    :no-special-members:
    :members: values, timeseries, autocorrelation_time
    :show-inheritance:
+
+Finally, resample.
+You ask a :class:`~.StreamingBootstrap` for :ref:`observables <primary observables>` and derived quantities exactly as you would ask a :class:`~.Bootstrap`; how it gets them is its own business.
+This is not an approximation --- resampled the same way, a streamed estimate and an ordinary one differ only by floating-point roundoff, because they are the same sum added up in a different order.
+
+A :class:`~.StreamingBootstrap` also saves each result as soon as you ask for it.
+So an analysis interrupted halfway through picks up where it left off instead of starting over, and if you think of another quantity later you pay only for that one.
+What it has saved is an ordinary :class:`~.Bootstrap`, which you can read back with :meth:`~.ReadWriteable.from_h5` on a machine that never sees the ensemble at all.
+
+.. autoclass:: supervillain.analysis.StreamingBootstrap
+   :no-special-members:
+   :show-inheritance:
+
+.. warning::
+   A streamer is not an :class:`~.Ensemble` and does not pretend to be one.
+   In particular it has no :meth:`~.Ensemble.plot_history`, so :func:`~.comparison_plot.bootstraps` --- which plots the history of the ensemble underneath each bootstrap --- does not work on a :class:`~.StreamingBootstrap`.
+   Plot the history of an ensemble small enough to hold.
+
+The script :source:`example/streaming-bootstrap.py` grows an ensemble on disk with :meth:`~.Ensemble.continue_from` and :meth:`~.Extendable.extend_h5`, runs this whole pipeline both ways, and tabulates the agreement.
 
 Uncertainty
 -----------
