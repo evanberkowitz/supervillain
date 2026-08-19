@@ -161,10 +161,12 @@ class SampleSource(ReadWriteable):
         The measurement of observable ``name`` on every sample, as one array.
 
         .. warning::
-           This materializes the whole timeseries, which is exactly what streaming
-           exists to avoid.  It is safe for the scalars that
-           :meth:`autocorrelation_time` needs --- a scalar costs one number per
-           sample --- and a poor idea for a correlator.
+           The configurations are still streamed and thrown away a chunk at a
+           time; what accumulates here is the *measurement*.  For a scalar that is
+           one number per sample --- under a percent of the ensemble, which is why
+           :meth:`autocorrelation_time` can afford to do this.  For a correlator it
+           is a number per site per sample, comparable to the ensemble itself, and
+           asking for it hands back the memory that streaming just saved.
         '''
         return np.concatenate([values for _, values in self.values(name)], axis=0)
 

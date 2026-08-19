@@ -1035,3 +1035,47 @@ def test_machinery_names_are_shielded_from_the_gate(tmp_path):
         registered = set(supervillain.observables) | set(supervillain.derivedQuantities)
 
         assert own & registered <= StreamingBootstrap._PASSTHROUGH
+
+
+def test_autocorrelation_time_never_materializes_a_correlator(tmp_path):
+    r'''timeseries() accumulates the measurement --- not the configurations, which
+    keep streaming past regardless, but the measurement.  For a scalar that is one
+    number per sample and costs nothing; for a correlator it is a number per site
+    per sample, comparable to the ensemble, and would hand back the memory that
+    streaming just saved.
+
+    autocorrelation_time is the one place the library calls it, so it must only
+    ever ask for scalars.  It does, because Observable.autocorrelation is false for
+    everything else --- and it filters on that even for observables named
+    explicitly, which is the case worth pinning.
+    '''
+    path = villain_h5(tmp_path, configurations=120)
+
+    with h5.File(path, 'r') as f:
+        streamer = EnsembleStreamer(f['ensemble'], chunk=17)
+        whole = supervillain.Ensemble.from_h5(f['ensemble'])
+
+        asked = []
+        materialize = streamer.timeseries
+        streamer.timeseries = lambda name: (asked.append(name), materialize(name))[1]
+
+        streamer.autocorrelation_time()
+        assert asked
+        for name in asked:
+            assert np.asarray(getattr(whole, name)).ndim == 1, name
+
+        # Naming a correlator outright does not get it materialized either.
+        asked.clear()
+        streamer.autocorrelation_time(observables=['Spin_Spin', 'ActionDensity'])
+        assert asked == ['ActionDensity']
+
+        # And the configurations really are streamed, whatever is measured.
+        alive = []
+        chunks = streamer.chunks
+        def watched():
+            for start, sub in chunks():
+                alive.append(len(sub))
+                yield start, sub
+        streamer.chunks = watched
+        streamer.timeseries('Spin_Spin')
+        assert max(alive) <= streamer.chunk
