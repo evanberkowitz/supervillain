@@ -139,7 +139,8 @@ with h5.File(args.file, 'r+') as f:
           f'{len(cached)} quantities already on disk:')
     print('   ' + ', '.join(cached))
 
-    # Served from disk; the ensemble is not touched.
+    # Read back with the bootstrap rather than recomputed; the ensemble is never
+    # touched for it.
     mean, error = resumed.estimate('ActionDensity')
     print(f'\n   ActionDensity, read back:   {Uncertain(float(mean), float(error))}')
 

@@ -818,3 +818,197 @@ def test_growth_a_strided_view_cannot_see_is_allowed(tmp_path):
         reloaded = StreamingBootstrap.from_h5(f['bootstrap'])   # must not raise
         assert np.allclose(np.asarray(reloaded.estimate('ActionDensity')[0]),
                            np.asarray(mean))
+
+
+def test_a_second_handle_reads_what_the_first_streamed(tmp_path):
+    r'''Two bootstraps over one stored analysis: what either streams, the other
+    reads off disk rather than recomputing.
+
+    Reading a bootstrap back loads what it already has into memory, so the
+    resume tests above are answered out of memory and never touch the stored copy.
+    This is the path that genuinely reads it: a handle opened *before* a quantity
+    existed on disk has no memory of it, and must find it there.
+    '''
+    path = villain_h5(tmp_path)
+
+    with h5.File(path, 'r+') as f:
+        streamer = EnsembleStreamer(f['ensemble'], chunk=9)
+        StreamingBootstrap(streamer, f.create_group('bootstrap'),
+                           draws=20).estimate('ActionDensity')
+
+    with h5.File(path, 'r+') as f:
+        first = StreamingBootstrap.from_h5(f['bootstrap'])
+        second = StreamingBootstrap.from_h5(f['bootstrap'])
+        assert 'WindingSquared' not in second.__dict__
+
+        streamed, _ = first.estimate('WindingSquared')
+        assert 'WindingSquared' in f['bootstrap']
+        assert 'WindingSquared' not in second.__dict__
+
+        # Break the second one's link, so it cannot possibly recompute.
+        second.streamer._source = None
+        from_disk, _ = second.estimate('WindingSquared')
+        assert np.allclose(np.asarray(from_disk), np.asarray(streamed))
+
+
+def test_inherited_bootstrap_methods_survive_the_gate(tmp_path):
+    r'''__getattribute__ intercepts every attribute access, so the methods
+    StreamingBootstrap inherits have to make it through unmolested --- they are
+    not observables, and must not be routed through the disk cache.'''
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+
+    path = villain_h5(tmp_path)
+
+    with h5.File(path, 'r+') as f:
+        whole = supervillain.Ensemble.from_h5(f['ensemble'])
+        reference = Bootstrap(whole, draws=20)
+        streaming = StreamingBootstrap(
+                EnsembleStreamer(f['ensemble'], chunk=9),
+                f.create_group('bootstrap'), indices=reference.indices)
+
+        assert len(streaming) == reference.draws
+        # plot_correlator reaches the lattice through .Ensemble.Action; a streamer
+        # reads its own Action off the disk, so this is an equal lattice rather
+        # than the very same object.
+        assert (repr(streaming.Ensemble.Action.Lattice)
+                == repr(whole.Action.Lattice))
+
+        figure, axes = plt.subplots(1, 2)
+        streaming.plot_band(axes[0], 'ActionDensity', color='C0')
+        streaming.plot_correlator(axes[1], 'Spin_Spin')
+        plt.close(figure)
+
+        with pytest.raises(ValueError):
+            # plot_band refuses a non-scalar, exactly as it does for a Bootstrap.
+            figure, axes = plt.subplots(1, 2)
+            streaming.plot_band(axes[0], 'Spin_Spin', color='C0')
+            plt.close(figure)
+
+
+def test_a_missing_attribute_is_an_honest_attribute_error(tmp_path):
+    r'''A mistyped observable must raise, not recurse into a resample of nothing
+    or quietly return some other attribute.'''
+    path = villain_h5(tmp_path)
+
+    with h5.File(path, 'r+') as f:
+        streaming = StreamingBootstrap(EnsembleStreamer(f['ensemble'], chunk=9),
+                                       f.create_group('bootstrap'), draws=20)
+
+        for name in ('NoSuchObservable', 'ActionDensityy', '_not_an_internal'):
+            with pytest.raises(AttributeError):
+                getattr(streaming, name)
+
+
+def test_rng_makes_the_resampling_reproducible(tmp_path):
+    r'''The same generator seed must draw the same indices, and so give the same
+    estimate; a different one must not.'''
+    path = villain_h5(tmp_path)
+
+    with h5.File(path, 'r+') as f:
+        streamer = EnsembleStreamer(f['ensemble'], chunk=9)
+
+        def bootstrap(group, seed):
+            return StreamingBootstrap(streamer, f.create_group(group), draws=20,
+                                      rng=np.random.default_rng(seed))
+
+        one, again, other = bootstrap('one', 17), bootstrap('again', 17), bootstrap('other', 18)
+
+        assert np.array_equal(one.indices, again.indices)
+        assert not np.array_equal(one.indices, other.indices)
+        assert np.allclose(np.asarray(one.estimate('ActionDensity')[0]),
+                           np.asarray(again.estimate('ActionDensity')[0]))
+
+
+def test_a_dangling_link_degrades_rather_than_explodes(tmp_path):
+    r'''A streamer stores a link, not a copy, so the ensemble can genuinely go
+    away.  What was already computed must still read back --- that is the whole
+    reason results are written through --- and anything else must say plainly that
+    the ensemble is gone.
+
+    The tests above simulate this by clearing the source by hand; this one lets
+    the link really dangle.
+    '''
+    source = villain_h5(tmp_path, file='source.h5')
+    target = tmp_path / 'target.h5'
+
+    with h5.File(source, 'r') as s, h5.File(target, 'w') as t:
+        streaming = StreamingBootstrap(EnsembleStreamer(s['ensemble'], chunk=9),
+                                       t.create_group('bootstrap'), draws=20)
+        mean, error = streaming.estimate('ActionDensity')
+
+    source.unlink()          # the ensemble is gone; only the link to it remains
+
+    with h5.File(target, 'r+') as t:
+        streaming = StreamingBootstrap.from_h5(t['bootstrap'])
+        assert not streaming.streamer.available
+        assert streaming.streamer.Action is None
+
+        # Already computed: still perfectly readable.
+        recovered, recovered_error = streaming.estimate('ActionDensity')
+        assert np.allclose(np.asarray(recovered), np.asarray(mean))
+        assert np.allclose(np.asarray(recovered_error), np.asarray(error))
+
+        # Anything else needs the ensemble, and says so.
+        with pytest.raises(RuntimeError):
+            streaming.estimate('WindingSquared')
+
+    # A plain Bootstrap never wanted the ensemble in the first place.
+    with h5.File(target, 'r') as t:
+        assert np.allclose(np.asarray(Bootstrap.from_h5(t['bootstrap']).estimate('ActionDensity')[0]),
+                           np.asarray(mean))
+
+
+def test_streams_an_assembled_ensemble(tmp_path):
+    r'''An Ensemble put together with from_configurations, rather than generated,
+    carries no weight, index, or index_stride --- only an Action and the
+    configurations themselves.  A streamer has to supply the obvious defaults for
+    what is missing rather than fail to read it.'''
+    generated = generate.villain(CONFIGURATIONS, N, KAPPA)
+    assembled = supervillain.Ensemble(generated.Action).from_configurations(
+            generated.configuration)
+    assert set(assembled.__dict__) == {'Action', 'configuration'}
+
+    path = tmp_path / 'assembled.h5'
+    with h5.File(path, 'w') as f:
+        assembled.to_h5(f.create_group('ensemble'))
+
+    with h5.File(path, 'r') as f:
+        for stored in ('weight', 'index', 'index_stride'):
+            assert stored not in f['ensemble']
+
+        streamer = EnsembleStreamer(f['ensemble'], chunk=7)
+        assert len(streamer) == CONFIGURATIONS
+        assert np.allclose(streamer.weight, 1.)
+        assert np.array_equal(streamer.index, np.arange(CONFIGURATIONS))
+        assert streamer.index_stride == 1
+
+        # And it measures the same as the ensemble it was assembled from.
+        assert np.allclose(streamer.timeseries('ActionDensity'),
+                           np.asarray(generated.ActionDensity))
+
+
+def test_a_blocking_measures_its_own_autocorrelation(tmp_path):
+    r'''A blocking reports the autocorrelation time of its blocks, not of the
+    configurations underneath --- which is how you tell whether the width was
+    wide enough.
+
+    This checks the plumbing, not the physics: that the answer is the one you get
+    by handing the blocked timeseries to autocorrelation_time yourself.  What the
+    number *is* depends on the chain and is no business of a test.
+    '''
+    path = villain_h5(tmp_path, configurations=120)
+
+    with h5.File(path, 'r') as f:
+        blocking = StreamingBlocking(EnsembleStreamer(f['ensemble'], chunk=17), width=4)
+
+        per_observable = blocking.autocorrelation_time(every=True)
+        assert per_observable
+
+        for name, tau in per_observable.items():
+            assert tau == supervillain.analysis.autocorrelation_time(
+                    blocking.timeseries(name)), name
+            assert 1 <= tau <= len(blocking)
+
+        assert blocking.autocorrelation_time() == max(per_observable.values())
