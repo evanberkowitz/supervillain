@@ -4,6 +4,9 @@ import numpy as np
 
 from supervillain.batch import Batch
 
+import logging
+logger = logging.getLogger(__name__)
+
 def autocorrelation(data, mean=None, _cutoff=1e-16):
     r'''
 
@@ -73,3 +76,59 @@ def autocorrelation_time(data, mean=None):
     _, tau = autocorrelation(data, mean)
     return tau
 
+
+
+def sample_autocorrelation_time(source, observables=None, every=False):
+    r'''
+    The autocorrelation time of anything that can produce a timeseries.
+
+    This is the shared implementation behind :meth:`.Ensemble.autocorrelation_time`
+    and :meth:`.EnsembleStreamer.autocorrelation_time`; they differ only in where
+    the timeseries comes from, not in which observables count or what to do when
+    none of them fluctuate.
+
+    ``source`` must provide ``Action``, ``__len__``, a ``measured`` collection of
+    observable names, and ``timeseries(name)``.
+
+    Parameters
+    ----------
+    observables: ``None`` or iterable of strings naming observables.
+        Which observables to consider.  If ``None``, consider those already
+        measured; if none have been, consider all of them.
+    every: boolean
+        If ``True`` returns a dictionary keyed by observable name.
+    '''
+    import supervillain
+
+    if observables is None:
+        observables = set(o for o in source.measured
+                          if supervillain.observables[o].autocorrelation(source))
+
+    if len(observables) == 0:
+        observables = tuple(supervillain.observables.keys())
+
+    auto = dict()
+    for name in observables:
+        if not supervillain.observables[name].autocorrelation(source):
+            continue
+        try:
+            auto[name] = autocorrelation_time(source.timeseries(name))
+        except Exception:
+            logger.warning(f'{name} does not fluctuate enough; it is not included in the autocorrelation time calculation.')
+
+    if every:
+        return auto
+
+    if not auto:
+        # Nothing fluctuated enough to estimate τ.  Rather than crash on an
+        # empty max(), warn and fall back to half the length, which corresponds
+        # to there being effectively a single independent sample
+        # (N_eff = N / 2τ = 1).
+        tau = int(np.ceil(len(source) / 2))
+        logger.warning(
+            'No observable fluctuated enough to estimate an autocorrelation time; '
+            f'falling back to τ = {tau} (half the ensemble length).'
+        )
+        return tau
+
+    return max(auto.values())

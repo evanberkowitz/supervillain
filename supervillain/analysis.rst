@@ -73,13 +73,55 @@ What it has saved is an ordinary :class:`~.Bootstrap`, which you can read back w
 
 The script :source:`example/streaming-bootstrap.py` grows an ensemble on disk with :meth:`~.Ensemble.continue_from` and :meth:`~.Extendable.extend_h5`, bootstraps it both ways, and tabulates the agreement.
 
+.. warning::
+   A streamer is not an :class:`~.Ensemble`, and does not pretend to be one.
+   In particular it has no :meth:`~.Ensemble.plot_history`, so :func:`~.comparison_plot.bootstraps` --- which plots the history of the ensemble underneath each bootstrap --- does not work on a :class:`~.StreamingBootstrap`.
+   Plot the history of an ensemble small enough to hold.
+
 .. autoclass:: supervillain.analysis.EnsembleStreamer
    :no-special-members:
-   :members: chunks
+   :members: cut, every, autocorrelation_time, values, timeseries, chunks
    :show-inheritance:
 
 .. autoclass:: supervillain.analysis.StreamingBootstrap
    :no-special-members:
+   :show-inheritance:
+
+Thermalizing, Decorrelating, and Blocking a Stream
+--------------------------------------------------
+
+An ensemble too large to read still needs everything the sections above describe.
+You still have to cut the configurations that remember how the chain was started, and you still have to do something about autocorrelation --- arguably more so, since an ensemble that large was probably expensive enough that you would rather not throw it away.
+
+:meth:`~.EnsembleStreamer.cut` and :meth:`~.EnsembleStreamer.every` are free.
+They change only which configurations the streamer presents, and hand back another streamer; nothing is read and nothing is copied.
+
+:meth:`~.EnsembleStreamer.autocorrelation_time` is nearly free.
+Only observables that :meth:`opt in <.Observable.autocorrelation>` are considered and those are scalars, so measuring them costs one number per configuration however large the lattice.
+
+Blocking is the one that takes real work, and it is usually the one you want.
+:meth:`~.EnsembleStreamer.every` decorrelates by throwing configurations away, which is fine when every configuration looks much like its neighbours and much less fine near a phase transition, where the observable is small almost always and occasionally enormous.
+Discard the wrong configuration there and you discard the signal.
+Blocking averages it in instead.
+
+:class:`~.StreamingBlocking` does to a streamer what :class:`~.Blocking` does to an :class:`~.Ensemble`, averaging the measurements as they stream past --- so neither the ensemble nor its unblocked timeseries is ever assembled, and only the blocks, which are smaller by the width, come out the far end.
+The two pipelines read alike:
+
+.. code:: python
+
+   # an ensemble that fits in memory
+   Bootstrap(Blocking(ensemble.cut(1000).every(2), width=8))
+
+   # the same quantity, from an ensemble that does not
+   StreamingBootstrap(StreamingBlocking(streamer.cut(1000).every(2), width=8), target)
+
+.. note::
+   Block last.
+   :meth:`~.EnsembleStreamer.cut` and :meth:`~.EnsembleStreamer.every` are arithmetic on *which configurations count*, so they compose in any order; blocking replaces configurations with averages of them, and there is no cutting or decimating after that.
+
+.. autoclass:: supervillain.analysis.StreamingBlocking
+   :no-special-members:
+   :members: values, timeseries, autocorrelation_time
    :show-inheritance:
 
 Uncertainty

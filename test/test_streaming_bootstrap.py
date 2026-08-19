@@ -26,9 +26,9 @@ import pytest
 import supervillain
 import supervillain.h5
 from supervillain.batch import Batch
-from supervillain.analysis import Bootstrap
+from supervillain.analysis import Bootstrap, Blocking
 from supervillain.analysis.bootstrap import (
-        EnsembleStreamer, StreamingBootstrap, _stream_weight)
+        EnsembleStreamer, StreamingBlocking, StreamingBootstrap, _stream_weight)
 import generate
 
 # Small and cheap: these tests check bookkeeping, not physics, so the ensemble
@@ -435,3 +435,178 @@ def test_only_batch_valued_fields_stream(tmp_path):
 
         with pytest.raises(ValueError):
             _read_batch_chunk(impostor, 0, 4)
+
+
+# The analysis pipeline: cut, every, autocorrelation_time, and blocking.  Each of
+# these already works on an in-memory Ensemble, so every test here is a parity
+# test --- the streamed answer must be the in-memory answer.
+
+VIEWS = (
+        ('raw',              lambda e: e,                      lambda s: s),
+        ('cut',              lambda e: e.cut(30),              lambda s: s.cut(30)),
+        ('every',            lambda e: e.every(3),             lambda s: s.every(3)),
+        ('cut.every',        lambda e: e.cut(30).every(3),     lambda s: s.cut(30).every(3)),
+        ('every.cut',        lambda e: e.every(3).cut(7),      lambda s: s.every(3).cut(7)),
+        )
+
+
+@pytest.mark.parametrize('label,of_ensemble,of_streamer', VIEWS, ids=[v[0] for v in VIEWS])
+def test_cut_and_every_match_the_ensemble(tmp_path, label, of_ensemble, of_streamer):
+    r'''cut and every are index arithmetic, so a streamer can do them without
+    reading anything --- but it has to land on exactly the configurations the
+    Ensemble would, in either order of composition.'''
+    path = villain_h5(tmp_path, configurations=120)
+
+    with h5.File(path, 'r') as f:
+        memory = of_ensemble(supervillain.Ensemble.from_h5(f['ensemble']))
+        streamed = of_streamer(EnsembleStreamer(f['ensemble'], chunk=17))
+
+        assert len(streamed) == len(memory)
+        assert streamed.index_stride == memory.index_stride
+        assert np.array_equal(np.asarray(streamed.index), np.asarray(memory.index))
+        assert np.allclose(np.asarray(streamed.weight), np.asarray(memory.weight))
+
+        # A scalar and a correlator, to be sure the strided read is right for
+        # both the shape that fits in memory and the shape that does not.
+        for quantity in ('ActionDensity', 'Spin_Spin'):
+            assert np.allclose(streamed.timeseries(quantity),
+                               np.asarray(getattr(memory, quantity))), quantity
+
+
+def test_autocorrelation_time_matches(tmp_path):
+    r'''The streamer measures the scalars as it goes; the answer must be the one
+    the ensemble in memory gives.'''
+    path = villain_h5(tmp_path, configurations=120)
+
+    with h5.File(path, 'r') as f:
+        memory = supervillain.Ensemble.from_h5(f['ensemble'])
+        streamed = EnsembleStreamer(f['ensemble'], chunk=17)
+
+        assert streamed.autocorrelation_time() == memory.autocorrelation_time()
+
+        per_observable = streamed.autocorrelation_time(every=True)
+        assert per_observable == memory.autocorrelation_time(every=True)
+        # Only scalars opt in, which is what keeps this affordable.
+        assert per_observable
+        assert all(np.asarray(getattr(memory, o)).ndim == 1 for o in per_observable)
+
+
+@pytest.mark.parametrize('width', (2, 5, 7, 16))
+def test_blocking_matches_in_memory(tmp_path, width):
+    r'''StreamingBlocking must reproduce Blocking exactly --- the same number of
+    blocks, the same configurations dropped from the front to make them come out
+    evenly, and the same averaged values.  Width 7 does not divide 120, so the
+    drop is exercised.'''
+    path = villain_h5(tmp_path, configurations=120)
+
+    with h5.File(path, 'r') as f:
+        memory = Blocking(supervillain.Ensemble.from_h5(f['ensemble']), width=width)
+        streamed = StreamingBlocking(EnsembleStreamer(f['ensemble'], chunk=17), width=width)
+
+        assert len(streamed) == len(memory)
+        assert streamed.drop == memory.drop
+        assert streamed.index_stride == memory.index_stride
+        assert np.allclose(streamed.weight, np.asarray(memory.weight))
+        assert np.allclose(streamed.index, np.asarray(memory.index))
+
+        for quantity in ('ActionDensity', 'Spin_Spin'):
+            assert np.allclose(streamed.timeseries(quantity),
+                               np.asarray(getattr(memory, quantity))), quantity
+
+
+def test_blocked_pipeline_equivalence(tmp_path):
+    r'''The load-bearing test for the pipeline, and the counterpart of
+    test_streaming_equivalence.  Thermalize, decorrelate, block, bootstrap --- in
+    memory and on disk, on the same resampling --- and the two must agree to
+    floating point.'''
+    path = villain_h5(tmp_path, configurations=120)
+
+    with h5.File(path, 'r+') as f:
+        memory = Blocking(
+                supervillain.Ensemble.from_h5(f['ensemble']).cut(20).every(2), width=5)
+        streamed = StreamingBlocking(
+                EnsembleStreamer(f['ensemble'], chunk=17).cut(20).every(2), width=5)
+
+        reference = Bootstrap(memory, draws=40)
+        streaming = StreamingBootstrap(
+                streamed, f.create_group('bootstrap'), indices=reference.indices)
+
+        for quantity in QUANTITIES:
+            mean, error = (np.asarray(_) for _ in reference.estimate(quantity))
+            blocked_mean, blocked_error = (
+                    np.asarray(_) for _ in streaming.estimate(quantity))
+
+            assert np.allclose(mean, blocked_mean, atol=1e-10, rtol=1e-8), quantity
+            assert np.allclose(error, blocked_error, atol=1e-10, rtol=1e-8), quantity
+
+
+def test_a_block_is_not_a_configuration(tmp_path):
+    r'''Averaging fields and then measuring is not measuring and then averaging,
+    for any nonlinear observable.  So a blocking offers no configurations ---
+    rather than offer the unblocked ones, whose count would not even match its
+    own length.'''
+    path = villain_h5(tmp_path)
+
+    with h5.File(path, 'r') as f:
+        streamed = StreamingBlocking(EnsembleStreamer(f['ensemble'], chunk=9), width=4)
+
+        assert not hasattr(streamed, 'chunks')
+        assert not hasattr(streamed, 'phi')
+        assert not hasattr(streamed, 'configuration')
+
+        # It is a source of samples, though, and its samples are blocks.
+        assert len(streamed) == CONFIGURATIONS // 4
+        assert streamed.timeseries('ActionDensity').shape == (CONFIGURATIONS // 4,)
+
+
+def test_blocking_width_auto(tmp_path):
+    r'''width='auto' asks the source for its autocorrelation time, which a
+    streamer can now answer.'''
+    path = villain_h5(tmp_path, configurations=120)
+
+    with h5.File(path, 'r') as f:
+        streamer = EnsembleStreamer(f['ensemble'], chunk=17)
+        assert StreamingBlocking(streamer).width == streamer.autocorrelation_time()
+
+
+def test_views_and_blocking_reject_nonsense(tmp_path):
+    path = villain_h5(tmp_path)
+
+    with h5.File(path, 'r') as f:
+        streamer = EnsembleStreamer(f['ensemble'], chunk=9)
+
+        for stride in (0, -1):
+            with pytest.raises(ValueError):
+                streamer.every(stride)
+        with pytest.raises(ValueError):
+            EnsembleStreamer(f['ensemble'], start=-1)
+        with pytest.raises(ValueError):
+            StreamingBlocking(streamer, width=0)
+        # Too few samples to fill even one block.
+        with pytest.raises(ValueError):
+            StreamingBlocking(streamer, width=len(streamer) + 1)
+
+
+def test_a_view_survives_a_round_trip(tmp_path):
+    r'''A cut, decimated, blocked source has to come back off disk as itself; a
+    StreamingBootstrap that forgot its view would resample different samples.'''
+    path = villain_h5(tmp_path, configurations=120)
+
+    with h5.File(path, 'r+') as f:
+        source = StreamingBlocking(
+                EnsembleStreamer(f['ensemble'], chunk=17).cut(20).every(2), width=5)
+        streaming = StreamingBootstrap(source, f.create_group('bootstrap'), draws=20)
+        mean, _ = streaming.estimate('ActionDensity')
+        samples = len(source)
+
+    with h5.File(path, 'r+') as f:
+        reloaded = StreamingBootstrap.from_h5(f['bootstrap'])
+        assert isinstance(reloaded.streamer, StreamingBlocking)
+        assert reloaded.streamer.width == 5
+        assert reloaded.streamer.source.start == 20
+        assert reloaded.streamer.source.stride == 2
+        assert len(reloaded.streamer) == samples
+
+        # And it can still stream something new through that same view.
+        fresh, _ = reloaded.estimate('WindingSquared')
+        assert np.isfinite(np.asarray(fresh)).all()

@@ -13,6 +13,7 @@ import supervillain.h5.extendable as extendable
 from supervillain.configurations import Configurations
 import supervillain.ensemble
 from supervillain.performance import Timer
+from supervillain.analysis.autocorrelation import sample_autocorrelation_time
 
 import logging
 logger = logging.getLogger(__name__)
@@ -162,7 +163,7 @@ class Bootstrap(ReadWriteable):
         return (np.mean(o, axis=0), np.std(o, axis=0))
 
 
-def _read_batch_chunk(field_group, start, stop):
+def _read_batch_chunk(field_group, start, stop, step=1):
     r'''Reconstruct a :class:`~supervillain.batch.Batch` from configurations
     ``[start:stop]`` of a stored field group, mirroring the ``batch`` storage
     strategy but slicing the ``data`` dataset instead of reading it whole.'''
@@ -174,7 +175,7 @@ def _read_batch_chunk(field_group, start, stop):
     if isinstance(tag, bytes):
         tag = tag.decode()
     cls = resolve_batch_cls(tag) if tag else None
-    data = extendable.array(field_group['data'][start:stop])
+    data = extendable.array(field_group['data'][start:stop:step])
     item_kwargs = pickle.loads(field_group.attrs['H5Batch_item_kwargs'].tobytes())
     return Batch(data, cls=cls, dtype=data.dtype, **item_kwargs)
 
@@ -209,6 +210,25 @@ def _stream_weight(source_group):
     return np.ones(len(fields[name]['data']))
 
 
+def _stream_index(source_group):
+    r'''The Markov-chain index of each configuration: one integer apiece, so it
+    is read whole rather than streamed.  Falls back to counting if the stored
+    ensemble predates the index.'''
+    if 'index' in source_group:
+        return np.asarray(Batch.as_array(Data.read(source_group['index'])))
+    fields = source_group['configuration/fields']
+    name = next(iter(fields.keys()))
+    return np.arange(len(fields[name]['data']))
+
+
+def _stream_index_stride(source_group):
+    r'''The distance in the Markov chain between one stored configuration and the
+    next.'''
+    if 'index_stride' in source_group:
+        return int(np.asarray(Data.read(source_group['index_stride'])))
+    return 1
+
+
 class EnsembleStreamer(ReadWriteable):
     r'''
     Hands a stored :class:`~.Ensemble` out a few configurations at a time, so that
@@ -239,23 +259,124 @@ class EnsembleStreamer(ReadWriteable):
         The maximum number of configurations to hold in memory at once.
     '''
 
-    def __init__(self, source_group, chunk=64):
+    def __init__(self, source_group, chunk=64, start=0, stride=1):
         if chunk < 1:
             # range(0, length, chunk) is empty for a non-positive stride, so
             # chunks() would quietly yield nothing and a resample would come back
             # with no configurations in it rather than an error.
             raise ValueError(f'chunk should be at least 1 configuration, not {chunk}.')
+        if stride < 1:
+            raise ValueError(f'stride should be at least 1, not {stride}.')
+        if start < 0:
+            raise ValueError(f'start should not be negative, but is {start}.')
+
         self._source = source_group
         self.chunk = chunk
         r'''The maximum number of configurations held in memory at once.'''
+        self.start = start
+        r'''How many leading configurations of the stored ensemble are skipped.'''
+        self.stride = stride
+        r'''One configuration in every ``stride`` is presented.'''
         self.Action = Data.read(source_group['Action'])
         r'''The action underlying the ensemble.'''
-        self.weight = _stream_weight(source_group)
+
+        self.weight = _stream_weight(source_group)[start::stride]
         r'''The importance weight of each configuration.'''
+        self.index = _stream_index(source_group)[start::stride]
+        r'''The Markov-chain index of each configuration.'''
+        self.index_stride = _stream_index_stride(source_group) * stride
+        r'''The distance in the Markov chain between one configuration and the next.'''
+
         self._length = len(np.asarray(self.weight))
 
     def __len__(self):
         return self._length
+
+    @property
+    def measured(self):
+        r'''Nothing is measured ahead of time; a streamer measures on demand.'''
+        return set()
+
+    @property
+    def available(self):
+        r'''Whether the ensemble this streamer presents can still be reached.'''
+        return self._source is not None
+
+    def cut(self, start):
+        r'''
+        Drop the first ``start`` configurations, as :meth:`.Ensemble.cut` does.
+        Nothing is read or copied; the result is another streamer presenting fewer
+        configurations of the same stored ensemble.
+
+        Returns
+        -------
+        EnsembleStreamer
+        '''
+        return EnsembleStreamer(self._source, chunk=self.chunk,
+                                start=self.start + start * self.stride,
+                                stride=self.stride)
+
+    def every(self, stride):
+        r'''
+        Keep one configuration in every ``stride``, as :meth:`.Ensemble.every`
+        does.  Nothing is read or copied.
+
+        .. seealso::
+           :class:`StreamingBlocking`, which averages consecutive configurations
+           rather than discarding them --- usually the better trade, and much the
+           better one when a rare configuration carries a lot of weight.
+
+        Returns
+        -------
+        EnsembleStreamer
+        '''
+        return EnsembleStreamer(self._source, chunk=self.chunk,
+                                start=self.start, stride=self.stride * stride)
+
+    def values(self, name):
+        r'''
+        Measure observable ``name``, a chunk of configurations at a time.
+
+        This is what a :class:`StreamingBootstrap` resamples.  A
+        :class:`StreamingBlocking` provides the same thing, but its samples are
+        blocks rather than configurations --- which is the whole reason this is
+        the contract rather than :meth:`chunks`.
+
+        Yields
+        ------
+        tuple:
+            ``(start, values)``, where ``values`` holds the measurement on
+            samples ``[start:start+len(values)]``.
+        '''
+        for start, sub in self.chunks():
+            yield start, Batch.as_array(getattr(sub, name))
+
+    def timeseries(self, name):
+        r'''
+        The measurement of observable ``name`` on every configuration, as one
+        array.
+
+        .. warning::
+           This materializes the whole timeseries, which is exactly what a
+           streamer exists to avoid.  It is safe for the scalars that
+           :meth:`autocorrelation_time` needs --- a scalar costs one number per
+           configuration --- and a poor idea for a correlator.
+        '''
+        return np.concatenate([values for _, values in self.values(name)], axis=0)
+
+    def autocorrelation_time(self, observables=None, every=False):
+        r'''
+        As :meth:`.Ensemble.autocorrelation_time`, but measuring as it streams.
+
+        Only observables that opt in via :meth:`.Observable.autocorrelation` are
+        considered, and those are scalars, so this costs one number per
+        configuration per observable however large the lattice.
+
+        .. note::
+           An :class:`~.Ensemble` considers the observables it has already
+           measured; a streamer has measured nothing, so it considers them all.
+        '''
+        return sample_autocorrelation_time(self, observables=observables, every=every)
 
     def chunks(self):
         r'''
@@ -281,7 +402,10 @@ class EnsembleStreamer(ReadWriteable):
         fields = self._source['configuration/fields']
         for start in range(0, self._length, self.chunk):
             stop = min(start + self.chunk, self._length)
-            chunk_fields = {name: _read_batch_chunk(fields[name], start, stop)
+            # Sample i is configuration self.start + i*self.stride of the file.
+            first = self.start + start * self.stride
+            last  = self.start + (stop - 1) * self.stride + 1
+            chunk_fields = {name: _read_batch_chunk(fields[name], first, last, self.stride)
                             for name in fields}
             cfgs = Configurations(chunk_fields)
             sub = supervillain.ensemble.Ensemble(self.Action).from_configurations(cfgs)
@@ -295,6 +419,8 @@ class EnsembleStreamer(ReadWriteable):
         configuration is copied.
         '''
         group.attrs['chunk'] = self.chunk
+        group.attrs['start'] = self.start
+        group.attrs['stride'] = self.stride
         source = self._source
         if source is None:
             raise RuntimeError(
@@ -321,18 +447,158 @@ class EnsembleStreamer(ReadWriteable):
         '''
         o = cls.__new__(cls)
         o.chunk = int(group.attrs['chunk'])
+        o.start = int(group.attrs['start'])
+        o.stride = int(group.attrs['stride'])
         try:
             source = group['source']
             o._source = source
             o.Action = Data.read(source['Action'])
-            o.weight = _stream_weight(source)
+            o.weight = _stream_weight(source)[o.start::o.stride]
+            o.index = _stream_index(source)[o.start::o.stride]
+            o.index_stride = _stream_index_stride(source) * o.stride
             o._length = len(np.asarray(o.weight))
         except (KeyError, OSError):
             o._source = None
             o.Action = None
             o.weight = None
+            o.index = None
+            o.index_stride = None
             o._length = None
         return o
+
+
+class StreamingBlocking(ReadWriteable):
+    r'''
+    Averages consecutive samples of an :class:`EnsembleStreamer` together, without
+    ever holding the unaveraged measurements.
+
+    :class:`~.Blocking` does the same thing to an :class:`~.Ensemble` it already
+    has in memory.  When the ensemble is too large for that, this does it as the
+    measurements stream past, so neither the ensemble nor its unblocked
+    timeseries is ever assembled.  What comes out is a source of samples ---
+    blocks --- that a :class:`StreamingBootstrap` resamples exactly as it would
+    resample configurations.
+
+    Blocking is the right way to handle autocorrelation when rare configurations
+    matter.  :meth:`~.EnsembleStreamer.every` throws configurations away, and near
+    a phase transition the one it throws away may be the one that carried the
+    signal; blocking averages that configuration in instead.
+
+    .. note::
+       A block is not a configuration, so this deliberately offers no field
+       access and no :meth:`~.EnsembleStreamer.chunks`.  Observables have to be
+       measured on configurations and *then* averaged --- averaging the fields
+       first and measuring afterwards is a different, wrong quantity for anything
+       nonlinear.
+
+    .. seealso::
+       :class:`~.Blocking`, for an ensemble that fits in memory.
+
+    Parameters
+    ----------
+    source: EnsembleStreamer
+        The samples to average together.  Cut and decimate it first, if you mean
+        to; blocking is the last step.
+    width: int or 'auto'
+        How many samples go into each block; if ``'auto'``, the source's
+        :meth:`~.EnsembleStreamer.autocorrelation_time`.
+    '''
+
+    def __init__(self, source, width='auto'):
+        self.source = source
+        r'''The samples being averaged together.'''
+        self.width = source.autocorrelation_time() if width == 'auto' else width
+        r'''The number of samples in each block.'''
+        if self.width < 1:
+            raise ValueError(f'width should be at least 1 sample, not {self.width}.')
+
+        samples = len(source)
+        self.drop = samples % self.width
+        r'''How many leading samples are dropped so that the blocking comes out evenly.'''
+        self.blocks = (samples - self.drop) // self.width
+        r'''How many blocks there are.'''
+        if self.blocks < 1:
+            raise ValueError(
+                f'{samples} samples do not fill even one block of {self.width}.')
+
+        self.Action = source.Action
+        r'''The action underlying the ensemble.'''
+        self.weight = np.asarray(source.weight)[self.drop:].reshape(-1, self.width).mean(axis=1)
+        r'''The average importance weight of each block.'''
+        self.index = np.asarray(source.index)[self.drop:].reshape(-1, self.width).mean(axis=1)
+        r'''The average Markov-chain index of each block.'''
+        self.index_stride = source.index_stride * self.width
+        r'''The distance in the Markov chain between one block and the next.'''
+
+    def __len__(self):
+        return self.blocks
+
+    @property
+    def measured(self):
+        r'''Nothing is measured ahead of time.'''
+        return set()
+
+    @property
+    def available(self):
+        r'''Whether the ensemble underneath can still be reached.'''
+        return self.source.available
+
+    def values(self, name):
+        r'''
+        Measure observable ``name`` and average it into blocks as it streams.
+
+        Matches :meth:`.Blocking._block`: each block is the mean of $w O$ over its
+        samples, which pairs with the mean weight in :attr:`weight` to give the
+        ratio estimator when resampled.
+
+        Yields
+        ------
+        tuple:
+            ``(start, values)``, where ``values`` holds the blocked measurement
+            on blocks ``[start:start+len(values)]``.
+        '''
+        weight = np.asarray(self.source.weight)
+
+        held = None       # samples read but not yet part of a whole block
+        dropped = 0       # of the leading self.drop
+        emitted = 0       # blocks handed out so far
+
+        for start, values in self.source.values(name):
+            values = np.asarray(values)
+            w = weight[start:start + len(values)]
+            values = values * w.reshape((-1,) + (1,) * (values.ndim - 1))
+
+            if dropped < self.drop:
+                take = min(self.drop - dropped, len(values))
+                dropped += take
+                values = values[take:]
+                if len(values) == 0:
+                    continue
+
+            held = values if held is None else np.concatenate([held, values], axis=0)
+
+            whole = len(held) // self.width
+            if whole == 0:
+                continue
+            full, held = held[:whole * self.width], held[whole * self.width:]
+            yield emitted, full.reshape(whole, self.width, *full.shape[1:]).mean(axis=1)
+            emitted += whole
+
+    def timeseries(self, name):
+        r'''
+        The blocked measurement of ``name`` on every block, as one array.  Safe
+        for the scalars :meth:`autocorrelation_time` needs; a poor idea for a
+        correlator, as in :meth:`.EnsembleStreamer.timeseries`.
+        '''
+        return np.concatenate([values for _, values in self.values(name)], axis=0)
+
+    def autocorrelation_time(self, observables=None, every=False):
+        r'''
+        The autocorrelation time *of the blocks*.  Blocking is meant to bring this
+        down to one; if it has not, the blocks are still correlated and the width
+        is too small.
+        '''
+        return sample_autocorrelation_time(self, observables=observables, every=every)
 
 
 class StreamingBootstrap(Bootstrap):
@@ -475,8 +741,7 @@ class StreamingBootstrap(Bootstrap):
         draws = self.draws
         numerator = None
         denominator = np.zeros(draws)
-        for start, sub in self.streamer.chunks():
-            obs = Batch.as_array(getattr(sub, name))
+        for start, obs in self.streamer.values(name):
             b = obs.shape[0]
             wn = n[start:start + b] * weight[start:start + b, None]  # (b, draws)
             contrib = np.einsum('bd,b...->d...', wn, obs)            # (draws, ...)
@@ -550,7 +815,7 @@ class StreamingBootstrap(Bootstrap):
         # ensemble now on disk.  Serving those as though they described the whole
         # thing is the one way this class can be quietly wrong, so it does not.
         configurations = o.indices.shape[0]
-        if o.streamer._source is not None and len(o.streamer) != configurations:
+        if o.streamer.available and len(o.streamer) != configurations:
             raise ValueError(
                 f'{group.name} resamples {configurations} configurations but its '
                 f'ensemble now has {len(o.streamer)}.  Every result stored here '

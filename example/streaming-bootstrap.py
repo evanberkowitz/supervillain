@@ -20,7 +20,11 @@ The script
     and
  5. tabulates the two estimates, for every scalar observable and derived quantity
     the action implements.  Correlators are left out: a susceptibility already
-    summarizes one, and a table of per-site estimates would bury the comparison.
+    summarizes one, and a table of per-site estimates would bury the comparison,
+    and
+ 6. runs the whole analysis pipeline --- thermalize, decorrelate, block, bootstrap
+    --- both ways, since an ensemble large enough to need streaming still needs
+    all of it.
 
 The two bootstraps are given the *same* resampling indices.  They are therefore
 not merely consistent within errors; they must agree to floating point, since
@@ -34,8 +38,8 @@ from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 import supervillain
-from supervillain.analysis import Bootstrap, EnsembleStreamer, StreamingBootstrap
-from supervillain.analysis import Uncertain
+from supervillain.analysis import Bootstrap, Blocking, Uncertain
+from supervillain.analysis import EnsembleStreamer, StreamingBlocking, StreamingBootstrap
 
 # supervillain.observable.progress is left at its no-op default: the table below
 # measures every observable twice over, and a progress bar per measurement would
@@ -223,3 +227,49 @@ print('roundoff, as it must be --- they are the same sum, accumulated in a diffe
       'MORE THAN ROUNDOFF.  The two should be identical resamplings; this is a bug.')
 print(f'Everything is in {args.file}; a plain Bootstrap.from_h5 of its /bootstrap '
       'group reads these results on a machine that never sees the ensemble.')
+
+
+####
+#### 6. The rest of the pipeline.  An ensemble too large to read still has to be
+####    thermalized and decorrelated, and a streamer can do both --- cut and every
+####    for free, autocorrelation_time for the price of the scalars, and blocking
+####    as the measurements stream past.
+####
+
+with h5.File(args.file, 'r+') as f:
+
+    whole    = supervillain.Ensemble.from_h5(f['ensemble'])
+    streamer = EnsembleStreamer(f['ensemble'], chunk=args.chunk)
+
+    tau = streamer.autocorrelation_time()
+    print(f'\n\nAutocorrelation time, measured by streaming: {tau}')
+    print(f'  ... and from the ensemble in memory:        {whole.autocorrelation_time()}')
+
+    # Thermalize, decorrelate, block.  Blocking rather than decimating, because a
+    # configuration that is rare and large is exactly the one every() would throw
+    # away and blocking averages in.
+    cut = 2 * tau
+    memory   = Blocking(whole.cut(cut).every(2), width=4)
+    streamed = StreamingBlocking(streamer.cut(cut).every(2), width=4)
+
+    print(f'\nCut {cut}, kept every 2nd, blocked 4 together: '
+          f'{len(whole)} configurations -> {len(streamed)} blocks')
+
+    reference = Bootstrap(memory, draws=args.draws)
+    blocked   = StreamingBootstrap(
+            streamed, f.create_group('blocked'), indices=reference.indices)
+
+    print(f'\n{"quantity":31s} {"streamed":>26s} {"in memory":>26s} {"|Δ|/σ":>10s}')
+    print('-' * 96)
+    worst_blocked = 0.
+    for quantity in ('ActionDensity', 'InternalEnergyDensity', 'WindingSquared',
+                     'SpinSusceptibility', 'VortexSusceptibility'):
+        row = compare(blocked, reference, quantity)
+        if row is None:
+            continue
+        name, streamed_estimate, memory_estimate, discrepancy = row
+        worst_blocked = max(worst_blocked, discrepancy)
+        print(f'{name:31s} {str(streamed_estimate):>26s} '
+              f'{str(memory_estimate):>26s} {discrepancy:10.2e}')
+
+    print(f'\nThe blocked pipeline agrees to {worst_blocked:.2e} of an uncertainty as well.')
