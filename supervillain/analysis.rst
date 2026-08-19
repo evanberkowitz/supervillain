@@ -91,8 +91,6 @@ The stored group is an ordinary :class:`~.Bootstrap` layout, so the results read
    :no-special-members:
    :members: from_h5
 
-.. autofunction:: supervillain.analysis.bootstrap._stream_weight
-
 Uncertainty
 -----------
 

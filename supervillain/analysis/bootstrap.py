@@ -181,38 +181,9 @@ def _read_batch_block(field_group, start, stop):
 
 def _stream_weight(source_group):
     r'''Derive the per-configuration importance weight of an on-disk ensemble,
-    without reading a single configuration field.
-
-    .. note::
-       Three sources are consulted, in order.  A generator that reweights emits
-       its contribution to the weight as an inline ``logWeight_<name>`` scalar
-       column, one per contributing generator; logs sum so that weights
-       multiply, and the namespacing keeps two generators composed with
-       :class:`~.Sequentially` from colliding.  Failing that, an explicitly
-       stored ``weight`` is read.  Failing that, the weights are all one.
-
-    .. warning::
-       The single global ``max`` subtracted from the summed logs is a
-       correctness requirement, not merely overflow safety.  The streaming
-       resample accumulates :math:`\left\langle O w \right\rangle` and
-       :math:`\left\langle w \right\rangle` separately, block by block, and the
-       :math:`e^{-\max}` offset cancels between them only if it is one constant
-       shared by every configuration.  A per-block maximum would silently bias
-       the estimate.
-
-    Only the cheap scalar ``data`` datasets are touched, so the whole weight
-    vector is materialized eagerly, before any block streams.
-
-    Parameters
-    ----------
-    source_group: h5py.Group
-        A group holding an :meth:`~.Ensemble.to_h5` dump.
-
-    Returns
-    -------
-    numpy.ndarray:
-        One weight per configuration.
-    '''
+    without reading a single configuration field.  Returns one weight per
+    configuration; see EnsembleStreamer.weight for what is read and why the
+    maximum subtracted from the summed logs must be a single global one.'''
     fields = source_group['configuration/fields']
     logWeights = sorted(k for k in fields.keys() if k.startswith('logWeight_'))
     if logWeights:
@@ -244,6 +215,26 @@ class EnsembleStreamer(ReadWriteable):
        that reads the original ensemble, and a :class:`StreamingBootstrap`
        reconstructs its streamer with no bookkeeping on your part.
 
+    .. note::
+       The :attr:`weight` is derived from the stored ensemble by consulting three
+       sources in order.  A generator that reweights emits its contribution as an
+       inline ``logWeight_<name>`` scalar column, one per contributing generator;
+       logs sum so that weights multiply, and the namespacing keeps two
+       generators composed with :class:`~.Sequentially` from colliding.  Failing
+       that, an explicitly stored ``weight`` is read.  Failing that, every
+       configuration weighs the same.  Only the cheap scalar columns are touched,
+       never the heavy fields.
+
+    .. warning::
+       The single global ``max`` subtracted from the summed logs is a correctness
+       requirement, not merely overflow safety.  A :class:`StreamingBootstrap`
+       accumulates :math:`\left\langle O w \right\rangle` and
+       :math:`\left\langle w \right\rangle` separately, block by block, and the
+       :math:`e^{-\max}` offset cancels between them only if it is one constant
+       shared by every configuration.  A per-block maximum would silently bias
+       the estimate, which is why the whole weight vector is materialized eagerly
+       before any block streams.
+
     .. warning::
        Because the source is a link, moving or deleting the source ensemble
        breaks the streamer.  A streamer whose link cannot be resolved still
@@ -269,7 +260,8 @@ class EnsembleStreamer(ReadWriteable):
         self.Action = Data.read(source_group['Action'])
         r'''The action underlying the ensemble.'''
         self.weight = _stream_weight(source_group)
-        r'''The importance weight of each configuration; see :func:`_stream_weight`.'''
+        r'''The importance weight of each configuration, derived from the stored
+        ensemble as described above.'''
         self._length = len(np.asarray(self.weight))
 
     def __len__(self):
@@ -380,8 +372,8 @@ class StreamingBootstrap(Bootstrap):
         \left\langle O \right\rangle_d
         = \frac{\sum_i n_{id}\, w_i\, O_i}{\sum_i n_{id}\, w_i}
 
-    which is exactly :meth:`Bootstrap._resample` on the same ``indices``, but
-    with the configuration index summed rather than stored.  Both sums accumulate
+    which is exactly what a :class:`Bootstrap` computes on the same ``indices``,
+    but with the configuration index summed rather than stored.  Both sums accumulate
     a block at a time, so the memory cost is one block of configurations plus the
     ``draws × shape`` answer, no matter how long the Markov chain is.
 
@@ -483,7 +475,7 @@ class StreamingBootstrap(Bootstrap):
 
         Accumulates ``numerator[d] = sum_i n[i,d] w[i] obs[i]`` and
         ``denominator[d] = sum_i n[i,d] w[i]`` block by block; the result
-        ``numerator / denominator`` equals :meth:`Bootstrap._resample` (given the
+        ``numerator / denominator`` equals ``Bootstrap._resample`` (given the
         same ``indices``) to floating point.'''
         weight = np.asarray(self.streamer.weight)
         n = self._n
