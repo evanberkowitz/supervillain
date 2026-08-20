@@ -197,23 +197,58 @@ def test_streamed_blocking_of_a_weighted_ensemble_matches(tmp_path):
                                np.asarray(Batch.as_array(getattr(memory, quantity)))), quantity
 
 
+def strongly_autocorrelated_and_weighted(seed=0, samples=8000, rho=0.98):
+    r'''A chain built so that the observable and its influence function have
+    conspicuously different autocorrelation.
+
+    The observable is an AR(1) walk with a long memory, and the weight
+    $w = e^{-3O}$ is strongly anticorrelated with it, so multiplying by $w$
+    largely undoes the drift.  The point is separation: correlating $O$ gives a
+    $\tau$ several times larger than correlating $w(O-\bar O)$, so a test can
+    tell which one was correlated.  Ordinary ensembles do not separate them --- a
+    coarse integer $\tau$ comes out the same either way, and a test built on one
+    cannot see the difference.
+    '''
+    rng = np.random.default_rng(seed)
+    O = np.empty(samples)
+    O[0] = rng.normal()
+    for t in range(1, samples):
+        O[t] = rho * O[t-1] + np.sqrt(1 - rho**2) * rng.normal()
+
+    return O, np.exp(-3 * O)
+
+
 def test_autocorrelation_uses_the_influence_function():
-    r'''On a reweighted ensemble the estimator is the ratio <Ow>/<w>, and the tau
-    that inflates its variance is that of the influence function
-    f = w(O - Obar)/<w>, not of O.  At unit weight the two coincide, which is what
-    keeps this free for everyone else.'''
-    e, weight = weighted()
-    observable = np.asarray(Batch.as_array(e.ActionDensity))
+    r'''On a reweighted ensemble the estimator is the ratio
+    $\langle Ow\rangle/\langle w\rangle$, and the $\tau$ that inflates its
+    variance is that of the influence function
+    $f = w(O - \bar O)/\langle w\rangle$, not of $O$.
 
-    unit = np.ones(len(observable))
-    assert (autocorrelation_time(observable, weight=unit)
-            == autocorrelation_time(observable))
+    Two claims, and the construction is chosen so that both can fail.  The weight
+    must be used at all --- correlating $O$ instead gives a $\tau$ five times
+    larger here, which no rounding hides.  And it must be used in that
+    combination: taking the unweighted mean, squaring the weight, or dividing by
+    it rather than multiplying each give a different answer on this chain, where
+    on an ordinary one they do not.
+    '''
+    O, w = strongly_autocorrelated_and_weighted()
 
-    # With real weights it is the influence function that is correlated.
-    mean = (weight * observable).sum() / weight.sum()
-    influence = weight * (observable - mean) / weight.mean()
-    assert (autocorrelation_time(observable, weight=weight)
-            == autocorrelation_time(influence))
+    # At unit weight the influence function is O - Obar, so nothing changes.
+    assert (autocorrelation_time(O, weight=np.ones(len(O)))
+            == autocorrelation_time(O))
+
+    weighted = autocorrelation_time(O, weight=w)
+
+    # It is the influence function that is correlated ...
+    mean = (w * O).sum() / w.sum()
+    influence = w * (O - mean) / w.mean()
+    assert weighted == autocorrelation_time(influence)
+
+    # ... and not the observable, which on this chain is far more correlated.
+    # Stated as a band rather than a number, so it holds whatever the seed.
+    assert weighted < 15
+    assert autocorrelation_time(O) > 25
+
 
 
 def test_a_second_generator_contributes_rather_than_replaces():
