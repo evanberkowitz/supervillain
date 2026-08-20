@@ -24,8 +24,11 @@ Each set of Configurations contains a Batch for each physical field.
 
 Ensembles are made up of configurations and also have other physics information---not just the stored fields themselves.
 
+An ensemble also carries a per-configuration :attr:`~.Ensemble.weight`.
+Ordinarily every weight is 1 and expectation values are plain sample means, but a :ref:`reweighting generator <importance-weights>` can emit per-configuration importance weights (as ``logWeight_*`` inline measurements) from which ``weight`` is derived on access; the :ref:`bootstrap <reweighting>` then forms weighted expectation values automatically.
+
 .. autoclass :: supervillain.ensemble.Ensemble
    :no-special-members:
-   :members: Action, from_configurations, generate, measure, measured, autocorrelation_time, continue_from, cut, every, plot_history
+   :members: Action, weight, from_configurations, generate, measure, measured, autocorrelation_time, continue_from, cut, every, plot_history
    :show-inheritance:
 

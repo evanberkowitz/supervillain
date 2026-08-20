@@ -55,12 +55,17 @@ def _stream_weight(source_group):
     without reading a single configuration field.  Returns one weight per
     configuration.
 
-    Three sources are consulted, in order.  A generator that reweights emits its
-    contribution as an inline logWeight_<name> scalar column, one per contributing
-    generator; logs sum so that weights multiply, and the namespacing keeps two
-    generators composed with Sequentially from colliding.  Failing that, an
-    explicitly stored weight is read.  Failing that, every configuration weighs
-    the same --- which is every ensemble, until a reweighting generator lands.
+    A generator that reweights emits its contribution as an inline
+    logWeight_<name> scalar column, one per contributing generator; logs sum so
+    that weights multiply, and the namespacing keeps two generators composed with
+    Sequentially from colliding.  With no such column every configuration weighs
+    the same, exactly as Ensemble.weight decides it.
+
+    An ensemble stored before the weight was derived carries a `weight` dataset
+    alongside the configurations.  It is not consulted: Ensemble.weight does not
+    consult it either, and honouring it here would make the streamed and in-memory
+    paths disagree on the same file.  Nothing is lost --- every weight the library
+    ever stored was one.
 
     The single global max subtracted from the summed logs is a correctness
     requirement, not merely overflow safety.  _resample_streaming accumulates
@@ -74,8 +79,6 @@ def _stream_weight(source_group):
     if logWeights:
         logWeight = np.sum([np.asarray(fields[k]['data'][:]) for k in logWeights], axis=0)
         return np.exp(logWeight - logWeight.max())
-    if 'weight' in source_group:
-        return np.asarray(Batch.as_array(Data.read(source_group['weight'])))
     name = next(iter(fields.keys()))
     return np.ones(len(fields[name]['data']))
 
@@ -426,9 +429,8 @@ class StreamingBlocking(SampleSource):
     ever holding the unaveraged measurements.
 
     :class:`~.Blocking` does the same thing to an :class:`~.Ensemble` it already
-    has in memory, and gives identical numbers as long as the configurations are
-    equally weighted --- which is every ensemble that carries no importance
-    weights.  When the ensemble is too large for that, this does it as the
+    has in memory, and gives identical numbers.  When the ensemble is too large
+    for that, this does it as the
     measurements stream past, so neither the ensemble nor its unblocked
     timeseries is ever assembled.  What comes out is a source of samples ---
     blocks --- that a :class:`StreamingBootstrap` resamples exactly as it would
@@ -522,10 +524,9 @@ class StreamingBlocking(SampleSource):
         # Divide each block by its own average weight, so that
         #     sum_b <w>_b (<wO>_b / <w>_b) / sum_b <w>_b  =  <wO> / <w>
         # and a Bootstrap of these blocks estimates what a Bootstrap of the
-        # configurations would.  Blocking._block on main omits that division and
-        # so lets the weight be applied twice; see the todo there.  Both give the
-        # plain block mean at unit weight, which is what
-        # test_blocking_matches_in_memory compares.
+        # configurations would.  Blocking._block does the same, and says why at
+        # more length; the two must agree, which test_blocking_matches_in_memory
+        # checks.
         weight = np.asarray(self.source.weight)
 
         held = None       # samples read but not yet part of a whole block

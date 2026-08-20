@@ -281,25 +281,32 @@ def test_stream_weight_logs_sum_with_one_global_max():
             == pytest.approx((unnormalized * observable).sum() / unnormalized.sum()))
 
 
-def test_stream_weight_prefers_logs_then_stored_then_unit(tmp_path):
-    r'''The three sources of the weight, in order.'''
+def test_stream_weight_reads_logs_or_nothing(tmp_path):
+    r'''Where the weight comes from, and where it deliberately does not.
+
+    An ensemble stored before the weight was derived carries a `weight` alongside
+    its configurations.  Ensemble.weight does not consult it --- the property
+    derives from the logs or returns ones --- so neither does this, or the streamed
+    and in-memory bootstraps of one file would disagree.  Nothing is lost by that:
+    every weight the library ever stored was one.
+    '''
     logWeights = np.array([0.0, 1.0, -2.0, 5.0])
 
-    # Inline logWeight_ columns win over an explicitly stored weight.
-    with h5.File('precedence.h5', 'w', driver='core', backing_store=False) as f:
+    # Inline logWeight_ columns are the weight.
+    with h5.File('logs.h5', 'w', driver='core', backing_store=False) as f:
         group = _weighted_group(f, {'a': logWeights})
-        supervillain.h5.Data.write(group, 'weight', Batch(np.full(4, 7.)))
         assert np.allclose(_stream_weight(group),
                            np.exp(logWeights - logWeights.max()))
 
-    # With no logWeight_ columns, a stored weight is read.
+    # A stored weight is ignored, even a conspicuous one, and even though the
+    # ladder used to read it.
     with h5.File('stored.h5', 'w', driver='core', backing_store=False) as f:
         group = _weighted_group(f, {})
         f.create_dataset('ensemble/configuration/fields/phi/data', data=np.zeros((4, 3, 3)))
         supervillain.h5.Data.write(group, 'weight', Batch(np.arange(4.)))
-        assert np.allclose(_stream_weight(group), np.arange(4.))
+        assert np.allclose(_stream_weight(group), np.ones(4))
 
-    # With neither, every configuration weighs the same.
+    # With no columns at all, every configuration weighs the same.
     with h5.File('unit.h5', 'w', driver='core', backing_store=False) as f:
         group = _weighted_group(f, {})
         f.create_dataset('ensemble/configuration/fields/phi/data', data=np.zeros((4, 3, 3)))
@@ -963,31 +970,53 @@ def test_a_dangling_link_degrades_rather_than_explodes(tmp_path):
 
 def test_streams_an_assembled_ensemble(tmp_path):
     r'''An Ensemble put together with from_configurations, rather than generated,
-    carries no weight, index, or index_stride --- only an Action and the
-    configurations themselves.  A streamer has to supply the obvious defaults for
-    what is missing rather than fail to read it.'''
+    is still a usable ensemble: it has an index and a stride even though it has no
+    Markov history, so a streamer of it can be cut, decimated and blocked like any
+    other.  What it does not have is a weight, which is derived.'''
     generated = generate.villain(CONFIGURATIONS, N, KAPPA)
     assembled = supervillain.Ensemble(generated.Action).from_configurations(
             generated.configuration)
-    assert set(assembled.__dict__) == {'Action', 'configuration'}
+    assert set(assembled.__dict__) == {'Action', 'configuration', 'index', 'index_stride'}
 
     path = tmp_path / 'assembled.h5'
     with h5.File(path, 'w') as f:
         assembled.to_h5(f.create_group('ensemble'))
 
     with h5.File(path, 'r') as f:
-        for stored in ('weight', 'index', 'index_stride'):
-            assert stored not in f['ensemble']
-
         streamer = EnsembleStreamer(f['ensemble'], chunk=7)
         assert len(streamer) == CONFIGURATIONS
         assert np.allclose(streamer.weight, 1.)
         assert np.array_equal(streamer.index, np.arange(CONFIGURATIONS))
         assert streamer.index_stride == 1
 
-        # And it measures the same as the ensemble it was assembled from.
+        # It measures the same as the ensemble it was assembled from ...
         assert np.allclose(streamer.timeseries('ActionDensity'),
                            np.asarray(generated.ActionDensity))
+        # ... and the views work, which is what the index is for.
+        assert len(streamer.cut(4).every(2)) == len(np.arange(CONFIGURATIONS)[4::2])
+
+
+def test_streams_an_ensemble_stored_without_index_or_weight(tmp_path):
+    r'''An ensemble stored before an index, a stride, or a weight was written
+    alongside the configurations still has to stream.  Those are cheap and
+    derivable, so a streamer supplies the obvious defaults rather than refuse the
+    file.'''
+    path = villain_h5(tmp_path)
+
+    with h5.File(path, 'r+') as f:
+        for stored in ('index', 'index_stride', 'weight'):
+            if stored in f['ensemble']:
+                del f['ensemble'][stored]
+
+    with h5.File(path, 'r') as f:
+        assert not {'index', 'index_stride', 'weight'} & set(f['ensemble'])
+
+        streamer = EnsembleStreamer(f['ensemble'], chunk=7)
+        assert len(streamer) == CONFIGURATIONS
+        assert np.allclose(streamer.weight, 1.)
+        assert np.array_equal(streamer.index, np.arange(CONFIGURATIONS))
+        assert streamer.index_stride == 1
+        assert np.isfinite(streamer.timeseries('ActionDensity')).all()
 
 
 def test_a_blocking_measures_its_own_autocorrelation(tmp_path):
