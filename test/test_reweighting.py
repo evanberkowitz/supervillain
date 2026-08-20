@@ -389,12 +389,6 @@ class Gaussian(supervillain.h5.ReadWriteable):
     r'''One real variable $x$ with action $S = x^2$, so the distribution wanted is
     $e^{-x^2}$: a Gaussian of variance $1/2$, under which $\langle x^2\rangle = 1/2$.'''
 
-    # There is no lattice here and nothing to wind around, but the library asks
-    # every action whether it is winding-constrained --- Constrained.autocorrelation
-    # reads Action.W to decide whether an observable belongs in the autocorrelation
-    # time.  W = 1 is the unconstrained answer, and the true one here.
-    W = 1
-
     def configurations(self, steps):
         return supervillain.configurations.Configurations({
             'x': Batch(steps, shape=(), dtype=float),
@@ -611,3 +605,55 @@ def test_every_weight_zero_is_refused(tmp_path):
     with h5.File(path, 'r') as f:
         with pytest.raises(ValueError):
             EnsembleStreamer(f['ensemble'], chunk=2)
+
+
+@pytest.mark.parametrize('offset', (0., 800., -800., 10000., -10000.),
+                         ids=('none', 'up', 'down', 'far up', 'far down'))
+def test_the_weight_survives_logs_that_would_overflow(tmp_path, offset):
+    r'''The whole reason the weight is derived from *logs* is that the factors
+    themselves need not be representable.
+
+    exp(800) is inf and exp(-800) is 0 in double precision, so a reweighting whose
+    log-weights sit anywhere near there would come back as inf, or as all zeros,
+    if the exponential were taken before the maximum was subtracted.  Subtracting
+    it first makes the largest weight exactly 1 and everything else a ratio to it,
+    so only the *spread* of the logs has to be representable --- and the spread is
+    what carries the physics, since the offset cancels from <Ow>/<w>.
+
+    Shifting every log by a constant is exactly w -> cw, which no estimate may
+    notice.
+    '''
+    spread = np.array([0.0, -1.0, -3.0, -7.0, -2.0, -0.5])
+
+    def ensemble(logs):
+        return supervillain.Ensemble(Gaussian()).from_configurations(
+                supervillain.configurations.Configurations({
+                    'x': Batch(np.arange(len(logs), dtype=float)),
+                    'logWeight_a': Batch(logs),
+                }))
+
+    shifted = np.asarray(Batch.as_array(ensemble(spread + offset).weight))
+    reference = np.asarray(Batch.as_array(ensemble(spread).weight))
+
+    # Representable, whatever the offset: nothing infinite, nothing flushed to
+    # zero, and the largest weight is 1.
+    assert np.isfinite(shifted).all()
+    assert (shifted > 0).all()
+    assert shifted.max() == pytest.approx(1.)
+    assert np.allclose(shifted, reference)
+
+    # Taking the exponential first is what this avoids; check the premise holds,
+    # so the test is not guarding against an impossibility.
+    if abs(offset) >= 800.:
+        with np.errstate(over='ignore', under='ignore'):
+            naive = np.exp(spread + offset)
+        assert not np.isfinite(naive).all() or not (naive > 0).all()
+
+    # And the estimate is untouched by the shift.
+    once = np.arange(len(spread)).reshape(-1, 1)
+    shifted_bootstrap = Bootstrap(ensemble(spread + offset), draws=1)
+    shifted_bootstrap.indices = once
+    plain_bootstrap = Bootstrap(ensemble(spread), draws=1)
+    plain_bootstrap.indices = once
+    assert float(np.asarray(shifted_bootstrap.XSquared)[0]) == pytest.approx(
+            float(np.asarray(plain_bootstrap.XSquared)[0]))
