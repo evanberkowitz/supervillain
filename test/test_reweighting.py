@@ -34,10 +34,16 @@ def weighted(configurations=CONFIGURATIONS, seed=7, spreads=(1.5, 0.7)):
     rng = np.random.default_rng(seed)
 
     logs = []
-    for name, spread in zip(('alpha', 'beta'), spreads):
+    names = ('alpha', 'beta', 'gamma', 'delta')[:len(spreads)]
+    assert len(names) == len(spreads), 'name a column for every spread'
+    for name, spread in zip(names, spreads):
         log = rng.normal(0., spread, configurations)
         e.configuration.fields[f'logWeight_{name}'] = Batch(log)
         logs.append(log)
+
+    if not logs:
+        # No reweighting generator ran, which is the ordinary case.
+        return e, np.ones(configurations)
 
     total = sum(logs)
     return e, np.exp(total - total.max())
@@ -85,11 +91,20 @@ def test_weight_is_derived_not_stored(tmp_path):
         assert [k for k in f['ensemble/configuration/fields'] if k.startswith('logWeight_')]
 
 
-def test_reweighted_bootstraps_agree(tmp_path):
+@pytest.mark.parametrize('spreads', ((), (1.5,), (1.5, 0.7), (1.5, 0.7, 0.4)),
+                         ids=('none', 'one', 'two', 'three'))
+def test_reweighted_bootstraps_agree(tmp_path, spreads):
     r'''The load-bearing test.  Ensemble.weight and EnsembleStreamer's weight are
     derived independently, from the same columns, and a bootstrap of one file must
-    not depend on which of them read it.'''
-    e, _ = weighted()
+    not depend on which of them read it.
+
+    Parametrized over how many generators contributed, because the two derivations
+    are separate implementations of the same sum: with no column at all they must
+    both fall back to unit weight, with one they must not mangle a single-element
+    sum, and with several they must agree on the total and on the one global
+    maximum taken from it.
+    '''
+    e, _ = weighted(spreads=spreads)
 
     path = tmp_path / 'weighted.h5'
     with h5.File(path, 'w') as f:
