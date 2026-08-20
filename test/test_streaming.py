@@ -1084,9 +1084,18 @@ def test_autocorrelation_time_never_materializes_a_correlator(tmp_path):
         streamer = EnsembleStreamer(f['ensemble'], chunk=17)
         whole = supervillain.Ensemble.from_h5(f['ensemble'])
 
+        # Record what was actually materialized, not what was attempted: an
+        # observable this action does not implement raises inside timeseries and
+        # is caught, so it never produces a measurement to be big.
         asked = []
         materialize = streamer.timeseries
-        streamer.timeseries = lambda name: (asked.append(name), materialize(name))[1]
+
+        def watched(name):
+            values = materialize(name)
+            asked.append(name)
+            return values
+
+        streamer.timeseries = watched
 
         streamer.autocorrelation_time()
         assert asked

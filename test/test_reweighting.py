@@ -344,54 +344,120 @@ def test_a_view_weighs_its_own_configurations(tmp_path, label, of_ensemble, of_s
                 float(np.asarray(reference.ActionDensity)[0]))
 
 
-class Reweighter(supervillain.generator.Generator):
-    r'''The smallest thing that satisfies the reweighting contract: it wraps a
-    real generator and emits its own log-weight alongside each configuration,
-    under its own namespaced key.
+# The library has no reweighting generator, so the tests above inject the columns
+# directly.  That exercises the analysis but not generation --- and a generator is
+# where a weight comes from.  Here is the smallest honest one: a single real
+# variable, sampled from the wrong distribution on purpose, emitting the log of
+# the weight that corrects for it.  Everything about it is checkable by hand.
 
-    There is no reweighting generator in the library yet, so the tests above
-    inject the columns directly.  That is enough to exercise the analysis, but it
-    cannot exercise generation --- and in particular cannot exercise
-    continue_from, which reuses the stored generator and so must emit the column
-    again for extend_h5 to have anything to extend.
+class Gaussian(supervillain.h5.ReadWriteable):
+    r'''One real variable $x$ with action $S = x^2$, so the distribution wanted is
+    $e^{-x^2}$: a Gaussian of variance $1/2$, under which $\langle x^2\rangle = 1/2$.'''
+
+    def configurations(self, steps):
+        return supervillain.configurations.Configurations({
+            'x': Batch(steps, shape=(), dtype=float),
+        })
+
+    def __str__(self):
+        return 'Gaussian'
+
+
+class XSquared(supervillain.observable.Scalar, supervillain.observable.Observable):
+    r'''$x^2$, whose expectation value under $e^{-x^2}$ is $1/2$ and under the
+    $e^{-x^2/2}$ actually sampled is $1$.
+
+    A real observable rather than a number the generator emits, so that it is
+    registered --- which is what lets a :class:`~.StreamingBootstrap` resample it,
+    since its write-through cache is keyed on the registries.'''
+
+    @staticmethod
+    def Gaussian(S, x):
+        return x**2
+
+
+class SampleWide(supervillain.generator.Generator):
+    r'''Samples $x$ from $e^{-x^2/2}$ --- a Gaussian of variance 1, wider than the
+    one wanted --- and emits the log of the correcting weight
+
+    .. math::
+        w = \frac{e^{-x^2}}{e^{-x^2/2}} = e^{-x^2/2},
+
+    so that :math:`\log w = -x^2/2`.  Draws are independent, so this is exact
+    sampling of the wrong distribution; only the weight makes it the right one.
     '''
 
-    def __init__(self, action, generator, name='test', spread=1.3, seed=19):
+    def __init__(self, action, seed=0):
         self.Action = action
-        self.generator = generator
-        self.name = name
-        self.spread = spread
         self.rng = np.random.default_rng(seed)
 
     def inline_observables(self, steps):
-        inline = self.generator.inline_observables(steps)
-        inline[f'logWeight_{self.name}'] = Batch(steps, shape=(), dtype=float)
-        return inline
+        # Only the weight; XSquared is measured from x, not emitted.
+        return {'logWeight_gauss': Batch(steps, shape=(), dtype=float)}
 
     def step(self, configuration):
-        nxt = self.generator.step(configuration)
-        nxt[f'logWeight_{self.name}'] = self.rng.normal(0., self.spread)
-        return nxt
+        x = self.rng.normal(0., 1.)
+        return {'x': x, 'logWeight_gauss': -x**2 / 2}
 
     def report(self):
-        return f'Reweighter({self.name})'
+        return 'SampleWide: x ~ exp(-x^2/2), reweighted to exp(-x^2)'
+
+
+def test_reweighting_recovers_a_known_distribution():
+    r'''Reweighting on a problem with an answer.
+
+    :class:`SampleWide` samples $x$ from $e^{-x^2/2}$ when $e^{-x^2}$ is wanted,
+    and emits the correcting log-weight as any reweighting generator would.  Then
+
+        $\langle x^2 \rangle = 1$    under the distribution actually sampled, and
+        $\langle x^2 \rangle = 1/2$  under the one wanted,
+
+    and the whole point is that the second is what comes out.  Every other test
+    here checks that the machinery agrees with itself; this one checks that it is
+    right, against an answer that does not come from the code.
+    '''
+    samples = 20000
+    action = Gaussian()
+    e = supervillain.Ensemble(action).generate(samples, SampleWide(action), start='cold')
+
+    assert 'logWeight_gauss' in e.configuration.fields
+
+    # The weight really is the ratio of the two distributions, up to the
+    # normalization that cancels from the estimator.
+    x = np.asarray(Batch.as_array(e.x))
+    w = np.asarray(Batch.as_array(e.weight))
+    assert np.allclose(w, np.exp(-x**2 / 2) / np.exp(-x**2 / 2).max())
+
+    indices = np.random.default_rng(1).integers(0, samples, (samples, 100))
+    weighted_bootstrap = Bootstrap(e, draws=100); weighted_bootstrap.indices = indices
+
+    mean, error = (float(_) for _ in weighted_bootstrap.estimate('XSquared'))
+    assert abs(mean - 0.5) < 5 * error, f'{mean} +/- {error} is not 1/2'
+
+    # Drop the weight and it is the distribution that was sampled, not the one
+    # wanted --- a factor of two away, so this could not pass by accident.
+    unweighted = supervillain.Ensemble(action).from_configurations(
+            supervillain.configurations.Configurations(
+                {'x': e.configuration.fields['x']}))
+    plain = Bootstrap(unweighted, draws=100); plain.indices = indices
+
+    unweighted_mean, unweighted_error = (float(_) for _ in plain.estimate('XSquared'))
+    assert abs(unweighted_mean - 1.0) < 5 * unweighted_error
+    assert abs(mean - unweighted_mean) > 20 * error
 
 
 def test_a_reweighting_generator_survives_continue_from_and_extend(tmp_path):
-    r'''The production shape: generate, store, continue from disk, extend, and do
-    it again --- with a generator that actually reweights.
+    r'''The production shape, on the toy: generate, store, continue from disk,
+    extend, and again.
 
     continue_from reuses the stored generator, so the continuation emits the same
     logWeight_ column and extend_h5 has a column to extend.  The weight of the
-    grown ensemble must then be the weight of the whole chain, and the streamed
-    and in-memory readings of it must still agree.
+    grown ensemble must be the weight of the whole chain --- and because the toy
+    has an answer, the grown ensemble must still give it.
     '''
-    L = supervillain.lattice.Lattice2D(N)
-    S = supervillain.action.Villain(L, KAPPA)
-    G = Reweighter(S, supervillain.generator.villain.Hammer(S))
-
-    e = supervillain.Ensemble(S).generate(CONFIGURATIONS, G, start='cold')
-    assert 'logWeight_test' in e.configuration.fields
+    steps = 4000
+    action = Gaussian()
+    e = supervillain.Ensemble(action).generate(steps, SampleWide(action), start='cold')
 
     path = tmp_path / 'grown.h5'
     with h5.File(path, 'w') as f:
@@ -401,88 +467,47 @@ def test_a_reweighting_generator_survives_continue_from_and_extend(tmp_path):
     for _ in range(continuations):
         with h5.File(path, 'r+') as f:
             supervillain.Ensemble.continue_from(
-                    f['ensemble'], CONFIGURATIONS).extend_h5(f['ensemble'])
+                    f['ensemble'], steps).extend_h5(f['ensemble'])
 
     with h5.File(path, 'r+') as f:
         grown = supervillain.Ensemble.from_h5(f['ensemble'])
-        assert len(grown) == (1 + continuations) * CONFIGURATIONS
+        assert len(grown) == (1 + continuations) * steps
 
         # Every column grew with the configurations; nothing is short.
         fields = f['ensemble/configuration/fields']
-        lengths = {k: fields[k]['data'].shape[0] for k in fields}
-        assert set(lengths.values()) == {len(grown)}, lengths
+        assert set(fields[k]['data'].shape[0] for k in fields) == {len(grown)}
 
         # The weight is the whole chain's, derived from the whole column.
-        logs = np.asarray(Batch.as_array(grown.configuration.fields['logWeight_test']))
-        assert len(logs) == len(grown)
+        logs = np.asarray(Batch.as_array(grown.configuration.fields['logWeight_gauss']))
         assert np.allclose(np.asarray(Batch.as_array(grown.weight)),
                            np.exp(logs - logs.max()))
-        assert np.asarray(Batch.as_array(grown.weight)).min() < 0.5
 
-        # And streamed and in-memory still agree, over the grown chain and over a
-        # view of it.
-        streamer = EnsembleStreamer(f['ensemble'], chunk=17)
+        # And the grown ensemble still knows the answer.
+        indices = np.random.default_rng(2).integers(0, len(grown), (len(grown), 100))
+        bootstrap = Bootstrap(grown, draws=100); bootstrap.indices = indices
+        mean, error = (float(_) for _ in bootstrap.estimate('XSquared'))
+        assert abs(mean - 0.5) < 5 * error, f'{mean} +/- {error} is not 1/2'
+
+        # And because XSquared is a registered observable rather than a number the
+        # generator emitted, the streamed path can be asked for it too --- so the
+        # analytic answer anchors that path directly, not only by its agreement
+        # with the in-memory one.
+        streamer = EnsembleStreamer(f['ensemble'], chunk=333)
+        streaming = StreamingBootstrap(
+                streamer, f.create_group('streamed'), indices=indices)
+        streamed_mean, streamed_error = (
+                float(_) for _ in streaming.estimate('XSquared'))
+        assert abs(streamed_mean - 0.5) < 5 * streamed_error
+        assert streamed_mean == pytest.approx(mean)
+
+        blocked = StreamingBlocking(streamer, width=4)
+        once = np.arange(len(blocked)).reshape(-1, 1)
+        blocked_bootstrap = StreamingBootstrap(
+                blocked, f.create_group('blocked'), indices=once)
+        assert float(np.asarray(blocked_bootstrap.XSquared)[0]) == pytest.approx(0.5, abs=5*error)
+
         assert np.allclose(np.asarray(Batch.as_array(grown.weight)),
                            np.asarray(streamer.weight))
         assert np.allclose(
-                np.asarray(Batch.as_array(grown.cut(15).every(2).weight)),
-                np.asarray(streamer.cut(15).every(2).weight))
-
-        # The whole pipeline, both ways, on the grown and reweighted ensemble.
-        blocking = Blocking(grown.cut(15), width=4)
-        streamed_blocking = StreamingBlocking(streamer.cut(15), width=4)
-        once = np.arange(len(blocking)).reshape(-1, 1)
-        reference = Bootstrap(blocking, draws=1); reference.indices = once
-        streaming = StreamingBootstrap(
-                streamed_blocking, f.create_group('b'), indices=once)
-        assert float(np.asarray(streaming.ActionDensity)[0]) == pytest.approx(
-                float(np.asarray(reference.ActionDensity)[0]))
-
-
-def test_reweighting_recovers_a_known_distribution():
-    r'''Reweighting on a problem with an answer.
-
-    Sample $x$ from $e^{-x^2/2}$ when the distribution wanted is $e^{-x^2}$.  The
-    correcting weight is the ratio of the two, $w = e^{-x^2/2}$, so
-    $\log w = -x^2/2$ is what a reweighting generator would emit.  Then
-
-        <x^2> = 1   under the distribution actually sampled, and
-        <x^2> = 1/2 under the one wanted,
-
-    and the whole point is that the second is what comes out.  Every other test
-    here checks that the machinery is self-consistent; this one checks that it is
-    right.
-
-    No Markov chain is needed --- the samples are drawn directly, and the ensemble
-    is only a carrier for them.
-    '''
-    samples = 20000
-    x = np.random.default_rng(0).normal(0., 1., samples)      # from exp(-x^2/2)
-
-    action = supervillain.action.Villain(supervillain.lattice.Lattice2D(3), KAPPA)
-    carrier = supervillain.configurations.Configurations({
-        'xSquared':        Batch(x**2),
-        'logWeight_gauss': Batch(-x**2 / 2),                  # log of exp(-x^2/2)
-    })
-    e = supervillain.Ensemble(action).from_configurations(carrier)
-
-    # The weight is the ratio of the two distributions, up to the normalization
-    # that cancels from the estimator.
-    w = np.asarray(Batch.as_array(e.weight))
-    assert np.allclose(w, np.exp(-x**2 / 2) / np.exp(-x**2 / 2).max())
-
-    indices = np.random.default_rng(1).integers(0, samples, (samples, 100))
-    weighted_bootstrap = Bootstrap(e, draws=100); weighted_bootstrap.indices = indices
-
-    mean, error = (float(_) for _ in weighted_bootstrap.estimate('xSquared'))
-    assert abs(mean - 0.5) < 5 * error, f'{mean} +/- {error} is not 1/2'
-
-    # And without the weight it is the distribution that was sampled, not the one
-    # wanted --- a factor of two away, so this could not pass by accident.
-    unweighted = supervillain.Ensemble(action).from_configurations(
-            supervillain.configurations.Configurations({'xSquared': Batch(x**2)}))
-    plain = Bootstrap(unweighted, draws=100); plain.indices = indices
-
-    unweighted_mean, unweighted_error = (float(_) for _ in plain.estimate('xSquared'))
-    assert abs(unweighted_mean - 1.0) < 5 * unweighted_error
-    assert abs(mean - unweighted_mean) > 20 * error
+                np.asarray(Batch.as_array(grown.cut(500).every(3).weight)),
+                np.asarray(streamer.cut(500).every(3).weight))
