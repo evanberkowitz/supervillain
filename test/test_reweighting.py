@@ -199,3 +199,88 @@ def test_autocorrelation_uses_the_influence_function():
     influence = weight * (observable - mean) / weight.mean()
     assert (autocorrelation_time(observable, weight=weight)
             == autocorrelation_time(influence))
+
+
+def test_a_second_generator_contributes_rather_than_replaces():
+    r'''Two reweighting generators each emit under their own namespaced key, and
+    the total weight is the product --- the sum of the logs.  If the second column
+    replaced the first rather than accumulating, or if one silently won, every
+    other test here would still pass, since they all carry both columns from the
+    start.'''
+    e = generate.villain(CONFIGURATIONS, N, KAPPA)
+    rng = np.random.default_rng(3)
+    alpha = rng.normal(0., 1.1, CONFIGURATIONS)
+    beta = rng.normal(0., 0.9, CONFIGURATIONS)
+
+    def weight_now():
+        return np.asarray(Batch.as_array(e.weight))
+
+    def normalized(w):
+        return w / w.max()
+
+    e.configuration.fields['logWeight_alpha'] = Batch(alpha)
+    one = weight_now()
+    assert np.allclose(one, normalized(np.exp(alpha)))
+
+    e.configuration.fields['logWeight_beta'] = Batch(beta)
+    both = weight_now()
+
+    # The product of the two, not either alone.
+    assert np.allclose(both, normalized(np.exp(alpha) * np.exp(beta)))
+    assert not np.allclose(both, one)
+    assert not np.allclose(both, normalized(np.exp(beta)))
+
+    # And the estimate moves, so the second contribution is doing something.
+    observable = np.asarray(Batch.as_array(e.ActionDensity))
+    assert not np.isclose((one * observable).sum() / one.sum(),
+                          (both * observable).sum() / both.sum())
+
+
+def test_every_path_gives_the_same_weighted_estimate(tmp_path):
+    r'''Four ways to the same number, on one weighted ensemble: read whole or
+    streamed, blocked or not.  Each applies the weight in a different place --- the
+    plain bootstrap once, the blocked ones inside the block and again over blocks
+    --- so agreement is what says none of them applies it twice, or drops it.
+
+    Resampling each sample exactly once makes this the estimator itself rather
+    than a draw from it, so the four are compared as algebra.
+    '''
+    width = 4
+    e, weight = weighted(configurations=64)
+    observable = np.asarray(Batch.as_array(e.ActionDensity))
+    truth = (weight * observable).sum() / weight.sum()
+
+    def once(n):
+        return np.arange(n).reshape(-1, 1)
+
+    def estimate(bootstrap):
+        return float(np.asarray(bootstrap.ActionDensity)[0])
+
+    path = tmp_path / 'weighted.h5'
+    with h5.File(path, 'w') as f:
+        e.to_h5(f.create_group('ensemble'))
+
+    plain = Bootstrap(e, draws=1); plain.indices = once(len(e))
+
+    blocking = Blocking(e, width=width)
+    assert blocking.drop == 0
+    blocked = Bootstrap(blocking, draws=1); blocked.indices = once(len(blocking))
+
+    with h5.File(path, 'r+') as f:
+        streamer = EnsembleStreamer(f['ensemble'], chunk=13)
+        streamed = StreamingBootstrap(streamer, f.create_group('streamed'),
+                                      indices=once(len(streamer)))
+
+        streamed_blocking = StreamingBlocking(streamer, width=width)
+        streamed_blocked = StreamingBootstrap(
+                streamed_blocking, f.create_group('streamed_blocked'),
+                indices=once(len(streamed_blocking)))
+
+        for label, bootstrap in (('in memory', plain),
+                                 ('in memory, blocked', blocked),
+                                 ('streamed', streamed),
+                                 ('streamed, blocked', streamed_blocked)):
+            assert estimate(bootstrap) == pytest.approx(truth), label
+
+    # The weights are not decoration: unweighted would give something else.
+    assert not np.isclose(truth, observable.mean())
