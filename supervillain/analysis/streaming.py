@@ -83,6 +83,19 @@ def _stream_weight(source_group):
     return np.ones(len(fields[name]['data']))
 
 
+def _present(weight, start, stride):
+    r'''The weights of the configurations a streamer presents.
+
+    Ensemble.weight takes its maximum over whatever configurations are in hand, so
+    cut and every renormalize; a streamer has to do the same or the two disagree
+    elementwise on the same file.  Only ratios of weights are physical --- the
+    offset cancels from <Ow>/<w> --- so no estimate moves either way, but a
+    streamer whose weights merely resembled the ensemble's would be a trap for
+    anyone who compared them.'''
+    weight = weight[start::stride]
+    return weight / weight.max() if len(weight) else weight
+
+
 def _stream_index(source_group):
     r'''The Markov-chain index of each configuration: one integer apiece, so it
     is read whole rather than streamed.  Falls back to counting if the stored
@@ -263,7 +276,7 @@ class EnsembleStreamer(SampleSource):
         self.Action = Data.read(source_group['Action'])
         r'''The action underlying the ensemble.'''
 
-        self.weight = _stream_weight(source_group)[start::stride]
+        self.weight = _present(_stream_weight(source_group), start, stride)
         r'''The importance weight of each configuration.'''
         self.index = _stream_index(source_group)[start::stride]
         r'''The Markov-chain index of each configuration.'''
@@ -409,7 +422,7 @@ class EnsembleStreamer(SampleSource):
             source = group['ensemble']
             o._source = source
             o.Action = Data.read(source['Action'])
-            o.weight = _stream_weight(source)[o.start::o.stride]
+            o.weight = _present(_stream_weight(source), o.start, o.stride)
             o.index = _stream_index(source)[o.start::o.stride]
             o.index_stride = _stream_index_stride(source) * o.stride
             o._length = len(np.asarray(o.weight))

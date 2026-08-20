@@ -299,3 +299,46 @@ def test_every_path_gives_the_same_weighted_estimate(tmp_path):
 
     # The weights are not decoration: unweighted would give something else.
     assert not np.isclose(truth, observable.mean())
+
+
+@pytest.mark.parametrize('label,of_ensemble,of_streamer', (
+        ('cut',       lambda e: e.cut(20),          lambda s: s.cut(20)),
+        ('every',     lambda e: e.every(3),         lambda s: s.every(3)),
+        ('cut.every', lambda e: e.cut(20).every(3), lambda s: s.cut(20).every(3)),
+        ), ids=('cut', 'every', 'cut.every'))
+def test_a_view_weighs_its_own_configurations(tmp_path, label, of_ensemble, of_streamer):
+    r'''Ensemble.weight takes its maximum over whatever configurations are in
+    hand, so a cut or decimated view renormalizes.  A streamer of the same view
+    must do the same.
+
+    Only ratios of weights are physical, so an estimate cannot tell the difference
+    --- which is exactly why this needs asserting separately, and why the streaming
+    suite's version of it could not: with unit weights every normalization looks
+    alike, and the assertion passed without ever being able to fail.
+    '''
+    e, _ = weighted(configurations=64)
+
+    path = tmp_path / 'weighted.h5'
+    with h5.File(path, 'w') as f:
+        e.to_h5(f.create_group('ensemble'))
+
+    with h5.File(path, 'r+') as f:
+        memory = of_ensemble(supervillain.Ensemble.from_h5(f['ensemble']))
+        streamed = of_streamer(EnsembleStreamer(f['ensemble'], chunk=13))
+
+        m = np.asarray(Batch.as_array(memory.weight))
+        s = np.asarray(streamed.weight)
+
+        assert m.max() == pytest.approx(1.), 'the ensemble renormalizes over the view'
+        assert s.max() == pytest.approx(1.), 'and so must the streamer'
+        assert np.allclose(m, s), label
+
+        # And the weights are not all alike, or none of the above means anything.
+        assert m.min() < 0.5
+
+        # The estimate agrees too, as it would have either way.
+        once = np.arange(len(memory)).reshape(-1, 1)
+        reference = Bootstrap(memory, draws=1); reference.indices = once
+        streaming = StreamingBootstrap(streamed, f.create_group('b'), indices=once)
+        assert float(np.asarray(streaming.ActionDensity)[0]) == pytest.approx(
+                float(np.asarray(reference.ActionDensity)[0]))
