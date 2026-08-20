@@ -78,6 +78,12 @@ def _stream_weight(source_group):
     logWeights = sorted(k for k in fields.keys() if k.startswith('logWeight_'))
     if logWeights:
         logWeight = np.sum([np.asarray(fields[k]['data'][:]) for k in logWeights], axis=0)
+        if not np.isfinite(logWeight.max()):
+            # As Ensemble.weight: all-zero weights make the ratio 0/0 and the max
+            # subtraction -inf minus -inf, which would come back as silent nan.
+            raise ValueError(
+                f'every configuration in {source_group.name} has zero importance '
+                'weight, so no weighted expectation value exists.')
         return np.exp(logWeight - logWeight.max())
     name = next(iter(fields.keys()))
     return np.ones(len(fields[name]['data']))

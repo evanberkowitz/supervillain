@@ -91,7 +91,7 @@ The :attr:`~supervillain.ensemble.Ensemble.weight` is not stored; it is derived 
 The single global ``max`` subtraction is exact: it cancels in the :math:`\langle Ow\rangle/\langle w\rangle` ratio, so it changes no expectation value and serves only to keep the exponentials representable.
 Because only the raw log-weights are persisted --- and the ``max`` is retaken over whatever configurations are present --- :meth:`~.Ensemble.cut`, :meth:`~.Ensemble.every`, and :meth:`~.Ensemble.continue_from` stay self-consistent with nothing to rewrite on disk.
 
-The memory-bounded :class:`~.StreamingBootstrap` derives the same weight from the on-disk log columns, materializing the whole (cheap, scalar) weight vector and taking the global ``max`` before it streams any block so that the offset is global and consistently cancels from the ratio.
+The memory-bounded :class:`~.StreamingBootstrap` derives the same weight from the on-disk log columns, materializing the whole (cheap, scalar) weight vector and taking the global ``max`` before it streams any chunk so that the offset is shared by every configuration and consistently cancels from the ratio.
 
 Streaming an Ensemble
 ---------------------

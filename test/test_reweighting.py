@@ -389,6 +389,12 @@ class Gaussian(supervillain.h5.ReadWriteable):
     r'''One real variable $x$ with action $S = x^2$, so the distribution wanted is
     $e^{-x^2}$: a Gaussian of variance $1/2$, under which $\langle x^2\rangle = 1/2$.'''
 
+    # There is no lattice here and nothing to wind around, but the library asks
+    # every action whether it is winding-constrained --- Constrained.autocorrelation
+    # reads Action.W to decide whether an observable belongs in the autocorrelation
+    # time.  W = 1 is the unconstrained answer, and the true one here.
+    W = 1
+
     def configurations(self, steps):
         return supervillain.configurations.Configurations({
             'x': Batch(steps, shape=(), dtype=float),
@@ -546,3 +552,62 @@ def test_a_reweighting_generator_survives_continue_from_and_extend(tmp_path):
         assert np.allclose(
                 np.asarray(Batch.as_array(grown.cut(500).every(3).weight)),
                 np.asarray(streamer.cut(500).every(3).weight))
+
+
+def test_a_toy_ensemble_answers_the_whole_stack():
+    r'''The library asks an action questions beyond generating configurations ---
+    Constrained.autocorrelation reads Action.W to decide whether an observable
+    belongs in the autocorrelation time --- and asks them of every registered
+    observable when nothing has been measured yet.
+
+    Villain and Worldline both carry W, so a toy is the first action that can fail
+    to answer.  It should not be the first thing a new action discovers.
+    '''
+    action = Gaussian()
+    e = supervillain.Ensemble(action).generate(500, SampleWide(action), start='cold')
+
+    assert not e.measured                  # nothing measured, so everything is asked
+    assert e.autocorrelation_time() >= 1
+    assert 'XSquared' in e.measure()
+    assert len(Blocking(e, width=5)) == 100
+    assert len(e.cut(10).every(3)) == len(np.arange(500)[10::3])
+
+
+def test_every_weight_zero_is_refused(tmp_path):
+    r'''A reweighting with no overlap at all --- every log-weight minus infinity ---
+    has no weighted expectation value: <Ow>/<w> is 0/0, and the global maximum
+    subtraction is minus infinity less minus infinity.
+
+    numpy answers that with nan and a warning, which is the worst outcome: the
+    estimates come back, and they are all nan.  Both derivations refuse instead.
+    One weight of zero among many is fine, and stays fine.
+    '''
+    def ensemble(logs):
+        return supervillain.Ensemble(Gaussian()).from_configurations(
+                supervillain.configurations.Configurations({
+                    'x': Batch(np.zeros(len(logs))),
+                    'logWeight_a': Batch(np.asarray(logs, dtype=float)),
+                }))
+
+    # One configuration carrying no weight is ordinary.
+    fine = np.asarray(Batch.as_array(ensemble([0., -np.inf, 1., 2.]).weight))
+    assert np.isfinite(fine).all()
+    assert fine.min() == 0.
+    assert fine.max() == pytest.approx(1.)
+
+    # All of them is not.
+    with pytest.raises(ValueError):
+        ensemble([-np.inf] * 4).weight
+
+    # And the streamed derivation refuses it too, rather than differ.
+    path = tmp_path / 'zero.h5'
+    with h5.File(path, 'w') as f:
+        supervillain.Ensemble(Gaussian()).from_configurations(
+                supervillain.configurations.Configurations({
+                    'x': Batch(np.zeros(4)),
+                    'logWeight_a': Batch(np.full(4, -np.inf)),
+                })).to_h5(f.create_group('ensemble'))
+
+    with h5.File(path, 'r') as f:
+        with pytest.raises(ValueError):
+            EnsembleStreamer(f['ensemble'], chunk=2)

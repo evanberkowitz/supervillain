@@ -212,6 +212,13 @@ class Ensemble(Extendable):
         if not cols:
             return Batch(np.ones(len(self)))
         lw = sum(np.asarray(Batch.as_array(self.configuration.fields[k])) for k in cols)
+        if not np.isfinite(lw.max()):
+            # Every configuration weighs zero, so <Ow>/<w> is 0/0 and the max
+            # subtraction is -inf minus -inf.  Silent nan is the worst outcome.
+            raise ValueError(
+                'every configuration has zero importance weight, so no weighted '
+                'expectation value exists; the reweighting has no overlap with '
+                'what it is meant to sample.')
         return Batch(np.exp(lw - lw.max()))
 
     def autocorrelation_time(self, observables=None, every=False):
