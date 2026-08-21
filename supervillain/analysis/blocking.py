@@ -16,12 +16,20 @@ class Blocking(ReadWriteable):
 
     Any observable that the underlying ensemble supports can be evaluated in the same way; you can call ``blocking.ObservableOfInterest`` to get the blocked observable of interest.
 
+    .. todo::
+
+       Each block here is $\left\langle wO\right\rangle_b$ and :attr:`weight` is $\left\langle w\right\rangle_b$, so a :class:`~.Bootstrap` of the blocking applies the weight a second time.
+       Each block should be $\left\langle wO\right\rangle_b / \left\langle w\right\rangle_b$ instead, which telescopes back to $\left\langle wO\right\rangle/\left\langle w\right\rangle$ over blocks.
+       Every weight is one until importance weighting arrives, and there the two agree exactly, so no estimate is wrong today.
+       :class:`~.StreamingBlocking` already divides; this class should follow when the reweighting work lands.
+
     Parameters
     ----------
     ensemble: supervillain.Ensemble
         The ensemble to block.
     width: int or 'auto'
         The number of samples that go into each block; if 'auto' set by the ensemble's :py:meth:`~.Ensemble.autocorrelation_time`.
+
     '''
 
     def __init__(self, ensemble, width='auto'):

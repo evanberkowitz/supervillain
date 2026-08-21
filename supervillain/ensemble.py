@@ -6,7 +6,7 @@ from supervillain import _no_op
 import supervillain
 from supervillain.h5 import Extendable
 from supervillain.performance import Timer
-from supervillain.analysis import autocorrelation_time
+from supervillain.analysis.autocorrelation import sample_autocorrelation_time
 from supervillain.batch import Batch
 import supervillain.h5
 
@@ -204,39 +204,16 @@ class Ensemble(Extendable):
             If ``True`` returns a dictionary with keys given by observable names and values the computed autocorrelation times.
         '''
 
-        if observables is None:
-            observables = self.measured
-            observables = set((o for o in observables if supervillain.observables[o].autocorrelation(self)))
+        return sample_autocorrelation_time(self, observables=observables, every=every)
 
-        if len(observables) == 0:
-            observables = tuple(supervillain.observables.keys())
-
-
-        auto = dict()
-        for name in observables:
-            if not supervillain.observables[name].autocorrelation(self):
-                continue
-            try:
-                auto[name] = autocorrelation_time(getattr(self, name))
-            except Exception as E:
-                logger.warning(f'{name} does not fluctuate enough; it is not included in the autocorrelation time calculation.')
-
-        if every:
-            return auto
-
-        if not auto:
-            # Nothing fluctuated enough to estimate τ.  Rather than crash on an
-            # empty max(), warn and fall back to half the ensemble length, which
-            # corresponds to there being effectively a single independent
-            # configuration (N_eff = N / 2τ = 1).
-            tau = int(np.ceil(len(self) / 2))
-            logger.warning(
-                'No observable fluctuated enough to estimate an autocorrelation time; '
-                f'falling back to τ = {tau} (half the ensemble length).'
-            )
-            return tau
-
-        return max(auto.values())
+    def timeseries(self, name):
+        r'''
+        The measurement of observable ``name`` on every configuration, as a plain
+        array.  An :class:`~.Ensemble` holds its configurations, so this is just
+        the measurement itself; something that streams its configurations has to
+        work harder.
+        '''
+        return Batch.as_array(getattr(self, name))
 
     def cut(self, start):
         r'''

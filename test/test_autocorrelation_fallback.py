@@ -1,8 +1,13 @@
 #!/usr/bin/env python
 
+import importlib
+
 import numpy as np
 import supervillain
-import supervillain.ensemble
+
+# supervillain.analysis re-exports a function named `autocorrelation`, which
+# shadows the submodule of that name, so reach the module explicitly.
+autocorrelation = importlib.import_module('supervillain.analysis.autocorrelation')
 
 
 def test_autocorrelation_time_falls_back_when_nothing_fluctuates(monkeypatch):
@@ -16,7 +21,7 @@ def test_autocorrelation_time_falls_back_when_nothing_fluctuates(monkeypatch):
     def too_small(*args, **kwargs):
         raise ValueError('The fluctuations are too small to reliably determine an autocorrelation.')
 
-    monkeypatch.setattr(supervillain.ensemble, 'autocorrelation_time', too_small)
+    monkeypatch.setattr(autocorrelation, 'autocorrelation_time', too_small)
 
     # Should warn and fall back rather than raise on an empty max().
     tau = e.autocorrelation_time()
