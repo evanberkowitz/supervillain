@@ -95,6 +95,7 @@ Reweighting
 The bootstrap forms the *weighted* expectation value :math:`\langle O\rangle = \langle Ow\rangle / \langle w\rangle` using a per-configuration weight, :attr:`Ensemble.weight <supervillain.ensemble.Ensemble.weight>`.
 By default every weight is 1 and this is the ordinary sample mean.
 A :ref:`reweighting generator <importance-weights>` instead emits per-configuration importance weights, and then :class:`~.Bootstrap` corrects *every* observable automatically --- resampling the numerator and denominator together so the correlated uncertainty is automatically right.
+The autocorrelation time takes the same care, and takes it for you: on a reweighted ensemble it is :ref:`the influence function rather than the observable itself <weighted-autocorrelation>` that has to be correlated.
 
 The :attr:`~supervillain.ensemble.Ensemble.weight` is not stored; it is derived from the generators' ``logWeight_*`` contributions as
 
