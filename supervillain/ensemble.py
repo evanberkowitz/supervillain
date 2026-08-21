@@ -206,6 +206,12 @@ class Ensemble(Extendable):
         if not cols:
             return Batch(np.ones(len(self)))
         lw = sum(np.asarray(Batch.as_array(self.configuration.fields[k])) for k in cols)
+        if len(lw) == 0:
+            # A view of no configurations weighs nothing, rather than failing on an
+            # empty maximum.  The unweighted branch above and the streamed path
+            # both answer that way, and a cut that takes everything is a mistake
+            # to report where it is made, not here.
+            return Batch(lw)
         peak = lw.max()
         if not np.isfinite(peak):
             # Silent nan is the worst outcome, so refuse; but say which way it

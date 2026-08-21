@@ -836,3 +836,31 @@ def test_an_observable_the_action_lacks_is_not_reported_as_flat(caplog):
         flat.autocorrelation_time()
     assert [r for r in caplog.records if 'does not fluctuate' in r.message], \
             'a constant observable should still be reported'
+
+
+def test_a_view_of_nothing_weighs_nothing(tmp_path):
+    r'''An over-eager thermalization cut can take every configuration.  The view
+    is useless but it is not malformed, and all three ways of arriving at it ---
+    unweighted, weighted, streamed --- have to say the same thing about it.
+
+    The weighted one is the one that can fail: its maximum is taken over an empty
+    array, which numpy refuses in its own words rather than ours.
+    '''
+    action = Gaussian()
+    e = supervillain.Ensemble(action).generate(20, SampleWide(action), start='cold')
+
+    path = tmp_path / 'e.h5'
+    with h5.File(path, 'w') as f:
+        e.to_h5(f.create_group('ensemble'))
+
+    empty = e.cut(len(e))
+    assert len(empty) == 0
+    assert len(np.asarray(Batch.as_array(empty.weight))) == 0
+
+    with h5.File(path, 'r') as f:
+        streamed = EnsembleStreamer(f['ensemble'], chunk=8).cut(20)
+        assert len(np.asarray(streamed.weight)) == 0
+
+    # An unweighted ensemble has always answered this way, and still does.
+    unweighted = generate.villain(N=N, kappa=KAPPA, configurations=20)
+    assert len(np.asarray(Batch.as_array(unweighted.cut(20).weight))) == 0
