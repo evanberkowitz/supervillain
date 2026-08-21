@@ -2,6 +2,7 @@
 
 from supervillain.h5 import ReadWriteable, Extendable
 import supervillain.h5.extendable as extendable
+from supervillain.batch import Batch
 
 import logging
 logger = logging.getLogger(__name__)
@@ -110,7 +111,9 @@ class Configurations(Extendable, ReadWriteable):
         logger.info(f'Extending h5 {group.name}.')
 
         for attr, value in self.items():
-            if isinstance(value, Extendable):
+            if isinstance(value, Batch):
+                value.extend_h5(group['fields'][attr])
+            elif isinstance(value, Extendable):
                 value.extend_h5(group['fields'][attr])
             elif isinstance(value, extendable.array):
                 extendable.strategy.extend(group['fields'], attr, value)

@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize, LinearSegmentedColormap
 
 import supervillain
+from supervillain.lattice import delta
 
 parser = supervillain.cli.ArgumentParser()
 parser.add_argument('--N', type=int, default=5, help='Sites on a side.')
@@ -37,10 +38,10 @@ link = L.form(1)
 link[0, -1, -1] = 1
 link[1, +1, +1] = 1
 
-divergence = L.delta(1, link)
+divergence = delta(link)
 
-L.plot_form(1, link,       ax, cmap=on_off, norm=Normalize(vmin=0, vmax=1))
-L.plot_form(0, divergence, ax, cmap=plus_zero_minus, norm=Normalize(vmin=-1, vmax=+1))
+L.plot_form(link,       ax, cmap=on_off, norm=Normalize(vmin=0, vmax=1))
+L.plot_form(divergence, ax, cmap=plus_zero_minus, norm=Normalize(vmin=-1, vmax=+1))
 
 ax.set_aspect('auto')
 fig.tight_layout()

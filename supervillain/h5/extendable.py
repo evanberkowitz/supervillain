@@ -64,8 +64,12 @@ class Extendable(ReadWriteable):
     def extend_h5(self, group, _top=True):
         logger.info(f'Extending h5 {group.name}.')
 
+        from supervillain.batch import Batch
+
         for attr, value in self.__dict__.items():
             if isinstance(value, Extendable):
+                value.extend_h5(group[attr])
+            elif isinstance(value, Batch):
                 value.extend_h5(group[attr])
             elif isinstance(value, array):
                 strategy.extend(group, attr, value)

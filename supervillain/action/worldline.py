@@ -2,8 +2,9 @@
 
 import numpy as np
 from supervillain.h5 import ReadWriteable
-import supervillain.h5.extendable as extendable
+from supervillain.batch import Batch
 from supervillain.configurations import Configurations
+from supervillain.lattice import Form, delta
 
 import logging
 logger = logging.getLogger(__name__)
@@ -13,11 +14,11 @@ class Worldline(ReadWriteable):
     The dual (worldline) action is
 
     .. math::
-       \begin{align}
+       \begin{aligned}
        Z[J] &= \sum Dm\; Dv\; e^{-S_J[m, v]} \left[\delta m = 0\right]
        \\
        S_J[m, v] &= \frac{1}{2\kappa} \sum_\ell \left(m - \delta\left(\frac{v}{W} + \frac{J}{2\pi} \right)\right)_\ell^2 + \frac{|\ell|}{2} \ln (2\pi \kappa) - |x| \ln 2\pi
-       \end{align}
+       \end{aligned}
 
     In other words, it is a sum over all configurations where $\delta m$ vanishes on every site.
 
@@ -25,7 +26,7 @@ class Worldline(ReadWriteable):
 
     Parameters
     ----------
-    lattice: supervillain.Lattice2D
+    lattice: supervillain.lattice.Lattice
         The lattice on which $m$ lives.
     kappa: float
         The $\kappa$ in the overall coefficient.
@@ -66,7 +67,7 @@ class Worldline(ReadWriteable):
         '''
 
         m = configuration['m']
-        return (self.Lattice.delta(1, m) == 0).all()
+        return (delta(m) == 0).all()
 
     def __call__(self, m, v, **kwargs):
         r'''
@@ -88,9 +89,9 @@ class Worldline(ReadWriteable):
             If $m$ does not satisfy the constraint.
         '''
 
-        if not self.valid(m):
+        if not self.valid({'m': m}):
             raise ValueError(f'The one-form m does not satisfy the constraint δm = 0 everywhere.')
-        return 0.5 / self.kappa * np.sum((m - self.Lattice.delta(2, v) / self._W)**2) + self._constant_offset
+        return 0.5 / self.kappa * np.sum((m - delta(v) / self._W)**2) + self._constant_offset
 
     def configurations(self, count):
         r'''
@@ -105,9 +106,11 @@ class Worldline(ReadWriteable):
             ``count`` configurations of a zeroed 1-form ``m`` a zeroed 2-form ``v``.
         '''
 
+        L = self.Lattice
+        v_dtype = int if self.W < float('inf') else float
         return Configurations({
-            'm': extendable.array(self.Lattice.form(1, count, dtype=int)),
-            'v': extendable.array(self.Lattice.form(2, count, dtype=(int if self.W<float('inf') else float))),
+            'm': Batch(count, cls=Form, degree=1, lattice=L, dtype=int),
+            'v': Batch(count, cls=Form, degree=2, lattice=L, dtype=v_dtype),
             })
 
     def equivalence_class_v(self, configuration):
@@ -117,11 +120,11 @@ class Worldline(ReadWriteable):
         We can take any configuration and send
 
         .. math ::
-            \begin{align}
+            \begin{aligned}
                 v &\rightarrow v + \lambda W
                 &
                 m &\rightarrow m - \delta \lambda
-            \end{align}
+            \end{aligned}
 
         for integer $\lambda$.  We fix $\lambda$ on every plaquette so that after the transformation $v\in[0,W)$.
 
@@ -147,6 +150,6 @@ class Worldline(ReadWriteable):
         L = self.Lattice
 
         return {
-                'm': configuration['m'] - L.delta(2, np.floor_divide(configuration['v'], self.W)),
+                'm': configuration['m'] - delta(np.floor_divide(configuration['v'], self.W)),
                 'v': np.mod(configuration['v'], self.W),
         }

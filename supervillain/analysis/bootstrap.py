@@ -2,6 +2,7 @@
 
 import numpy as np
 
+from supervillain.batch import Batch
 from supervillain.h5 import ReadWriteable
 from supervillain.performance import Timer
 
@@ -56,7 +57,8 @@ class Bootstrap(ReadWriteable):
     def _resample(self, obs):
         # Each observable should be multiplied by its respective weight.
         # Each draw should be divided by its average weight.
-        w = self.Ensemble.weight[self.indices]
+        obs = Batch.as_array(obs)
+        w = Batch.as_array(self.Ensemble.weight)[self.indices]
 
         # This index ordering is needed to broadcast the weights division correctly.
         # See https://github.com/evanberkowitz/two-dimensional-gasses/issues/55
@@ -100,7 +102,7 @@ class Bootstrap(ReadWriteable):
             color = axis.get_lines()[-1].get_color()
         axis.axhspan(mean-err, mean+err, color=color, alpha=0.5, linestyle='none')
 
-    def plot_correlator(self, axis, correlator, offset=0., irrep='A1', multiplier=1., linestyle='none', marker='o', markerfacecolor='none', **kwargs):
+    def plot_correlator(self, axis, correlator, offset=0., symmetrize=True, multiplier=1., linestyle='none', marker='o', markerfacecolor='none', **kwargs):
         r'''
         Plots the space-dependent correlator against $\Delta x$ on the axis.
         Plotting options and kwargs are forwarded.
@@ -113,17 +115,17 @@ class Bootstrap(ReadWriteable):
             Name of the observable or derived quantity.
         offset: float
             Horizontal displacement, good for visually separating two correlators.
-        irrep: string
-            Project the correlator to an :py:meth:`~.Lattice2D.irrep` understood by the lattice.
+        symmetrize: bool
+            If True (default), project onto the totally-symmetric irrep via :py:meth:`~.Lattice.symmetrize`.
         multiplier: float
             Rescales the observable by an overall constant.
         '''
-        
+
         L = self.Ensemble.Action.Lattice
         Δx = L.linearize(L.R_squared)**0.5
         C = getattr(self, correlator).real
-        if irrep:
-            C = L.irrep(C, irrep)
+        if symmetrize:
+            C = L.symmetrize(C)
 
         axis.errorbar(
                 Δx+offset,

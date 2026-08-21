@@ -8,11 +8,15 @@ import logging
 logger = logging.getLogger(__name__)
 
 @cache
-def Lattice(N):
-    return supervillain.Lattice2D(N)
+def VillainLattice(N):
+    return supervillain.lattice.Lattice2D(N)
+
+@cache
+def WorldlineLattice(N):
+    return supervillain.lattice.Lattice2D(N)
 
 def villain(configurations, N, kappa, W=1):
-    L = Lattice(N)
+    L = VillainLattice(N)
     S = supervillain.action.Villain(L, kappa, W=W)
     G = supervillain.generator.villain.Hammer(S)
 
@@ -22,7 +26,7 @@ def villain(configurations, N, kappa, W=1):
     return ensemble
 
 def worldline(configurations, N, kappa, W=1):
-    L = Lattice(N)
+    L = WorldlineLattice(N)
     S=supervillain.action.Worldline(L, kappa, W=W)
     G = supervillain.generator.worldline.Hammer(S)
 

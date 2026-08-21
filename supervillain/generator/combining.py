@@ -31,13 +31,14 @@ class Sequentially(ReadWriteable, Generator):
 
     def step(self, cfg):
         r'''
-        Apply each generator's ``step`` one after the next and return the final configuration.
+        Apply each generator's ``step`` one after the next, passing each generator's
+        full output as the input to the next, and return the final configuration.
         '''
-        
+
         result = cfg
         for g in self.generators:
             result = g.step(result)
-            
+
         return result
 
     def inline_observables(self, steps):
@@ -62,6 +63,20 @@ class KeepEvery(ReadWriteable, Generator):
         The number of updates per second will decrease by a factor of n, but the autocorrelation time should be n less.
         Generating a fixed number of configurations will take n times longer.
 
+    .. warning::
+        ``blocked_inline`` cannot be combined with a generator that emits an
+        :ref:`importance weight <importance-weights>`; doing so raises.
+        The configuration that is kept carries a single weight, and an expectation
+        value would have to read it two ways at once: every ordinary
+        :class:`~.Observable` is measured on the kept configuration and so needs
+        that configuration's own weight, while a blocked inline measurement is an
+        average over all n updates and pairs only with *their* average weight.
+        Neither choice is right for both, and the wrong one biases the answer
+        without any outward sign.
+        Either pass ``blocked_inline=False``, or keep every configuration and
+        block the ensemble afterwards with :class:`~.Blocking`, which averages a
+        block and hands on its weight consistently.
+
     >>> p = supervillain.generator.worldline.PlaquetteUpdate(S)
     >>> g = supervillain.generator.combining.KeepEvery(10, p)
 
@@ -75,6 +90,14 @@ class KeepEvery(ReadWriteable, Generator):
     blocked_inline: bool
         Rather than just keeping the :py:meth:`~.Generator.inline_observables` from the last update, all of the inline measurements are averaged across all n updates.
         This helps capture rare-but-important measurements that would otherwise be missed.
+
+    Raises
+    ------
+    ValueError
+        If ``blocked_inline`` and ``generator`` emits any importance weight.
+        A generator declares its ``logWeight_`` columns in
+        :py:meth:`~.Generator.inline_observables`, so this is caught when the
+        :class:`KeepEvery` is constructed, before any generation happens.
     '''
 
     def __init__(self, n, generator, blocked_inline=True):
@@ -82,6 +105,25 @@ class KeepEvery(ReadWriteable, Generator):
         self.stride = n
         self.generator = generator
         self.blocked_inline = blocked_inline
+
+        # Blocking the inline measurements and importance weights cannot both be
+        # served by the one weight a kept configuration carries.  A weighted
+        # <Ow>/<w> over the kept configurations needs that weight to be the kept
+        # configuration's own, since that is the configuration every ordinary
+        # Observable is measured on; but a blocked inline measurement is an
+        # average over n updates, and pairs correctly only with their average
+        # weight.  Averaging the logs, as the blocking below would, is a third
+        # thing again and matches neither.  So refuse, rather than bias an
+        # answer that has no visible symptom.
+        if self.blocked_inline:
+            weights = sorted(o for o in generator.inline_observables(1) if o.startswith('logWeight_'))
+            if weights:
+                raise ValueError(
+                    f'{generator} emits an importance weight ({", ".join(weights)}), which cannot be '
+                    'blocked inline: the weight stored with a kept configuration has to be that '
+                    "configuration's own.  Pass blocked_inline=False, or keep every configuration "
+                    'and block the ensemble afterwards with supervillain.analysis.Blocking, which '
+                    'weights its blocks correctly.')
 
     def __str__(self):
         return f'KeepEvery({self.stride}, {str(self.generator)})'

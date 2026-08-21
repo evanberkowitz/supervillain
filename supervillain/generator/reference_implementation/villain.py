@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 
+from collections import deque
 import numpy as np
 import supervillain.action
+from supervillain.batch import Batch
 from supervillain.generator import Generator
 from supervillain.h5 import ReadWriteable
+from supervillain.lattice import d, push
 
 import logging
 logger = logging.getLogger(__name__)
@@ -18,11 +21,11 @@ class NeighborhoodUpdateSlow(ReadWriteable, Generator):
 
     .. math ::
         
-        \begin{align}
-        \Delta\phi_x    &\sim \text{uniform}(-\texttt{interval_phi}, +\texttt{interval_phi})
+        \begin{aligned}
+        \Delta\phi_x    &\sim \text{uniform}(-\texttt{interval\_phi}, +\texttt{interval\_phi})
         \\
-        \Delta n_\ell   &\sim [-\texttt{interval_n}, +\texttt{interval_n}]
-        \end{align}
+        \Delta n_\ell   &\sim [-\texttt{interval\_n}, +\texttt{interval\_n}]
+        \end{aligned}
 
     for the $\phi$ on $x$ and $n$ on links $\ell$ which touch $x$.
 
@@ -74,8 +77,8 @@ class NeighborhoodUpdateSlow(ReadWriteable, Generator):
         # We move the lattice around (which is fine by translational symmetry)
         # so that we update a different site with each proposal.
         # The advantage of thinking this way is that we only have to reckon from the origin.
-        phi = L.roll(cfg['phi'].copy(), dx)
-        n   = L.roll(cfg['n'].copy(),   dx)
+        phi = push(cfg['phi'].copy(), dx)
+        n   = push(cfg['n'].copy(),   dx)
 
         phi[0,0] += self.rng.uniform(-self.interval_phi,+self.interval_phi,None)
 
@@ -146,8 +149,8 @@ class NeighborhoodUpdateSlow(ReadWriteable, Generator):
         L = self.Action.Lattice
 
         shifts = np.stack((
-            np.random.randint(L.dims[0], size=L.sites),
-            np.random.randint(L.dims[1], size=L.sites)
+            np.random.randint(L.dims[0], size=L.cells_of_degree[0]),
+            np.random.randint(L.dims[1], size=L.cells_of_degree[0])
         )).transpose()
 
         for dx in shifts:
@@ -161,7 +164,7 @@ class NeighborhoodUpdateSlow(ReadWriteable, Generator):
 
         acceptance /= len(shifts)
         self.acceptance += acceptance
-        logger.info(f'Average proposal {acceptance=:.6f}; Actually {accepted = } / {self.Action.Lattice.sites} = {accepted / self.Action.Lattice.sites}')
+        logger.info(f'Average proposal {acceptance=:.6f}; Actually {accepted = } / {self.Action.Lattice.cells_of_degree[0]} = {accepted / self.Action.Lattice.cells_of_degree[0]}')
 
         return current
 
@@ -201,11 +204,20 @@ class ClassicWorm(ReadWriteable, Generator):
         pure python, :class:`the production-ready generator <supervillain.generator.villain.worm.ClassicWorm>` uses numba for acceleration.
 
     .. note ::
-        
+
         **Because** it doesn't change $dn$ at all, this algorithm can play an important role in sampling the $W=\infty$ sector, where all vortices are completely killed, though updates to $\phi$ would still be needed.
+
+    .. todo::
+        Generalize to D>2. The current implementation hardcodes D=2: four directions (east/north/west/south)
+        in :meth:`_neighboring_plaquettes` and :meth:`_surrounding_links`, and 2D displacement histograms.
+        Raises :exc:`NotImplementedError` for $D \neq 2$.
     '''
 
     def __init__(self, S):
+        if not isinstance(S, supervillain.action.Villain):
+            raise ValueError('Need a Villain action')
+        if S.Lattice.D != 2:
+            raise NotImplementedError('ClassicWorm is only implemented for D=2')
         self.Action = S
         self.rng = np.random.default_rng()
 
@@ -240,9 +252,10 @@ class ClassicWorm(ReadWriteable, Generator):
         We also store the ``Worm_Length`` for each step.
         '''
 
+        L = self.Action.Lattice
         return {
-            'Vortex_Vortex': extendable.array(self.Action.Lattice.form(0, steps)),
-            'Worm_Length':   extendable.array(np.zeros(steps)),
+            'Vortex_Vortex': Batch(steps, shape=(L.N, L.N)),
+            'Worm_Length':   Batch(steps, shape=(), dtype=float),
         }
 
     def step(self, configuration):
@@ -253,12 +266,12 @@ class ClassicWorm(ReadWriteable, Generator):
         S = self.Action
         L = S.Lattice
 
-        displacements = L.form(0)
+        displacements = np.zeros((L.N, L.N), dtype=int)
 
         # This algorithm will not update phi; but it is useful to precompute dphi
         # which is used in the evaluation of the changes in action.
         phi = configuration['phi'].copy()
-        dphi = L.d(0, phi)
+        dphi = d(phi)
 
         # The documentation gives a definitive statement about moving the head only.
         # But we could equally well move the tail, making the opposite moves in the opposite worm evolution.
@@ -291,7 +304,7 @@ class ClassicWorm(ReadWriteable, Generator):
                 # In other words, if W=1 we always have the possibility of return a Z configuration from the existing G configuration.
                 wl = displacements.sum()
                 self.worm_lengths.append(wl)
-                return {'n': n, 'phi': phi, 'Vortex_Vortex': displacements, 'Worm_Length': wl}
+                return configuration | {'n': n, 'Vortex_Vortex': displacements, 'Worm_Length': wl}
             
             # Conditioned on not transitioning to z, we make a uniform choice of the 4 possible directions.
             choice = self.rng.choice([0,1,2,3])

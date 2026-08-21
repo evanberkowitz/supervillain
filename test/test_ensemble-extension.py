@@ -7,6 +7,7 @@ import numpy as np
 import h5py as h5
 
 import supervillain
+from supervillain.batch import Batch
 import generate
 import harness
 
@@ -14,8 +15,8 @@ def compare(measured, unmeasured, equality_threshold=1e-12):
     unmeasured.measure()
 
     for o in measured.measured:
-        m = getattr(measured, o)
-        u = getattr(measured, o)
+        m = Batch.as_array(getattr(measured, o))
+        u = Batch.as_array(getattr(unmeasured, o))
 
         if (np.abs(m-u) > equality_threshold).any():
             return False

@@ -6,12 +6,12 @@ from supervillain import _no_op
 import supervillain
 from supervillain.h5 import Extendable
 from supervillain.performance import Timer
-from supervillain.analysis import autocorrelation_time
+from supervillain.analysis.autocorrelation import sample_autocorrelation_time
+from supervillain.batch import Batch, _broadcast_over_draws
 import supervillain.h5
 
 import logging
 logger = logging.getLogger(__name__)
-
 
 class Ensemble(Extendable):
     r'''An ensemble of configurations importance-sampled according to the ``action``.
@@ -37,9 +37,18 @@ class Ensemble(Extendable):
         Returns
         -------
             The ensemble itself, so that one can do ``ensemble = Ensemble(action).from_configurations(cfgs)``.
+
+        .. note ::
+            An ensemble assembled this way has no Markov history, but it still gets
+            a default :attr:`index` and :attr:`index_stride`, because
+            :meth:`~.Ensemble.cut`, :meth:`~.Ensemble.every`, and
+            :class:`~.Blocking` all rely on them.  :meth:`~.Ensemble.generate`
+            overwrites both with the real chain's labelling.
         '''
 
         self.configuration = configurations
+        self.index = Batch(np.arange(len(configurations)))
+        self.index_stride = 1
 
         return self
 
@@ -73,8 +82,7 @@ class Ensemble(Extendable):
         self.configuration = self.Action.configurations(steps)
         self.configuration |= generator.inline_observables(steps)
         self.index_stride = index_stride
-        self.index = starting_index + self.index_stride * supervillain.h5.extendable.array(np.arange(steps))
-        self.weight = supervillain.h5.extendable.array(np.ones(steps))
+        self.index = Batch(starting_index + self.index_stride * np.arange(steps))
 
         if start == 'cold':
             seed = self.Action.configurations(1)[0]
@@ -117,10 +125,6 @@ class Ensemble(Extendable):
         -------
             supervillain.Ensemble:
                 An ensemble with ``steps`` new configurataions generted in the same way as ``ensemble``.
-
-        .. todo::
-           
-           The starting weight should automatically be read in; currently not.
         '''
         if isinstance(ensemble, h5.Group):
             e = supervillain.Ensemble.from_h5(ensemble)
@@ -180,6 +184,49 @@ class Ensemble(Extendable):
 
         return self.__dict__.keys() & supervillain.observables.keys()
 
+    @property
+    def weight(self):
+        r'''
+        Per-configuration importance weight, **derived on access** from any
+        ``logWeight_*`` columns the generators emitted (default: all ones).
+
+        A reweighting generator emits its own log-weight contribution as an
+        inline observable named ``logWeight_<name>``; the total importance weight is the
+        product over contributions, or the exponential of the *summed*
+        log-weights.  Working in logs and summing keeps the accumulation stable
+        even when individual factors are astronomically small.
+        '''
+        # The global ``max`` subtraction is numerical conditioning only --- it
+        # cancels in :class:`~.Bootstrap`'s :math:`\langle Ow\rangle/\langle
+        # w\rangle` ratio --- and is retaken over whatever configurations are
+        # present.  Nothing normalized is persisted, so :meth:`cut`,
+        # :meth:`every`, and :meth:`~.Extendable.continue_from` stay
+        # self-consistent with no on-disk rewrite.
+        cols = sorted(k for k in self.configuration.fields if k.startswith('logWeight_'))
+        if not cols:
+            return Batch(np.ones(len(self)))
+        lw = sum(np.asarray(Batch.as_array(self.configuration.fields[k])) for k in cols)
+        if len(lw) == 0:
+            # A view of no configurations weighs nothing, rather than failing on an
+            # empty maximum.  The unweighted branch above and the streamed path
+            # both answer that way, and a cut that takes everything is a mistake
+            # to report where it is made, not here.
+            return Batch(lw)
+        peak = lw.max()
+        if not np.isfinite(peak):
+            # Silent nan is the worst outcome, so refuse; but say which way it
+            # went wrong, since -inf everywhere and a stray inf or nan are
+            # different mistakes with different fixes.
+            if np.isneginf(lw).all():
+                raise ValueError(
+                    'every configuration has zero importance weight, so no weighted '
+                    'expectation value exists; the reweighting has no overlap with '
+                    'what it is meant to sample.')
+            raise ValueError(
+                f'a configuration has a log-weight that is not a number ({peak}), '
+                'so no weight can be derived from it.')
+        return Batch(np.exp(lw - peak))
+
     def autocorrelation_time(self, observables=None, every=False):
         r'''
         Compute the autocorrelation time for the ensemble's measurements.
@@ -203,27 +250,31 @@ class Ensemble(Extendable):
             If ``True`` returns a dictionary with keys given by observable names and values the computed autocorrelation times.
         '''
 
-        if observables is None:
-            observables = self.measured
-            observables = set((o for o in observables if supervillain.observables[o].autocorrelation(self)))
+        return sample_autocorrelation_time(self, observables=observables, every=every)
 
-        if len(observables) == 0:
-            observables = tuple(supervillain.observables.keys())
+    @classmethod
+    def from_h5(cls, group, strict=True, _top=True):
+        r'''
+        Read an ensemble back.
 
+        An ensemble stored before :attr:`weight` was derived carries a ``weight``
+        alongside its configurations.  It is dropped rather than kept: the property
+        shadows it, so it would sit there unread and be written out again by
+        :meth:`~.ReadWriteable.to_h5`, propagating a column nothing consults.  Every
+        weight the library ever stored was one, so there is nothing to preserve.
+        '''
+        o = super().from_h5(group, strict=strict, _top=_top)
+        o.__dict__.pop('weight', None)
+        return o
 
-        auto = dict()
-        for name in observables:
-            if not supervillain.observables[name].autocorrelation(self):
-                continue
-            try:
-                auto[name] = autocorrelation_time(getattr(self, name))
-            except Exception as E:
-                raise ValueError(f'{name} does not fluctuate enough') from E
-
-        if every:
-            return auto
-        else:
-            return max(auto.values())
+    def timeseries(self, name):
+        r'''
+        The measurement of observable ``name`` on every configuration, as a plain
+        array.  An :class:`~.Ensemble` holds its configurations, so this is just
+        the measurement itself; something that streams its configurations has to
+        work harder.
+        '''
+        return Batch.as_array(getattr(self, name))
 
     def cut(self, start):
         r'''
@@ -246,12 +297,17 @@ class Ensemble(Extendable):
         e = Ensemble(self.Action).from_configurations(self.configuration[start:])
         e.index = self.index[start:]
         e.index_stride = self.index_stride
-        e.weight = self.weight[start:]
+        # .weight is derived from the (now-sliced) logWeight_* configuration columns.
 
         for o in self.measured:
             setattr(e, o, getattr(self, o)[start:])
 
-        e.generator = self.generator
+        # A hand-assembled ensemble (from_configurations) has no generator; there
+        # is then nothing to carry forward and continue_from is simply unavailable.
+        try:
+            e.generator = self.generator
+        except AttributeError:
+            pass
 
         return e
 
@@ -279,12 +335,16 @@ class Ensemble(Extendable):
         e = Ensemble(self.Action).from_configurations(self.configuration[::stride])
         e.index = self.index[::stride]
         e.index_stride = self.index_stride * stride
-        e.weight = self.weight[::stride]
+        # .weight is derived from the (now-strided) logWeight_* configuration columns.
 
         for o in self.measured:
             setattr(e, o, getattr(self, o)[::stride])
 
-        e.generator = supervillain.generator.combining.KeepEvery(stride, self.generator, blocked_inline=False)
+        # As in cut: no generator to wrap when the ensemble was hand-assembled.
+        try:
+            e.generator = supervillain.generator.combining.KeepEvery(stride, self.generator, blocked_inline=False)
+        except AttributeError:
+            pass
 
         return e
 
@@ -305,12 +365,17 @@ class Ensemble(Extendable):
         if histogram_label is None:
             histogram_label=label
 
-        data = getattr(self, observable)
-        axes[0].plot(self.index, data, color=color, **history_kwargs)
+        data = Batch.as_array(getattr(self, observable))
+        axes[0].plot(Batch.as_array(self.index), data, color=color, **history_kwargs)
+        # The trajectory (left) is the raw chain; the histogram (right) is the
+        # observable's DISTRIBUTION, so on a reweighted ensemble it is weighted by
+        # .weight (a no-op for the default unit weights) to show the physical, not
+        # the merely-sampled, distribution.
         axes[1].hist(data, label=histogram_label,
                      orientation='horizontal',
                      bins=bins, density=density,
                      color=color, alpha=alpha,
+                     weights=_broadcast_over_draws(self.weight, data),
                      )
 
     def __getattr__(self, name):

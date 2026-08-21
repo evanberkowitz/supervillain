@@ -44,20 +44,23 @@ args = parser.parse_args(
 import logging
 logger = logging.getLogger(__name__)
 
-# First create the lattices and the action.
-L = supervillain.lattice.Lattice2D(args.N)
-
 e = dict()
 b = dict()
+
+_lattice = {
+    'villain':   supervillain.lattice.Lattice2D(args.N),
+    'worldline': supervillain.lattice.Lattice2D(args.N),
+}
 
 for (a, A) in (
     ('villain', supervillain.action.Villain),
     ('worldline', supervillain.action.Worldline),
 ):
+    L = _lattice[a]
     S = A(L, args.kappa, args.W)
     
     if isinstance(S, supervillain.action.Villain):
-        G = supervillain.generator.villain.Hammer(S, worms=L.plaquettes)
+        G = supervillain.generator.villain.Hammer(S, worms=L.cells_of_degree[2])
     elif isinstance(S, supervillain.action.Worldline):
         G = supervillain.generator.worldline.Hammer(S, worms=L.sites)
 
@@ -98,25 +101,25 @@ for (a, A) in (
 
 fig, ax = plt.subplots(2,1, figsize=(12,12), sharex='col')
 
-b['worldline'].Vortex_Vortex = L.irrep(b['worldline'].Vortex_Vortex)
+b['worldline'].Vortex_Vortex = L.symmetrize(b['worldline'].Vortex_Vortex)
 b['worldline'].plot_correlator(ax[0], 'Vortex_Vortex', offset=0.0, label='Worldline')
 
-b['villain'].V_V = L.irrep(b['villain'].Vortex_Vortex_Worm / b['villain'].Vortex_Vortex_Worm[:,0,0][:,None,None])
+b['villain'].V_V = L.symmetrize(b['villain'].Vortex_Vortex_Worm / b['villain'].Vortex_Vortex_Worm[:,0,0][:,None,None])
 b['villain'].plot_correlator(ax[0], 'V_V', offset=0.05, label='Villain worm inline')
 
-b['villain'].Vortex_Vortex = L.irrep(b['villain'].Vortex_Vortex)
+b['villain'].Vortex_Vortex = L.symmetrize(b['villain'].Vortex_Vortex)
 b['villain'].plot_correlator(ax[0], 'Vortex_Vortex', offset=0.00, label='Villain taxicab')
 
 ax[0].legend()
 ax[0].set_ylabel('Vortex_Vortex')
 
-b['villain'].Spin_Spin = L.irrep(b['villain'].Spin_Spin)
+b['villain'].Spin_Spin = L.symmetrize(b['villain'].Spin_Spin)
 b['villain'].plot_correlator(ax[1], 'Spin_Spin', offset=0.00, label='Villain')
 
-b['worldline'].S_S = L.irrep(b['worldline'].Spin_Spin_Worm / b['worldline'].Spin_Spin_Worm[:,0,0][:,None,None])
+b['worldline'].S_S = L.symmetrize(b['worldline'].Spin_Spin_Worm / b['worldline'].Spin_Spin_Worm[:,0,0][:,None,None])
 b['worldline'].plot_correlator(ax[1], 'S_S', offset=0.05, label='Worldline worm inline', multiplier=1)#/1.4)
 
-b['worldline'].Spin_Spin = L.irrep(b['worldline'].Spin_Spin)
+b['worldline'].Spin_Spin = L.symmetrize(b['worldline'].Spin_Spin)
 b['worldline'].plot_correlator(ax[1], 'Spin_Spin', offset=0.10, label='Worldline taxicab')
 
 ax[1].axhline(0, color='black')
