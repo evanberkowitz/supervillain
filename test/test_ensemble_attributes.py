@@ -44,13 +44,18 @@ def test_an_ensemble_without_configurations_says_so(action, name):
 
 
 def test_the_machinery_that_asks_quietly_still_works(action):
-    r'''hasattr catches AttributeError and nothing else, and copy.deepcopy probes
-    for __deepcopy__ and then __setstate__.  Neither is asking for anything
-    unusual; both broke.
+    r'''hasattr catches AttributeError and nothing else, and the copy protocol
+    probes for __deepcopy__ and then __setstate__.  Neither is asking for
+    anything unusual; both broke.
+
+    Shallow and deep copies take the same route --- neither class defines __copy__
+    or __deepcopy__, so both fall to __reduce_ex__, which builds an empty instance
+    and asks it for __setstate__ --- so both are checked.
     '''
     e = supervillain.Ensemble(action)
 
     assert not hasattr(e, 'anything')
+    assert isinstance(copy.copy(e), supervillain.Ensemble)
     assert isinstance(copy.deepcopy(e), supervillain.Ensemble)
 
 
@@ -85,11 +90,14 @@ def test_the_analysis_classes_delegate_the_same_way(cls, populated):
     r'''Bootstrap and Blocking forward to their ensemble in __getattr__ exactly as
     an Ensemble forwards to its configuration, and had the same defect.
 
-    Here it is worse than an edge.  copy.deepcopy asks the original for
-    __deepcopy__, which is harmless, and then asks the empty instance it
-    reconstructs for __setstate__ before restoring any state --- and that is the
-    lookup that recursed.  So deepcopy of an ordinary, fully populated Bootstrap
-    raised RecursionError, with no half-built object anywhere in sight.
+    Here it is worse than an edge.  Copying asks the original for __deepcopy__,
+    which is harmless, and then asks the empty instance it reconstructs for
+    __setstate__ before restoring any state --- and that is the lookup that
+    recursed.  So copying an ordinary, fully populated Bootstrap raised
+    RecursionError, with no half-built object anywhere in sight, and shallow
+    copies fail exactly as deep ones do: neither class defines __copy__ or
+    __deepcopy__, so both go through __reduce_ex__ and build that empty
+    instance.
     '''
     bare = cls.__new__(cls)                       # as deepcopy and from_h5 make one
     with pytest.raises(AttributeError):
@@ -97,6 +105,7 @@ def test_the_analysis_classes_delegate_the_same_way(cls, populated):
 
     o = cls(populated, draws=20) if cls is Bootstrap else cls(populated, width=2)
 
+    assert isinstance(copy.copy(o), cls)
     assert isinstance(copy.deepcopy(o), cls)
 
     # and the delegation itself is untouched
