@@ -60,6 +60,41 @@ def setup(app):
     # sphinx_toolbox.github hard-codes "master"; use the branch being built.
     app.connect('config-inited', _set_github_source_url, priority=851)
 
+    # sphinx_toolbox.collapse writes a labelled .. collapse:: as
+    # <details name="the-label"> and never emits an id, so a :ref: to one
+    # resolves at build time and lands nowhere in the browser.  Nothing warns:
+    # the cross-reference itself is perfectly well formed, and only the anchor
+    # it points at is missing.  Register a visitor that emits the ids.
+    from sphinx_toolbox.collapse import CollapseNode, depart_collapse_node
+    app.add_node(
+            CollapseNode,
+            html=(_visit_collapse_node, depart_collapse_node),
+            override=True,
+            )
+
+
+def _visit_collapse_node(translator, node):
+    # sphinx_toolbox's own visitor, plus the ids; see setup().
+    from html import escape
+    from sphinx_toolbox.collapse import CollapseSummaryNode
+
+    tag = ['details']
+    if node.get('ids'):
+        # An element carries one id.  A directive given several labels would
+        # lose all but the first, which no page here does.
+        tag.append(f'id="{node["ids"][0]}"')
+    if node.get('names'):
+        tag.append('name="{}"'.format(' '.join(node['names'])))
+    if node.get('classes'):
+        tag.append('class="{}"'.format(' '.join(node['classes'])))
+    if node.attributes.get('open', False):
+        tag.append('open')
+
+    translator.body.append('<{}>\n'.format(' '.join(tag)))
+    if not any(isinstance(child, CollapseSummaryNode) for child in node.children):
+        translator.body.append(f"<summary>{escape(node.get('label') or '')}</summary>")
+    translator.context.append('</details>')
+
 
 def _set_github_source_url(app, config):
     config.github_source_url = config.github_url / 'blob' / _git_branch()
