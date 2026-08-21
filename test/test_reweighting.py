@@ -657,3 +657,38 @@ def test_the_weight_survives_logs_that_would_overflow(tmp_path, offset):
     plain_bootstrap.indices = once
     assert float(np.asarray(shifted_bootstrap.XSquared)[0]) == pytest.approx(
             float(np.asarray(plain_bootstrap.XSquared)[0]))
+
+
+def test_inline_blocking_of_a_weighted_generator_is_refused():
+    r'''KeepEvery(n, g) discards n-1 of every n updates, and by default averages
+    the inline measurements across all n so that a rare-but-large one is not
+    thrown away with the configuration that produced it.
+
+    That averaging cannot be reconciled with a weight.  A kept configuration
+    carries one weight, and a later <Ow>/<w> over the kept configurations reads
+    it two ways at once: every ordinary Observable is measured on the kept
+    configuration, so the weight has to be that configuration's own; a blocked
+    inline measurement is an average over n updates, so it pairs correctly only
+    with their average weight.  Averaging the logs, which is what blocking a
+    logWeight_ column would do, is a third quantity again.
+
+    Left alone it is a silent bias --- the toy comes back 0.87 rather than 0.5,
+    with an error bar small enough to look like a discovery --- so the
+    combination is refused where it is built rather than where it is wrong.
+    '''
+    action = Gaussian()
+
+    with pytest.raises(ValueError, match='blocked inline'):
+        supervillain.generator.combining.KeepEvery(4, SampleWide(action))
+
+    # Declining to block the inline measurements is fine, and still answers.
+    strided = supervillain.generator.combining.KeepEvery(
+            4, SampleWide(action), blocked_inline=False)
+    e = supervillain.Ensemble(action).generate(20000, strided, start='cold')
+    mean, error = (float(_) for _ in Bootstrap(e, draws=100).estimate('XSquared'))
+    assert abs(mean - 0.5) < 5 * error, f'{mean} +/- {error} is not 1/2'
+
+    # And an unweighted generator blocks its inline measurements as it always has.
+    S = supervillain.action.Villain(supervillain.lattice.Lattice2D(N), KAPPA)
+    supervillain.generator.combining.KeepEvery(
+            3, supervillain.generator.villain.NeighborhoodUpdate(S))

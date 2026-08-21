@@ -84,6 +84,25 @@ class KeepEvery(ReadWriteable, Generator):
         self.generator = generator
         self.blocked_inline = blocked_inline
 
+        # Blocking the inline measurements and importance weights cannot both be
+        # served by the one weight a kept configuration carries.  A weighted
+        # <Ow>/<w> over the kept configurations needs that weight to be the kept
+        # configuration's own, since that is the configuration every ordinary
+        # Observable is measured on; but a blocked inline measurement is an
+        # average over n updates, and pairs correctly only with their average
+        # weight.  Averaging the logs, as the blocking below would, is a third
+        # thing again and matches neither.  So refuse, rather than bias an
+        # answer that has no visible symptom.
+        if self.blocked_inline:
+            weights = sorted(o for o in generator.inline_observables(1) if o.startswith('logWeight_'))
+            if weights:
+                raise ValueError(
+                    f'{generator} emits an importance weight ({", ".join(weights)}), which cannot be '
+                    'blocked inline: the weight stored with a kept configuration has to be that '
+                    "configuration's own.  Pass blocked_inline=False, or keep every configuration "
+                    'and block the ensemble afterwards with supervillain.analysis.Blocking, which '
+                    'weights its blocks correctly.')
+
     def __str__(self):
         return f'KeepEvery({self.stride}, {str(self.generator)})'
 

@@ -116,9 +116,7 @@ class Ensemble(Extendable):
             Any importance weights ride along automatically.  They are
             ``logWeight_`` fields of the configuration rather than a separate
             array, so the continuation's generator emits its own and
-            :meth:`~.Extendable.extend_h5` grows the column like any other.  The
-            seed handed to the generator is the last *whole* configuration, so a
-            weight that depends on its predecessor's can read it there, and
+            :meth:`~.Extendable.extend_h5` grows the column like any other, and
             :attr:`weight` normalizes across the grown chain when it is asked
             for.
 
