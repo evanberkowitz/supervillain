@@ -45,8 +45,8 @@ def test_an_ensemble_without_configurations_says_so(action, name):
 
 def test_the_machinery_that_asks_quietly_still_works(action):
     r'''hasattr catches AttributeError and nothing else, and copy.deepcopy probes
-    for __deepcopy__ and __getstate__ before doing anything.  Neither is asking
-    for something unusual; both broke.
+    for __deepcopy__ and then __setstate__.  Neither is asking for anything
+    unusual; both broke.
     '''
     e = supervillain.Ensemble(action)
 
@@ -85,10 +85,11 @@ def test_the_analysis_classes_delegate_the_same_way(cls, populated):
     r'''Bootstrap and Blocking forward to their ensemble in __getattr__ exactly as
     an Ensemble forwards to its configuration, and had the same defect.
 
-    Here it is worse than an edge: copy.deepcopy reconstructs an empty instance
-    and asks it for __deepcopy__ and __setstate__ before restoring anything, so
-    deepcopy of an ordinary, fully populated Bootstrap raised RecursionError ---
-    no half-built object required.
+    Here it is worse than an edge.  copy.deepcopy asks the original for
+    __deepcopy__, which is harmless, and then asks the empty instance it
+    reconstructs for __setstate__ before restoring any state --- and that is the
+    lookup that recursed.  So deepcopy of an ordinary, fully populated Bootstrap
+    raised RecursionError, with no half-built object anywhere in sight.
     '''
     bare = cls.__new__(cls)                       # as deepcopy and from_h5 make one
     with pytest.raises(AttributeError):

@@ -145,8 +145,9 @@ class Blocking(ReadWriteable):
         # The ensemble is reached through __dict__ rather than as self.Ensemble,
         # which would be an attribute lookup of its own and, on an instance that
         # has yet to be given one, a miss --- so this method would call itself
-        # until the stack ran out.  copy.deepcopy makes exactly that lookup on the
-        # empty instance it reconstructs, so deepcopy of an ordinary, fully
+        # until the stack ran out.  copy.deepcopy asks the empty instance it
+        # reconstructs for __setstate__, which is exactly that lookup, so a
+        # deepcopy of an ordinary, fully
         # populated Blocking raised RecursionError.
         ensemble = self.__dict__.get('Ensemble')
         if ensemble is None:
