@@ -95,12 +95,11 @@ class Blocking(ReadWriteable):
         obs = Batch.as_array(obs)
         weight = Batch.as_array(self.Ensemble.weight)
         shape = obs.shape[1:]
-        trailing = tuple(range(1, 1+len(shape)))
 
         blocked = (
             obs[self.drop:] * np.expand_dims(
                 weight[self.drop:],
-                axis=trailing
+                axis=tuple(range(1, 1+len(shape)))
             )
         ).reshape(-1, self.width, *shape).mean(axis=1)
 
