@@ -48,6 +48,14 @@ class Bootstrap(ReadWriteable):
         self.draws = draws
         r'''The number of resamplings.'''
         cfgs = len(ensemble)
+        # A resample of nothing is nan in every draw, which numpy produces with a
+        # warning and which then propagates through every estimate that touches it.
+        # StreamingBootstrap refuses this in the same words; the two should not
+        # differ on the same mistake.  .cut can arrive here honestly --- cut(5*tau)
+        # on a chain shorter than that keeps nothing.
+        if cfgs < 1:
+            raise ValueError(
+                'there is nothing to resample; the ensemble offers no samples at all.')
         self.indices = np.random.randint(0, cfgs, (cfgs, draws))
         r'''The random draws themselves; configurations × draws.'''
         

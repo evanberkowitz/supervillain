@@ -134,6 +134,15 @@ def sample_autocorrelation_time(source, observables=None, every=False):
     if len(observables) == 0:
         observables = tuple(supervillain.observables.keys())
 
+    # Half of nothing is nothing, and a τ of 0 is not a number this library can
+    # mean: the minimum is 1, and it would be handed on as a Blocking width or an
+    # every() stride, where it is nonsense a second time.  Refused here, before
+    # any observable is attempted, so that an empty source does not first produce
+    # a warning per observable from taking means of nothing.
+    if len(source) == 0:
+        raise ValueError(
+            'there is no autocorrelation time; the source offers no samples at all.')
+
     # On a reweighted source the relevant tau is that of the ratio-estimator
     # influence function w(O-Obar)/<w>, not of O itself, so hand over the weights.
     # A no-op at unit weight, which is every source that carries no logWeight_

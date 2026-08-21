@@ -102,3 +102,35 @@ def test_the_analysis_classes_delegate_the_same_way(cls, populated):
     assert np.asarray(Batch.as_array(o.ActionDensity)).shape[0] == len(o)
     with pytest.raises(AttributeError):
         o.anything
+
+
+def test_cutting_everything_away_is_refused_where_it_becomes_an_answer(populated):
+    r'''.cut can empty an ensemble --- cut(5*tau) on a chain shorter than that keeps
+    nothing, which is an honest way to arrive here --- and .every cannot, since it
+    always keeps the first configuration.
+
+    The empty view itself is not malformed: it has a length, an empty weight, and
+    a script may reasonably test it.  What is undefined is an answer computed from
+    it.  A resample of nothing is nan in every draw, and half of nothing is a tau
+    of 0, which is not a number this library can mean and which would be handed on
+    as a Blocking width or an every() stride.  StreamingBootstrap already refused
+    the first of those; the in-memory paths should not differ on the same mistake.
+    '''
+    empty = populated.cut(len(populated))
+    assert len(empty) == 0
+    assert len(np.asarray(Batch.as_array(empty.weight))) == 0
+    assert len(populated.every(999)) == 1, 'every keeps the first configuration'
+
+    with pytest.raises(ValueError):
+        Bootstrap(empty, draws=10)
+
+    with pytest.raises(ValueError):
+        empty.autocorrelation_time()
+
+    # A blocking of nothing is empty rather than wrong, and refuses one step later.
+    with pytest.raises(ValueError):
+        Bootstrap(Blocking(empty, width=2), draws=10)
+
+    # None of which costs the ordinary case.
+    assert np.asarray(Batch.as_array(Bootstrap(populated, draws=10).ActionDensity)).shape == (10,)
+    assert populated.autocorrelation_time() >= 1
