@@ -7,12 +7,11 @@ import supervillain
 from supervillain.h5 import Extendable
 from supervillain.performance import Timer
 from supervillain.analysis.autocorrelation import sample_autocorrelation_time
-from supervillain.batch import Batch
+from supervillain.batch import Batch, _broadcast_over_draws
 import supervillain.h5
 
 import logging
 logger = logging.getLogger(__name__)
-
 
 class Ensemble(Extendable):
     r'''An ensemble of configurations importance-sampled according to the ``action``.
@@ -196,8 +195,7 @@ class Ensemble(Extendable):
         product over contributions, or the exponential of the *summed*
         log-weights.  Working in logs and summing keeps the accumulation stable
         even when individual factors are astronomically small.
-
-                    '''
+        '''
         # The global ``max`` subtraction is numerical conditioning only --- it
         # cancels in :class:`~.Bootstrap`'s :math:`\langle Ow\rangle/\langle
         # w\rangle` ratio --- and is retaken over whatever configurations are
@@ -208,14 +206,20 @@ class Ensemble(Extendable):
         if not cols:
             return Batch(np.ones(len(self)))
         lw = sum(np.asarray(Batch.as_array(self.configuration.fields[k])) for k in cols)
-        if not np.isfinite(lw.max()):
-            # Every configuration weighs zero, so <Ow>/<w> is 0/0 and the max
-            # subtraction is -inf minus -inf.  Silent nan is the worst outcome.
+        peak = lw.max()
+        if not np.isfinite(peak):
+            # Silent nan is the worst outcome, so refuse; but say which way it
+            # went wrong, since -inf everywhere and a stray inf or nan are
+            # different mistakes with different fixes.
+            if np.isneginf(lw).all():
+                raise ValueError(
+                    'every configuration has zero importance weight, so no weighted '
+                    'expectation value exists; the reweighting has no overlap with '
+                    'what it is meant to sample.')
             raise ValueError(
-                'every configuration has zero importance weight, so no weighted '
-                'expectation value exists; the reweighting has no overlap with '
-                'what it is meant to sample.')
-        return Batch(np.exp(lw - lw.max()))
+                f'a configuration has a log-weight that is not a number ({peak}), '
+                'so no weight can be derived from it.')
+        return Batch(np.exp(lw - peak))
 
     def autocorrelation_time(self, observables=None, every=False):
         r'''
@@ -365,7 +369,7 @@ class Ensemble(Extendable):
                      orientation='horizontal',
                      bins=bins, density=density,
                      color=color, alpha=alpha,
-                     weights=Batch.as_array(self.weight),
+                     weights=_broadcast_over_draws(self.weight, data),
                      )
 
     def __getattr__(self, name):

@@ -692,3 +692,113 @@ def test_inline_blocking_of_a_weighted_generator_is_refused():
     S = supervillain.action.Villain(supervillain.lattice.Lattice2D(N), KAPPA)
     supervillain.generator.combining.KeepEvery(
             3, supervillain.generator.villain.NeighborhoodUpdate(S))
+
+
+def test_a_view_that_underflows_still_weighs_what_it_presents(tmp_path):
+    r'''Weights are only ever ratios, so what matters is that a view of an
+    ensemble --- .cut, .every --- renormalizes to the configurations it presents,
+    and that the streamed and in-memory paths do it identically.
+
+    Doing that arithmetic on the weights rather than on the logs looks equivalent
+    and is not.  A log spread of hundreds is ordinary in a reweighted ensemble;
+    exp() of anything below about -745 is exactly zero in double precision, so a
+    view that keeps only configurations far below the whole ensemble's peak holds
+    nothing but zeros, and rescaling those by their own maximum is 0/0.  Taking
+    the exponential last, on the presented configurations, cannot do that.
+    '''
+    action = Gaussian()
+    e = supervillain.Ensemble(action).generate(60, SampleWide(action), start='cold')
+
+    # The heavy configurations are all at the front; everything the cut keeps
+    # underflows exp() outright.
+    logs = np.zeros(len(e)); logs[10:] = -900.
+    e.configuration.fields['logWeight_gauss'] = Batch(logs)
+
+    path = tmp_path / 'underflow.h5'
+    with h5.File(path, 'w') as f:
+        e.to_h5(f.create_group('ensemble'))
+
+    assert np.exp(-900.) == 0., 'the premise: those weights really do underflow'
+
+    with h5.File(path, 'r') as f:
+        for cut, every in ((20, 1), (20, 3), (0, 1)):
+            memory   = supervillain.Ensemble.from_h5(f['ensemble']).cut(cut).every(every)
+            streamed = EnsembleStreamer(f['ensemble'], chunk=8).cut(cut).every(every)
+
+            w = np.asarray(Batch.as_array(memory.weight))
+            # A configuration far below the peak may weigh zero and simply not
+            # contribute; what must not happen is nan, or a view whose weights
+            # are not renormalized to the configurations it presents.
+            assert np.isfinite(w).all(), f'cut({cut}).every({every}) in memory: {w}'
+            assert w.max() == pytest.approx(1.), f'cut({cut}).every({every}) is not renormalized'
+            assert np.allclose(w, np.asarray(streamed.weight)), f'cut({cut}).every({every}) streamed'
+
+
+@pytest.mark.parametrize('observable', ('ActionDensity', 'TorusWrapping'))
+def test_plot_history_weights_the_histogram_of_any_observable(observable):
+    r'''plot_history's histogram is the observable's distribution, so it is
+    weighted; the trajectory beside it is the raw chain and is not.
+
+    An observable with components --- TorusWrapping has one per direction ---
+    reaches matplotlib as a two-dimensional array, which hist reads as one
+    dataset per component and which needs weights of matching shape.  A bare
+    per-configuration weight raises there, so it is broadcast.
+    '''
+    matplotlib = pytest.importorskip('matplotlib')
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+
+    S = supervillain.action.Villain(supervillain.lattice.Lattice2D(N), KAPPA)
+    e = generate.villain(N=N, kappa=KAPPA, configurations=CONFIGURATIONS)
+    e.measure()
+
+    data = np.asarray(Batch.as_array(getattr(e, observable)))
+    assert data.ndim in (1, 2), f'{observable} is not something hist can take'
+
+    fig, axes = plt.subplots(1, 2)
+    try:
+        e.plot_history(axes, observable)
+        Blocking(e, width=5).plot_history(axes, observable)
+    finally:
+        plt.close(fig)
+
+
+def test_a_block_of_zero_weight_configurations_contributes_nothing(tmp_path):
+    r'''Blocking divides a block by its own average weight so that the average
+    over blocks telescopes back to the average over configurations.  A block whose
+    configurations all weigh zero divides zero by zero.
+
+    Those zeros are not a generator's mistake and no guard rejects them: the logs
+    are perfectly finite --- a spread of a few hundred is ordinary once a
+    reweighting is doing any work --- and it is exp() that underflows, at about
+    -745.  The block's value is genuinely undefined, but its contribution is not.
+    It is zero, and it has to stay a number to remain zero: one nan block turns
+    every average it enters, and so the whole bootstrap, into nan.
+    '''
+    action = Gaussian()
+    e = supervillain.Ensemble(action).generate(40, SampleWide(action), start='cold')
+
+    logs = np.zeros(len(e)); logs[8:] = -900.        # only the first block survives
+    e.configuration.fields['logWeight_gauss'] = Batch(logs)
+    assert np.exp(-900.) == 0., 'the premise: the weights really do underflow'
+
+    blocking = Blocking(e, width=8)
+    values = np.asarray(Batch.as_array(blocking.XSquared))
+    weight = np.asarray(Batch.as_array(blocking.weight))
+
+    assert (weight[1:] == 0).all() and weight[0] > 0, f'the premise: {weight}'
+    assert np.isfinite(values).all(), f'a weightless block came back as {values}'
+    assert (values[1:] == 0).all()
+
+    path = tmp_path / 'blocks.h5'
+    with h5.File(path, 'w') as f:
+        e.to_h5(f.create_group('ensemble'))
+
+    with h5.File(path, 'r') as f:
+        streamed = StreamingBlocking(EnsembleStreamer(f['ensemble'], chunk=4), width=8)
+        out = np.zeros(len(streamed))
+        for start, v in streamed.values('XSquared'):
+            out[start:start + len(v)] = np.asarray(v)
+
+        assert np.isfinite(out).all(), f'streamed: {out}'
+        assert np.allclose(out, values), 'streamed and in-memory blocking disagree'

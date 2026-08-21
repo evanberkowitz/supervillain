@@ -28,7 +28,13 @@ import supervillain.h5
 from supervillain.batch import Batch
 from supervillain.analysis import Bootstrap, Blocking
 from supervillain.analysis.streaming import (
-        EnsembleStreamer, StreamingBlocking, StreamingBootstrap, _stream_weight)
+        EnsembleStreamer, StreamingBlocking, StreamingBootstrap, _stream_weight, _present)
+
+
+def _weight(group, start=0, stride=1):
+    r'''The weights a streamer would present: _stream_weight reads the summed
+    logs off the disk, _present exponentiates the ones that are shown.'''
+    return _present(_stream_weight(group), start, stride, group)
 import generate
 
 # Small and cheap: these tests check bookkeeping, not physics, so the ensemble
@@ -263,7 +269,7 @@ def test_stream_weight_logs_sum_with_one_global_max():
     b = np.array([1.0, -3.0, 4.0, 0.0, 2.0, 1.5, -0.5, 1.0])
 
     with h5.File('weights.h5', 'w', driver='core', backing_store=False) as f:
-        weight = _stream_weight(_weighted_group(f, {'a': a, 'b': b}))
+        weight = _weight(_weighted_group(f, {'a': a, 'b': b}))
 
     logWeight = a + b
     assert np.allclose(weight, np.exp(logWeight - logWeight.max()))
@@ -295,7 +301,7 @@ def test_stream_weight_reads_logs_or_nothing(tmp_path):
     # Inline logWeight_ columns are the weight.
     with h5.File('logs.h5', 'w', driver='core', backing_store=False) as f:
         group = _weighted_group(f, {'a': logWeights})
-        assert np.allclose(_stream_weight(group),
+        assert np.allclose(_weight(group),
                            np.exp(logWeights - logWeights.max()))
 
     # A stored weight is ignored, even a conspicuous one, and even though the
@@ -304,13 +310,13 @@ def test_stream_weight_reads_logs_or_nothing(tmp_path):
         group = _weighted_group(f, {})
         f.create_dataset('ensemble/configuration/fields/phi/data', data=np.zeros((4, 3, 3)))
         supervillain.h5.Data.write(group, 'weight', Batch(np.arange(4.)))
-        assert np.allclose(_stream_weight(group), np.ones(4))
+        assert np.allclose(_weight(group), np.ones(4))
 
     # With no columns at all, every configuration weighs the same.
     with h5.File('unit.h5', 'w', driver='core', backing_store=False) as f:
         group = _weighted_group(f, {})
         f.create_dataset('ensemble/configuration/fields/phi/data', data=np.zeros((4, 3, 3)))
-        assert np.allclose(_stream_weight(group), np.ones(4))
+        assert np.allclose(_weight(group), np.ones(4))
 
     # And a real, unweighted ensemble comes out at unit weight.
     path = villain_h5(tmp_path)

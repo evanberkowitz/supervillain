@@ -3,12 +3,29 @@
 import numpy as np
 
 import supervillain
-from supervillain.batch import Batch
+from supervillain.batch import Batch, _broadcast_over_draws
 from supervillain.h5 import ReadWriteable
 from supervillain.performance import Timer
 
 import logging
 logger = logging.getLogger(__name__)
+
+def _telescope(blocked, weight):
+    r'''
+    A block's value: :math:`\langle wO\rangle_b` divided by the block's own
+    average weight :math:`\langle w\rangle_b`.
+
+    A block every configuration of which weighs zero --- ordinary once the logs
+    span a few hundred, since exp() underflows long before that --- has
+    :math:`\langle wO\rangle_b = 0` and :math:`\langle w\rangle_b = 0`.  Its
+    value is genuinely undefined, but its *contribution* is not: paired with a
+    zero weight it is zero, and it must stay a number to remain so.  Dividing
+    would make it nan, and a single nan block turns every estimate it is averaged
+    into --- the whole bootstrap --- into nan.
+    '''
+    weight = np.expand_dims(Batch.as_array(weight), axis=tuple(range(1, blocked.ndim)))
+    return np.divide(blocked, weight, out=np.zeros_like(blocked), where=(weight != 0))
+
 
 class Blocking(ReadWriteable):
     r'''
@@ -87,7 +104,7 @@ class Blocking(ReadWriteable):
             )
         ).reshape(-1, self.width, *shape).mean(axis=1)
 
-        return blocked / np.expand_dims(Batch.as_array(self.weight), axis=trailing)
+        return _telescope(blocked, self.weight)
 
     def plot_history(self, axes, observable, label=None,
                      histogram_label=None,
@@ -111,8 +128,8 @@ class Blocking(ReadWriteable):
         # the histogram is weighted by the block weight so it shows the physical
         # distribution.  Both reduce to the plain block mean when the weights are
         # all 1.
-        weight = Batch.as_array(self.weight)
         data = Batch.as_array(getattr(self, observable))
+        weight = _broadcast_over_draws(self.weight, data)
         axes[0].plot(self.index, data, color=color, **history_kwargs)
         axes[1].hist(data, label=histogram_label,
                      orientation='horizontal',

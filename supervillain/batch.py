@@ -11,6 +11,21 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def _broadcast_over_draws(column, data):
+    r'''
+    A per-draw ``column`` (a weight, say) stretched over the trailing shape of
+    ``data``, so that it lines up draw-for-draw with every component.
+
+    matplotlib's ``hist`` treats a two-dimensional ``x`` as one dataset per
+    column and requires ``weights`` of the same shape, which is what this is
+    for; a scalar observable passes straight through.
+    '''
+    column = Batch.as_array(column)
+    if data.ndim == 1:
+        return column
+    return np.broadcast_to(column.reshape((-1,) + (1,) * (data.ndim - 1)), data.shape)
+
+
 def resolve_batch_cls(tag):
     r'''
     Look up the element class for a stored :class:`Batch` column.
