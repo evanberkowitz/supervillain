@@ -142,17 +142,29 @@ class Blocking(ReadWriteable):
         if name in self.__dict__:
             return self.__dict__[name]
 
+        # The ensemble is reached through __dict__ rather than as self.Ensemble,
+        # which would be an attribute lookup of its own and, on an instance that
+        # has yet to be given one, a miss --- so this method would call itself
+        # until the stack ran out.  copy.copy and copy.deepcopy alike reconstruct
+        # an empty instance and ask it for __setstate__, which is exactly that
+        # lookup, so copying an ordinary, fully
+        # populated Blocking raised RecursionError.
+        ensemble = self.__dict__.get('Ensemble')
+        if ensemble is None:
+            raise AttributeError(
+                f'{type(self).__name__} has no {name!r}; it has no ensemble.')
+
         if name in supervillain.observables:
-            forward = getattr(self.Ensemble, name)
+            forward = getattr(ensemble, name)
             self.__dict__[name] = self._block(forward)
 
             return self.__dict__[name]
 
-        if name in self.Ensemble.__dict__:
-            return self.Ensemble.__dict__[name]
+        if name in ensemble.__dict__:
+            return ensemble.__dict__[name]
 
         if name in ('plot_history', 'autocorrelation_time'):
-            return getattr(self.Ensemble, name)
+            return getattr(ensemble, name)
 
         raise AttributeError
 

@@ -48,6 +48,14 @@ class Bootstrap(ReadWriteable):
         self.draws = draws
         r'''The number of resamplings.'''
         cfgs = len(ensemble)
+        # A resample of nothing is nan in every draw, which numpy produces with a
+        # warning and which then propagates through every estimate that touches it.
+        # StreamingBootstrap refuses this in the same words; the two should not
+        # differ on the same mistake.  .cut can arrive here honestly --- cut(5*tau)
+        # on a chain shorter than that keeps nothing.
+        if cfgs < 1:
+            raise ValueError(
+                'there is nothing to resample; the ensemble offers no samples at all.')
         self.indices = np.random.randint(0, cfgs, (cfgs, draws))
         r'''The random draws themselves; configurations × draws.'''
         
@@ -66,11 +74,23 @@ class Bootstrap(ReadWriteable):
         return np.einsum('...d->d...', np.einsum('cd,cd...->c...d', w, obs[self.indices]).mean(axis=0) / w.mean(axis=0))
     
     def __getattr__(self, name):
-        
+
+        # The ensemble is reached through __dict__ rather than as self.Ensemble,
+        # which would be an attribute lookup of its own and, on an instance that
+        # has yet to be given one, a miss --- so this method would call itself
+        # until the stack ran out.  copy.copy and copy.deepcopy alike reconstruct
+        # an empty instance and ask it for __setstate__, which is exactly that
+        # lookup, so copying an ordinary, fully
+        # populated Bootstrap raised RecursionError.
+        ensemble = self.__dict__.get('Ensemble')
+        if ensemble is None:
+            raise AttributeError(
+                f'{type(self).__name__} has no {name!r}; it has no ensemble.')
+
         with Timer(logger.info, f'Bootstrapping {name}', per=len(self)):
 
             try:
-                forward = getattr(self.Ensemble, name)
+                forward = getattr(ensemble, name)
             except Exception as e:
                 raise AttributeError(f"... and so 'Bootstrap' object has no attribute '{name}'") from e
 
