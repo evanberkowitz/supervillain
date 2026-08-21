@@ -1,15 +1,16 @@
 #!/usr/bin/env python
 
 import numpy as np
-from supervillain.h5 import ReadWriteable
+from supervillain.action.action import Action
 from supervillain.batch import Batch
 from supervillain.configurations import Configurations
 from supervillain.lattice import Lattice, Form, d
+from supervillain.generator.symmetry import all_flip_sets
 
 import logging
 logger = logging.getLogger(__name__)
 
-class Villain(ReadWriteable):
+class Villain(Action):
     r'''
     'The' Villain action is just the straightforward
 
@@ -139,3 +140,22 @@ class Villain(ReadWriteable):
         dn = d(configuration['n'])
         zero = (np.mod(dn, self.W) if self.W < float('inf') else dn)
         return (zero == 0).all()
+
+    def admissible_symmetries(self):
+        r'''
+        The whole :ref:`space group <space-group>`: every translation, every
+        axis permutation, and every one of the $2^D$ sign flips.
+
+        .. seealso ::
+
+            :source:`test_action_and_scalars_invariant_under_admissible_symmetry <test/test_symmetry.py>`.
+
+        Returns
+        -------
+        dict
+            Keyword arguments ``translations``, ``flip_sets``, and ``perms``
+            for :class:`~supervillain.generator.symmetry.Symmetry`, with
+            ``flip_sets`` every one of the $2^D$ axis-flip subsets.
+        '''
+        return dict(translations=True,
+                    flip_sets=all_flip_sets(self.Lattice.D), perms=True)

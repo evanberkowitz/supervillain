@@ -1,15 +1,16 @@
 #!/usr/bin/env python
 
 import numpy as np
-from supervillain.h5 import ReadWriteable
+from supervillain.action.action import Action
 from supervillain.batch import Batch
 from supervillain.configurations import Configurations
 from supervillain.lattice import Form, delta
+from supervillain.generator.symmetry import all_flip_sets
 
 import logging
 logger = logging.getLogger(__name__)
 
-class Worldline(ReadWriteable):
+class Worldline(Action):
     r'''
     The dual (worldline) action is
 
@@ -68,6 +69,25 @@ class Worldline(ReadWriteable):
 
         m = configuration['m']
         return (delta(m) == 0).all()
+
+    def admissible_symmetries(self):
+        r'''
+        The whole :ref:`space group <space-group>`: every translation, every
+        axis permutation, and every one of the $2^D$ sign flips.
+
+        .. seealso ::
+
+            :source:`test_worldline_admits_the_full_space_group <test/test_symmetry.py>`.
+
+        Returns
+        -------
+        dict
+            Keyword arguments ``translations``, ``flip_sets``, and ``perms``
+            for :class:`~supervillain.generator.symmetry.Symmetry`, with
+            ``flip_sets`` every one of the $2^D$ axis-flip subsets.
+        '''
+        return dict(translations=True,
+                    flip_sets=all_flip_sets(self.Lattice.D), perms=True)
 
     def __call__(self, m, v, **kwargs):
         r'''

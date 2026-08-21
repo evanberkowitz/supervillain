@@ -345,6 +345,131 @@ def star(data):
 
 
 # ---------------------------------------------------------------------------
+# Lattice symmetries  translate / reflect / permute
+# ---------------------------------------------------------------------------
+#
+# Reference implementations of the hypercubic torus's space group, exercised
+# against ``supervillain.lattice.compact.translate``/``reflect``/``permute``
+# by the cross-validation tests rather than used in production.  One lattice
+# step is two interlaced steps, so a translation is a roll by $2a$; a
+# reflection and a permutation are likewise a single array operation plus a
+# per-site sign, inferred here purely from which interlaced coordinates are
+# odd (i.e. which directions the site's cell spans) rather than from any
+# compact-form component index.
+
+def translate(data, shift):
+    r"""
+    Translate by $a$: a roll of $2a$ in interlaced coordinates, since one
+    lattice step is two interlaced steps.  Infers $D$ from ``data.ndim``.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        A $(2N)^D$ interlaced form array.
+    shift : sequence of int
+        One integer per direction.
+
+    Returns
+    -------
+    np.ndarray
+        The $(2N)^D$ interlaced translated form.
+    """
+    return push(data, tuple(2 * int(s) for s in shift))
+
+
+def reflect(data, flips):
+    r"""
+    Negate the axes in ``flips``.  Infers $D$ from ``data.ndim``.
+
+    .. note ::
+        The base-point shift that the compact implementation applies
+        explicitly is AUTOMATIC here.  For $\mu \notin I$,
+        $\xi_\mu = 2 x_\mu \to -\xi_\mu$; for $\mu \in I$,
+        $\xi_\mu = 2 x_\mu + 1$ and the image cell's base is
+        $2(-x_\mu - 1) + 1 = -(2 x_\mu + 1) = -\xi_\mu$.  Both cases are the
+        same negation, which is exactly why the compact rule needs an
+        explicit base-point shift and this one does not; see
+        :func:`supervillain.lattice.compact.reflect`.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        A $(2N)^D$ interlaced form array.
+    flips : sequence of int
+        The axes to negate.
+
+    Returns
+    -------
+    np.ndarray
+        The $(2N)^D$ interlaced reflected form.
+    """
+    D = data.ndim
+    F = sorted(set(int(m) for m in flips))
+    out = data
+    for mu in F:
+        out = np.roll(np.flip(out, axis=mu), 1, axis=mu)
+    # Sign (-1)^{|I ∩ F|}, with I the odd (form-spanning) directions of the
+    # SITE -- unaffected by the negation above, since negating an odd
+    # interlaced coordinate mod 2N leaves it odd.  Built one flipped axis at
+    # a time as a broadcast (-1)^parity along that axis.
+    for mu in F:
+        shape = [1] * D
+        shape[mu] = out.shape[mu]
+        parity = np.arange(out.shape[mu]).reshape(shape) % 2
+        out = out * (1 - 2 * parity)
+    return out
+
+
+def permute(data, perm):
+    r"""
+    Relabel the axes by the permutation ``perm``, so axis $\mu$ becomes axis
+    ``perm[mu]``.  Infers $D$ from ``data.ndim``.
+
+    .. note ::
+        Both the position and the parity pattern permute together under a
+        plain axis transpose, so the component remapping is automatic.  The
+        sort sign is not.
+
+    .. warning ::
+        The sign is applied at the DESTINATION site's direction set, exactly
+        as in :func:`supervillain.lattice.compact.permute`.  Applying it at
+        the source is correct in $D = 2$ and wrong for $D \geq 3$.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        A $(2N)^D$ interlaced form array.
+    perm : sequence of int
+        A permutation of ``range(D)``.
+
+    Returns
+    -------
+    np.ndarray
+        The $(2N)^D$ interlaced permuted form.
+    """
+    D = data.ndim
+    perm = tuple(int(m) for m in perm)
+    inverse = tuple(int(i) for i in np.argsort(np.asarray(perm)))
+    transposed = np.transpose(data, axes=inverse)
+
+    # sign_pattern[pattern] is the sort sign for a destination site whose odd
+    # (form-spanning) directions are the 1-bits of `pattern`: recover the
+    # source direction set I = sort(π^{-1}(J)) and take the sign that sorts
+    # π(I) into J.  A (2,)^D table, tiled to the full (2N)^D array, exactly
+    # as star's sign table is built.
+    sign_pattern = np.zeros((2,) * D)
+    for pattern in product((0, 1), repeat=D):
+        J = tuple(k for k, b in enumerate(pattern) if b == 1)
+        I = tuple(sorted(inverse[j] for j in J))
+        image = [perm[m] for m in I]
+        sign_pattern[pattern] = _perm_sign(image)
+    N = data.shape[0] // 2
+    sign = np.tile(sign_pattern, (N,) * D)
+
+    return sign * transposed
+
+
+# ---------------------------------------------------------------------------
 # Lattice  — factory for interlaced forms
 # ---------------------------------------------------------------------------
 

@@ -19,6 +19,7 @@ supervillain
 
    supervillain/compact-boson
    supervillain/action
+   supervillain/villain
    supervillain/worldline
    supervillain/lattice
    supervillain/form

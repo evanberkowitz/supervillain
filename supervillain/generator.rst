@@ -254,6 +254,115 @@ Finally, we provide a convenience function which provides an ergodic generator.
 
 .. autofunction :: supervillain.generator.worldline.Hammer
 
+------------------
+Lattice Symmetries
+------------------
+
+Every formulation lives on the same periodic hypercubic lattice, and that lattice has :ref:`a symmetry group <space-group>` of its own --- translations, axis reflections, and axis permutations --- independent of $\phi$, $n$, $m$, or any other field content.
+Drawing an element of that group and applying it to every field is therefore a generator that works for any formulation.
+It carries a configuration to a physically identical one, applying :func:`~supervillain.lattice.translate`, :func:`~supervillain.lattice.reflect`, and :func:`~supervillain.lattice.permute` to each :class:`~supervillain.lattice.Form` the action declares.
+
+These are exact symmetries rather than proposals to be tested.
+$\Delta S = 0$ identically, so they are always accepted.
+Since nothing in the sampling statistics would register a symmetry applied wrongly, an action must declare which symmetries it admits; one is never assumed on its behalf.
+
+Which elements are admissible depends on what the Boltzmann weight is built from, because the lattice operators are not all equally well behaved.
+Writing $R$ for the action of a group element on forms, an operator $\mathcal{O}$ is *equivariant* under that element when it commutes with $R$ up to whatever sign its continuum counterpart carries,
+
+.. math ::
+
+    R\left(\mathcal{O}\omega\right) = \pm\, \mathcal{O}\left(R\omega\right).
+
+Each cell of the table gives that sign; ✗ marks an operator that is not equivariant under that factor in *either* sign, so that no convention could absorb it.
+
+.. list-table::
+   :header-rows: 1
+
+   * - operator
+     - translations
+     - permutations
+     - full inversion
+     - partial flips
+   * - :func:`~supervillain.lattice.d`, :func:`~supervillain.lattice.delta`, :func:`~supervillain.lattice.laplacian`
+     - $+1$
+     - $+1$
+     - $+1$
+     - $+1$
+   * - :func:`~supervillain.lattice.star`
+     - $+1$
+     - $\det \pi$
+     - ✗
+     - ✗
+   * - :func:`~supervillain.lattice.wedge`, $a \wedge b$
+     - $+1$
+     - $+1$
+     - ✗
+     - ✗
+   * - :func:`~supervillain.lattice.wedge`, $a \wedge a$
+     - $+1$
+     - $+1$
+     - $(-1)^p$
+     - ✗
+
+.. Every row of the table above is checked, both the equivariance and the
+   failures, by test_d_equivariance, test_delta_equivariance,
+   test_laplacian_equivariance, test_star_equivariance and
+   test_wedge_equivariance in test/test_symmetry.py.  The star and general
+   wedge rows assert that a sign flip breaks them in BOTH directions, so
+   neither is a sign convention that could be absorbed; the cup-square row
+   asserts the (-1)^p and that partial flips break it either way.
+   test_inner_product_invariance covers the invariance the delta row rests
+   on.  The two identities in the note below are test_star_star and
+   test_hodge_inner_product in test/test_lattice.py.
+
+$d$ is the coboundary of the cell complex --- pure combinatorics of which cell borders which --- so it commutes with any relabelling of cells, and $\delta$ is its adjoint  with respect to the cell-wise inner product :eq:`d-delta-formal-adjoint`, which the space group leaves invariant.
+The wedge and the star instead carry base-point shifts tied to the *sense* of a direction, and a sign flip reverses that sense.
+Note that orientation is not what matters: odd permutations are orientation-reversing and both operators handle them.
+
+So a Boltzmann weight assembled from $d$, $\delta$, and the inner product admits the whole space group, while one containing a wedge may not --- and it makes no difference whether the wedge sits in a constraint or in the action itself.
+Each action declares the consequence through its ``admissible_symmetries``.
+
+Both formulations above admit the whole group.  A formulation constrained by a cup square --- $q = dn \wedge dn = 0$, say --- does not: its admissible sign flips are the identity and the full inversion $x \to -x$ alone, since a cup square survives the inversion (up to a degree-dependent sign) even though a general wedge survives no flip at all.
+Those two are themselves a subgroup, the inversion being central, so uniform draws, closure under inverses, and detailed balance are all unaffected; what shrinks is the reach of a single move.
+
+.. note ::
+
+   Two lattice identities are worth knowing here, since neither is quite the continuum statement.
+   ${\star}{\star}$ is $(-1)^{p(D-p)}$ --- the continuum sign --- times a translation by one step in *every* direction.
+   And $\sum_x (a \wedge {\star} b) = \langle a, b \rangle$ exactly, so the inner product is recovered even though neither ${\star}$ nor $\wedge$ is equivariant under a sign flip on its own.
+   That is why $\delta$ is unaffected despite being expressible as ${\star} d {\star}$.
+
+.. autoclass :: supervillain.generator.symmetry.Symmetry
+   :members:
+
+.. autofunction :: supervillain.generator.symmetry.all_flip_sets
+
+.. autoclass :: supervillain.generator.symmetry.LatticeSymmetry
+   :members:
+
+.. autoclass :: supervillain.generator.symmetry.Translation
+   :members:
+
+:class:`~supervillain.generator.symmetry.Reflection` refuses an action whose admissible flip sets are a proper subset of all $2^D$, rather than applying only the few that survive.
+
+.. autoclass :: supervillain.generator.symmetry.Reflection
+   :members:
+
+.. autoclass :: supervillain.generator.symmetry.AxisPermutation
+   :members:
+
+:class:`~supervillain.generator.symmetry.SpaceGroup` instead narrows to the largest subgroup the action admits, and its ``report`` names the group it samples.
+
+.. autoclass :: supervillain.generator.symmetry.SpaceGroup
+   :members:
+
+Charge conjugation acts on the field values rather than on lattice coordinates, so it is not built from a :class:`~supervillain.generator.symmetry.Symmetry`.
+It is admissible for every action, including one a wedge restricts.
+A constraint $q = F \wedge F$, with $F = dn$, is quadratic in $F$, so $n \to -n$ sends $F \to -F$ and leaves $q$ invariant outright --- conjugation never touches the lattice map the cup product depends on.
+
+.. autoclass :: supervillain.generator.symmetry.Conjugation
+   :members:
+
 --------------------
 Combining Generators
 --------------------
