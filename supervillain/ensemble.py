@@ -112,14 +112,6 @@ class Ensemble(Extendable):
         r'''
         Use the last configuration and generator of ``ensemble`` to produce a new ensemble of ``steps`` configurations.
         
-        .. note ::
-            Any importance weights ride along automatically.  They are
-            ``logWeight_`` fields of the configuration rather than a separate
-            array, so the continuation's generator emits its own and
-            :meth:`~.Extendable.extend_h5` grows the column like any other, and
-            :attr:`weight` normalizes across the grown chain when it is asked
-            for.
-
         Parameters
         ----------
             ensemble: supervillain.Ensemble or an h5py.Group that encodes such an ensemble
