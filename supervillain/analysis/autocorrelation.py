@@ -23,12 +23,13 @@ def autocorrelation(data, mean=None, _cutoff=1e-16):
 
     where the ⟨averages⟩ are over the time $t$ and $C$ is normalized to 1 at $\tau=0$.
 
-    The integrated autocorrelation time $\tau_{int}$ is
+    The integrated autocorrelation time $\tau_{int}$ :cite:`Madras:1988ei` is
 
     .. math::
-        \tau_{int} = \int_{0}^{\tau_0} d\tau\; C(\tau)
+        \tau_{int} = \int_{0}^{\tau_0} d\tau\; C(\tau) = \frac{1}{2} + \sum_{\tau=1}^{\tau_0-1} C(\tau)
 
-    where $\tau_0$ is the first time where $C$ is zero.
+    where $\tau_0$ is the first time at which $C$ is no longer positive, and the sum stops before it.
+    The $\frac{1}{2}$ is the trapezoidal weight of $C(0)=1$; the far endpoint carries no weight of its own, having fallen to zero.
 
     .. note ::
         As defined, $t+\tau$ does not wrap around the end of the time series, because it makes no sense to say that the very end of a Markov chain influences the generation of the beginning.
@@ -66,8 +67,10 @@ def autocorrelation(data, mean=None, _cutoff=1e-16):
     C /= C[0] # normalize
 
     clamped = np.clip(C, 0, None)
-    minIdx = np.argmin(clamped)
-    return C, int(np.ceil(C[:minIdx].sum()))
+    tau_0 = np.argmin(clamped)
+
+    tau = np.ceil(0.5+C[1:tau_0].sum())
+    return C, int(tau)
 
 
 def autocorrelation_time(data, mean=None):
