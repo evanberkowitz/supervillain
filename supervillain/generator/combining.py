@@ -63,6 +63,20 @@ class KeepEvery(ReadWriteable, Generator):
         The number of updates per second will decrease by a factor of n, but the autocorrelation time should be n less.
         Generating a fixed number of configurations will take n times longer.
 
+    .. warning::
+        ``blocked_inline`` cannot be combined with a generator that emits an
+        importance weight; doing so raises.
+        The configuration that is kept carries a single weight, and an expectation
+        value would have to read it two ways at once: every ordinary
+        :class:`~.Observable` is measured on the kept configuration and so needs
+        that configuration's own weight, while a blocked inline measurement is an
+        average over all n updates and pairs only with *their* average weight.
+        Neither choice is right for both, and the wrong one biases the answer
+        without any outward sign.
+        Either pass ``blocked_inline=False``, or keep every configuration and
+        block the ensemble afterwards with :class:`~.Blocking`, which averages a
+        block and hands on its weight consistently.
+
     >>> p = supervillain.generator.worldline.PlaquetteUpdate(S)
     >>> g = supervillain.generator.combining.KeepEvery(10, p)
 
@@ -76,6 +90,14 @@ class KeepEvery(ReadWriteable, Generator):
     blocked_inline: bool
         Rather than just keeping the :py:meth:`~.Generator.inline_observables` from the last update, all of the inline measurements are averaged across all n updates.
         This helps capture rare-but-important measurements that would otherwise be missed.
+
+    Raises
+    ------
+    ValueError
+        If ``blocked_inline`` and ``generator`` emits any importance weight.
+        A generator declares its ``logWeight_`` columns in
+        :py:meth:`~.Generator.inline_observables`, so this is caught when the
+        :class:`KeepEvery` is constructed, before any generation happens.
     '''
 
     def __init__(self, n, generator, blocked_inline=True):
