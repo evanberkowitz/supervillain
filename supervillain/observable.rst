@@ -51,6 +51,56 @@ Action
    :members:
    :show-inheritance:
 
+==================
+Topological Charge
+==================
+
+In four dimensions we can define a simple 4-form topological-charge density $q_x$ in the Villain frame,
+
+.. math ::
+
+   \begin{aligned}
+      Q &= \sum_x q_x
+      &
+      q_x = (dn \wedge dn)_x.
+   \end{aligned}
+
+In D=4 the density is a top-form.
+The charge density is exact, since
+
+.. math ::
+
+   \begin{aligned}
+      q_x &= dn \wedge dn = d(n \wedge dn) = (dJ)_x
+      &
+      J &= n \wedge dn
+   \end{aligned}
+
+and the Leibniz rule :eq:`leibniz-rule` holds exactly.
+This means that the charge is locally conserved, and the total charge $Q$ vanishes configuration by configuration.
+(Of course you could equally well say that $J \sim dn \wedge n$.)
+
+
+.. autoclass :: supervillain.observable.TopologicalChargeDensity
+   :members:
+   :show-inheritance:
+
+.. autoclass :: supervillain.observable.TopologicalCharge
+   :members:
+   :show-inheritance:
+
+.. autoclass :: supervillain.observable.TopologicalChargeDensitySquared
+   :members:
+   :show-inheritance:
+
+.. autoclass :: supervillain.observable.TopologicalTwoPoint
+   :members:
+   :show-inheritance:
+
+.. autoclass :: supervillain.observable.Topological_Topological
+   :members:
+   :show-inheritance:
+
 =======
 Winding
 =======
@@ -71,17 +121,8 @@ Wrapping
    :members:
    :show-inheritance:
 
-Calculations of the :func:`~.autocorrelation_time` are easiest for scalars.
-These decouple the two components of the wrapping.
 
-.. warning ::
-   Like :class:`~.TorusWrapping` these are motivated differently for the different formulations.
-
-.. autoclass :: supervillain.observable.TWrapping
-   :members:
-   :show-inheritance:
-
-.. autoclass :: supervillain.observable.XWrapping
+.. autoclass :: supervillain.observable.WrappingSquared
    :members:
    :show-inheritance:
 
@@ -96,6 +137,10 @@ Spin Correlations
    :show-inheritance:
 
 .. autoclass :: supervillain.observable.Spin_Spin
+   :members:
+   :show-inheritance:
+
+.. autoclass :: supervillain.observable.Spin_Spin_Normalized
    :members:
    :show-inheritance:
 
@@ -120,6 +165,10 @@ Vortex Correlations
    :show-inheritance:
 
 .. autoclass :: supervillain.observable.Vortex_Vortex
+   :members:
+   :show-inheritance:
+
+.. autoclass :: supervillain.observable.Vortex_Vortex_Normalized
    :members:
    :show-inheritance:
 

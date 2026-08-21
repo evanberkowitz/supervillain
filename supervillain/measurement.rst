@@ -48,13 +48,15 @@ All of these nice features are accomplished using the `Descriptor`_ protocol but
 
 If the observable does not provide an implementation for the ensemble's action, asking for it will raise a `NotImplemented`_ exception.
 However, some observables can provide a ``default`` implementation, which is particularly useful for simple functions of other primary observables.
-For example, the :class:`~.TWrapping` is just the time component of the :class:`~.TorusWrapping`.
+For example, :class:`~.WrappingSquared` is just the sum of squares of the components of :class:`~.TorusWrapping`.
 
 .. literalinclude:: observable/wrapping.py
-   :pyobject: TWrapping
+   :pyobject: WrappingSquared
 
 :class:`Generator`\s may return inline measurements of some observables in the dictionary of field variables.
 If those observables match any particular observable, the inline measurements take precedence and short-circuit any other computation.
+
+One namespace of inline measurements is reserved: any field named ``logWeight_<name>`` is an :ref:`importance weight <importance-weights>` (stored as a logarithm), from which :attr:`Ensemble.weight <supervillain.ensemble.Ensemble.weight>` is derived so the :ref:`bootstrap <reweighting>` can form weighted expectation values.
 
 
 Inclusion in Autocorrelation Computation

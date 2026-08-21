@@ -12,6 +12,7 @@ import supervillain.analysis.comparison_plot as comparison_plot
 supervillain.observable.progress=tqdm
 
 parser = supervillain.cli.ArgumentParser(description = 'The goal is to compute the same observables using both the Villain and Worldline actions and to check that they agree.')
+parser.add_argument('--D', type=int, default=2, help='Number of spacetime dimensions.  Defaults to 2.')
 parser.add_argument('--N', type=int, default=5, help='Sites on a side.')
 parser.add_argument('--kappa', type=float, default=0.5, help='κ.  Defaults to 0.5.')
 parser.add_argument('--W', type=supervillain.cli.W, default=1, help='Constraint integer W.  Defaults to 1')
@@ -20,8 +21,7 @@ parser.add_argument('--figure', default=False, type=str)
 parser.add_argument('--observables', nargs='*', help='Names of observables to compare.  Defaults to a list of 7 observables.',
                     default=('ActionDensity',
                              'InternalEnergyDensity', 'InternalEnergyDensitySquared',
-                             'WindingSquared',
-                             'TWrapping', 'XWrapping',
+                             'WindingSquared', 'WrappingSquared',
                              ))
 
 args = parser.parse_args()
@@ -30,7 +30,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # First create the lattices and the action.
-L = supervillain.lattice.Lattice2D(args.N)
+L = supervillain.lattice.Lattice(D=args.D, N=args.N)
 S = supervillain.action.Worldline(L, args.kappa, W=args.W)
 
 with logging_redirect_tqdm():
@@ -41,29 +41,34 @@ with logging_redirect_tqdm():
             supervillain.generator.worldline.WrappingUpdate(S),
         ))
     n = supervillain.Ensemble(S).generate(args.configurations, g, start='cold', progress=tqdm)
+    print(g.report())
     n.measure()
 
-    W = supervillain.generator.combining.Sequentially((
+    # The worldline worm is dimension-general, so it is always included.
+    local_generators = [
             supervillain.generator.worldline.PlaquetteUpdate(S),
             supervillain.generator.worldline.VortexUpdate(S),
             supervillain.generator.worldline.CoexactUpdate(S),
             supervillain.generator.worldline.WrappingUpdate(S),
-            supervillain.generator.worldline.worm.Classic(S),
-        ))
-    w = supervillain.Ensemble(S).generate(args.configurations, W, start='cold', progress=tqdm)
+            supervillain.generator.worldline.Worm(S),
+    ]
+
+    G = supervillain.generator.combining.Sequentially(local_generators)
+    w = supervillain.Ensemble(S).generate(args.configurations, G, start='cold', progress=tqdm)
+    print(G.report())
     w.measure()
 
 # A first computation of the autocorrelation time will have effects from thermalization.
-n_autocorrelation = n.autocorrelation_time()
-w_autocorrelation = w.autocorrelation_time()
+n_autocorrelation = n.autocorrelation_time(args.observables)
+w_autocorrelation = w.autocorrelation_time(args.observables)
 
 # We aggressively cut to ensure thermalization.
 n_thermalized = n.cut(10*n_autocorrelation)
 w_thermalized = w.cut(10*w_autocorrelation)
 
 # Now we can get a fair computation of the autocorrelation time.
-n_autocorrelation = n_thermalized.autocorrelation_time()
-w_autocorrelation = w_thermalized.autocorrelation_time()
+n_autocorrelation = n_thermalized.autocorrelation_time(args.observables)
+w_autocorrelation = w_thermalized.autocorrelation_time(args.observables )
 
 print(f'Autocorrelation time')
 print(f'--------------------')
@@ -91,7 +96,7 @@ comparison_plot.histories(ax,
         )
 
 
-fig.suptitle(f'Worldline N={args.N} κ={args.kappa} W={args.W}')
+fig.suptitle(f'Worldline D={args.D} N={args.N} κ={args.kappa} W={args.W}')
 fig.tight_layout()
 
 if args.figure:

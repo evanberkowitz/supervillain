@@ -33,6 +33,41 @@ A natural choice for n is the autocorrelation time.
 
 Ensembles also have an :meth:`~.Ensemble.autocorrelation_time`, which leverages the above :py:func:`~.analysis.autocorrelation_time` and understands which observables to include.
 
+.. _weighted-autocorrelation:
+
+.. collapse:: We can also understand the autocorrelation time of reweighted ensembles.
+    :class: note
+
+    On a :ref:`reweighted <reweighting>` ensemble the autocorrelation has to be taken of a different time series.
+    The estimator is no longer a plain mean but the ratio :math:`\bar O = \langle wO\rangle / \langle w\rangle`, and what inflates *its* variance is not the autocorrelation of :math:`O_t` but that of each configuration's contribution to the ratio, the *influence function*
+
+    .. math ::
+
+       f(t) = \frac{w_t\,(O_t - \bar O)}{\langle w\rangle}.
+
+    A configuration matters to the estimator in proportion to its weight, and :math:`f` is what says so; the naive autocorrelation of :math:`O_t` alone weighs every configuration the same and is simply the wrong quantity.
+
+    To see where :math:`f` comes from, follow the Wolff :math:`\Gamma`-method treatment of a derived quantity: write the ratio as :math:`F(A,B) = A/B` with :math:`A = \langle wO\rangle` and :math:`B = \langle w\rangle`, and linearize about the sample means.
+    The fluctuation of :math:`F` contributed by configuration :math:`t` is
+
+    .. math ::
+
+       f(t)
+       = \frac{\partial F}{\partial A}\Big(w_t O_t - \langle wO\rangle\Big)
+       + \frac{\partial F}{\partial B}\Big(w_t - \langle w\rangle\Big)
+       = \frac{1}{\langle w\rangle}\Big(w_t O_t - \bar O\, w_t\Big)
+       = \frac{w_t\,(O_t - \bar O)}{\langle w\rangle},
+
+    using :math:`\partial_A F = 1/\langle w\rangle` and :math:`\partial_B F = -\langle wO\rangle/\langle w\rangle^2 = -\bar O/\langle w\rangle`, and dropping :math:`\langle wO\rangle - \bar O\langle w\rangle`, which vanishes identically by the definition of :math:`\bar O`.
+    It is the autocorrelation of :math:`f(t)` whose integral is the :math:`\tau_{int}` that inflates :math:`\mathrm{Var}(\bar O)`.
+    Note that :math:`f` is invariant under a global rescaling of the weights, so the arbitrary normalization of :attr:`~.Ensemble.weight` is immaterial.
+
+    When every weight is 1 it reduces to :math:`f(t) = O_t - \bar O` and the ordinary autocorrelation comes back.
+    :meth:`~.Ensemble.autocorrelation_time` passes the weights along for you --- as do a streamed and a blocked source --- so this happens without being asked for.
+
+    It matters most when the weights carry their own slow Markov-time structure, as they do when the weight depends on a slow mode of the sampler.
+    Then :math:`f` decorrelates more slowly than :math:`O` does, and an unweighted :math:`\tau` would under-report the uncertainty.
+
 Blocking
 --------
 
@@ -51,6 +86,99 @@ The idea is that each draw *could* have been what your samples were with the sam
 .. autoclass:: supervillain.analysis.Bootstrap
    :no-special-members:
    :members: plot_band, plot_correlator, estimate
+
+.. _reweighting:
+
+Reweighting
+-----------
+
+The bootstrap forms the *weighted* expectation value :math:`\langle O\rangle = \langle Ow\rangle / \langle w\rangle` using a per-configuration weight, :attr:`Ensemble.weight <supervillain.ensemble.Ensemble.weight>`.
+By default every weight is 1 and this is the ordinary sample mean.
+A :ref:`reweighting generator <importance-weights>` instead emits per-configuration importance weights, and then :class:`~.Bootstrap` corrects *every* observable automatically --- resampling the numerator and denominator together so the correlated uncertainty is automatically right.
+The autocorrelation time takes the same care, and takes it for you: on a reweighted ensemble it is :ref:`the influence function rather than the observable itself <weighted-autocorrelation>` that has to be correlated.
+
+The :attr:`~supervillain.ensemble.Ensemble.weight` is not stored; it is derived from the generators' ``logWeight_*`` contributions as
+
+.. math ::
+
+   w = \exp\left(\sum_k \texttt{logWeight}_k - \max\right).
+
+The single global ``max`` subtraction is exact: it cancels in the :math:`\langle Ow\rangle/\langle w\rangle` ratio, so it changes no expectation value and serves only to keep the exponentials representable.
+Because only the raw log-weights are persisted --- and the ``max`` is retaken over whatever configurations are present --- :meth:`~.Ensemble.cut`, :meth:`~.Ensemble.every`, and :meth:`~.Ensemble.continue_from` stay self-consistent with nothing to rewrite on disk.
+
+The memory-bounded :class:`~.StreamingBootstrap` derives the same weight from the on-disk log columns, materializing the whole (cheap, scalar) weight vector and taking the global ``max`` before it streams any chunk so that the offset is shared by every configuration and consistently cancels from the ratio.
+
+Streaming an Ensemble
+---------------------
+
+Everything above assumes the ensemble fits in memory.
+A long chain on a large lattice need not.
+A correlator has a value on every site, and resampling one can take far more memory than the ensemble itself, so you may find that an ensemble which was easy to generate is impossible to analyze.
+
+In that case, leave it on disk and analyze it where it sits.
+An :class:`~.EnsembleStreamer` hands a stored ensemble out a few configurations at a time, and everything this page describes can be done that way, in the same order:
+
+.. code:: python
+
+   # an ensemble that fits in memory
+   thermalized = ensemble.cut(1000)
+   decorrelated = Blocking(thermalized.every(2), width=8)
+   Bootstrap(decorrelated)
+
+   # the same analysis of an ensemble that does not
+   thermalized = EnsembleStreamer(h5file['ensemble'], chunk=64).cut(1000)
+   decorrelated = StreamingBlocking(thermalized.every(2), width=8)
+   StreamingBootstrap(decorrelated, target)
+
+Cutting for thermalization and decimating for decorrelation are free.
+:meth:`~.EnsembleStreamer.cut` and :meth:`~.EnsembleStreamer.every` change only which configurations the streamer presents and hand back another streamer; nothing is read and nothing is copied.
+
+Deciding *how much* to cut and decimate is nearly free.
+:meth:`~.EnsembleStreamer.autocorrelation_time` measures as it streams, and only observables that :meth:`opt in <.Observable.autocorrelation>` are considered --- those are scalars, so it costs one number per configuration however large the lattice.
+
+.. autoclass:: supervillain.analysis.SampleSource
+   :no-special-members:
+   :members: values, timeseries, autocorrelation_time
+
+.. autoclass:: supervillain.analysis.EnsembleStreamer
+   :no-special-members:
+   :members: cut, every, chunks
+   :show-inheritance:
+
+Blocking takes real work, and it is usually what you want.
+:meth:`~.EnsembleStreamer.every` decorrelates by throwing configurations away, which is fine when each configuration looks much like its neighbours and much less fine near a phase transition, where an observable is small almost always and occasionally enormous.
+Discard the wrong configuration there and you discard the signal; blocking averages it in instead.
+
+:class:`~.StreamingBlocking` does to a streamer what :class:`~.Blocking` does to an :class:`~.Ensemble`, averaging the measurements as they stream past.
+Neither the ensemble nor its unblocked timeseries is ever assembled, and only the blocks --- smaller than the configurations by the width --- come out the far end.
+
+.. note::
+   Block last.
+   :meth:`~.EnsembleStreamer.cut` and :meth:`~.EnsembleStreamer.every` are arithmetic on *which configurations count*, so they compose in any order; blocking replaces configurations with averages of them, and there is no cutting or decimating after that.
+
+.. autoclass:: supervillain.analysis.StreamingBlocking
+   :no-special-members:
+   :members: values
+   :show-inheritance:
+
+Finally, resample.
+You ask a :class:`~.StreamingBootstrap` for :ref:`observables <primary observables>` and derived quantities exactly as you would ask a :class:`~.Bootstrap`; how it gets them is its own business.
+This is not an approximation --- resampled the same way, a streamed estimate and an ordinary one differ only by floating-point roundoff, because they are the same sum added up in a different order.
+
+A :class:`~.StreamingBootstrap` also saves each result as soon as you ask for it.
+So an analysis interrupted halfway through picks up where it left off instead of starting over, and if you think of another quantity later you pay only for that one.
+What it has saved is an ordinary :class:`~.Bootstrap`, which you can read back with :meth:`~.ReadWriteable.from_h5` on a machine that never sees the ensemble at all.
+
+.. autoclass:: supervillain.analysis.StreamingBootstrap
+   :no-special-members:
+   :show-inheritance:
+
+.. warning::
+   A streamer is not an :class:`~.Ensemble` and does not pretend to be one.
+   In particular it has no :meth:`~.Ensemble.plot_history`, so :func:`~.comparison_plot.bootstraps` --- which plots the history of the ensemble underneath each bootstrap --- does not work on a :class:`~.StreamingBootstrap`.
+   Plot the history of an ensemble small enough to hold.
+
+The script :source:`example/streaming-bootstrap.py` grows an ensemble on disk with :meth:`~.Ensemble.continue_from` and :meth:`~.Extendable.extend_h5`, runs this whole pipeline both ways, and tabulates the agreement.
 
 Uncertainty
 -----------

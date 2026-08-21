@@ -1,6 +1,7 @@
 import pytest
 from functools import wraps
 import supervillain
+from supervillain.batch import Batch
 
 def skip_on(exception, explanation):
 
@@ -44,12 +45,12 @@ def measure_without_inline(ensemble, observable):
         tmp = ensemble.configuration.fields[observable]
         del ensemble.configuration.fields[observable]
         # ... measure the desired observable
-        value = getattr(ensemble, observable)
+        value = Batch.as_array(getattr(ensemble, observable))
         # ... and restore the inline measurement.
         ensemble.configuration.fields[observable] = tmp
     # But if the observable wasn't measured inline, measure it!
     else:
-        value = getattr(ensemble, observable)
+        value = Batch.as_array(getattr(ensemble, observable))
 
     return value
 

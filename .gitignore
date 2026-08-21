@@ -180,3 +180,4 @@ cython_debug/
 
 #Data from csvs
 *.csvtyt
+numba-profiling-report.md

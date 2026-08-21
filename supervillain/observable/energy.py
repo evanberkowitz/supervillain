@@ -5,13 +5,13 @@ class InternalEnergyDensity(Scalar, Observable):
     r'''If we think of $\kappa$ like a thermodynamic $\beta$, then we may compute the internal energy $U$
 
     .. math::
-        \begin{align}
+        \begin{aligned}
         U &= -  \partial_\kappa \log Z
         \\
           &= \left\langle -  \partial_\kappa (-S) \right\rangle
         \\
           &= \left\langle  \partial_\kappa S \right\rangle
-        \end{align}
+        \end{aligned}
 
     It is extensive in the spacetime volume, so we calculate the density
 
@@ -27,7 +27,7 @@ class InternalEnergyDensity(Scalar, Observable):
         In the :class:`~.Villain` case differentiating the action $S_0$ is the same as dividing it by $\kappa$!
         '''
         L = S.Lattice
-        return S(phi, n) / (L.sites * S.kappa)
+        return S(phi, n) / (L.cells_of_degree[0] * S.kappa)
 
 
     @staticmethod
@@ -36,9 +36,9 @@ class InternalEnergyDensity(Scalar, Observable):
         In the :class:`~.Worldline` formulation we differentiate to find
 
         .. math ::
-           \begin{align}
+           \begin{aligned}
             U &= \left\langle \partial_\kappa S \right\rangle = - \frac{1}{2\kappa^2} \sum_{\ell} (m-\delta v/W)_\ell^2 + \frac{|\ell|}{2 \kappa}.
-           \end{align}
+           \end{aligned}
 
         '''
 
@@ -52,9 +52,9 @@ class InternalEnergyDensitySquared(Scalar, Observable):
     energy $U$
 
     .. math::
-        \begin{align}
+        \begin{aligned}
         \langle U^2 \rangle &= \frac{1}{Z} \partial^2_\kappa  Z = \left\langle (\partial_\kappa S)^2 - \partial^2_\kappa S \right\rangle
-        \end{align}
+        \end{aligned}
 
     and to the intensive density squared is
 
@@ -70,15 +70,15 @@ class InternalEnergyDensitySquared(Scalar, Observable):
         In the :class:`~.Villain` case,
 
         .. math ::
-            \begin{align}
+            \begin{aligned}
                 \partial_\kappa S &= S/\kappa
                 &
                 \partial^2_\kappa S &= 0
-            \end{align}
+            \end{aligned}
         '''
 
         L = S.Lattice
-        return (S(phi, n) / (L.sites * S.kappa))**2
+        return (S(phi, n) / (L.cells_of_degree[0] * S.kappa))**2
 
 
     @staticmethod
@@ -87,11 +87,11 @@ class InternalEnergyDensitySquared(Scalar, Observable):
         In the :class:`~.Worldline` formulation we differentiate to find
 
         .. math ::
-            \begin{align}
+            \begin{aligned}
                 \partial_\kappa S &= - \frac{1}{2\kappa^2} \sum_{\ell} (m-\delta v/W)_\ell^2 + \frac{|\ell|}{2 \kappa}
                 &
                 \partial^2_\kappa S &= \frac{1}{\kappa^3} \sum_{\ell} (m-\delta v/W)_\ell^2 - \frac{|\ell|}{2\kappa^2}.
-            \end{align}
+            \end{aligned}
 
         '''
 
@@ -105,9 +105,9 @@ class InternalEnergyDensityVariance(DerivedQuantity):
     r'''
     .. math ::
         
-        \begin{align}
+        \begin{aligned}
         \texttt{InternalEnergyDensityVariance} &= \left\langle U^2/\Lambda^2 \right\rangle - \left\langle U/\Lambda \right\rangle^2
-        \end{align}
+        \end{aligned}
 
     which can be computed from expectation values of :class:`~.InternalEnergyDensitySquared` and :class:`~.InternalEnergyDensity`.
 

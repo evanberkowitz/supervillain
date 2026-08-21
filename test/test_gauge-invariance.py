@@ -5,6 +5,7 @@ from functools import cache
 import numpy as np
 
 import supervillain
+from supervillain.batch import Batch
 import generate
 import harness
 
@@ -18,7 +19,8 @@ def transform(before):
 
     transformed = before.configuration.copy()
     for i, c in enumerate(before.configuration):
-        k = np.random.randint(-10,10, L.dims)
+        k = L.form(0, dtype=int)
+        k[0] = np.random.randint(-10, 10, L.dims)
         transformed[i] = S.gauge_transform(c, k)
 
     return supervillain.Ensemble(S).from_configurations(transformed)
@@ -32,5 +34,5 @@ def test_gauge_invariance(N, kappa, W, observable, configurations=1000):
     before = generate.cached_ensemble('villain', configurations, N, kappa, W)
     after  = transform(before)
 
-    difference = getattr(before, observable) - getattr(after, observable)
+    difference = Batch.as_array(getattr(before, observable)) - Batch.as_array(getattr(after, observable))
     assert (np.abs(difference) <= equality_threshold).all().item()

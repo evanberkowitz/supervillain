@@ -15,11 +15,11 @@ is dual to the free fermion and enjoys two interesting global symmetries,
 
 .. math ::
 
-    \begin{align}
+    \begin{aligned}
         \text{shift}    && U(1)_S  &&  \varphi \rightarrow \varphi+\epsilon    &&  J^S_\mu &= \frac{i}{4\pi} \partial_\mu \varphi
         \\
         \text{winding}  && U(1)_W  &&  \text{topological, not Noetherian}      &&  J^V_\mu &= \frac{1}{2\pi} \epsilon_{\mu\nu} \partial^\nu \varphi
-    \end{align}
+    \end{aligned}
 
 which correspond to the vector and axial currents on the fermionic side.
 The first is always conserved by the equations of motion of $\varphi$, but the second is only conserved so long as partial derivatives commute.
@@ -32,11 +32,11 @@ The discretization is given by
 
 .. math::
 
-   \begin{align}
+   \begin{aligned}
    Z[J] &= \sum\hspace{-1.33em}\int D\phi\; Dn\; Dv\; e^{-S[\phi, n, v]}
    &
    S[\phi, n, v] &= \frac{\kappa}{2} \sum_{\ell} (d\phi - 2\pi n)_\ell^2 + 2\pi i \sum_p v_p (dn)_p / W
-   \end{align}
+   \end{aligned}
 
 with $\phi\in\mathbb{R}$ on sites, $n\in\mathbb{Z}$ on links, and a Lagrange multiplier field $v\in\mathbb{Z}$ on plaquettes, and a careful choice of finite differencing $d$ that obeys $d^2=0$.
 The path integral over $v$ restricts the vorticity plaquette-by-plaquette, setting $(dn) \equiv 0\; (\text{mod }W)$.
