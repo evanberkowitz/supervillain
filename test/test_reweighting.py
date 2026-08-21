@@ -802,3 +802,37 @@ def test_a_block_of_zero_weight_configurations_contributes_nothing(tmp_path):
 
         assert np.isfinite(out).all(), f'streamed: {out}'
         assert np.allclose(out, values), 'streamed and in-memory blocking disagree'
+
+
+def test_an_observable_the_action_lacks_is_not_reported_as_flat(caplog):
+    r'''With nothing measured, the autocorrelation time is attempted for every
+    registered observable, and most of the register is not implemented for a given
+    action.  Villain and Worldline observables are gated by OnlyVillain and
+    OnlyWorldline, so the Villain and Worldline actions never notice; any other
+    action --- this toy, and every action added after it --- reaches almost the
+    whole register and raises NotImplementedError on nearly all of it.
+
+    That is not a diagnostic.  Reported as "does not fluctuate enough" it says
+    something false about the ensemble, and says it once per observable, which is
+    the first thing someone writing a new action would see.
+
+    An observable that genuinely does not fluctuate must still say so.
+    '''
+    action = Gaussian()
+    e = supervillain.Ensemble(action).generate(200, SampleWide(action), start='cold')
+
+    with caplog.at_level('WARNING', logger='supervillain.analysis.autocorrelation'):
+        assert e.autocorrelation_time() >= 1
+    assert 'XSquared' in e.measured, 'the observable the toy does have was measured'
+    assert not [r for r in caplog.records if 'does not fluctuate' in r.message], \
+            f'reported as flat: {[r.message for r in caplog.records]}'
+
+    # A measurement that really is constant still warns, so the message is not
+    # simply gone.
+    caplog.clear()
+    flat = supervillain.Ensemble(action).generate(200, SampleWide(action), start='cold')
+    flat.XSquared = Batch(np.ones(len(flat)))
+    with caplog.at_level('WARNING', logger='supervillain.analysis.autocorrelation'):
+        flat.autocorrelation_time()
+    assert [r for r in caplog.records if 'does not fluctuate' in r.message], \
+            'a constant observable should still be reported'

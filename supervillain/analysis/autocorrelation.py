@@ -147,6 +147,13 @@ def sample_autocorrelation_time(source, observables=None, every=False):
             continue
         try:
             auto[name] = autocorrelation_time(source.timeseries(name), weight=weight)
+        except NotImplementedError:
+            # The action has no such observable at all, which is not a diagnostic
+            # and not the reader's business.  Only Villain and Worldline observables
+            # are gated (by OnlyVillain and OnlyWorldline), so every other action
+            # reaches here for most of the register, and reporting each one as a
+            # failure to fluctuate would say something false about the ensemble.
+            continue
         except Exception:
             logger.warning(f'{name} does not fluctuate enough; it is not included in the autocorrelation time calculation.')
 
