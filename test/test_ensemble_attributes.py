@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 
 import supervillain
+from supervillain.analysis import Bootstrap, Blocking
 from supervillain.batch import Batch
 from supervillain.configurations import Configurations
 
@@ -77,3 +78,27 @@ def test_configurations_still_report_and_check_their_length():
 
     with pytest.raises(ValueError):
         len(Configurations({'x': Batch(np.zeros(5)), 'y': Batch(np.zeros(4))}))
+
+
+@pytest.mark.parametrize('cls', (Bootstrap, Blocking))
+def test_the_analysis_classes_delegate_the_same_way(cls, populated):
+    r'''Bootstrap and Blocking forward to their ensemble in __getattr__ exactly as
+    an Ensemble forwards to its configuration, and had the same defect.
+
+    Here it is worse than an edge: copy.deepcopy reconstructs an empty instance
+    and asks it for __deepcopy__ and __setstate__ before restoring anything, so
+    deepcopy of an ordinary, fully populated Bootstrap raised RecursionError ---
+    no half-built object required.
+    '''
+    bare = cls.__new__(cls)                       # as deepcopy and from_h5 make one
+    with pytest.raises(AttributeError):
+        bare.anything
+
+    o = cls(populated, draws=20) if cls is Bootstrap else cls(populated, width=2)
+
+    assert isinstance(copy.deepcopy(o), cls)
+
+    # and the delegation itself is untouched
+    assert np.asarray(Batch.as_array(o.ActionDensity)).shape[0] == len(o)
+    with pytest.raises(AttributeError):
+        o.anything

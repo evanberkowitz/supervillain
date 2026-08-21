@@ -66,11 +66,22 @@ class Bootstrap(ReadWriteable):
         return np.einsum('...d->d...', np.einsum('cd,cd...->c...d', w, obs[self.indices]).mean(axis=0) / w.mean(axis=0))
     
     def __getattr__(self, name):
-        
+
+        # The ensemble is reached through __dict__ rather than as self.Ensemble,
+        # which would be an attribute lookup of its own and, on an instance that
+        # has yet to be given one, a miss --- so this method would call itself
+        # until the stack ran out.  copy.deepcopy makes exactly that lookup on the
+        # empty instance it reconstructs, so deepcopy of an ordinary, fully
+        # populated Bootstrap raised RecursionError.
+        ensemble = self.__dict__.get('Ensemble')
+        if ensemble is None:
+            raise AttributeError(
+                f'{type(self).__name__} has no {name!r}; it has no ensemble.')
+
         with Timer(logger.info, f'Bootstrapping {name}', per=len(self)):
 
             try:
-                forward = getattr(self.Ensemble, name)
+                forward = getattr(ensemble, name)
             except Exception as e:
                 raise AttributeError(f"... and so 'Bootstrap' object has no attribute '{name}'") from e
 
