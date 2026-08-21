@@ -3,25 +3,35 @@
 import numpy as np
 
 import supervillain
-from supervillain.batch import Batch
+from supervillain.batch import Batch, _broadcast_over_draws
 from supervillain.h5 import ReadWriteable
 from supervillain.performance import Timer
 
 import logging
 logger = logging.getLogger(__name__)
 
+def _telescope(blocked, weight):
+    r'''
+    A block's value: :math:`\langle wO\rangle_b` divided by the block's own
+    average weight :math:`\langle w\rangle_b`.
+
+    A block every configuration of which weighs zero --- ordinary once the logs
+    span a few hundred, since exp() underflows long before that --- has
+    :math:`\langle wO\rangle_b = 0` and :math:`\langle w\rangle_b = 0`.  Its
+    value is genuinely undefined, but its *contribution* is not: paired with a
+    zero weight it is zero, and it must stay a number to remain so.  Dividing
+    would make it nan, and a single nan block turns every estimate it is averaged
+    into --- the whole bootstrap --- into nan.
+    '''
+    weight = np.expand_dims(Batch.as_array(weight), axis=tuple(range(1, blocked.ndim)))
+    return np.divide(blocked, weight, out=np.zeros_like(blocked), where=(weight != 0))
+
+
 class Blocking(ReadWriteable):
     r'''
     Rather than taking :py:meth:`~.Ensemble.every` nth configuration we can instead average (or 'block') the observables from consecutive configurations together.
 
     Any observable that the underlying ensemble supports can be evaluated in the same way; you can call ``blocking.ObservableOfInterest`` to get the blocked observable of interest.
-
-    .. todo::
-
-       Each block here is $\left\langle wO\right\rangle_b$ and :attr:`weight` is $\left\langle w\right\rangle_b$, so a :class:`~.Bootstrap` of the blocking applies the weight a second time.
-       Each block should be $\left\langle wO\right\rangle_b / \left\langle w\right\rangle_b$ instead, which telescopes back to $\left\langle wO\right\rangle/\left\langle w\right\rangle$ over blocks.
-       Every weight is one until importance weighting arrives, and there the two agree exactly, so no estimate is wrong today.
-       :class:`~.StreamingBlocking` already divides; this class should follow when the reweighting work lands.
 
     Parameters
     ----------
@@ -63,16 +73,37 @@ class Blocking(ReadWriteable):
         return self.blocks
 
     def _block(self, obs):
+        r'''The per-block value of the observable, :math:`\langle wO\rangle_b / \langle w\rangle_b`.
+
+        Dividing by the block's own average weight is what makes a block behave
+        like a configuration: paired with :attr:`~.Blocking.weight` --- which is
+        that same :math:`\langle w\rangle_b` --- the weighted average over blocks
+        telescopes back to the average over configurations,
+
+        .. math ::
+            \frac{\sum_b \langle w\rangle_b \left(\langle wO\rangle_b/\langle w\rangle_b\right)}{\sum_b \langle w\rangle_b}
+            = \frac{\sum_b \langle wO\rangle_b}{\sum_b \langle w\rangle_b}
+            = \frac{\langle wO\rangle}{\langle w\rangle},
+
+        so :class:`~.Bootstrap` of a :class:`~.Blocking` gives the same expectation
+        value as :class:`~.Bootstrap` of the underlying :class:`~.Ensemble`.
+        Returning the un-divided :math:`\langle wO\rangle_b` instead would let
+        :class:`~.Bootstrap` apply the weight a second time; simply setting the
+        block weights to 1 would be just as wrong in the other direction, leaving
+        :math:`\langle wO\rangle` undivided.  With unit weights this is the plain
+        block mean, as it always was.'''
         obs = Batch.as_array(obs)
         weight = Batch.as_array(self.Ensemble.weight)
         shape = obs.shape[1:]
 
-        return (
+        blocked = (
             obs[self.drop:] * np.expand_dims(
                 weight[self.drop:],
                 axis=tuple(range(1, 1+len(shape)))
             )
         ).reshape(-1, self.width, *shape).mean(axis=1)
+
+        return _telescope(blocked, self.weight)
 
     def plot_history(self, axes, observable, label=None,
                      histogram_label=None,
@@ -91,12 +122,19 @@ class Blocking(ReadWriteable):
         if histogram_label is None:
             histogram_label=label
 
+        # The blocked observable is already the per-block weighted mean
+        # ⟨wO⟩_b/⟨w⟩_b --- the actual observable value --- so it is plotted as is;
+        # the histogram is weighted by the block weight so it shows the physical
+        # distribution.  Both reduce to the plain block mean when the weights are
+        # all 1.
         data = Batch.as_array(getattr(self, observable))
+        weight = _broadcast_over_draws(self.weight, data)
         axes[0].plot(self.index, data, color=color, **history_kwargs)
         axes[1].hist(data, label=histogram_label,
                      orientation='horizontal',
                      bins=bins, density=density,
                      color=color, alpha=alpha,
+                     weights=weight,
                      )
 
     def __getattr__(self, name):

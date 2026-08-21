@@ -134,8 +134,14 @@ class Constrained:
         If $W=1$ the observable should not be included in the autocorrelation computation.
 
         If $W\neq 1$ then use all other considerations to decide.
+
+        .. note ::
+           An action with no winding constraint at all has no ``W``, and is not
+           constrained; it is asked anyway, because with nothing yet measured
+           :func:`~.sample_autocorrelation_time` considers every registered
+           observable rather than only those the action could implement.
         '''
-        return (ensemble.Action.W != 1) and super().autocorrelation(ensemble)
+        return (getattr(ensemble.Action, 'W', 1) != 1) and super().autocorrelation(ensemble)
 
 class OnlyVillain:
 

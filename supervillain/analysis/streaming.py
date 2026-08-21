@@ -27,6 +27,7 @@ import supervillain.h5.extendable as extendable
 from supervillain.configurations import Configurations
 import supervillain.ensemble
 from supervillain.analysis.bootstrap import Bootstrap
+from supervillain.analysis.blocking import _telescope
 from supervillain.analysis.autocorrelation import sample_autocorrelation_time
 
 import logging
@@ -51,33 +52,74 @@ def _read_batch_chunk(field_group, start, stop, step=1):
 
 
 def _stream_weight(source_group):
-    r'''Derive the per-configuration importance weight of an on-disk ensemble,
-    without reading a single configuration field.  Returns one weight per
-    configuration.
+    r'''The summed log-weight of each configuration of an on-disk ensemble, read
+    without touching a single configuration field.  Zero --- unit weight --- for
+    an ensemble no generator reweighted.
 
-    Three sources are consulted, in order.  A generator that reweights emits its
-    contribution as an inline logWeight_<name> scalar column, one per contributing
-    generator; logs sum so that weights multiply, and the namespacing keeps two
-    generators composed with Sequentially from colliding.  Failing that, an
-    explicitly stored weight is read.  Failing that, every configuration weighs
-    the same --- which is every ensemble, until a reweighting generator lands.
+    A generator that reweights emits its contribution as an inline
+    logWeight_<name> scalar column, one per contributing generator; logs sum so
+    that weights multiply, and the namespacing keeps two generators composed with
+    Sequentially from colliding.  With no such column every configuration weighs
+    the same, exactly as Ensemble.weight decides it.
 
-    The single global max subtracted from the summed logs is a correctness
-    requirement, not merely overflow safety.  _resample_streaming accumulates
-    <Ow> and <w> separately, a chunk at a time, and the exp(-max) offset cancels
-    between them only if it is one constant shared by every configuration; a
-    per-chunk max would silently bias the estimate.  That is why the whole weight
-    vector is built eagerly, here, before any chunk streams -- and why only the
-    cheap scalar columns are touched, never the heavy fields.'''
+    An ensemble stored before the weight was derived carries a `weight` dataset
+    alongside the configurations.  It is not consulted: Ensemble.weight does not
+    consult it either, and honouring it here would make the streamed and in-memory
+    paths disagree on the same file.  Nothing is lost --- every weight the library
+    ever stored was one.
+
+    The logs are what is returned, rather than the weights themselves, because
+    the exponential is taken only once the configurations to be presented are
+    known; see _present.  Only the cheap scalar columns are touched to get here,
+    never the heavy fields.'''
     fields = source_group['configuration/fields']
     logWeights = sorted(k for k in fields.keys() if k.startswith('logWeight_'))
     if logWeights:
-        logWeight = np.sum([np.asarray(fields[k]['data'][:]) for k in logWeights], axis=0)
-        return np.exp(logWeight - logWeight.max())
-    if 'weight' in source_group:
-        return np.asarray(Batch.as_array(Data.read(source_group['weight'])))
+        return np.sum([np.asarray(fields[k]['data'][:]) for k in logWeights], axis=0)
     name = next(iter(fields.keys()))
-    return np.ones(len(fields[name]['data']))
+    return np.zeros(len(fields[name]['data']))
+
+
+def _present(logWeight, start, stride, source_group):
+    r'''The weights of the configurations a streamer presents.
+
+    Ensemble.weight takes its maximum over whatever configurations are in hand, so
+    cut and every renormalize; a streamer has to do the same or the two disagree
+    elementwise on the same file.  Only ratios of weights are physical --- the
+    offset cancels from <Ow>/<w> --- so no estimate moves either way, but a
+    streamer whose weights merely resembled the ensemble's would be a trap for
+    anyone who compared them.
+
+    The subtraction happens in the logs, on the presented configurations, for the
+    same reason Ensemble.weight does it there and not on the weights: a view that
+    keeps only configurations far below the whole ensemble's peak has weights that
+    underflow to exactly zero, and rescaling those linearly is 0/0.  Taking the
+    exponential last renormalizes the view to a peak of one whatever its offset.
+
+    The single max is also a correctness requirement, not merely conditioning.
+    _resample_streaming accumulates <Ow> and <w> separately, a chunk at a time,
+    and the exp(-max) offset cancels between them only if it is one constant
+    shared by every configuration; a per-chunk max would silently bias the
+    estimate.  That is why the whole weight vector is built eagerly, before any
+    chunk streams.'''
+    logWeight = logWeight[start::stride]
+    if len(logWeight) == 0:
+        return logWeight
+
+    peak = logWeight.max()
+    if not np.isfinite(peak):
+        # As Ensemble.weight, whose wording this matches: the two paths must
+        # refuse the same files for the same reasons.
+        if np.isneginf(logWeight).all():
+            raise ValueError(
+                f'every configuration {source_group.name} presents has zero importance '
+                'weight, so no weighted expectation value exists; the reweighting has '
+                'no overlap with what it is meant to sample.')
+        raise ValueError(
+            f'{source_group.name} has a log-weight that is not a number ({peak}), '
+            'so no weight can be derived from it.')
+
+    return np.exp(logWeight - peak)
 
 
 def _stream_index(source_group):
@@ -260,7 +302,7 @@ class EnsembleStreamer(SampleSource):
         self.Action = Data.read(source_group['Action'])
         r'''The action underlying the ensemble.'''
 
-        self.weight = _stream_weight(source_group)[start::stride]
+        self.weight = _present(_stream_weight(source_group), start, stride, source_group)
         r'''The importance weight of each configuration.'''
         self.index = _stream_index(source_group)[start::stride]
         r'''The Markov-chain index of each configuration.'''
@@ -406,7 +448,7 @@ class EnsembleStreamer(SampleSource):
             source = group['ensemble']
             o._source = source
             o.Action = Data.read(source['Action'])
-            o.weight = _stream_weight(source)[o.start::o.stride]
+            o.weight = _present(_stream_weight(source), o.start, o.stride, source)
             o.index = _stream_index(source)[o.start::o.stride]
             o.index_stride = _stream_index_stride(source) * o.stride
             o._length = len(np.asarray(o.weight))
@@ -426,9 +468,8 @@ class StreamingBlocking(SampleSource):
     ever holding the unaveraged measurements.
 
     :class:`~.Blocking` does the same thing to an :class:`~.Ensemble` it already
-    has in memory, and gives identical numbers as long as the configurations are
-    equally weighted --- which is every ensemble that carries no importance
-    weights.  When the ensemble is too large for that, this does it as the
+    has in memory, and gives identical numbers.  When the ensemble is too large
+    for that, this does it as the
     measurements stream past, so neither the ensemble nor its unblocked
     timeseries is ever assembled.  What comes out is a source of samples ---
     blocks --- that a :class:`StreamingBootstrap` resamples exactly as it would
@@ -522,10 +563,9 @@ class StreamingBlocking(SampleSource):
         # Divide each block by its own average weight, so that
         #     sum_b <w>_b (<wO>_b / <w>_b) / sum_b <w>_b  =  <wO> / <w>
         # and a Bootstrap of these blocks estimates what a Bootstrap of the
-        # configurations would.  Blocking._block on main omits that division and
-        # so lets the weight be applied twice; see the todo there.  Both give the
-        # plain block mean at unit weight, which is what
-        # test_blocking_matches_in_memory compares.
+        # configurations would.  Blocking._block does the same, and says why at
+        # more length; the two must agree, which test_blocking_matches_in_memory
+        # checks.
         weight = np.asarray(self.source.weight)
 
         held = None       # samples read but not yet part of a whole block
@@ -552,8 +592,7 @@ class StreamingBlocking(SampleSource):
             full, held = held[:whole * self.width], held[whole * self.width:]
             blocked = full.reshape(whole, self.width, *full.shape[1:]).mean(axis=1)
             block_weight = self.weight[emitted:emitted + whole]
-            yield emitted, blocked / block_weight.reshape(
-                    (-1,) + (1,) * (blocked.ndim - 1))
+            yield emitted, _telescope(blocked, block_weight)
             emitted += whole
 
     @classmethod

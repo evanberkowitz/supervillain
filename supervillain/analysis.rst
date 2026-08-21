@@ -33,6 +33,41 @@ A natural choice for n is the autocorrelation time.
 
 Ensembles also have an :meth:`~.Ensemble.autocorrelation_time`, which leverages the above :py:func:`~.analysis.autocorrelation_time` and understands which observables to include.
 
+.. _weighted-autocorrelation:
+
+.. collapse:: We can also understand the autocorrelation time of reweighted ensembles.
+    :class: note
+
+    On a :ref:`reweighted <reweighting>` ensemble the autocorrelation has to be taken of a different time series.
+    The estimator is no longer a plain mean but the ratio :math:`\bar O = \langle wO\rangle / \langle w\rangle`, and what inflates *its* variance is not the autocorrelation of :math:`O_t` but that of each configuration's contribution to the ratio, the *influence function*
+
+    .. math ::
+
+       f(t) = \frac{w_t\,(O_t - \bar O)}{\langle w\rangle}.
+
+    A configuration matters to the estimator in proportion to its weight, and :math:`f` is what says so; the naive autocorrelation of :math:`O_t` alone weighs every configuration the same and is simply the wrong quantity.
+
+    To see where :math:`f` comes from, follow the Wolff :math:`\Gamma`-method treatment of a derived quantity: write the ratio as :math:`F(A,B) = A/B` with :math:`A = \langle wO\rangle` and :math:`B = \langle w\rangle`, and linearize about the sample means.
+    The fluctuation of :math:`F` contributed by configuration :math:`t` is
+
+    .. math ::
+
+       f(t)
+       = \frac{\partial F}{\partial A}\Big(w_t O_t - \langle wO\rangle\Big)
+       + \frac{\partial F}{\partial B}\Big(w_t - \langle w\rangle\Big)
+       = \frac{1}{\langle w\rangle}\Big(w_t O_t - \bar O\, w_t\Big)
+       = \frac{w_t\,(O_t - \bar O)}{\langle w\rangle},
+
+    using :math:`\partial_A F = 1/\langle w\rangle` and :math:`\partial_B F = -\langle wO\rangle/\langle w\rangle^2 = -\bar O/\langle w\rangle`, and dropping :math:`\langle wO\rangle - \bar O\langle w\rangle`, which vanishes identically by the definition of :math:`\bar O`.
+    It is the autocorrelation of :math:`f(t)` whose integral is the :math:`\tau_{int}` that inflates :math:`\mathrm{Var}(\bar O)`.
+    Note that :math:`f` is invariant under a global rescaling of the weights, so the arbitrary normalization of :attr:`~.Ensemble.weight` is immaterial.
+
+    When every weight is 1 it reduces to :math:`f(t) = O_t - \bar O` and the ordinary autocorrelation comes back.
+    :meth:`~.Ensemble.autocorrelation_time` passes the weights along for you --- as do a streamed and a blocked source --- so this happens without being asked for.
+
+    It matters most when the weights carry their own slow Markov-time structure, as they do when the weight depends on a slow mode of the sampler.
+    Then :math:`f` decorrelates more slowly than :math:`O` does, and an unweighted :math:`\tau` would under-report the uncertainty.
+
 Blocking
 --------
 
@@ -51,6 +86,27 @@ The idea is that each draw *could* have been what your samples were with the sam
 .. autoclass:: supervillain.analysis.Bootstrap
    :no-special-members:
    :members: plot_band, plot_correlator, estimate
+
+.. _reweighting:
+
+Reweighting
+-----------
+
+The bootstrap forms the *weighted* expectation value :math:`\langle O\rangle = \langle Ow\rangle / \langle w\rangle` using a per-configuration weight, :attr:`Ensemble.weight <supervillain.ensemble.Ensemble.weight>`.
+By default every weight is 1 and this is the ordinary sample mean.
+A :ref:`reweighting generator <importance-weights>` instead emits per-configuration importance weights, and then :class:`~.Bootstrap` corrects *every* observable automatically --- resampling the numerator and denominator together so the correlated uncertainty is automatically right.
+The autocorrelation time takes the same care, and takes it for you: on a reweighted ensemble it is :ref:`the influence function rather than the observable itself <weighted-autocorrelation>` that has to be correlated.
+
+The :attr:`~supervillain.ensemble.Ensemble.weight` is not stored; it is derived from the generators' ``logWeight_*`` contributions as
+
+.. math ::
+
+   w = \exp\left(\sum_k \texttt{logWeight}_k - \max\right).
+
+The single global ``max`` subtraction is exact: it cancels in the :math:`\langle Ow\rangle/\langle w\rangle` ratio, so it changes no expectation value and serves only to keep the exponentials representable.
+Because only the raw log-weights are persisted --- and the ``max`` is retaken over whatever configurations are present --- :meth:`~.Ensemble.cut`, :meth:`~.Ensemble.every`, and :meth:`~.Ensemble.continue_from` stay self-consistent with nothing to rewrite on disk.
+
+The memory-bounded :class:`~.StreamingBootstrap` derives the same weight from the on-disk log columns, materializing the whole (cheap, scalar) weight vector and taking the global ``max`` before it streams any chunk so that the offset is shared by every configuration and consistently cancels from the ratio.
 
 Streaming an Ensemble
 ---------------------
