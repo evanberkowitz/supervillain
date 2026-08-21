@@ -382,7 +382,19 @@ class Ensemble(Extendable):
         # It is particularly useful to expose fields as ensemble attributes
         # because that helps unify the Observable's application to both
         # fields and other primary observables.
+        #
+        # The delegate is reached through __dict__ rather than as self.configuration,
+        # which would be an attribute lookup of its own: on an ensemble that has yet
+        # to be given configurations it is a miss, and this method would call itself
+        # until the stack ran out.  Every attribute would then answer RecursionError
+        # instead of AttributeError --- including the lookups hasattr and
+        # copy.deepcopy make, neither of which is asking for anything unusual.
+        configuration = self.__dict__.get('configuration')
+        if configuration is None:
+            raise AttributeError(
+                f'{type(self).__name__} has no {name!r}; it has no configurations yet.')
+
         try:
-            return getattr(self.configuration, name)
+            return getattr(configuration, name)
         except Exception as e:
             raise e from None

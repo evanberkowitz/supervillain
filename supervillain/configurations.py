@@ -85,7 +85,11 @@ class Configurations(Extendable, ReadWriteable):
             else:
                 raise ValueError("Configurations have no consistent length")
 
-        return L
+        # L is the sentinel for 'no field has told us a length', which is what a
+        # Configurations holding no fields leaves it as.  It holds no
+        # configurations, so it is empty; returning the sentinel makes len() raise
+        # a TypeError about NoneType instead.
+        return 0 if L is None else L
 
     def items(self):
         r'''
