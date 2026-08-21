@@ -65,7 +65,7 @@ class KeepEvery(ReadWriteable, Generator):
 
     .. warning::
         ``blocked_inline`` cannot be combined with a generator that emits an
-        importance weight; doing so raises.
+        :ref:`importance weight <importance-weights>`; doing so raises.
         The configuration that is kept carries a single weight, and an expectation
         value would have to read it two ways at once: every ordinary
         :class:`~.Observable` is measured on the kept configuration and so needs
