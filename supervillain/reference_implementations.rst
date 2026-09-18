@@ -327,6 +327,7 @@ instance.
    :members:
 
 .. autoclass :: supervillain.lattice.barycentric.Form
+   :no-index:
    :members:
    :show-inheritance:
 
@@ -405,8 +406,10 @@ occupancy rule it implies are verified directly, in
 ``test_constraint_collapses_to_the_occupancy_rule``.
 
 .. automethod :: supervillain.lattice.barycentric.Lattice.charge
+   :no-index:
 
 .. automethod :: supervillain.lattice.barycentric.Lattice.valid
+   :no-index:
 
 Symmetries
 ----------

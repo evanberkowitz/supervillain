@@ -730,7 +730,7 @@ def d(a):
 def delta(a):
     r"""
     The formal adjoint of :func:`d` with respect to the diagonal pairing
-    $\langle a, b \rangle = \sum_\sigma a_\sigma b_\sigma$ over fine simplices,
+    $\langle a, b \rangle = \sum_{\sigma} a_{\sigma} b_{\sigma}$ over fine simplices,
     so that $\sum (da)\cdot b = \sum a \cdot (\delta b)$.
 
     .. note ::
