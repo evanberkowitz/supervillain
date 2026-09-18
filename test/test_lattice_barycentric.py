@@ -5,6 +5,24 @@ from math import factorial
 import supervillain.lattice.barycentric as b
 
 
+def _charge(lat, f):
+    """The no-intersection model's charge, $q_\\sigma = \\epsilon_\\sigma (f \\smile f)$.
+
+    This lives in the test file on purpose.  The lattice knows about the
+    subdivision and its exterior calculus; which product a model forms out of
+    them, and what that product means, is the model's business.  A model
+    implementer writes exactly these two lines.
+    """
+    assert lat.D == 4 and f.degree == 2
+    return b.Form(np.asarray(b.cup(f, f)) * lat.orientation_sign,
+                  degree=4, lattice=lat)
+
+
+def _valid(lat, n):
+    """The model's constraint: the charge vanishes on every fine four-simplex."""
+    return bool(np.all(np.asarray(_charge(lat, b.d(n))) == 0))
+
+
 def test_type_counts_match_closed_form():
     """T_p(D) = sum_j (-1)^j C(p,j) (2(p-j)+1)^D."""
     from math import comb
@@ -447,7 +465,7 @@ def test_charge_factorizes_into_primal_and_dual_flux():
     s = b._structures(4)
     n = lat.random_integer(1)
     f = b.d(n)
-    q = lat.charge(f)
+    q = _charge(lat, f)
     raw_f, raw_q = np.asarray(f), np.asarray(q)
 
     sampled_products = []
@@ -496,7 +514,7 @@ def test_constraint_collapses_to_the_occupancy_rule():
     for trial in range(20):
         n = lat.random_integer(1, low=-1, high=2)
         f = b.d(n)
-        q = lat.charge(f)
+        q = _charge(lat, f)
         raw_f, raw_q = np.asarray(f), np.asarray(q)
         z = tuple(rng.integers(0, lat.N, 4))
         blue, orange = _plaquette_families(lat, 0, 2, z)
@@ -535,7 +553,7 @@ def test_constraint_collapses_to_the_occupancy_rule():
             f'zeroing the {zero_family} family left the kept family also '
             'all zero -- this constructed case only tests f = 0, not the '
             'occupancy rule.')
-        raw_q = np.asarray(lat.charge(f))
+        raw_q = np.asarray(_charge(lat, f))
         charges = []
         for tb, xb, _ in blue:
             for to, _, _ in orange:
@@ -555,8 +573,8 @@ def test_blind_links_never_enter_the_charge():
     n = lat.random_integer(1)
     bl = lat.zeros(1, dtype=int)
     np.asarray(bl)[mask] = np.random.randint(-2, 3, int(mask.sum()))
-    q0 = np.asarray(lat.charge(b.d(n)))
-    q1 = np.asarray(lat.charge(b.d(n + bl)))
+    q0 = np.asarray(_charge(lat, b.d(n)))
+    q1 = np.asarray(_charge(lat, b.d(n + bl)))
     assert not np.allclose(np.asarray(bl), 0)
     assert not (q0 == 0).all(), (
         'the reference charge q0 vanished identically -- q0 == q1 would then '
@@ -578,7 +596,7 @@ def test_valid_accepts_the_vacuum_and_rejects_a_charged_configuration():
     lat = b.Lattice(4, 3)
     s = b._structures(4)
     M = 2 * lat.N
-    assert lat.valid(lat.zeros(1, dtype=int))
+    assert _valid(lat, lat.zeros(1, dtype=int))
 
     # an ordered four-simplex: the ascending staircase 0 -> 1 -> 2 -> 3 at the
     # origin, whose five vertices are xi, xi+e0, xi+e0+e1, ... , xi+e0+e1+e2+e3
@@ -599,12 +617,12 @@ def test_valid_accepts_the_vacuum_and_rejects_a_charged_configuration():
     np.asarray(n)[(t01,) + anchor] = 1
     np.asarray(n)[(t34,) + v3] = 1
 
-    q = np.asarray(lat.charge(b.d(n)))
+    q = np.asarray(_charge(lat, b.d(n)))
     epsilon = int(np.asarray(lat.orientation_sign).reshape(-1)[sigma])
     assert q[(sigma,) + anchor] == epsilon
     assert int(np.abs(q).sum()) == 2
     assert set(np.unique(q[q != 0])) <= {-1, 1}
-    assert not lat.valid(n)
+    assert not _valid(lat, n)
 
 
 # ---------------------------------------------------------------------------
@@ -715,7 +733,7 @@ def test_whole_point_group_acts_covariantly_on_the_charge():
     ``reflect`` replaced by the identity."""
     lat = b.Lattice(4, 3)
     n = lat.random_integer(1)
-    q = lat.charge(b.d(n))
+    q = _charge(lat, b.d(n))
     assert int((np.asarray(q) != 0).sum()) > 0, (
         'the reference charge vanished identically -- covariance would then '
         'be 0 == 0 for every group element.')
@@ -726,7 +744,7 @@ def test_whole_point_group_acts_covariantly_on_the_charge():
             flips = tuple(k for k in range(4) if bits[k])
             det = _signature(perm) * (-1)**len(flips)
             moved = b.permute(b.reflect(n, flips), perm)
-            lhs = np.asarray(lat.charge(b.d(moved)))
+            lhs = np.asarray(_charge(lat, b.d(moved)))
             rhs = det * np.asarray(b.permute(b.reflect(q, flips), perm))
             assert (lhs == rhs).all(), f'perm={perm} flips={flips}'
             order += 1
@@ -928,11 +946,11 @@ def test_tau_acts_covariantly_on_the_charge():
     ``(-1)**(4*5/2) = +1`` at p = 4.)"""
     lat = b.Lattice(4, 3)
     n = lat.random_integer(1)
-    q = lat.charge(b.d(n))
+    q = _charge(lat, b.d(n))
     assert int((np.asarray(q) != 0).sum()) > 0, (
         'the reference charge vanished identically -- the comparison below '
         'would be 0 == 0.')
-    lhs = np.asarray(lat.charge(b.d(b.tau(n))))
+    lhs = np.asarray(_charge(lat, b.d(b.tau(n))))
     rhs = np.asarray(b.tau(q))
     assert (lhs == rhs).all()
 
@@ -946,8 +964,8 @@ def test_tau_preserves_the_constraint_set():
         'the single-link excitation vanished after masking by support(1) -- '
         'the test below would only be checking that tau preserves the '
         'vacuum.')
-    assert lat.valid(n)
-    assert lat.valid(b.tau(n))
+    assert _valid(lat, n)
+    assert _valid(lat, b.tau(n))
 
 
 def test_translate_diagonal_reduces_to_tau_and_a_translation():

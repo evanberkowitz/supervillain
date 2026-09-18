@@ -383,8 +383,8 @@ checked directly rather than assumed.
 
 .. autofunction :: supervillain.lattice.barycentric.cup
 
-Topological Charge
--------------------
+A Model's Charge
+----------------
 
 In $D = 4$, the cup-square of the flux $f = dn$ with the orientation sign
 attached is the topological charge of the no-intersection model,
@@ -405,11 +405,25 @@ occupancy rule it implies are verified directly, in
 ``test_charge_factorizes_into_primal_and_dual_flux`` and
 ``test_constraint_collapses_to_the_occupancy_rule``.
 
-.. automethod :: supervillain.lattice.barycentric.Lattice.charge
-   :no-index:
+The lattice does **not** provide this charge.  It provides the subdivision,
+the exterior calculus, and the orientation sign; which product a model forms
+out of them, and what that product is taken to mean, belongs to the model.
+Building it is two lines:
 
-.. automethod :: supervillain.lattice.barycentric.Lattice.valid
-   :no-index:
+.. code-block:: python
+
+    import numpy as np
+    import supervillain.lattice.barycentric as bary
+
+    lat = bary.Lattice(4, N)
+    f   = bary.d(n)                                  # the flux, a 2-cochain
+    q   = bary.Form(np.asarray(bary.cup(f, f)) * lat.orientation_sign,
+                    degree=4, lattice=lat)           # the model's charge
+
+and the no-intersection constraint is then ``(np.asarray(q) == 0).all()``.
+A different model on the same lattice would form a different product, or
+none, and nothing in :class:`~supervillain.lattice.barycentric.Lattice`
+presumes which.
 
 Symmetries
 ----------

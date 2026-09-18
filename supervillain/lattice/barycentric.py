@@ -539,58 +539,6 @@ class Lattice:
             low, high, (self._s.type_count[p],) + (2 * self.N,) * self.D)
         return Form(data, degree=p, lattice=self)
 
-    def charge(self, f):
-        r"""
-        The topological charge of eq. (11), the cup-square of the flux with the
-        orientation sign attached:
-
-        .. math::
-
-            q_\sigma = \epsilon_\sigma\, f_{012}\, f_{234}
-                     = (f \smile f)[\sigma^+].
-
-        .. note ::
-            Reading eq. (12) in rank order, the cup-square selects the triangles
-            $012$ and $234$, which meet at the rank-two vertex $v_2$.  The first
-            lies inside an original plaquette and the second inside that
-            plaquette's dual cell, so the constraint $q_\sigma = 0$ says flux may
-            occupy one family or the other at a plaquette centre, never both.
-
-        .. warning ::
-            Only defined in $D = 4$, since $f \smile f$ is a 4-cochain.
-
-        Parameters
-        ----------
-        f : Form
-            The degree-2 flux $f = dn$.
-
-        Returns
-        -------
-        Form
-            The degree-4 charge $q$.
-        """
-        if self.D != 4:
-            raise ValueError(f'The charge is a 4-cochain; D = {self.D}.')
-        if f.degree != 2:
-            raise ValueError(f'The charge is the cup-square of a 2-cochain, got degree {f.degree}.')
-        return Form(np.asarray(cup(f, f)) * self.orientation_sign,
-                    degree=4, lattice=self)
-
-    def valid(self, n):
-        r"""
-        Does the no-intersection constraint hold on every fine four-simplex?
-
-        Parameters
-        ----------
-        n : Form
-            The integer 1-cochain.
-
-        Returns
-        -------
-        bool
-            True when $q_\sigma = 0$ everywhere.
-        """
-        return bool(np.all(np.asarray(self.charge(d(n))) == 0))
 
 
 # ---------------------------------------------------------------------------
@@ -785,8 +733,10 @@ def cup(a, c):
         inside a constraint cell.
 
     .. seealso ::
-        :func:`charge`, which is the cup-square of the flux with the orientation
-        sign attached.
+        :attr:`Lattice.orientation_sign`, which a model combines with the
+        cup-square to build an orientation-signed top-degree charge.  The
+        lattice deliberately does not define such a charge itself: which
+        product to form, and what it means, belongs to the model.
 
     Parameters
     ----------
@@ -1106,7 +1056,10 @@ if __name__ == '__main__':
 
         n = lat.random_integer(1)
         f = d(n)
-        q = lat.charge(f)
+        # The lattice provides the cup product and the orientation sign; the
+        # charge is the model's, so we build it here exactly as a model would.
+        q = Form(np.asarray(cup(f, f)) * lat.orientation_sign,
+                 degree=4, lattice=lat)
         raw_f, raw_q = np.asarray(f), np.asarray(q)
 
         # Sample several planes and centres, exactly as
@@ -1140,8 +1093,8 @@ if __name__ == '__main__':
               f'= Φ(P)·Φ(P*) = {Phi_P}·{Phi_Ps} = {total}  '
               f'(plane ({mu},{nu}) at {z}, non-degenerate)')
     else:
-        print('\nTHE PLAQUETTE-CENTRE THEOREM  (skipped: charge is only '
-              'defined in D = 4)')
+        print('\nTHE PLAQUETTE-CENTRE THEOREM  (skipped: the cup-square is a '
+              '4-cochain, so this is a D = 4 statement)')
 
     print('\nPOINT GROUP ORDER')
     a = lat.random(1)
