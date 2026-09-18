@@ -134,7 +134,7 @@ class _Structures:
 
     def _coboundary(self, P):
         r"""
-        For each degree-$P$ type, the faces that eq. (4) sums over.
+        For each degree-$P$ type, the faces the coboundary sums over.
 
         Returns a tuple indexed by out-type, each entry a tuple of
         ``(in_type_index, shift, sign)`` with ``shift`` in doubled units.
@@ -161,7 +161,7 @@ class _Structures:
 
     def cup_table(self, p, q):
         r"""
-        For each degree-$(p+q)$ type, which factors eq. (12) reads.
+        For each degree-$(p+q)$ type, which factors the cup product reads.
 
         Returns a tuple indexed by out-type of ``(a_type, c_type, shift)``:
         $a$ is read at the anchor from the first $p$ steps and $c$ at $v_p$
@@ -633,7 +633,7 @@ translate = push
 
 def d(a):
     r"""
-    The coboundary of eq. (4): on a fine $(p+1)$-simplex with vertices
+    The simplicial coboundary: on a fine $(p+1)$-simplex with vertices
     $u_0 \cdots u_{p+1}$ in increasing rank,
 
     .. math::
@@ -682,8 +682,9 @@ def delta(a):
     so that $\sum (da)\cdot b = \sum a \cdot (\delta b)$.
 
     .. note ::
-        The model itself never needs $\delta$; it is here because adjointness is
-        the strongest available test that the coboundary table is right.
+        Nothing else in this module needs $\delta$: neither :func:`d` nor
+        :func:`cup` is built from it.  It is here because adjointness is the
+        strongest available test that the coboundary table is right.
 
     Parameters
     ----------
@@ -718,7 +719,7 @@ def delta(a):
 
 def cup(a, c):
     r"""
-    The Alexander--Whitney cup product of eq. (12): a $p$-cochain is evaluated
+    The Alexander--Whitney cup product: a $p$-cochain is evaluated
     on the first $p+1$ vertices and a $q$-cochain on the last $q+1$, so on a
     simplex in rank order
 
@@ -728,9 +729,9 @@ def cup(a, c):
 
     .. note ::
         There is exactly **one** term per output simplex --- no sum over
-        shuffles.  That is what distinguishes this from the hypercubic wedge,
-        and it is why the resulting charge cannot cancel between contributions
-        inside a constraint cell.
+        shuffles.  That is what distinguishes this from the hypercubic wedge:
+        a product formed from it contributes a single term to each top
+        simplex, so distinct contributions cannot cancel within one.
 
     .. seealso ::
         :attr:`Lattice.orientation_sign`, which a model combines with the
@@ -993,7 +994,7 @@ if __name__ == '__main__':
         print(f'  ✅ d(a⌣c) = da⌣c + (-1)^{p} a⌣dc for {p}⌣{q}')
 
     if D == 4:
-        print('\nTHE PLAQUETTE-CENTRE THEOREM  Σ_64 q = Φ(P)·Φ(P*)')
+        print('\nTHE CUP-SQUARE AT A PLAQUETTE CENTRE  Σ_64 = Φ(P)·Φ(P*)')
 
         def _plaquette_families(mu, nu, z):
             """The blue and orange triangle slots at the centre of plaquette
@@ -1056,8 +1057,9 @@ if __name__ == '__main__':
 
         n = lat.random_integer(1)
         f = d(n)
-        # The lattice provides the cup product and the orientation sign; the
-        # charge is the model's, so we build it here exactly as a model would.
+        # The orientation-signed cup-square of a 2-cochain.  The lattice
+        # provides cup and orientation_sign; forming this particular product,
+        # and calling it a charge, is a model's choice, so it is built here.
         q = Form(np.asarray(cup(f, f)) * lat.orientation_sign,
                  degree=4, lattice=lat)
         raw_f, raw_q = np.asarray(f), np.asarray(q)
@@ -1089,7 +1091,7 @@ if __name__ == '__main__':
             'sample never exercised the non-trivial factorization, so this '
             'check would only show 0 == 0')
         mu, nu, z, Phi_P, Phi_Ps, total = found
-        print(f'  ✅ Σ of the 64 fine charges at a plaquette centre '
+        print(f'  ✅ Σ of the 64 signed cup-squares at a plaquette centre '
               f'= Φ(P)·Φ(P*) = {Phi_P}·{Phi_Ps} = {total}  '
               f'(plane ({mu},{nu}) at {z}, non-degenerate)')
     else:
