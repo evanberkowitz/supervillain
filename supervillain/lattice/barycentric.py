@@ -39,7 +39,7 @@ Running this module as a script executes its self-tests.
 """
 
 from functools import cached_property
-from itertools import product, permutations
+from itertools import combinations, product, permutations
 from math import comb, factorial
 import numpy as np
 
@@ -69,7 +69,12 @@ class _Structures:
                   for steps in types)
             for types in self.step_types)
         self.offsets    = tuple(self._offsets(p) for p in range(D + 1))
+        self.planes           = tuple(tuple(combinations(range(D), p))
+                                       for p in range(D + 1))
+        self.plane_index      = tuple({I: i for i, I in enumerate(pl)}
+                                      for pl in self.planes)
         self.measure          = tuple(self._measure(p) for p in range(D + 1))
+        self.pvector          = tuple(self._pvector(p) for p in range(D + 1))
         self.orientation_sign = self._orientation_sign()
         self.link_classes     = tuple(
             (r, s) for r in range(D + 1) for s in range(r + 1, D + 1))
@@ -123,6 +128,33 @@ class _Structures:
         W = self.offsets[p][:, 1:, :] / 2.0            # (T_p, p, D)
         G = np.einsum('tid,tjd->tij', W, W)
         return np.sqrt(np.maximum(np.linalg.det(G), 0.0)) / factorial(p)
+
+    def _pvector(self, p):
+        r"""
+        The simplex's $p$-vector, component by coordinate $p$-plane.
+
+        Entry ``[t, i]`` is the determinant of the edge vectors $v_k - v_0$
+        restricted to ``planes[p][i]`` --- the Plücker coordinate of the
+        $p$-plane the simplex spans, in doubled units.
+
+        .. note ::
+            A simplex whose every step releases a single direction spans a
+            coordinate $p$-plane, and has exactly one nonzero component,
+            $\pm 1$.  One whose steps release several directions at once spans
+            a $p$-plane that is not coordinate-aligned, and has several nonzero
+            components.  A zero entry is not a missing value: it says the
+            simplex has no extent in that plane, which is why the components
+            multiply correctly (see :meth:`Lattice.pvector`).
+        """
+        planes = self.planes[p]
+        out = np.zeros((self.type_count[p], len(planes)), dtype=int)
+        if p == 0:
+            out[:, 0] = 1          # the empty determinant
+            return out
+        W = self.offsets[p][:, 1:, :]                      # (T_p, p, D)
+        for i, I in enumerate(planes):
+            out[:, i] = np.rint(np.linalg.det(W[:, :, list(I)])).astype(int)
+        return out
 
     def _orientation_sign(self):
         r"""
@@ -477,10 +509,79 @@ class Lattice:
                 out[t] = np.where(valid & (r == lo) & (r + k == hi), i, out[t])
         return out
 
+    def planes(self, p):
+        r"""
+        The coordinate $p$-planes, as sorted direction tuples, in the order
+        :meth:`pvector` indexes them.
+
+        Parameters
+        ----------
+        p : int
+            The degree.
+
+        Returns
+        -------
+        tuple
+            $\binom{D}{p}$ tuples of directions.
+        """
+        return self._s.planes[p]
+
+    def pvector(self, p):
+        r"""
+        The $p$-vector of each type, component by coordinate $p$-plane:
+        shape ``(T_p, C(D,p))``, indexed by :meth:`planes`.
+
+        Entry ``[t, i]`` is the Plücker coordinate of the $p$-plane the simplex
+        spans --- the determinant of its edge vectors restricted to that plane.
+
+        .. note ::
+            The components **multiply**.  Splitting a top simplex's steps at any
+            position gives a front face and a back face, and whenever each spans
+            a single coordinate plane and the two planes are complementary,
+
+            .. math::
+
+                \epsilon_\sigma = v_{\mathrm{front}}\; v_{\mathrm{back}}\;
+                    \sigma(I_{\mathrm{front}} \frown I_{\mathrm{back}}).
+
+            :attr:`orientation_sign` is the $p = D$ case, where there is only
+            one coordinate plane.
+
+        .. note ::
+            A simplex whose every step releases one direction spans a coordinate
+            plane and has a single component, $\pm 1$.  One whose steps release
+            several directions at once has several nonzero components --- it is
+            not unoriented, it simply has extent in more than one plane.  A zero
+            entry says the simplex has no extent in that plane, which is what
+            makes the product law above come out right.
+
+        Parameters
+        ----------
+        p : int
+            The degree.
+
+        Returns
+        -------
+        np.ndarray
+            Integer array of shape ``(T_p, C(D,p))``.
+        """
+        return self._s.pvector[p]
+
     @property
     def orientation_sign(self):
-        r"""$\epsilon_\sigma$ for each top-simplex type, shaped to broadcast."""
-        return self._s.orientation_sign.reshape((-1,) + (1,) * self.D)
+        r"""
+        $\epsilon_\sigma$ for each top-simplex type, shaped to broadcast against
+        a degree-$D$ cochain.
+
+        .. note ::
+            This is the sole component of the top :meth:`pvector`: a $D$-simplex
+            spans the one coordinate $D$-plane there is, so its $p$-vector has a
+            single entry, and that entry compares the simplex's rank ordering
+            with the ambient orientation.  For $p < D$ no such comparison exists
+            without choosing a complement, which is why only the top degree has
+            a *sign* rather than a vector of components.
+        """
+        return self._s.pvector[self.D][:, 0].reshape((-1,) + (1,) * self.D)
 
     def zeros(self, p, dtype=float):
         r"""

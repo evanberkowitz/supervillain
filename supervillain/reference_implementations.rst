@@ -383,6 +383,54 @@ checked directly rather than assumed.
 
 .. autofunction :: supervillain.lattice.barycentric.cup
 
+Orientation
+-----------
+
+Each fine $p$-simplex carries a $p$-vector: its extent on each coordinate
+$p$-plane, the determinant of its edge vectors restricted to that plane.
+:meth:`~supervillain.lattice.barycentric.Lattice.pvector` returns those
+components, indexed by
+:meth:`~supervillain.lattice.barycentric.Lattice.planes`.
+
+A simplex whose every step releases a single direction spans a coordinate
+plane, and has exactly one nonzero component, $\pm 1$.  One whose steps
+release several directions at once spans a $p$-plane that is *not*
+coordinate-aligned --- a class-$(r, r{+}2)$ link, say, whose one edge vector
+moves in two directions.  Such a simplex is not unoriented; it simply has
+extent in more than one plane, and several nonzero components.  A zero entry
+says it has no extent in that plane.
+
+The components multiply.  Split a top simplex's steps at any position: when
+the front and back faces each span a single coordinate plane and the two are
+complementary,
+
+.. math::
+
+    \epsilon_\sigma = v_{\mathrm{front}}\, v_{\mathrm{back}}\,
+        \sigma(I_{\mathrm{front}} \frown I_{\mathrm{back}}),
+
+checked at every split point in $D = 2, 3, 4$ by
+``test_pvector_components_multiply``.  The factorization of the cup-square at a
+plaquette centre, below, is the $p = 2$ instance of this law and not a separate
+fact.
+
+Only the top degree has a *sign* rather than a vector of components: a
+$D$-simplex spans the one coordinate $D$-plane there is, so its $p$-vector has
+a single entry, and that entry compares the simplex's rank ordering with the
+ambient orientation.  Below the top there is no such comparison without
+choosing a complement.
+:attr:`~supervillain.lattice.barycentric.Lattice.orientation_sign` is exactly
+that entry.
+
+.. automethod :: supervillain.lattice.barycentric.Lattice.planes
+   :no-index:
+
+.. automethod :: supervillain.lattice.barycentric.Lattice.pvector
+   :no-index:
+
+.. autoattribute :: supervillain.lattice.barycentric.Lattice.orientation_sign
+   :no-index:
+
 A Model's Charge
 ----------------
 

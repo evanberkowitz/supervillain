@@ -415,8 +415,10 @@ def _plaquette_families(lat, mu, nu, z):
                 # the 2x2 determinant of its two edge vectors, restricted to the
                 # plane's two directions in increasing order.
                 plane = sorted(pair)
-                W = s.offsets[2][t][1:][:, plane]       # (2,2)
-                sign2d = int(round(np.sign(np.linalg.det(W)))) * extra_sign
+                # the triangle's component on its own coordinate plane --
+                # from the lattice, not re-derived here
+                sign2d = int(b._structures(4).pvector[2][
+                    t, b._structures(4).plane_index[2][tuple(plane)]]) * extra_sign
                 out.append((t, anchor, sign2d))
         return out
 
@@ -996,3 +998,76 @@ def test_two_dimensional_figure_one():
     assert lat.count(2) / 3**2 == 8
     assert sorted(set(lat.site_rank.ravel())) == [0, 1, 2]
     assert np.isclose((lat.measure(2) * lat.support(2)).sum(), 9)
+
+
+def test_pvector_shape_and_plane_order():
+    for D, N in ((2, 3), (3, 2), (4, 3)):
+        lat = b.Lattice(D, N)
+        for p in range(D + 1):
+            planes = lat.planes(p)
+            assert planes == tuple(__import__('itertools').combinations(range(D), p))
+            assert lat.pvector(p).shape == (b._structures(D).type_count[p], len(planes))
+
+
+def test_top_pvector_is_the_orientation_sign():
+    """The top degree has one coordinate plane, so its p-vector is a lone sign."""
+    for D, N in ((2, 3), (3, 2), (4, 3)):
+        lat = b.Lattice(D, N)
+        assert lat.pvector(D).shape[1] == 1
+        assert (lat.orientation_sign.ravel() == lat.pvector(D)[:, 0]).all()
+        assert set(np.unique(lat.pvector(D))) <= {-1, 1}
+
+
+def test_coordinate_aligned_types_have_exactly_one_unit_component():
+    """A step releasing one direction at a time spans a coordinate plane."""
+    from math import comb, factorial
+    for D in (2, 3, 4):
+        s = b._structures(D)
+        for p in range(1, D + 1):
+            aligned = [t for t, steps in enumerate(s.step_types[p])
+                       if all(len(st) == 1 for st in steps)]
+            assert len(aligned) == comb(D, p) * factorial(p) * 2**p
+            for t in aligned:
+                nz = s.pvector[p][t][s.pvector[p][t] != 0]
+                assert len(nz) == 1 and abs(nz[0]) == 1, (D, p, t)
+
+
+def test_non_aligned_types_have_several_components_not_none():
+    """A step releasing several directions at once spans a plane that is not
+    coordinate-aligned: it is not unoriented, it has extent in more than one."""
+    s = b._structures(4)
+    seen = 0
+    for p in (1, 2, 3):
+        for t, steps in enumerate(s.step_types[p]):
+            if all(len(st) == 1 for st in steps):
+                continue
+            nz = (s.pvector[p][t] != 0).sum()
+            assert nz >= 2, (p, t, s.pvector[p][t])
+            seen += 1
+    assert seen > 0
+
+
+def test_pvector_components_multiply():
+    """eps = v_front * v_back * sgn(I_front, I_back) at EVERY split point --
+    the plaquette-centre factorization is one instance of this."""
+    for D in (2, 3, 4):
+        s = b._structures(D)
+        for cut in range(1, D):
+            checked = 0
+            for t_top in range(s.type_count[D]):
+                steps = s.step_types[D][t_top]
+                tf = s.type_index[cut][steps[:cut]]
+                tb = s.type_index[D - cut][steps[cut:]]
+                fv = [(I, v) for I, v in zip(s.planes[cut], s.pvector[cut][tf]) if v]
+                bv = [(I, v) for I, v in zip(s.planes[D - cut], s.pvector[D - cut][tb]) if v]
+                if len(fv) != 1 or len(bv) != 1:
+                    continue
+                (If, vf), (Ib, vb) = fv[0], bv[0]
+                if set(If) & set(Ib):
+                    continue
+                order = list(If) + list(Ib)
+                sgn = (-1)**sum(1 for i in range(len(order))
+                                for j in range(i + 1, len(order)) if order[i] > order[j])
+                assert s.pvector[D][t_top][0] == vf * vb * sgn, (D, cut, t_top)
+                checked += 1
+            assert checked > 0, f'D={D} cut={cut}: the law was never exercised'
