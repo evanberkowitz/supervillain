@@ -1071,3 +1071,33 @@ def test_pvector_components_multiply():
                 assert s.pvector[D][t_top][0] == vf * vb * sgn, (D, cut, t_top)
                 checked += 1
             assert checked > 0, f'D={D} cut={cut}: the law was never exercised'
+
+
+def test_adjointness_is_with_respect_to_the_plain_sum():
+    """d and delta are adjoint for the chain pairing, NOT for a Riemann sum.
+
+    This pins the convention deliberately: someone "improving" the pairing by
+    weighting it with the measure would silently stop delta being the adjoint
+    of d, and every test of the coboundary table would go quiet about it.
+    """
+    rng = np.random.default_rng(618)
+    for D, N in ((2, 3), (3, 3), (4, 3)):
+        lat = b.Lattice(D, N)
+        for p in range(D):
+            a = b.Form(lat.support(p) * rng.random(lat.support(p).shape),
+                       degree=p, lattice=lat)
+            c = b.Form(lat.support(p + 1) * rng.random(lat.support(p + 1).shape),
+                       degree=p + 1, lattice=lat)
+            da, dc = b.d(a), b.delta(c)
+
+            plain_l = float((np.asarray(da) * np.asarray(c)).sum())
+            plain_r = float((np.asarray(a) * np.asarray(dc)).sum())
+            assert not np.isclose(plain_l, 0), f'D={D} p={p}: vacuous'
+            assert np.isclose(plain_l, plain_r), f'D={D} p={p}: {plain_l} vs {plain_r}'
+
+            weighted_l = float((lat.measure(p + 1) * np.asarray(da) * np.asarray(c)).sum())
+            weighted_r = float((lat.measure(p) * np.asarray(a) * np.asarray(dc)).sum())
+            assert not np.isclose(weighted_l, weighted_r), (
+                f'D={D} p={p}: the measure-weighted pairing came out adjoint too, '
+                'which it should not -- if this ever fires, the convention in '
+                "delta's docstring needs revisiting, not this assertion")

@@ -471,7 +471,21 @@ class Lattice:
 
         .. note ::
             It depends only on the type, hence the broadcast shape;
-            ``(lat.measure(p) * a).sum()`` integrates ``a``.
+            ``(lat.measure(p) * a).sum()`` is a Riemann sum over the simplices.
+
+        .. warning ::
+            That is **not** the pairing :func:`d` and :func:`delta` are adjoint
+            with respect to.  Adjointness, $\sum (da)\cdot b = \sum a \cdot
+            (\delta b)$, holds for the *plain* sum ``a.sum()`` --- the pairing of
+            a cochain with a chain --- and fails once the measure is inserted.
+            A cochain is already an integrated quantity; weighting it by the
+            measure again is right only when it represents a density.
+
+            Nor is the measure what a model necessarily weights by: the classes
+            $(0,1)$, $(1,2)$, $(2,3)$ and $(3,4)$ all have length $1/2$, yet a
+            model is free to give each its own coupling.  The lattice
+            deliberately provides the weights --- :meth:`measure` and
+            :attr:`link_class` --- and no privileged way to sum with them.
 
         Parameters
         ----------
@@ -786,6 +800,11 @@ def delta(a):
         Nothing else in this module needs $\delta$: neither :func:`d` nor
         :func:`cup` is built from it.  It is here because adjointness is the
         strongest available test that the coboundary table is right.
+
+    .. warning ::
+        The pairing is the **plain** sum over fine simplices, with no measure
+        weighting.  Inserting :meth:`Lattice.measure` breaks adjointness at
+        every degree; see the warning there.
 
     Parameters
     ----------

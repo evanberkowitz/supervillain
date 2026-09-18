@@ -383,6 +383,40 @@ checked directly rather than assumed.
 
 .. autofunction :: supervillain.lattice.barycentric.cup
 
+Summing a Cochain
+-----------------
+
+On the hypercubic lattice every $p$-cell of a given degree is congruent, so
+there is only one way to sum a form.  Here the simplices differ: a class-$(r,s)$
+link has length $\sqrt{s-r}/2$, and within one degree the measure varies by a
+factor of two.  Three contractions are then distinct, and the lattice privileges
+none of them:
+
+.. code-block:: python
+
+    a.sum()                              # the chain pairing
+    (lat.measure(p) * a).sum()           # a Riemann sum
+    (kappa[lat.link_class] * a).sum()    # a model's action, class by class
+
+The first is the pairing of a cochain with a chain, and it is the one
+:func:`~supervillain.lattice.barycentric.d` and
+:func:`~supervillain.lattice.barycentric.delta` are adjoint with respect to.
+
+.. warning ::
+    Adjointness does **not** survive measure weighting.  It holds for the plain
+    sum and fails at every degree once the measure is inserted --- pinned by
+    ``test_adjointness_is_with_respect_to_the_plain_sum``.  A cochain is already
+    an integrated quantity; weighting it by the measure again is right only when
+    it stands for a density.
+
+The third is not the second in disguise either.  The classes $(0,1)$, $(1,2)$,
+$(2,3)$ and $(3,4)$ all have length $1/2$ while remaining four separate classes,
+and a model may give each its own coupling --- equal length does not force equal
+coefficients.  So the lattice supplies the weights,
+:meth:`~supervillain.lattice.barycentric.Lattice.measure` and
+:attr:`~supervillain.lattice.barycentric.Lattice.link_class`, and leaves the
+choice of which to sum with, and whether to sum at all, to the caller.
+
 Orientation
 -----------
 
