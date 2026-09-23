@@ -524,7 +524,24 @@ Differences from the Hypercubic Lattice
 
 .. danger ::
 
-   The cup product is not graded-commutative, and the module provides no Hodge star.
+   The cup product is not graded-commutative.
 
    :func:`~supervillain.lattice.barycentric.cup` evaluates one factor on the front face and the other on the back, an asymmetry that does not wash out, so $a \smile c$ and $(-1)^{pq} c \smile a$ differ simplex by simplex.
    They agree in the cases the :ref:`interlaced wedge <interlaced-wedge-commutativity-fail>` fails too, and for the same underlying reason: a lattice product must pick evaluation points, and no choice is symmetric.
+
+.. danger ::
+
+   There is no Hodge star, and there cannot be one.
+
+   A star would need a degree-reversing bijection between $p$-simplices and $(D-p)$-simplices, and the counts forbid it.
+   Per original site there are $16$ fine vertices but $384$ fine four-simplices, and $240$ fine links but $960$ tetrahedra; no choice of signs repairs a map with nowhere to send its arguments.
+   On the hypercubic lattice the corresponding counts are $\binom{D}{p} = \binom{D}{D-p}$ and therefore symmetric.
+
+   The mechanism that supplies :func:`~supervillain.lattice.interlaced.star` is present here but acts on the wrong index.
+   In the interlaced picture the rank of a site --- its number of odd coordinates --- *is* the form degree, so the parity flip $\xi \mapsto \xi + \varepsilon_{\mathrm{all}}$ reverses degree.
+   Here rank and degree are different: a $p$-simplex has $p$ steps, a step may release several directions at once, and its anchor carries a rank of its own.
+   :func:`~supervillain.lattice.barycentric.tau` is that same parity flip and does reverse rank, $r \mapsto D-r$, but it carries $p$-simplices to $p$-simplices and leaves the degree alone.
+
+   Underneath both is that a simplicial complex is not self-dual: the dual cell of a fine $p$-simplex is a $(D-p)$-dimensional block, a union of simplices of the *second* barycentric subdivision, so the dual of $\mathrm{sd}\,K$ is a block complex rather than $\mathrm{sd}\,K$ itself.
+   Poincaré duality survives in cohomology, realized by a map between two complexes rather than by an operator on one.
+   Nothing here needs a star in any case: :func:`~supervillain.lattice.barycentric.delta` is built as the transpose of $d$ with respect to :eq:`barycentric-d-delta-adjoint`, which is how a codifferential is had on a simplicial complex, rather than as $\pm\,\star d\,\star$.
