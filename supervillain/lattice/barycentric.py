@@ -796,11 +796,6 @@ def delta(a):
     $\langle a, b \rangle = \sum_{\sigma} a_{\sigma} b_{\sigma}$ over fine simplices,
     so that $\sum (da)\cdot b = \sum a \cdot (\delta b)$.
 
-    .. note ::
-        Nothing else in this module needs $\delta$: neither :func:`d` nor
-        :func:`cup` is built from it.  It is here because adjointness is the
-        strongest available test that the coboundary table is right.
-
     .. warning ::
         The pairing is the **plain** sum over fine simplices, with no measure
         weighting.  Inserting :meth:`Lattice.measure` breaks adjointness at

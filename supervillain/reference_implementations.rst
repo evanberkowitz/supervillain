@@ -418,8 +418,7 @@ It is implemented as the transpose of the very table $d$ walks: where $d$ gather
 
 .. autofunction :: supervillain.lattice.barycentric.delta
 
-Nothing else in the module is built from $\delta$.
-It is here because adjointness is the sharpest available test that the coboundary is right, and because the pairing it is adjoint to is a choice worth stating; see :ref:`the note below <barycentric-sums>`.
+Adjointness is the sharpest available test that the coboundary is right, and the pairing it is stated with respect to is a choice worth being explicit about; see :ref:`the note below <barycentric-sums>`.
 
 Cup Product
 -----------
