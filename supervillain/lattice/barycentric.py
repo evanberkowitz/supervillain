@@ -842,11 +842,10 @@ def cup(a, c):
 
         (a \smile c)[v_0 \cdots v_{p+q}] = a[v_0 \cdots v_p]\, c[v_p \cdots v_{p+q}].
 
-    .. note ::
-        There is exactly **one** term per output simplex --- no sum over
-        shuffles.  That is what distinguishes this from the hypercubic wedge:
-        a product formed from it contributes a single term to each top
-        simplex, so distinct contributions cannot cancel within one.
+    There is exactly **one** term per output simplex --- no sum over shuffles.
+    That is what distinguishes this from the hypercubic wedge: a product formed
+    from it contributes a single term to each top simplex, so distinct
+    contributions cannot cancel within one.
 
     .. seealso ::
         :attr:`Lattice.orientation_sign`, which a model combines with the
