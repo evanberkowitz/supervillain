@@ -35,7 +35,7 @@ def test_type_counts_match_closed_form():
 
 
 def test_four_simplex_count_is_384():
-    """Note eq. (3): 16 * 4! = 384 fine four-simplices per hypercube."""
+    """16 corners times 4! orders of release: 384 fine four-simplices per hypercube."""
     assert b._structures(4).type_count[4] == 384
 
 
@@ -58,7 +58,7 @@ def test_offsets_are_cumulative_signed_unit_steps():
 
 
 def test_measure_of_every_top_simplex_is_one_over_384():
-    """Note section 2.1: each fine four-simplex has volume 1/384."""
+    """Each fine four-simplex has volume 1/(D! 2^D) = 1/384."""
     s = b._structures(4)
     assert np.allclose(s.measure[4], 1.0 / 384)
 
@@ -70,15 +70,15 @@ def test_measure_of_top_simplex_is_general_formula():
 
 
 def test_link_length_is_sqrt_rank_difference_over_two():
-    """Note section 2.1: a class (r,s) link has length sqrt(s-r)/2."""
+    """A class (r,s) link differs in s-r coordinates by 1/2, so it has length sqrt(s-r)/2."""
     s = b._structures(4)
     for t, steps in enumerate(s.step_types[1]):
         k = len(steps[0])                      # directions released = s - r
         assert np.isclose(s.measure[1][t], np.sqrt(k) / 2)
 
 
-def test_blue_triangle_has_area_one_eighth():
-    """Note section 2.4: a plaquette is cut into eight fine triangles."""
+def test_primal_triangle_has_area_one_eighth():
+    """A plaquette is cut into eight fine triangles, each of area 1/8."""
     s = b._structures(4)
     blue = s.type_index[2][(((0, +1),), ((1, +1),))]
     assert np.isclose(s.measure[2][blue], 1.0 / 8)
@@ -105,7 +105,7 @@ def test_orientation_sign_closed_form():
 
 
 def test_ten_link_classes():
-    """Note section 2.5: C(5,2) = 10 classes in D = 4."""
+    """Links are labelled by the ranks r < s of their endpoints: C(D+1,2) classes."""
     from math import comb
     for D in (2, 3, 4):
         s = b._structures(D)
@@ -135,7 +135,7 @@ def test_sixteen_fine_vertices_per_original_site():
 
 
 def test_two_hundred_forty_links_per_original_site():
-    """Note section 2.5, with the ten multiplicities."""
+    """240 fine links per original site, split across the ten rank classes."""
     lat = b.Lattice(4, 3)
     assert lat.count(1) / 3**4 == 240
     tally = np.bincount(lat.link_class[lat.link_class >= 0].ravel())
@@ -270,7 +270,7 @@ def test_flux_is_closed():
 
 
 def test_d_on_a_zero_cochain_is_the_difference_of_endpoints():
-    """Note eq. (4) at p = 0: (d phi)_01 = phi_1 - phi_0."""
+    """The coboundary at p = 0 is the endpoint difference: (d phi)_01 = phi_1 - phi_0."""
     lat = b.Lattice(2, 3)
     s = b._structures(2)
     phi = lat.random(0)
@@ -374,7 +374,7 @@ def _plaquette_families(lat, mu, nu, z):
     where sign2d is the orientation of the triangle inside its own square.
 
     Two fixes on top of the naive per-plane construction, both needed to make
-    P . P* = +1 for every plaquette (note section on the intersection form):
+    P . P* = +1 for every plaquette:
 
     - The **anchor** of a blue triangle is its own v0, reached from the
       centre xi_P (= its own v2) by subtracting that type's offset. The
@@ -426,7 +426,7 @@ def _plaquette_families(lat, mu, nu, z):
 
 
 def test_sixty_four_simplices_meet_at_a_plaquette_centre():
-    """Note section on the intersection form: the fine four-simplices whose
+    """The fine four-simplices whose
     rank-two vertex v2 is a given plaquette centre are *exactly* the 8 x 8
     blue-triangle x orange-triangle pairs.
 
@@ -461,7 +461,7 @@ def test_sixty_four_simplices_meet_at_a_plaquette_centre():
 
 
 def test_charge_factorizes_into_primal_and_dual_flux():
-    """Note eq. (13): sum of the 64 charges at b(P) is Phi(P) Phi(P*)."""
+    """The 64 signed cup-squares at a plaquette centre sum to Phi(P) Phi(P*)."""
     rng = np.random.default_rng(2026)
     lat = b.Lattice(4, 3)
     s = b._structures(4)
@@ -495,7 +495,7 @@ def test_charge_factorizes_into_primal_and_dual_flux():
 
 
 def test_constraint_collapses_to_the_occupancy_rule():
-    """Note eq. (14): q = 0 on all 64 iff the blue family or the orange family
+    """q = 0 on all 64 iff the primal family or the dual family
     carries no flux at all.
 
     Random dn flux is dense: with N = 3 in D = 4 it essentially never leaves
@@ -567,7 +567,7 @@ def test_constraint_collapses_to_the_occupancy_rule():
 
 
 def test_blind_links_never_enter_the_charge():
-    """Note eq. (17): classes (0,3),(0,4),(1,3),(1,4) jump the plaquette rank."""
+    """Classes (0,3),(0,4),(1,3),(1,4) jump over rank two, so no cup-square reads them."""
     lat = b.Lattice(4, 3)
     blind = {(0, 3), (0, 4), (1, 3), (1, 4)}
     blind_idx = [i for i, c in enumerate(lat.link_classes) if c in blind]
@@ -585,7 +585,7 @@ def test_blind_links_never_enter_the_charge():
 
 
 def test_valid_accepts_the_vacuum_and_rejects_a_charged_configuration():
-    """The note's own deterministic witness: put n = 1 on the edge 01 and on
+    """A deterministic witness: put n = 1 on the edge 01 and on
     the edge 34 of one ordered four-simplex sigma.  Then
     f_012 = n_01 = 1 and f_234 = n_34 = 1, so q = eps_sigma = +-1 there, and
     Sum |q| = 2 over the whole lattice.
@@ -666,7 +666,7 @@ def test_permute_composes():
 
 
 def test_point_group_order_is_measured_not_assumed():
-    """Note section 3.1: the FULL hypercubic group acts, order 2^D D! -- 384 in
+    """The FULL hypercubic group acts, order 2^D D! -- 384 in
     D = 4, against the cubical model's 48.  Count distinct actions, so a
     transformation that silently collapses onto another is caught.
 
@@ -727,7 +727,7 @@ def test_whole_point_group_acts_covariantly_on_the_charge():
 
     That is strictly stronger than "$g$ preserves the constraint set", which
     it implies (if $q(n) = 0$ everywhere then so is $q(g.n)$), and it is the
-    actual statement of the note's claim (b).  The membership version this
+    sharper statement.  The membership version this
     replaced tested a single-link configuration whose charge vanishes for a
     structural reason -- the cup-square's two triangles 012 and 234 meet only
     at the vertex v2, so no *single* edge can carry flux into both, hence
@@ -848,7 +848,7 @@ def test_tau_reverses_rank():
 
 
 def test_tau_maps_link_class_antidiagonally():
-    """Note Figure 5: (r,s) -> (D-s, D-r)."""
+    """tau reverses rank, so it carries link class (r,s) to (D-s, D-r)."""
     lat = b.Lattice(4, 3)
     idx = {c: i for i, c in enumerate(lat.link_classes)}
     for source, target in (((0, 1), (3, 4)), ((0, 3), (1, 4)),
@@ -992,8 +992,8 @@ def test_translate_diagonal_with_even_steps_is_a_plain_translation():
     assert np.allclose(lhs, np.asarray(b.translate(a, (1, 1, 1, 1))))
 
 
-def test_two_dimensional_figure_one():
-    """Note Figure 1: a square is cut into eight fine triangles, three ranks."""
+def test_two_dimensional_square_splits_into_eight_triangles():
+    """In D = 2 a square is cut into eight fine triangles, over three ranks."""
     lat = b.Lattice(2, 3)
     assert lat.count(2) / 3**2 == 8
     assert sorted(set(lat.site_rank.ravel())) == [0, 1, 2]
