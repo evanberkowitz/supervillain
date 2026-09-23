@@ -481,11 +481,11 @@ class Lattice:
             A cochain is already an integrated quantity; weighting it by the
             measure again is right only when it represents a density.
 
-            Nor is the measure what a model necessarily weights by: the classes
-            $(0,1)$, $(1,2)$, $(2,3)$ and $(3,4)$ all have length $1/2$, yet a
-            model is free to give each its own coupling.  The lattice
-            deliberately provides the weights --- :meth:`measure` and
-            :attr:`link_class` --- and no privileged way to sum with them.
+            Nor does the measure exhaust the ways to weight a sum: the classes
+            $(0,1)$, $(1,2)$, $(2,3)$ and $(3,4)$ all have length $1/2$ and are
+            still four distinct classes.  :meth:`measure` and
+            :attr:`link_class` are both available as weights; neither is
+            privileged.
 
         Parameters
         ----------
@@ -847,12 +847,6 @@ def cup(a, c):
     from it contributes a single term to each top simplex, so distinct
     contributions cannot cancel within one.
 
-    .. seealso ::
-        :attr:`Lattice.orientation_sign`, which a model combines with the
-        cup-square to build an orientation-signed top-degree charge.  The
-        lattice deliberately does not define such a charge itself: which
-        product to form, and what it means, belongs to the model.
-
     Parameters
     ----------
     a : Form
@@ -1111,30 +1105,30 @@ if __name__ == '__main__':
         print('\nTHE CUP-SQUARE AT A PLAQUETTE CENTRE  Σ_64 = Φ(P)·Φ(P*)')
 
         def _plaquette_families(mu, nu, z):
-            """The blue and orange triangle slots at the centre of plaquette
+            """The primal and dual triangle slots at the centre of plaquette
             (mu,nu) at z.  Mirrors test_barycentric.py's _plaquette_families;
             the two live in different files (the module and the test
             transplant to different library directories), so the reasoning
             that justifies the two non-obvious choices below travels with
             each copy rather than with only one of them.
 
-            Returns (blue, orange), each a list of (type_index, anchor_tuple,
+            Returns (primal, dual), each a list of (type_index, anchor_tuple,
             sign2d), where sign2d is the orientation of the triangle inside
             its own square.
 
             Two fixes on top of the naive per-plane construction, both needed
             to make P . P* = +1 for every plaquette:
 
-            - The **anchor** of a blue triangle is its own v0, reached from
+            - The **anchor** of a primal triangle is its own v0, reached from
               the centre xi_P (= its own v2) by subtracting that type's
-              offset.  The orange triangle is different: xi_P is its own v0
+              offset.  The dual triangle is different: xi_P is its own v0
               (the anchor and the centre coincide -- xi_P already has even
               coordinates in the complementary directions), so no offset
               subtraction applies there.  Subtracting it anyway reads the
-              orange flux off a location outside its support -- always zero
+              the dual family off a location outside its support -- always zero
               -- which is exactly the kind of vacuous 0 == 0 pass the
               non-degeneracy guard below exists to catch.
-            - The dual (orange) family additionally needs the global
+            - The dual (dual) family additionally needs the global
               orientation factor epsilon_{mu,nu,o1,o2} (o1 < o2 the
               complementary directions): the sign of the permutation
               (mu, nu, o1, o2) of (0, 1, 2, 3).  Without it, planes related
@@ -1171,15 +1165,13 @@ if __name__ == '__main__':
 
         n = lat.random_integer(1)
         f = d(n)
-        # The orientation-signed cup-square of a 2-cochain.  The lattice
-        # provides cup and orientation_sign; forming this particular product,
-        # and calling it a charge, is a model's choice, so it is built here.
+        # the orientation-signed cup-square of a 2-cochain
         q = Form(np.asarray(cup(f, f)) * lat.orientation_sign,
                  degree=4, lattice=lat)
         raw_f, raw_q = np.asarray(f), np.asarray(q)
 
         # Sample several planes and centres, exactly as
-        # test_charge_factorizes_into_primal_and_dual_flux does, and require
+        # test_cup_square_factorizes_at_a_plaquette_centre does, and require
         # at least one sampled centre to be non-degenerate (both factors
         # nonzero) -- otherwise a green checkmark here could just as well be
         # reporting 0 == 0.
@@ -1188,12 +1180,12 @@ if __name__ == '__main__':
         for mu, nu in ((0, 1), (1, 3), (2, 3)):
             for _ in range(3):
                 z = tuple(int(k) for k in rng.integers(0, N, D))
-                blue, orange = _plaquette_families(mu, nu, z)
-                Phi_P  = sum(sg * raw_f[(t,) + xi] for t, xi, sg in blue)
-                Phi_Ps = sum(sg * raw_f[(t,) + xi] for t, xi, sg in orange)
+                primal, dual = _plaquette_families(mu, nu, z)
+                Phi_P  = sum(sg * raw_f[(t,) + xi] for t, xi, sg in primal)
+                Phi_Ps = sum(sg * raw_f[(t,) + xi] for t, xi, sg in dual)
                 total = 0
-                for tb, xb, _ in blue:
-                    for to, _, _ in orange:
+                for tb, xb, _ in primal:
+                    for to, _, _ in dual:
                         steps = s.step_types[2][tb] + s.step_types[2][to]
                         t4 = s.type_index[4][steps]
                         total += raw_q[(t4,) + xb]

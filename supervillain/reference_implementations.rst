@@ -460,11 +460,11 @@ By :eq:`barycentric-pvector-product` the orientation sign factorizes across that
        = \Phi(P)\, \Phi(P^*)
 
 the product of the sums of $f$ over the two triangle families, each taken with its own orientation, and with no shift vector anywhere in it.
-This is ``test_charge_factorizes_into_primal_and_dual_flux``.
-Because the $64$ values are the entries of an outer product of two eight-vectors, they vanish together exactly when one of the two families carries nothing --- ``test_constraint_collapses_to_the_occupancy_rule``.
+This is ``test_cup_square_factorizes_at_a_plaquette_centre``.
+Because the $64$ values are the entries of an outer product of two eight-vectors, they vanish together exactly when one of the two families carries nothing --- ``test_cup_square_vanishes_iff_one_family_does``.
 
 Four of the ten link classes, $(0,3)$, $(0,4)$, $(1,3)$ and $(1,4)$, join a rank below two to a rank above it.
-No cup-square of a $2$-cochain of the form $dn$ reads them, so changing $n$ there leaves every such product untouched (``test_blind_links_never_enter_the_charge``).
+No cup-square of a $2$-cochain of the form $dn$ reads them, so changing $n$ there leaves every such product untouched (``test_rank_skipping_links_enter_no_cup_square``).
 
 Symmetries
 ----------

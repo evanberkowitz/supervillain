@@ -80,8 +80,8 @@ def test_link_length_is_sqrt_rank_difference_over_two():
 def test_primal_triangle_has_area_one_eighth():
     """A plaquette is cut into eight fine triangles, each of area 1/8."""
     s = b._structures(4)
-    blue = s.type_index[2][(((0, +1),), ((1, +1),))]
-    assert np.isclose(s.measure[2][blue], 1.0 / 8)
+    primal = s.type_index[2][(((0, +1),), ((1, +1),))]
+    assert np.isclose(s.measure[2][primal], 1.0 / 8)
 
 
 def test_orientation_sign_matches_determinant():
@@ -368,24 +368,24 @@ def test_wedge_is_cup():
 
 
 def _plaquette_families(lat, mu, nu, z):
-    """The blue and orange triangle slots at the centre of plaquette (mu,nu) at z.
+    """The primal and dual triangle slots at the centre of plaquette (mu,nu) at z.
 
-    Returns (blue, orange), each a list of (type_index, anchor_tuple, sign2d),
+    Returns (primal, dual), each a list of (type_index, anchor_tuple, sign2d),
     where sign2d is the orientation of the triangle inside its own square.
 
     Two fixes on top of the naive per-plane construction, both needed to make
     P . P* = +1 for every plaquette:
 
-    - The **anchor** of a blue triangle is its own v0, reached from the
+    - The **anchor** of a primal triangle is its own v0, reached from the
       centre xi_P (= its own v2) by subtracting that type's offset. The
-      orange triangle is different: xi_P is its own v0 (the anchor and the
+      dual triangle is different: xi_P is its own v0 (the anchor and the
       centre coincide -- xi_P already has even coordinates in the
       complementary directions), so no offset subtraction applies there.
-      Subtracting it anyway (as a first attempt did) reads the orange flux
+      Subtracting it anyway (as a first attempt did) reads the dual flux
       off a location outside its support -- always zero -- which is exactly
       the kind of vacuous 0 == 0 pass the non-degeneracy guards below exist
       to catch.
-    - The dual (orange) family additionally needs the global orientation
+    - The dual (dual) family additionally needs the global orientation
       factor epsilon_{mu,nu,o1,o2} (o1 < o2 the complementary directions):
       the sign of the permutation (mu, nu, o1, o2) of (0, 1, 2, 3). Without
       it, planes related by an odd permutation (e.g. (mu,nu) = (1,3)) come
@@ -428,7 +428,7 @@ def _plaquette_families(lat, mu, nu, z):
 def test_sixty_four_simplices_meet_at_a_plaquette_centre():
     """The fine four-simplices whose
     rank-two vertex v2 is a given plaquette centre are *exactly* the 8 x 8
-    blue-triangle x orange-triangle pairs.
+    primal-triangle x dual-triangle pairs.
 
     Brute-forced against the module rather than counted off the helper: a
     length check on ``_plaquette_families``' own output is true by that
@@ -449,18 +449,18 @@ def test_sixty_four_simplices_meet_at_a_plaquette_centre():
         if lat.support(4)[(t4,) + anchor]:
             found.add((t4, anchor))
 
-    blue, orange = _plaquette_families(lat, mu, nu, z)
-    assert len(blue) == 8 and len(orange) == 8
+    primal, dual = _plaquette_families(lat, mu, nu, z)
+    assert len(primal) == 8 and len(dual) == 8
     pairs = {(s.type_index[4][s.step_types[2][tb] + s.step_types[2][to]], xb)
-             for tb, xb, _ in blue for to, _, _ in orange}
+             for tb, xb, _ in primal for to, _, _ in dual}
     assert len(pairs) == 64
     assert found == pairs, (
         f'{len(found)} four-simplices have v2 at the centre, against '
-        f'{len(pairs)} blue x orange pairs; symmetric difference '
+        f'{len(pairs)} primal x dual pairs; symmetric difference '
         f'{len(found ^ pairs)}')
 
 
-def test_charge_factorizes_into_primal_and_dual_flux():
+def test_cup_square_factorizes_at_a_plaquette_centre():
     """The 64 signed cup-squares at a plaquette centre sum to Phi(P) Phi(P*)."""
     rng = np.random.default_rng(2026)
     lat = b.Lattice(4, 3)
@@ -474,14 +474,14 @@ def test_charge_factorizes_into_primal_and_dual_flux():
     for (mu, nu) in ((0, 1), (1, 3), (2, 3)):
         for _ in range(3):
             z = tuple(rng.integers(0, lat.N, 4))
-            blue, orange = _plaquette_families(lat, mu, nu, z)
-            Phi_P  = sum(sg * raw_f[(t,) + xi] for t, xi, sg in blue)
-            Phi_Ps = sum(sg * raw_f[(t,) + xi] for t, xi, sg in orange)
+            primal, dual = _plaquette_families(lat, mu, nu, z)
+            Phi_P  = sum(sg * raw_f[(t,) + xi] for t, xi, sg in primal)
+            Phi_Ps = sum(sg * raw_f[(t,) + xi] for t, xi, sg in dual)
             total = 0
-            for tb, xb, _ in blue:
-                for to, _, _ in orange:
-                    # the 4-simplex whose first two steps are the blue triangle's
-                    # and whose last two are the orange triangle's
+            for tb, xb, _ in primal:
+                for to, _, _ in dual:
+                    # the 4-simplex whose first two steps are the primal triangle's
+                    # and whose last two are the dual triangle's
                     steps = s.step_types[2][tb] + s.step_types[2][to]
                     t4 = s.type_index[4][steps]
                     total += raw_q[(t4,) + xb]
@@ -494,7 +494,7 @@ def test_charge_factorizes_into_primal_and_dual_flux():
         'tell eq. (13) from a vacuous 0 == 0.')
 
 
-def test_constraint_collapses_to_the_occupancy_rule():
+def test_cup_square_vanishes_iff_one_family_does():
     """q = 0 on all 64 iff the primal family or the dual family
     carries no flux at all.
 
@@ -519,17 +519,17 @@ def test_constraint_collapses_to_the_occupancy_rule():
         q = _charge(lat, f)
         raw_f, raw_q = np.asarray(f), np.asarray(q)
         z = tuple(rng.integers(0, lat.N, 4))
-        blue, orange = _plaquette_families(lat, 0, 2, z)
-        blue_flux   = [raw_f[(t,) + xi] for t, xi, _ in blue]
-        orange_flux = [raw_f[(t,) + xi] for t, xi, _ in orange]
+        primal, dual = _plaquette_families(lat, 0, 2, z)
+        primal_values   = [raw_f[(t,) + xi] for t, xi, _ in primal]
+        dual_values = [raw_f[(t,) + xi] for t, xi, _ in dual]
         charges = []
-        for tb, xb, _ in blue:
-            for to, _, _ in orange:
+        for tb, xb, _ in primal:
+            for to, _, _ in dual:
                 t4 = s.type_index[4][s.step_types[2][tb] + s.step_types[2][to]]
                 charges.append(raw_q[(t4,) + xb])
         all_zero = all(c == 0 for c in charges)
-        occupancy = (all(x == 0 for x in blue_flux)
-                     or all(x == 0 for x in orange_flux))
+        occupancy = (all(x == 0 for x in primal_values)
+                     or all(x == 0 for x in dual_values))
         assert all_zero == occupancy, f'trial {trial}'
         outcomes.add(all_zero)
 
@@ -542,12 +542,12 @@ def test_constraint_collapses_to_the_occupancy_rule():
     # a general 2-cochain and check that all 64 charges at that centre
     # vanish, with the *other* family checked nonzero so the case is not
     # merely f = 0.
-    for zero_family in ('blue', 'orange'):
+    for zero_family in ('primal', 'dual'):
         f = lat.random_integer(2, low=-2, high=3)
         raw_f = np.asarray(f)
         z = tuple(rng.integers(0, lat.N, 4))
-        blue, orange = _plaquette_families(lat, 0, 2, z)
-        zeroed, kept = (blue, orange) if zero_family == 'blue' else (orange, blue)
+        primal, dual = _plaquette_families(lat, 0, 2, z)
+        zeroed, kept = (primal, dual) if zero_family == 'primal' else (dual, primal)
         for t, xi, _ in zeroed:
             raw_f[(t,) + xi] = 0
         kept_flux = [raw_f[(t,) + xi] for t, xi, _ in kept]
@@ -557,8 +557,8 @@ def test_constraint_collapses_to_the_occupancy_rule():
             'occupancy rule.')
         raw_q = np.asarray(_charge(lat, f))
         charges = []
-        for tb, xb, _ in blue:
-            for to, _, _ in orange:
+        for tb, xb, _ in primal:
+            for to, _, _ in dual:
                 t4 = s.type_index[4][s.step_types[2][tb] + s.step_types[2][to]]
                 charges.append(raw_q[(t4,) + xb])
         assert all(c == 0 for c in charges), (
@@ -566,7 +566,7 @@ def test_constraint_collapses_to_the_occupancy_rule():
             f'at the plaquette centre')
 
 
-def test_blind_links_never_enter_the_charge():
+def test_rank_skipping_links_enter_no_cup_square():
     """Classes (0,3),(0,4),(1,3),(1,4) jump over rank two, so no cup-square reads them."""
     lat = b.Lattice(4, 3)
     blind = {(0, 3), (0, 4), (1, 3), (1, 4)}
