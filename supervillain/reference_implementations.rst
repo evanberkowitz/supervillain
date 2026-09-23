@@ -274,7 +274,12 @@ A step releasing several directions at once is a chain that skips ranks.
 Every staircase is a nested chain and every nested chain is a staircase, so a fine $p$-simplex is exactly an anchor together with an ordered tuple $(\Delta_1, \ldots, \Delta_p)$, which we call its **type**.
 
 A degree-$p$ cochain is therefore stored as an array of shape $(T_p,) + (2N,)^D$: the leading axis enumerates the types and the rest give the anchor.
-A type is realized at an anchor only when every direction it releases is even there, so the array is sparse in the same spirit as the interlaced picture; :meth:`~supervillain.lattice.barycentric.Lattice.support` is that mask.
+A type is realized at an anchor only when every direction it releases is even there, so this array is sparse in the same spirit as the interlaced picture, and :meth:`~supervillain.lattice.barycentric.Lattice.support` is that mask.
+A type releasing $k$ directions lives on $2^{-k}$ of the anchors, so the waste grows with degree: in $D = 4$ the occupancy runs $100\%, 19\%, 11\%, 8\%, 6\%$ from $p = 0$ to $p = 4$.
+
+That is the price of the obvious layout, and it is deliberate.
+A space-efficient implementation would group anchors by parity pattern --- each of the $2^D$ patterns admits its own set of types, and those anchors form an $N^D$ sublattice --- storing exactly one entry per simplex.
+That layout is a factor of $16$ smaller at the top degree and about $11$ smaller overall, but every operator must then route between $2^D$ blocks with different type sets in each, which is exactly the sort of intricacy worth checking against an implementation that does the obvious thing instead.
 
 .. autoclass :: supervillain.lattice.barycentric.Lattice
    :members:
