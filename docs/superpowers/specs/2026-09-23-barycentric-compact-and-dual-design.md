@@ -113,6 +113,34 @@ the sign being the orientation convention relating $\sigma$ to $D(\sigma)$. It
 costs a table of signs and no storage at all, which is why it ships with the
 layout rather than later.
 
+### Why there are two stars, not one
+
+In the continuum $\star\star = (-1)^{p(D-p)}$, so the star is its own inverse up
+to sign.  That survives discretization only for a **diagonal** star:
+
+- the combinatorial star is the identity on the component index times a sign, so
+  $\star\star = \pm 1$ exactly --- involutive, free to invert, and carrying no
+  geometry;
+- a metric star is a Gram matrix $M_p$, symmetric positive-definite; primal to
+  dual is $M$ and dual to primal is $M^{-1}$, *not* $M$.  It is not involutive,
+  and its inverse is a sparse solve.
+
+A diagonal DEC star would have been both metric and involutive, since its
+inverse is the reciprocal ratios.  That is the option this lattice denies: the
+diagonal ratio is exact only when primal and dual cells meet orthogonally, which
+requires a circumcentric dual on a well-centred mesh, and every fine simplex
+here is an orthoscheme whose circumcentre lies exactly on its boundary (measured
+in $D = 2, 3, 4$).  So on this lattice one can have involutive and cheap, or
+metric and exact, but not both in a single operator.  That is forced by the
+geometry, not a shortcoming of the implementation, and it is why both stars have
+a place.
+
+In mitigation: every demonstrated use of `star` in the library is a *pairing*,
+$\langle X, \star Y \rangle$ --- all eleven call sites in `action/chiral.py` and
+`action/qed.py` have the form ``(X * star(Y)).sum()``.  Pairings never invert the
+star, and $\delta$ is the transpose rather than $\pm\star^{-1} d\, \star$, so the
+non-involutivity bites only a model wanting metric roundtrips.
+
 The **metric** star, carrying $|D(\sigma)|/|\sigma|$, is deferred. The cheap
 diagonal DEC star is exact only when primal and dual cells meet orthogonally,
 which needs a circumcentric dual on a well-centred mesh; measured, every fine
