@@ -15,3 +15,4 @@ from .dict import Dict as dict
 
 import supervillain.h5.strategy.np as np
 from .batch import BatchStrategy as batch
+from .barycubic import BarycubicFormStrategy as barycubic_form

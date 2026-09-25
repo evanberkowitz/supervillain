@@ -51,6 +51,12 @@ def resolve_batch_cls(tag):
     if tag == 'Form':
         from supervillain.lattice import Form
         return Form
+    if tag == 'BarycubicForm':
+        from supervillain.lattice import BarycubicForm
+        return BarycubicForm
+    if tag == 'BarycubicDualForm':
+        from supervillain.lattice import BarycubicDualForm
+        return BarycubicDualForm
     raise ValueError(f'Unknown Batch element class tag {tag!r}')
 
 
