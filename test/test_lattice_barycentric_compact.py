@@ -1,4 +1,6 @@
 import itertools
+import math
+
 import numpy as np
 import pytest
 
@@ -511,3 +513,30 @@ def test_mass_tables_are_N_independent_and_cached():
     a, b = cpt.Lattice(3, 3), cpt.Lattice(3, 5)
     for p in range(4):
         assert a._c.mass_table(p) is b._c.mass_table(p), p
+
+
+def test_hodge_star_reproduces_the_inner_product_of_constant_forms():
+    '''Whitney interpolation is exact on constant forms, so pairing the cochains
+    of dx^I and dx^J through the mass matrix must give delta_IJ times the
+    torus volume.  This is the p > 0 generalization of the p = 0 volume check,
+    and unlike it, it pins the face-to-component map: a face that skips chain
+    vertices has to carry the merged step set or the pairing stops being the
+    identity.'''
+    for D, N in ((2, 3), (3, 3), (4, 3)):
+        lat = cpt.Lattice(D, N)
+        for p in range(D + 1):
+            # The cochain of the constant form dx^I is its integral over each
+            # simplex, det of the edge vectors restricted to I over p!; pvector
+            # is that determinant in doubled units, so divide by 2**p as well.
+            scale = math.factorial(p) * 2 ** p
+            cochains = [
+                cpt.Form(np.broadcast_to(
+                    (lat.pvector(p)[:, i] / scale).reshape((-1,) + (1,) * D),
+                    (lat._c.count[p],) + (N,) * D).copy(),
+                    degree=p, lattice=lat)
+                for i in range(len(lat.planes(p)))]
+            gram = np.array([[float((np.asarray(a)
+                                     * np.asarray(cpt.hodge_star(b))).sum())
+                              for b in cochains] for a in cochains])
+            assert np.allclose(gram, float(N) ** D * np.eye(len(cochains))), \
+                (D, p, gram)
