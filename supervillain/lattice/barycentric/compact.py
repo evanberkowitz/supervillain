@@ -60,9 +60,11 @@ class _CompactStructures:
         $x + \lfloor (\pi + \delta)/2 \rfloor$.
 
         .. note ::
-            The site offset lies in $\{-1, 0, +1\}$ per direction --- a $+1$
-            arising exactly when $\pi = 1$ and $\delta = +1$ --- so the stencil
-            reaches the $3^D$ neighbouring sites.
+            The site offset lies in $\{-1, 0\}$ per direction, so the stencil
+            reaches the $2^D$ neighbouring sites.  A component is realized only
+            where every direction its type releases is even at the anchor, and a
+            shift is nonzero only in released directions, so $\pi + \delta$ never
+            reaches $2$ --- the only route to a $+1$ offset.
 
         Parameters
         ----------

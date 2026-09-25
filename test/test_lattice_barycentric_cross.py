@@ -98,10 +98,23 @@ def test_d_matches_doubled():
             assert np.allclose(np.asarray(lhs), np.asarray(rhs)), (D, p)
 
 
-def test_d_raises_the_degree_and_stays_primal():
+def test_d_raises_the_degree_and_keeps_it_primal():
+    """Degree bookkeeping only -- not the ValueError branches; see below."""
     clat = cpt.Lattice(4, 3)
     out = cpt.d(clat.random(1))
     assert out.degree == 2 and out.dual is False
+
+
+def test_d_refuses_a_dual_form():
+    clat = cpt.Lattice(4, 3)
+    with pytest.raises(ValueError):
+        cpt.d(clat.zeros(1, dual=True))
+
+
+def test_d_refuses_past_the_top_degree():
+    clat = cpt.Lattice(4, 3)
+    with pytest.raises(ValueError):
+        cpt.d(clat.random(4))
 
 
 def test_site_offsets_are_two_point():
