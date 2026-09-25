@@ -141,6 +141,64 @@ class Form(np.ndarray):
         kind = 'dual' if self.dual else 'primal'
         return f'Form({kind}, degree={self.degree}, shape={self.shape}, {self.lattice})'
 
+    def to_doubled(self):
+        r"""
+        The same cochain in the
+        :mod:`~supervillain.lattice.barycentric.doubled` layout.
+
+        .. note ::
+            Component $(\pi, t)$ at site $x$ is the doubled slot of type $t$ at
+            anchor $2x + \pi$, so this is a strided scatter and loses nothing.
+
+        .. warning ::
+            Primal forms only.  The doubled module has no notion of a dual
+            cochain, so there is nothing to convert a dual form *to*.
+
+        Returns
+        -------
+        supervillain.lattice.barycentric.doubled.Form
+            The same numbers, on the doubled array.
+        """
+        if self.dual:
+            raise ValueError(
+                'to_doubled is for primal forms; the doubled module has no '
+                'dual cochains to convert to.')
+        lat = self.lattice
+        D, N, p = lat.D, lat.N, self.degree
+        out = np.zeros((lat._s.type_count[p],) + (2 * N,) * D,
+                       dtype=np.asarray(self).dtype)
+        raw = np.asarray(self)
+        for i, (parity, t) in enumerate(lat._c.components[p]):
+            index = (t,) + tuple(slice(parity[mu], None, 2) for mu in range(D))
+            out[index] = raw[i]
+        return doubled.Form(out, degree=p, lattice=lat._doubled)
+
+    @classmethod
+    def from_doubled(cls, f, lattice):
+        r"""
+        A compact form from a
+        :mod:`~supervillain.lattice.barycentric.doubled` one.
+
+        Parameters
+        ----------
+        f : supervillain.lattice.barycentric.doubled.Form
+            The doubled cochain.
+        lattice : Lattice
+            The compact lattice to build on.
+
+        Returns
+        -------
+        Form
+            The same numbers, compactly.
+        """
+        D, N, p = lattice.D, lattice.N, f.degree
+        raw = np.asarray(f)
+        out = np.zeros((lattice._c.count[p],) + (N,) * D, dtype=raw.dtype)
+        for i, (parity, t) in enumerate(lattice._c.components[p]):
+            index = (t,) + tuple(slice(parity[mu], None, 2) for mu in range(D))
+            out[i] = raw[index]
+        return cls(out, degree=p, lattice=lattice)
+
 
 # ---------------------------------------------------------------------------
 # Lattice  — factory for compact cochains
@@ -171,6 +229,11 @@ class Lattice:
 
     def __repr__(self):
         return f'Lattice(D={self.D}, N={self.N})'
+
+    @cached_property
+    def _doubled(self):
+        r"""The matching doubled lattice, built once and reused by the converters."""
+        return doubled.Lattice(self.D, self.N)
 
     def count(self, p):
         r"""
