@@ -96,6 +96,13 @@ class _CompactStructures:
         r"""
         Re-index the doubled cup table into the compact layout.
 
+        Parameters
+        ----------
+        p : int
+            Degree of the left factor.
+        q : int
+            Degree of the right factor.
+
         Returns
         -------
         tuple
@@ -535,6 +542,9 @@ def delta(a):
         for src, shift, sign in terms:
             out[src] += sign * _gather(raw[i], tuple(-s for s in shift))
     return Form(out, degree=P - 1, lattice=lat)
+
+
+δ = delta
 
 
 # ---------------------------------------------------------------------------

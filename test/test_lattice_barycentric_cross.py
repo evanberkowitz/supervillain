@@ -131,14 +131,13 @@ def test_delta_matches_doubled():
 def test_cup_matches_doubled():
     for D, N in ((2, 3), (3, 3), (4, 3)):
         clat, _ = _pair(D, N)
-        for p, q in ((0, 1), (1, 1), (1, 2), (2, 1), (2, 2)):
-            if p + q > D:
-                continue
-            a, c = clat.random(p), clat.random(q)
-            lhs = cpt.cup(a, c).to_doubled()
-            rhs = dbl.cup(a.to_doubled(), c.to_doubled())
-            assert not np.allclose(np.asarray(lhs), 0), f'D={D} {p}u{q}: vacuous'
-            assert np.allclose(np.asarray(lhs), np.asarray(rhs)), (D, p, q)
+        for p in range(D + 1):
+            for q in range(D + 1 - p):
+                a, c = clat.random(p), clat.random(q)
+                lhs = cpt.cup(a, c).to_doubled()
+                rhs = dbl.cup(a.to_doubled(), c.to_doubled())
+                assert not np.allclose(np.asarray(lhs), 0), f'D={D} {p}u{q}: vacuous'
+                assert np.allclose(np.asarray(lhs), np.asarray(rhs)), (D, p, q)
 
 
 def test_adjointness_holds_compactly():
