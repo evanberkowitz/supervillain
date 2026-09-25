@@ -22,6 +22,7 @@ supervillain
    supervillain/worldline
    supervillain/lattice
    supervillain/form
+   supervillain/barycubic
    supervillain/ensemble
    supervillain/generator
    supervillain/measurement

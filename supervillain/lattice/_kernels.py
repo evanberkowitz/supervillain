@@ -14,9 +14,6 @@ def _make_kernel(combine, forward, parallel):
     is_diff = (combine == "diff")
     fwd = forward
 
-    # fastmath=True is bit-exact for these ±1-multiply ops ONLY as guaranteed by the
-    # test/test_lattice_kernels.py oracle (kernel == reference, ==). Keep that test in CI.
-    @numba.njit(cache=True, fastmath=True, parallel=parallel)
     def kernel(F, res, table, N, D):
         for t in range(table.shape[0]):
             oi = table[t, 0]; ii = table[t, 1]; e = table[t, 2]; sign = table[t, 3]
@@ -45,7 +42,17 @@ def _make_kernel(combine, forward, parallel):
                             res[oi, s0 + b] += F[ii, sn + b]
         return res
 
-    return kernel
+    # Every variant needs its own qualname.  numba names a compiled function's symbol and
+    # environment `qualname$<process-local counter>`, and cache=True stores those names on
+    # disk.  If all variants shared `_make_kernel.<locals>.kernel`, two variants compiled in
+    # different processes could carry the same name, and loading both into one process
+    # clobbers one's environment (RuntimeError: 'descr' is NULL).
+    # test/test_lattice_kernel_cache.py is the regression test.
+    kernel.__name__ = kernel.__qualname__ = (
+        f"kernel_{combine}_{'forward' if forward else 'backward'}_{'parallel' if parallel else 'serial'}")
+    # fastmath=True is bit-exact for these ±1-multiply ops ONLY as guaranteed by the
+    # test/test_lattice_kernels.py oracle (kernel == reference, ==). Keep that test in CI.
+    return numba.njit(cache=True, fastmath=True, parallel=parallel)(kernel)
 
 
 D_KERNELS      = (_make_kernel("diff", True,  False), _make_kernel("diff", True,  True))
