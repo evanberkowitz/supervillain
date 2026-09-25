@@ -274,17 +274,17 @@ A step releasing several directions at once is a chain that skips ranks.
 Every staircase is a nested chain and every nested chain is a staircase, so a fine $p$-simplex is exactly an anchor together with an ordered tuple $(\Delta_1, \ldots, \Delta_p)$, which we call its **type**.
 
 A degree-$p$ cochain is therefore stored as an array of shape $(T_p,) + (2N,)^D$: the leading axis enumerates the types and the rest give the anchor.
-A type is realized at an anchor only when every direction it releases is even there, so this array is sparse in the same spirit as the interlaced picture, and :meth:`~supervillain.lattice.barycentric.Lattice.support` is that mask.
+A type is realized at an anchor only when every direction it releases is even there, so this array is sparse in the same spirit as the interlaced picture, and :meth:`~supervillain.lattice.barycentric.doubled.Lattice.support` is that mask.
 A type releasing $k$ directions lives on $2^{-k}$ of the anchors, so the waste grows with degree: in $D = 4$ the occupancy runs $100\%, 19\%, 11\%, 8\%, 6\%$ from $p = 0$ to $p = 4$.
 
 That is the price of the obvious layout, and it is deliberate.
 A space-efficient implementation would group anchors by parity pattern --- each of the $2^D$ patterns admits its own set of types, and those anchors form an $N^D$ sublattice --- storing exactly one entry per simplex.
 That layout is a factor of $16$ smaller at the top degree and about $11$ smaller overall, but every operator must then route between $2^D$ blocks with different type sets in each, which is exactly the sort of intricacy worth checking against an implementation that does the obvious thing instead.
 
-.. autoclass :: supervillain.lattice.barycentric.Lattice
+.. autoclass :: supervillain.lattice.barycentric.doubled.Lattice
    :members:
 
-.. autoclass :: supervillain.lattice.barycentric.Form
+.. autoclass :: supervillain.lattice.barycentric.doubled.Form
    :no-index:
 
 Types and Classes
@@ -330,13 +330,13 @@ There are $\binom{D+1}{2} = 10$ classes in $D = 4$, carrying $240$ links per ori
      - 8
 
 checked by ``test_ten_link_classes`` and ``test_two_hundred_forty_links_per_original_site``.
-:attr:`~supervillain.lattice.barycentric.Lattice.link_class` labels each link slot with its class, and classes matter because nothing forces two links of the same class, or even of the same length, to be treated alike.
+:attr:`~supervillain.lattice.barycentric.doubled.Lattice.link_class` labels each link slot with its class, and classes matter because nothing forces two links of the same class, or even of the same length, to be treated alike.
 
 Measure
 -------
 
 On the hypercubic lattice every $p$-cell of a degree is congruent to every other.
-Here they are not, and :meth:`~supervillain.lattice.barycentric.Lattice.measure` gives the $p$-volume of each type as
+Here they are not, and :meth:`~supervillain.lattice.barycentric.doubled.Lattice.measure` gives the $p$-volume of each type as
 
 .. math::
 
@@ -353,7 +353,7 @@ Orientation
 -----------
 
 Each fine $p$-simplex carries a $p$-vector: its extent on each coordinate $p$-plane, the determinant of its edge vectors restricted to that plane.
-:meth:`~supervillain.lattice.barycentric.Lattice.pvector` returns those components, indexed by :meth:`~supervillain.lattice.barycentric.Lattice.planes`.
+:meth:`~supervillain.lattice.barycentric.doubled.Lattice.pvector` returns those components, indexed by :meth:`~supervillain.lattice.barycentric.doubled.Lattice.planes`.
 
 A simplex whose every step releases a single direction spans a coordinate plane and has exactly one nonzero component, $\pm 1$; there are $\binom{D}{p} p!\, 2^p$ such types, checked by ``test_coordinate_aligned_types_have_exactly_one_unit_component``.
 A simplex whose steps release several directions at once spans a $p$-plane that is not coordinate-aligned --- a class-$(r,r{+}2)$ link, say, whose single edge vector moves in two directions.
@@ -372,17 +372,17 @@ which ``test_pvector_components_multiply`` checks at every split point in $D = 2
 
 Only the top degree carries a *sign* rather than a vector of components.
 A $D$-simplex spans the one coordinate $D$-plane there is, so its $p$-vector has a single entry, and that entry compares the simplex's rank ordering with the ambient orientation; below the top there is no such comparison without a choice of complement.
-:attr:`~supervillain.lattice.barycentric.Lattice.orientation_sign` is that entry, and ``test_top_pvector_is_the_orientation_sign`` ties the two together.
+:attr:`~supervillain.lattice.barycentric.doubled.Lattice.orientation_sign` is that entry, and ``test_top_pvector_is_the_orientation_sign`` ties the two together.
 
 Translation
 -----------
 
 Forms can be translated by whole unit cells.
-Because one lattice step is two doubled steps, :func:`~supervillain.lattice.barycentric.push` rolls the array by $2a$ for a shift $a$ given in original lattice units, and :func:`~supervillain.lattice.barycentric.translate` is the same function under the name used elsewhere in the library.
+Because one lattice step is two doubled steps, :func:`~supervillain.lattice.barycentric.doubled.push` rolls the array by $2a$ for a shift $a$ given in original lattice units, and :func:`~supervillain.lattice.barycentric.doubled.translate` is the same function under the name used elsewhere in the library.
 
-.. autofunction :: supervillain.lattice.barycentric.push
+.. autofunction :: supervillain.lattice.barycentric.doubled.push
 
-.. autofunction :: supervillain.lattice.barycentric.pull
+.. autofunction :: supervillain.lattice.barycentric.doubled.pull
 
 Only whole-cell shifts and the :ref:`half-diagonal <barycentric-half-diagonal>` below are symmetries; a general half-step is not, as ``test_push_rolls_whole_unit_cells`` and the enumeration in ``test_only_the_all_ones_parity_shift_preserves_the_complex`` record.
 
@@ -398,7 +398,7 @@ On a fine $(p+1)$-simplex with vertices $u_0 \cdots u_{p+1}$ in increasing rank,
 where the hat denotes omission.
 Read on staircases the three cases are concrete: omitting $u_0$ deletes the first step and re-anchors at $v_1$, omitting an interior $u_i$ merges the steps $\Delta_i$ and $\Delta_{i+1}$ into one --- legal because their direction sets are disjoint --- and omitting the last vertex deletes the last step.
 
-.. autofunction :: supervillain.lattice.barycentric.d
+.. autofunction :: supervillain.lattice.barycentric.doubled.d
 
 Every codimension-two face appears twice with opposite signs, so $d^2 = 0$ exactly; this is checked by ``test_d_squared_is_zero``, with a non-vanishing assertion first so it cannot pass on a degenerate $da$.
 
@@ -416,7 +416,7 @@ The codifferential is the formal adjoint of the exterior derivative with respect
 the plain sum over fine simplices, tested by ``test_adjointness``.
 It is implemented as the transpose of the very table $d$ walks: where $d$ gathers from a face, $\delta$ scatters back to it.
 
-.. autofunction :: supervillain.lattice.barycentric.delta
+.. autofunction :: supervillain.lattice.barycentric.doubled.delta
 
 Adjointness is the sharpest available test that the coboundary is right, and the pairing it is stated with respect to is a choice worth being explicit about; see :ref:`the note below <barycentric-sums>`.
 
@@ -431,11 +431,11 @@ The Alexander--Whitney cup product evaluates its first factor on the front face 
 
 On staircases this splits the output type's step sequence at position $p$: $a$ is read at the anchor from the first $p$ steps, and $c$ at the vertex $v_p$ from the last $q$.
 
-.. autofunction :: supervillain.lattice.barycentric.cup
+.. autofunction :: supervillain.lattice.barycentric.doubled.cup
 
 There is exactly one term per output simplex --- no sum over shuffles.
 This is the sharpest difference from :func:`~supervillain.lattice.interlaced.wedge`, and it means a product formed from $\smile$ contributes a single term to each top simplex, so distinct contributions cannot cancel within one.
-:func:`~supervillain.lattice.barycentric.wedge` is an alias, so that expressions written against the hypercubic lattice read the same here.
+:func:`~supervillain.lattice.barycentric.doubled.wedge` is an alias, so that expressions written against the hypercubic lattice read the same here.
 
 Bilinearity, associativity and the Leibniz rule $d(a \smile c) = da \smile c + (-1)^{p}\, a \smile dc$ all hold exactly, checked by ``test_cup_is_bilinear``, ``test_cup_is_associative`` and ``test_leibniz``.
 
@@ -472,9 +472,9 @@ Symmetries
 A signed coordinate permutation maps faces to faces and preserves their dimension, hence preserves rank and the nesting of chains.
 The full hypercubic group $(\mathbb{Z}_2)^D \rtimes S_D$ therefore acts, of order $2^D D! = 384$ in $D = 4$, and ``test_point_group_order_is_measured_not_assumed`` measures that order by counting distinct actions rather than counting enumerated elements.
 
-.. autofunction :: supervillain.lattice.barycentric.reflect
+.. autofunction :: supervillain.lattice.barycentric.doubled.reflect
 
-.. autofunction :: supervillain.lattice.barycentric.permute
+.. autofunction :: supervillain.lattice.barycentric.doubled.permute
 
 Because rank is preserved, so is the rank ordering of every chain, and **no orientation sign is needed** --- the whole transformation is a permutation of the type axis together with an ordinary array operation on the sites.
 This is the one respect in which these are simpler than :func:`~supervillain.lattice.interlaced.reflect` and :func:`~supervillain.lattice.interlaced.permute`, which carry a per-site sign.
@@ -486,12 +486,12 @@ The Half-Diagonal Translation
 
 Translating by half the diagonal, $\tau : x \mapsto x + \tfrac{1}{2}(1, \ldots, 1)$, is a further symmetry, and it exists in every $D$ for a structural reason: it carries $K$ to the dual cubulation $K^*$, and $\mathrm{sd}\,K = \mathrm{sd}\,K^*$ because dual cells share barycenters and reverse nesting.
 
-.. autofunction :: supervillain.lattice.barycentric.tau
+.. autofunction :: supervillain.lattice.barycentric.doubled.tau
 
 That duality is why $\tau$ reverses rank, $r \mapsto D - r$, and why it carries link class $(r,s)$ to $(D-s, D-r)$ --- a reflection of the class table across its antidiagonal, checked by ``test_tau_maps_link_class_antidiagonally``.
 Reversing rank reverses the vertex order of every simplex, so $\tau$ re-anchors each one at the opposite end and carries a sign $(-1)^{p(p+1)/2}$ on $p$-cochains; ``test_tau_moves_a_marked_simplex_to_the_predicted_slot_with_the_predicted_sign`` pins both the placement and the sign, and $\tau^2$ is the unit diagonal translation.
 
-.. autofunction :: supervillain.lattice.barycentric.translate_diagonal
+.. autofunction :: supervillain.lattice.barycentric.doubled.translate_diagonal
 
 The other half-diagonals $\tfrac{1}{2}(\pm 1, \ldots, \pm 1)$ are symmetries but not independent ones: $\tfrac{1}{2}(1,\ldots,1,-1) = \tfrac{1}{2}(1,\ldots,1) + (0,\ldots,0,-1)$, so each is $\tau$ composed with a whole-cell translation.
 The translation group is generated by the unit translations together with $\tau$.
@@ -520,13 +520,13 @@ Differences from the Hypercubic Lattice
    **Adjointness does not survive measure weighting**: it fails at every degree once the measure is inserted, as ``test_adjointness_is_with_respect_to_the_plain_sum`` asserts in both directions.
    A cochain is already an integrated quantity, and weighting it by the measure again is right only when it stands for a density.
 
-   The lattice therefore supplies the weights --- :meth:`~supervillain.lattice.barycentric.Lattice.measure` and :attr:`~supervillain.lattice.barycentric.Lattice.link_class` --- and no privileged way to sum with them.
+   The lattice therefore supplies the weights --- :meth:`~supervillain.lattice.barycentric.doubled.Lattice.measure` and :attr:`~supervillain.lattice.barycentric.doubled.Lattice.link_class` --- and no privileged way to sum with them.
 
 .. danger ::
 
    The cup product is not graded-commutative.
 
-   :func:`~supervillain.lattice.barycentric.cup` evaluates one factor on the front face and the other on the back, an asymmetry that does not wash out, so $a \smile c$ and $(-1)^{pq} c \smile a$ differ simplex by simplex.
+   :func:`~supervillain.lattice.barycentric.doubled.cup` evaluates one factor on the front face and the other on the back, an asymmetry that does not wash out, so $a \smile c$ and $(-1)^{pq} c \smile a$ differ simplex by simplex.
    They agree in the cases the :ref:`interlaced wedge <interlaced-wedge-commutativity-fail>` fails too, and for the same underlying reason: a lattice product must pick evaluation points, and no choice is symmetric.
 
 .. danger ::
@@ -552,7 +552,7 @@ Differences from the Hypercubic Lattice
    of a site --- its number of odd coordinates --- *is* the form degree, so the
    parity flip $\xi \mapsto \xi + \varepsilon_{\mathrm{all}}$ reverses degree.
    Here rank and degree are different, and
-   :func:`~supervillain.lattice.barycentric.tau`, which is that same parity flip,
+   :func:`~supervillain.lattice.barycentric.doubled.tau`, which is that same parity flip,
    reverses rank while carrying $p$-simplices to $p$-simplices.
 
    Underneath is that a simplicial complex is not self-dual: the dual cell of a
@@ -560,5 +560,5 @@ Differences from the Hypercubic Lattice
    *second* barycentric subdivision.  Poincaré duality survives in cohomology,
    realized by a map between two complexes rather than by an operator on one.
    Nothing in this module needs a star in any case:
-   :func:`~supervillain.lattice.barycentric.delta` is the transpose of $d$ with
+   :func:`~supervillain.lattice.barycentric.doubled.delta` is the transpose of $d$ with
    respect to :eq:`barycentric-d-delta-adjoint`, not $\pm\,\star d\,\star$.

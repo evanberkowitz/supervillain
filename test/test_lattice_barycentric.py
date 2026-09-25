@@ -2,7 +2,7 @@ import numpy as np
 from itertools import product, permutations
 from math import factorial
 
-import supervillain.lattice.barycentric as b
+import supervillain.lattice.barycentric.doubled as b
 
 
 def _charge(lat, f):
