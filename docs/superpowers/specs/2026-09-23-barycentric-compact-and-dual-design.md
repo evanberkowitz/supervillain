@@ -128,6 +128,14 @@ already builds. Every refusal names both the operator and the offending flag.
 
 ## The star
 
+`poincare_star` **moves no data.** It sets `.dual` and maps
+`.degree` $p \mapsto D-p$; the array is untouched, because a dual $(D-p)$-cochain
+is indexed by $p$-simplices and so already sits in the right layout.  Its real
+job is type bookkeeping: telling `d` and `delta` which tables to use, and making
+the primal/dual guard possible at all.  It is kept as an operator rather than a
+`Form` method so that it composes in formulas like $\star d \star$, but its
+docstring must say plainly that it is a relabeling and costs nothing.
+
 Combinatorially, $\star$ is diagonal in the component index:
 
 $$(\star a)\bigl(D(\sigma)\bigr) = \pm\, a(\sigma)$$
@@ -302,9 +310,13 @@ of ones.
   indexed by primal simplices, so the sign should follow the *index* degree
   rather than the cell dimension — but this needs deriving and testing, not
   assuming, and the cross-validation against the doubled module will settle it.
-- **The orientation convention relating $\sigma$ to $D(\sigma)$**, which fixes
-  the sign in $\star$ and hence the sign in $\star\star$. Fix it by requiring
-  $\star\star = \pm 1$ with a stated sign and testing it.
+- ~~The orientation convention relating $\sigma$ to $D(\sigma)$.~~ **Resolved:**
+  orient each dual block so that $\sigma$'s orientation followed by
+  $D(\sigma)$'s gives the ambient orientation.  Then `poincare_star` carries no
+  sign at all and $\star\star = +1$ exactly, rather than the continuum's
+  $(-1)^{p(D-p)}$ --- that sign belongs to the metric star, and the Poincaré map
+  is under no obligation to reproduce it.  Test $\star\star = +1$ and let
+  $\star d \star = \pm\delta$ locate its sign in $d$, where it belongs.
 
 ## Deferred
 
