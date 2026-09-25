@@ -898,6 +898,12 @@ def _point_group(data, perm, flips):
         on $N$ --- and it is built by re-indexing the doubled module's
         ``relabel``, exactly as :func:`d` re-indexes its coboundary.
 
+    .. note ::
+        On a dual form the table is keyed by the **index** degree
+        $m = D - k$, since the component axis is indexed by primal
+        $m$-simplices regardless of which complex the form lives on; the
+        output degree stays ``data.degree``.
+
     .. warning ::
         Unlike a translation, the site action here is a flip and a transpose,
         so each component's block is reshaped rather than merely rolled.
@@ -910,7 +916,7 @@ def _point_group(data, perm, flips):
     Parameters
     ----------
     data : Form
-        A primal cochain.
+        A cochain, primal or dual.
     perm : sequence of int
         A permutation of ``range(D)``.
     flips : sequence of int
@@ -919,12 +925,8 @@ def _point_group(data, perm, flips):
     Returns
     -------
     Form
-        The transformed cochain, of the same degree.
+        The transformed cochain, of the same degree and duality.
     """
-    if data.dual:
-        raise ValueError(
-            'The point group on a dual form is Phase 2; these are primal '
-            'operators.')
     lat  = data.lattice
     D    = lat.D
     perm = tuple(int(m) for m in perm)
@@ -932,13 +934,14 @@ def _point_group(data, perm, flips):
     inverse = tuple(int(i) for i in np.argsort(np.asarray(perm)))
     raw = np.asarray(data)
     out = np.zeros_like(raw)
-    for i, (j, rolls) in enumerate(lat._c.point_group(data.degree, perm, F)):
+    m = (D - data.degree) if data.dual else data.degree
+    for i, (j, rolls) in enumerate(lat._c.point_group(m, perm, F)):
         block = raw[i]
         if F:
             block = np.roll(np.flip(block, axis=F), rolls,
                             axis=tuple(range(D)))
         out[j] = np.transpose(block, axes=inverse)
-    return Form(out, degree=data.degree, lattice=lat)
+    return Form(out, degree=data.degree, lattice=lat, dual=data.dual)
 
 
 def reflect(data, flips):
@@ -953,14 +956,14 @@ def reflect(data, flips):
     Parameters
     ----------
     data : Form
-        A primal cochain.
+        A cochain, primal or dual.
     flips : sequence of int
         The axes to negate.
 
     Returns
     -------
     Form
-        The reflected cochain.
+        The reflected cochain, of the same duality.
     """
     return _point_group(data, tuple(range(data.lattice.D)), flips)
 
@@ -977,14 +980,14 @@ def permute(data, perm):
     Parameters
     ----------
     data : Form
-        A primal cochain.
+        A cochain, primal or dual.
     perm : sequence of int
         A permutation of ``range(D)``.
 
     Returns
     -------
     Form
-        The permuted cochain.
+        The permuted cochain, of the same duality.
     """
     return _point_group(data, perm, ())
 
@@ -997,6 +1000,14 @@ def tau(data, power=1):
     r"""
     The half-diagonal translation $\tau : x \mapsto x + \tfrac12(1,\ldots,1)$,
     applied ``power`` times.
+
+    .. note ::
+        On a primal $p$-cochain $\tau$ carries $(-1)^{p(p+1)/2}$, from
+        reversing the simplex's vertex order.  A dual form is indexed by
+        primal simplices, so the sign follows the **index** degree
+        $m = D - k$ rather than the dual degree $k$; equivalently, $\tau$
+        commutes with :func:`poincare_star`.  That is measured by
+        ``test_tau_on_a_dual_form_follows_the_index_degree``, not assumed.
 
     .. note ::
         An even ``power`` is a whole-cell translation, so it short-circuits to
@@ -1012,29 +1023,27 @@ def tau(data, power=1):
     Parameters
     ----------
     data : Form
-        A primal cochain.
+        A cochain, primal or dual.
     power : int
         How many half-diagonal steps.
 
     Returns
     -------
     Form
-        The translated cochain.
+        The translated cochain, of the same duality.
     """
-    if data.dual:
-        raise ValueError(
-            "tau on a dual form is Phase 2: the dual blocks' orientation sign "
-            'under rank reversal is not settled here.')
     lat = data.lattice
     p   = data.degree
     if power % 2 == 0:
         return push(data, (power // 2,) * lat.D)
-    table, sign = lat._c.half_diagonal(p)
+    m = (lat.D - p) if data.dual else p
+    table, sign = lat._c.half_diagonal(m)
     raw = np.asarray(data)
     out = np.zeros_like(raw)
     for i, (j, offset) in enumerate(table):
         out[j] = sign * np.roll(raw[i], offset, axis=tuple(range(lat.D)))
-    return push(Form(out, degree=p, lattice=lat), ((power - 1) // 2,) * lat.D)
+    return push(Form(out, degree=p, lattice=lat, dual=data.dual),
+               ((power - 1) // 2,) * lat.D)
 
 
 def translate_diagonal(data, signs, steps=1):
@@ -1049,7 +1058,7 @@ def translate_diagonal(data, signs, steps=1):
     Parameters
     ----------
     data : Form
-        A primal cochain.
+        A cochain, primal or dual.
     signs : sequence of int
         A length-$D$ vector of $\pm 1$.
     steps : int
@@ -1058,7 +1067,7 @@ def translate_diagonal(data, signs, steps=1):
     Returns
     -------
     Form
-        The translated cochain.
+        The translated cochain, of the same duality.
     """
     lat   = data.lattice
     signs = tuple(int(s) for s in signs)

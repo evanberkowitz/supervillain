@@ -171,23 +171,27 @@ def test_push_and_pull_carry_a_dual_form_through():
 
 
 @pytest.mark.parametrize('call', [
-    lambda lat: cpt.reflect(lat.zeros(1, dual=True), (0,)),
-    lambda lat: cpt.permute(lat.zeros(1, dual=True), (1, 2, 3, 0)),
-    lambda lat: cpt.tau(lat.zeros(1, dual=True)),
-    lambda lat: cpt.tau(lat.zeros(1, dual=True), 2),
-    lambda lat: cpt.translate_diagonal(lat.zeros(1, dual=True), (1, 1, 1, 1)),
+    lambda lat: cpt.reflect(lat.random(1, dual=True), (0,)),
+    lambda lat: cpt.permute(lat.random(1, dual=True), (1, 2, 3, 0)),
+    lambda lat: cpt.tau(lat.random(1, dual=True)),
+    lambda lat: cpt.tau(lat.random(1, dual=True), 2),
+    lambda lat: cpt.translate_diagonal(lat.random(1, dual=True), (1, 1, 1, 1)),
 ])
-def test_the_point_group_and_tau_refuse_a_dual_form(call):
-    """Each entry point guards: the tables are indexed by primal components."""
-    with pytest.raises(ValueError):
-        call(cpt.Lattice(4, 3))
+def test_the_point_group_and_tau_accept_a_dual_form(call):
+    """Phase 2: the whole point group and tau now dispatch on the dual
+    complex, exactly as d and delta already do; the table is keyed on the
+    index degree m = D - k, not the dual degree k."""
+    out = call(cpt.Lattice(4, 3))
+    assert out.dual is True and out.degree == 1
+    assert np.abs(np.asarray(out)).sum() != 0, 'vacuous'
 
 
-def test_tau_refuses_a_dual_form_at_even_power_too():
-    """An even power short-circuits to push, which would otherwise sail past."""
+def test_tau_accepts_a_dual_form_at_even_power_too():
+    """An even power short-circuits to push, which must also carry .dual through."""
     clat = cpt.Lattice(4, 3)
-    with pytest.raises(ValueError):
-        cpt.tau(clat.zeros(1, dual=True), 2)
+    out = cpt.tau(clat.random(1, dual=True), 2)
+    assert out.dual is True and out.degree == 1
+    assert np.abs(np.asarray(out)).sum() != 0, 'vacuous'
 
 
 @pytest.mark.parametrize('signs', [(1, 1, 1), (1, 1, 1, 0), (1, -1, 1, 2)])
@@ -342,3 +346,67 @@ def test_delta_still_refuses_a_zero_cochain_on_each_complex():
         cpt.delta(lat.zeros(0))
     with pytest.raises(ValueError):
         cpt.delta(cpt.poincare_star(lat.zeros(3)))  # dual degree 0
+
+
+def test_reflect_commutes_with_poincare_star():
+    """The whole point group extends to dual forms the same way tau does: the
+    table is keyed by the index degree, so reflect and star commute."""
+    for D, N in ((2, 3), (3, 3), (4, 3)):
+        lat = cpt.Lattice(D, N)
+        for p in range(D + 1):
+            a = lat.random(p)
+            lhs = cpt.reflect(cpt.poincare_star(a), (0,))
+            rhs = cpt.poincare_star(cpt.reflect(a, (0,)))
+            assert lhs.degree == rhs.degree and lhs.dual == rhs.dual, (D, p)
+            assert np.abs(np.asarray(lhs)).sum() != 0, f'D={D} p={p}: vacuous'
+            assert np.allclose(np.asarray(lhs), np.asarray(rhs)), (D, p)
+
+
+def test_permute_commutes_with_poincare_star():
+    for D, N in ((2, 3), (3, 3), (4, 3)):
+        lat = cpt.Lattice(D, N)
+        perm = tuple((i + 1) % D for i in range(D))
+        for p in range(D + 1):
+            a = lat.random(p)
+            lhs = cpt.permute(cpt.poincare_star(a), perm)
+            rhs = cpt.poincare_star(cpt.permute(a, perm))
+            assert lhs.degree == rhs.degree and lhs.dual == rhs.dual, (D, p)
+            assert np.abs(np.asarray(lhs)).sum() != 0, f'D={D} p={p}: vacuous'
+            assert np.allclose(np.asarray(lhs), np.asarray(rhs)), (D, p)
+
+
+def test_tau_on_a_dual_form_follows_the_index_degree():
+    '''tau's sign comes from reversing vertex order, and a dual form is
+    indexed by primal simplices -- so the sign must track the index degree
+    m = D - k, not the dual degree k.  Equivalently, tau commutes with
+    poincare_star.'''
+    for D, N in ((2, 3), (3, 3), (4, 3)):
+        lat = cpt.Lattice(D, N)
+        for p in range(D + 1):
+            a = lat.random(p)
+            lhs = cpt.tau(cpt.poincare_star(a), 1)
+            rhs = cpt.poincare_star(cpt.tau(a, 1))
+            assert lhs.degree == rhs.degree and lhs.dual == rhs.dual, (D, p)
+            assert np.abs(np.asarray(lhs)).sum() != 0, f'D={D} p={p}: vacuous'
+            assert np.allclose(np.asarray(lhs), np.asarray(rhs)), (D, p)
+
+
+def test_tau_squared_on_a_dual_form_is_the_unit_diagonal_translation():
+    for D, N in ((3, 3), (4, 3)):
+        lat = cpt.Lattice(D, N)
+        for p in range(D + 1):
+            a = cpt.poincare_star(lat.random(p))
+            twice = cpt.tau(cpt.tau(a, 1), 1)
+            rolled = cpt.translate(a, (1,) * D)
+            assert np.abs(np.asarray(twice)).sum() != 0, f'D={D} p={p}: vacuous'
+            assert np.allclose(np.asarray(twice), np.asarray(rolled)), (D, p)
+
+
+def test_translate_diagonal_carries_a_dual_form_through():
+    for D, N in ((3, 3), (4, 3)):
+        lat = cpt.Lattice(D, N)
+        signs = tuple(1 if i % 2 == 0 else -1 for i in range(D))
+        a = cpt.poincare_star(lat.random(1))
+        out = cpt.translate_diagonal(a, signs)
+        assert out.dual is True and out.degree == a.degree
+        assert np.abs(np.asarray(out)).sum() != 0
