@@ -3,7 +3,7 @@ Whitney forms on the reference fine simplex.
 
 This module is pure simplex geometry: it knows about barycentric coordinates
 and Gram matrices and nothing about parities, sites or routing.  It exists so
-that :mod:`supervillain.lattice.barycentric.compact` can build its metric star
+that ``supervillain.lattice.barycentric.compact`` can build its metric star
 without growing a second vocabulary.
 
 The reference fine $D$-simplex is the orthoscheme whose steps release the

@@ -78,3 +78,45 @@ def test_local_mass_at_degree_zero_matches_the_closed_form():
             for j in range(D + 1):
                 want = 2.0 ** -D * (1 + (i == j)) / factorial(D + 2)
                 assert np.isclose(M[i, j], want), (D, i, j)
+
+
+def test_local_mass_at_degree_one_matches_the_hand_expanded_whitney_form():
+    '''Independent anchor at a middle degree, built by a route that shares no
+    code with local_mass's general minor/determinant path -- so it catches a
+    (-1)**(a+b) position-vs-label mixup that the p=0 and p=D tests cannot,
+    since only the top face has every position equal to its label.
+
+    For an edge (i, j), i < j, the Whitney 1-form is
+    w_ij = lambda_i d(lambda_j) - lambda_j d(lambda_i), so
+
+        <w_ij, w_kl> = l_i l_k G[j][l] - l_i l_l G[j][k]
+                       - l_j l_k G[i][l] + l_j l_l G[i][k]
+
+    with l_m l_n meaning integral of lambda_m * lambda_n over the simplex.
+    Edges are enumerated directly here (not via faces) and only
+    gradient_gram and monomial_integral -- each separately pinned by an
+    exact closed-form test above -- are reused.
+    '''
+    for D in (2, 3, 4):
+        edges = list(combinations(range(D + 1), 2))
+        G = w.gradient_gram(D)
+
+        def integral_of_lambda_product(m, n):
+            exponents = [0] * (D + 1)
+            exponents[m] += 1
+            exponents[n] += 1
+            return w.monomial_integral(D, tuple(exponents))
+
+        F = len(edges)
+        expected = np.zeros((F, F))
+        for s, (i, j) in enumerate(edges):
+            for t, (k, l) in enumerate(edges):
+                expected[s, t] = (
+                    integral_of_lambda_product(i, k) * G[j, l]
+                    - integral_of_lambda_product(i, l) * G[j, k]
+                    - integral_of_lambda_product(j, k) * G[i, l]
+                    + integral_of_lambda_product(j, l) * G[i, k]
+                )
+
+        M = w.local_mass(D, 1)
+        assert np.allclose(M, expected), D
