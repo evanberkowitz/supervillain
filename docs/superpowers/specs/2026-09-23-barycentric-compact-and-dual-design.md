@@ -46,11 +46,20 @@ Each operator becomes a table: for every out-component, a list of
 `compact.operator_table(op, degree)` already takes, and it is what a later
 numba pass would consume.
 
-The shifts are **local**. The coboundary re-anchors by a $\pm1$ step in doubled
-coordinates, which could in principle cross an original site; measured, every
-doubled shift the coboundary uses has components in $\{-1,0,+1\}$, so the
-original-site displacement lies in $\{-1,0\}$ per direction. Every operator is
-a one-site stencil.
+The shifts are **local**, and the stencil is the full neighbour cube. A
+component sits at doubled anchor $2x + \pi$ for parity $\pi \in \{0,1\}^D$; a
+doubled shift $\delta$ sends it to $2x + \pi + \delta$, which splits as
+
+$$\pi_{\text{in}} = (\pi + \delta) \bmod 2, \qquad
+  \Delta x = \lfloor (\pi + \delta)/2 \rfloor .$$
+
+Since $\pi \in \{0,1\}$ and $\delta \in \{-1,0,+1\}$, the sum lies in
+$\{-1,0,1,2\}$ and $\Delta x$ in $\{-1,0,+1\}$ --- a $+1$ offset arising exactly
+when $\pi = 1$ and $\delta = +1$. So each operator reaches the $3^D$ neighbouring
+sites (81 in $D = 4$), measured, not the $2^D$ an earlier draft of this spec
+claimed. That draft floor-divided the shift alone and forgot that the anchor's
+own parity contributes. Bounded and local either way, but the stencil is
+three-point per direction.
 
 ## `Form` carries `.dual`
 
