@@ -489,17 +489,16 @@ def test_hodge_star_is_translation_invariant():
             assert np.allclose(np.asarray(lhs), np.asarray(rhs)), (D, p)
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    'The spec asserts 14, 27, 21, 7, 1.  The measured maxima are '
-    '81, 125, 49, 9, 1, confirmed independently by brute-force enumeration '
-    'of every maximal flag of a D=4, N=3 torus: p=0 is 3**4, the barycentres '
-    'of the 81 cube faces comparable to a corner; p=3 is 5 + 5 - 1, the '
-    'facets of the two top simplices sharing one.  The expected tuple is left '
-    'as the spec wrote it, pending a decision on the spec.'))
 def test_mass_table_row_counts_match_the_whitney_stencil():
-    '''Whitney forms couple p-simplices sharing a top simplex: 14, 27, 21, 7, 1.'''
+    '''Whitney forms couple p-simplices sharing a top simplex: 81, 125, 49, 9, 1.
+
+    Two of the five are derivable by hand.  At p = 0 two fine vertices share a
+    top simplex exactly when their cubical faces are comparable, so a rank-r
+    face is coupled to 3**r + 3**(D-r) - 1 others, maximized at r = 0 as
+    3**4 = 81.  At p = D - 1 a facet lies in exactly two top simplices, which
+    have 2(D+1) - 1 = 9 facets between them.'''
     lat = cpt.Lattice(4, 3)
-    expected = (14, 27, 21, 7, 1)
+    expected = (81, 125, 49, 9, 1)
     for p in range(5):
         rows = {}
         for i, j, shift, c in lat._c.mass_table(p):

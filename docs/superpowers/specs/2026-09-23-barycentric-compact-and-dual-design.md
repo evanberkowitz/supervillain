@@ -211,11 +211,25 @@ minimum barycentric coordinate exactly $0$, so it lies *on* the boundary, in
 $D = 2, 3, 4$.  The circumcentric dual is degenerate and the diagonal shortcut
 is unavailable.
 
-It is nonetheless a stencil like the others, and a small one.  Whitney forms
-couple $p$-simplices sharing a top simplex, giving row counts of
-$14, 27, 21, 7, 1$ for $p = 0 \ldots 4$ --- a few times the coboundary's, on the
-same `(out-component, in-component, shift, coefficient)` table, with float
-coefficients rather than $\pm 1$.
+It is nonetheless a stencil like the others, on the same
+`(out-component, in-component, shift, coefficient)` table as the coboundary,
+with float coefficients rather than $\pm 1$ --- but a decidedly wider one.
+Whitney forms couple $p$-simplices sharing a top simplex, giving maximum row
+counts of $81, 125, 49, 9, 1$ for $p = 0 \ldots 4$, an order of magnitude more
+than the coboundary's $P + 1$.
+
+Two of the five are derivable by hand.  At $p = 0$ the fine vertices are the
+barycentres of the cubical faces, and two of them share a top simplex exactly
+when their faces are comparable, so a rank-$r$ face is coupled to
+$3^r + 3^{D-r} - 1$ others: its subfaces number
+$\sum_{U \subseteq S} 2^{|S \setminus U|} = 3^r$, its superfaces
+$\sum_{T \supseteq S} 2^{|T \setminus S|} = 3^{D-r}$, and it is counted in
+both.  The factor of $2$ per direction is easy to drop and gives $2^D = 16$
+instead; the maximum is at $r = 0$ and is $3^4 = 81$.  At $p = D - 1$ a facet
+lies in exactly two top simplices, which have $2(D+1) - 1 = 9$ facets between
+them.  The remaining three, $125, 49$ at $p = 1, 2$ and the trivial $1$ at
+$p = D$, are measured; a brute-force enumeration of every maximal flag of a
+$D = 4$, $N = 3$ torus confirms all five.
 
 Two structural facts keep the construction small:
 
