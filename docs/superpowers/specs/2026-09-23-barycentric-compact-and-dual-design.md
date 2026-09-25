@@ -90,10 +90,33 @@ combination silently loses its `Form`-ness rather than pretending to be one.
 | `d` | primal $p \to$ primal $p+1$ | dual $k \to$ dual $k+1$, via the transpose tables |
 | `delta` | primal $p \to$ primal $p-1$ | dual $k \to$ dual $k-1$ |
 | `cup` / `wedge` | primal $\times$ primal $\to$ primal | **refused** |
-| `star` | primal $p \to$ dual $D-p$ | dual $k \to$ primal $D-k$ |
+| `poincare_star` | primal $p \to$ dual $D-p$ | dual $k \to$ primal $D-k$ |
+| `hodge_star` | primal $p \to$ dual $D-p$ | **refused** |
+| `hodge_star_inverse` | **refused** | dual $k \to$ primal $D-k$ |
 | `push`, `pull`, `translate` | either | either |
 | `reflect`, `permute` | either | either |
 | `tau`, `translate_diagonal` | either | either |
+
+There is deliberately **no bare `star`**, and the two are named for what they
+are rather than as variants of one another.
+
+`poincare_star` is the chain-level **Poincaré duality** map, the identification
+$\sigma \leftrightarrow D(\sigma)$ of $p$-cochains with dual $(D-p)$-cochains.
+It is metric-free: it is a statement of topology, and calling it a Hodge star
+would misname it.
+
+`hodge_star` is the genuine **Hodge** star, which requires an inner product, and
+is discretized here as the Whitney mass matrix.
+
+On the hypercubic lattice the two coincide --- all cells of a degree are
+congruent and the dual volumes match, so the metric ratio is $1$ --- which is
+why `compact.star` needs no qualifier and these do.  `compact.star` is the Hodge
+star; the Poincaré map is the extra thing this lattice needs, because
+$\mathrm{sd}\,K$ is not self-dual.
+
+`hodge_star` and `hodge_star_inverse` are each refused in the direction the
+other serves rather than dispatching: they are different operators, not one
+operator read two ways, and $M \neq M^{-1}$.
 
 `cup` is refused on dual input rather than dispatched: Alexander–Whitney is a
 simplicial construction, and the dual block complex is not simplicial. There is
@@ -141,14 +164,58 @@ $\langle X, \star Y \rangle$ --- all eleven call sites in `action/chiral.py` and
 star, and $\delta$ is the transpose rather than $\pm\star^{-1} d\, \star$, so the
 non-involutivity bites only a model wanting metric roundtrips.
 
-The **metric** star, carrying $|D(\sigma)|/|\sigma|$, is deferred. The cheap
-diagonal DEC star is exact only when primal and dual cells meet orthogonally,
-which needs a circumcentric dual on a well-centred mesh; measured, every fine
-simplex here is an orthoscheme and the circumcentre of every top simplex has
-minimum barycentric coordinate exactly $0$ — it lies *on* the boundary, in
-$D = 2, 3, 4$. So the circumcentric dual is degenerate and the diagonal ratio is
-not the metric star. A correct metric star is a Whitney/Galerkin mass matrix,
-dense rather than a relabeling, and belongs in its own spec if a model needs it.
+### `hodge_star`
+
+The metric star is the Whitney/Galerkin mass matrix $M_p$, whose entries are
+$\int \langle w_\sigma, w_\tau \rangle$ over Whitney forms.  It is **not** the
+diagonal ratio $|D(\sigma)|/|\sigma|$: that is the Hodge star only under
+primal--dual orthogonality, which needs a circumcentric dual on a well-centred
+mesh, and every fine simplex here is an orthoscheme whose circumcentre has
+minimum barycentric coordinate exactly $0$ --- it lies *on* the boundary, in
+$D = 2, 3, 4$.  The circumcentric dual is degenerate, so the diagonal shortcut
+is unavailable.
+
+It is nonetheless a stencil like the others, and a small one.  Whitney forms
+couple $p$-simplices sharing a top simplex, giving row counts of
+$14, 27, 21, 7, 1$ for $p = 0 \ldots 4$ --- a few times the coboundary's, on the
+same `(out-component, in-component, shift, coefficient)` table, with float
+coefficients rather than $\pm 1$.
+
+Two structural facts keep the construction small:
+
+- **The point group is transitive on top-simplex types.**  The orbit of one type
+  is all $2^D D! = 384$ of them, and there is exactly one distinct Gram spectrum
+  among all $384$: every fine $D$-simplex is congruent to every other.  So there
+  is **one** reference local matrix, carried to the rest by the `relabel` tables
+  that `reflect` and `permute` already use.
+- **The reference simplex is an orthoscheme with integer barycentric
+  gradients.**  Its $\nabla\lambda$ are integer-valued and their Gram matrix is
+  $\mathrm{tridiag}(-4, 8, -4)$ bordered by $4$s, so the local entries are small
+  rationals from a closed-form polynomial integral --- no quadrature.
+
+No dual block volumes are needed: the Whitney route never refers to the dual
+cells, only to the primal simplices and the $L^2$ inner product.
+
+### `hodge_star_inverse`
+
+This is the one operator that is **not** a stencil.  $M_p$ is a Gram matrix,
+hence symmetric positive-definite, but it is not diagonal, so its inverse is a
+solve rather than a table.  Two routes, both pure numpy as the global
+constraints require:
+
+- **Conjugate gradient**, exploiting SPD, using the `hodge_star` stencil as the
+  matvec.  No extra storage, iterative, returning to a stated tolerance --- which
+  makes it the one operator whose result is approximate, and that belongs in its
+  docstring.
+- **Fourier**, exploiting translation invariance: the stencil is identical at
+  every site, so $M_p$ is block-circulant and diagonalizes per momentum into an
+  $S_p \times S_p$ block.  Exact, but caching the inverted blocks costs
+  $N^D S_p^2$ --- about $1.2$ GiB at $D = 4$, $N = 6$, $p = 1$, which defeats the
+  purpose of the compact layout.
+
+Conjugate gradient is therefore the default; the Fourier route is worth a
+docstring note but not an implementation until something needs exactness more
+than memory.
 
 ## Cross-validation is the deliverable
 
@@ -219,6 +286,14 @@ of ones.
    recording.
 7. **Memory** — a degree-$p$ compact cochain is $S_p N^D$ entries, asserted
    rather than assumed.
+8. **`hodge_star`** — the local matrix is symmetric positive-definite;
+   invariant under all $2^D D!$ point-group elements; $\langle a, \star b \rangle
+   = \langle b, \star a \rangle$; and at $p = 0$ it reproduces
+   $\int_T 1 = |T| = 1/(D!\,2^D)$.  Those four pin the sign conventions, which is
+   the part of this most likely to be wrong --- the same class of error that the
+   $\epsilon_\sigma$ factorization and $\tau$'s sign each cost a fix round.
+9. **`hodge_star_inverse`** — round trip to the stated tolerance in both orders,
+   with the residual reported rather than assumed small.
 
 ## Open, to resolve during implementation
 
@@ -233,6 +308,9 @@ of ones.
 
 ## Deferred
 
-- The metric star (Whitney/Galerkin mass matrix) and dual block volumes.
+- Dual block volumes.  Nothing here needs them: the Whitney route refers only
+  to primal simplices, and the diagonal ratio they would serve is not the Hodge
+  star on this lattice.
+- The Fourier route to `hodge_star_inverse`, per above.
 - numba kernels over the operator tables.
 - Any action, weight, or Monte Carlo built on this lattice.
