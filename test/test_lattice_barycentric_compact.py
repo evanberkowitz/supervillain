@@ -284,3 +284,61 @@ def test_poincare_star_round_trips_a_dual_form():
     d1 = cpt.poincare_star(lat.random(1))
     back = cpt.poincare_star(d1)
     assert back.degree == 1 and back.dual is False
+
+
+def test_d_on_a_dual_form_raises_the_degree_and_stays_dual():
+    for D, N in ((2, 3), (3, 3), (4, 3)):
+        lat = cpt.Lattice(D, N)
+        for k in range(D):
+            a = cpt.poincare_star(lat.random(D - k))
+            assert a.degree == k and a.dual is True
+            out = cpt.d(a)
+            assert out.degree == k + 1 and out.dual is True, (D, k)
+            assert np.asarray(out).shape[0] == lat._c.count[D - k - 1], (D, k)
+
+
+def test_d_on_the_dual_is_the_transpose_of_the_primal_coboundary():
+    '''<d(star a), star b> == <star a, delta(star b)> -- the defining pairing.'''
+    for D, N in ((2, 3), (3, 3), (4, 3)):
+        lat = cpt.Lattice(D, N)
+        for k in range(D):
+            a = cpt.poincare_star(lat.random(D - k))
+            b = cpt.poincare_star(lat.random(D - k - 1))
+            lhs = float((np.asarray(cpt.d(a)) * np.asarray(b)).sum())
+            rhs = float((np.asarray(a) * np.asarray(cpt.delta(b))).sum())
+            assert not np.isclose(lhs, 0), f'D={D} k={k}: vacuous'
+            assert np.isclose(lhs, rhs), (D, k)
+
+
+def test_d_squared_is_zero_on_the_dual_complex():
+    for D, N in ((3, 3), (4, 3)):
+        lat = cpt.Lattice(D, N)
+        for k in range(D - 1):
+            a = cpt.poincare_star(lat.random(D - k))
+            assert np.abs(np.asarray(a)).sum() != 0, f'D={D} k={k}: vacuous'
+            assert np.allclose(np.asarray(cpt.d(cpt.d(a))), 0), (D, k)
+
+
+def test_delta_on_a_dual_form_lowers_the_degree_and_stays_dual():
+    for D, N in ((2, 3), (3, 3), (4, 3)):
+        lat = cpt.Lattice(D, N)
+        for k in range(1, D + 1):
+            a = cpt.poincare_star(lat.random(D - k))
+            out = cpt.delta(a)
+            assert out.degree == k - 1 and out.dual is True, (D, k)
+
+
+def test_d_still_refuses_past_the_top_degree_on_each_complex():
+    lat = cpt.Lattice(3, 3)
+    with pytest.raises(ValueError):
+        cpt.d(lat.zeros(3))
+    with pytest.raises(ValueError):
+        cpt.d(cpt.poincare_star(lat.zeros(0)))      # dual degree 3, the top
+
+
+def test_delta_still_refuses_a_zero_cochain_on_each_complex():
+    lat = cpt.Lattice(3, 3)
+    with pytest.raises(ValueError):
+        cpt.delta(lat.zeros(0))
+    with pytest.raises(ValueError):
+        cpt.delta(cpt.poincare_star(lat.zeros(3)))  # dual degree 0

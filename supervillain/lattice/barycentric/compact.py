@@ -629,6 +629,28 @@ def _gather(array, shift):
                    axis=tuple(range(array.ndim - len(shift), array.ndim)))
 
 
+def _raise_index(lat, raw, m, dtype):
+    r"""
+    Gather along the coboundary table: index degree $m-1 \to m$.
+    """
+    out = np.zeros((lat._c.count[m],) + (lat.N,) * lat.D, dtype=dtype)
+    for i, terms in enumerate(lat._c.coboundary[m]):
+        for src, shift, sign in terms:
+            out[i] += sign * _gather(raw[src], shift)
+    return out
+
+
+def _lower_index(lat, raw, m, dtype):
+    r"""
+    Scatter along the same table, its transpose: index degree $m \to m-1$.
+    """
+    out = np.zeros((lat._c.count[m - 1],) + (lat.N,) * lat.D, dtype=dtype)
+    for i, terms in enumerate(lat._c.coboundary[m]):
+        for src, shift, sign in terms:
+            out[src] += sign * _gather(raw[i], tuple(-s for s in shift))
+    return out
+
+
 def d(a):
     r"""
     The coboundary, in the compact layout.
@@ -638,28 +660,34 @@ def d(a):
         established there, and what is new here is the routing between
         components.
 
+    .. note ::
+        On a dual form this dispatches to the dual coboundary, which is the
+        transpose of the primal one: a dual $k$-cochain is indexed by primal
+        $(D-k)$-simplices, so raising its degree lowers the index degree.
+        No separate table is needed.
+
     Parameters
     ----------
     a : Form
-        A primal degree-$p$ cochain.
+        A degree-$p$ cochain, primal or dual.
 
     Returns
     -------
     Form
         The degree-$(p+1)$ cochain $da$.
     """
-    if a.dual:
-        raise ValueError('d on a dual form is Phase 2; this is a primal operator.')
     lat = a.lattice
     P = a.degree + 1
     if P > lat.D:
         raise ValueError(f'No degree-{P} cochains in D = {lat.D}.')
     raw = np.asarray(a)
-    out = np.zeros((lat._c.count[P],) + (lat.N,) * lat.D, dtype=raw.dtype)
-    for i, terms in enumerate(lat._c.coboundary[P]):
-        for src, shift, sign in terms:
-            out[i] += sign * _gather(raw[src], shift)
-    return Form(out, degree=P, lattice=lat)
+    if a.dual:
+        # On the dual complex the index degree is D - degree, so raising the
+        # degree lowers the index -- the transpose of the primal coboundary.
+        out = _lower_index(lat, raw, lat.D - a.degree, raw.dtype)
+    else:
+        out = _raise_index(lat, raw, P, raw.dtype)
+    return Form(out, degree=P, lattice=lat, dual=a.dual)
 
 
 # ---------------------------------------------------------------------------
@@ -671,6 +699,11 @@ def delta(a):
     The codifferential, the transpose of :func:`d` with respect to the plain
     sum over components.
 
+    .. note ::
+        On a dual form this dispatches to the dual coboundary's transpose: a
+        dual $k$-cochain is indexed by primal $(D-k)$-simplices, so lowering
+        its degree raises the index degree.  No separate table is needed.
+
     .. warning ::
         The pairing carries no measure weighting.  Inserting
         :meth:`Lattice.measure` breaks adjointness, exactly as in the doubled
@@ -679,25 +712,23 @@ def delta(a):
     Parameters
     ----------
     a : Form
-        A primal degree-$p$ cochain.
+        A degree-$p$ cochain, primal or dual.
 
     Returns
     -------
     Form
         The degree-$(p-1)$ cochain $\delta a$.
     """
-    if a.dual:
-        raise ValueError('delta on a dual form is Phase 2; this is a primal operator.')
     lat = a.lattice
     P = a.degree
     if P < 1:
         raise ValueError('delta is not defined on a 0-cochain.')
     raw = np.asarray(a)
-    out = np.zeros((lat._c.count[P - 1],) + (lat.N,) * lat.D, dtype=raw.dtype)
-    for i, terms in enumerate(lat._c.coboundary[P]):
-        for src, shift, sign in terms:
-            out[src] += sign * _gather(raw[i], tuple(-s for s in shift))
-    return Form(out, degree=P - 1, lattice=lat)
+    if a.dual:
+        out = _raise_index(lat, raw, lat.D - P + 1, raw.dtype)
+    else:
+        out = _lower_index(lat, raw, P, raw.dtype)
+    return Form(out, degree=P - 1, lattice=lat, dual=a.dual)
 
 
 δ = delta

@@ -119,10 +119,12 @@ def test_d_raises_the_degree_and_keeps_it_primal():
     assert out.degree == 2 and out.dual is False
 
 
-def test_d_refuses_a_dual_form():
+def test_d_accepts_a_dual_form_and_keeps_it_dual():
+    """Phase 2: d now dispatches on the dual complex; see
+    test_lattice_barycentric_compact.py for the dual mathematics."""
     clat = cpt.Lattice(4, 3)
-    with pytest.raises(ValueError):
-        cpt.d(clat.zeros(1, dual=True))
+    out = cpt.d(clat.random(1, dual=True))
+    assert out.degree == 2 and out.dual is True
 
 
 def test_d_refuses_past_the_top_degree():
@@ -166,10 +168,12 @@ def test_adjointness_holds_compactly():
             assert np.isclose(lhs, rhs), (D, p)
 
 
-def test_delta_refuses_a_dual_form():
+def test_delta_accepts_a_dual_form_and_keeps_it_dual():
+    """Phase 2: delta now dispatches on the dual complex; see
+    test_lattice_barycentric_compact.py for the dual mathematics."""
     clat = cpt.Lattice(4, 3)
-    with pytest.raises(ValueError):
-        cpt.delta(clat.zeros(1, dual=True))
+    out = cpt.delta(clat.random(1, dual=True))
+    assert out.degree == 0 and out.dual is True
 
 
 def test_delta_refuses_a_0_cochain():
