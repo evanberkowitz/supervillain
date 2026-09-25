@@ -233,3 +233,54 @@ def test_the_general_point_group_element_is_permute_after_reflect():
             assert not np.allclose(combined, 0), (D, p)
             assert np.allclose(combined,
                                np.asarray(cpt.permute(cpt.reflect(a, flips), perm))), (D, p)
+
+
+def test_poincare_star_toggles_dual_and_reflects_the_degree():
+    for D, N in ((2, 3), (3, 3), (4, 3)):
+        lat = cpt.Lattice(D, N)
+        for p in range(D + 1):
+            a = lat.random(p)
+            s = cpt.poincare_star(a)
+            assert s.degree == D - p, (D, p)
+            assert s.dual is True, (D, p)
+            assert s.lattice is lat, (D, p)
+
+
+def test_poincare_star_moves_no_data():
+    '''It is a relabeling: the numbers are untouched, in order.'''
+    for D, N in ((2, 3), (3, 3), (4, 3)):
+        lat = cpt.Lattice(D, N)
+        for p in range(D + 1):
+            a = lat.random(p)
+            assert np.abs(np.asarray(a)).sum() != 0, f'D={D} p={p}: vacuous'
+            assert np.array_equal(np.asarray(cpt.poincare_star(a)),
+                                  np.asarray(a)), (D, p)
+
+
+def test_poincare_star_is_involutive_with_no_sign():
+    '''The resolved convention makes star-star exactly +1, not (-1)^p(D-p).'''
+    for D, N in ((2, 3), (3, 3), (4, 3)):
+        lat = cpt.Lattice(D, N)
+        for p in range(D + 1):
+            a = lat.random(p)
+            back = cpt.poincare_star(cpt.poincare_star(a))
+            assert back.degree == p and back.dual is False, (D, p)
+            assert np.abs(np.asarray(a)).sum() != 0, f'D={D} p={p}: vacuous'
+            assert np.array_equal(np.asarray(back), np.asarray(a)), (D, p)
+
+
+def test_poincare_star_does_not_alias_its_input():
+    '''Mutating the result must not corrupt the source.'''
+    lat = cpt.Lattice(3, 3)
+    a = lat.random(1)
+    before = np.array(np.asarray(a), copy=True)
+    s = cpt.poincare_star(a)
+    np.asarray(s)[...] += 1.0
+    assert np.array_equal(np.asarray(a), before)
+
+
+def test_poincare_star_round_trips_a_dual_form():
+    lat = cpt.Lattice(3, 3)
+    d1 = cpt.poincare_star(lat.random(1))
+    back = cpt.poincare_star(d1)
+    assert back.degree == 1 and back.dual is False

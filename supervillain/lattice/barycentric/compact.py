@@ -752,6 +752,49 @@ wedge = cup
 
 
 # ---------------------------------------------------------------------------
+# Poincare duality
+# ---------------------------------------------------------------------------
+
+def poincare_star(a):
+    r"""
+    The Poincare duality map, exchanging a degree-$p$ cochain for a dual
+    degree-$(D-p)$ one.
+
+    .. note ::
+        This **moves no data** and costs nothing.  A dual $(D-p)$-cochain
+        holds one number per primal $p$-simplex, so it is indexed by the same
+        component axis the input already uses; all this does is relabel the
+        type.  Its job is to tell :func:`d` and :func:`delta` which complex
+        they are on.
+
+    .. note ::
+        It carries **no sign**, and $\star\star = +1$ exactly --- not the
+        continuum's $(-1)^{p(D-p)}$.  Each dual block is oriented so that
+        $\sigma$'s orientation followed by $D(\sigma)$'s gives the ambient
+        orientation, which absorbs that sign.  The metric star is where the
+        continuum sign lives; see :func:`hodge_star`.
+
+    .. note ::
+        This is Poincare duality, a statement of topology, and is metric-free.
+        It is emphatically not the Hodge star, which needs an inner product.
+
+    Parameters
+    ----------
+    a : Form
+        A cochain, primal or dual.
+
+    Returns
+    -------
+    Form
+        The same numbers, of degree $D - $ ``a.degree``, with ``.dual``
+        toggled.
+    """
+    lat = a.lattice
+    return Form(np.array(np.asarray(a), copy=True),
+                degree=lat.D - a.degree, lattice=lat, dual=not a.dual)
+
+
+# ---------------------------------------------------------------------------
 # Translations
 # ---------------------------------------------------------------------------
 
