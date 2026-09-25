@@ -333,11 +333,26 @@ of ones.
 
 ## Open, to resolve during implementation
 
-- **$\tau$'s sign on a dual form.** On a primal $p$-cochain $\tau$ carries
-  $(-1)^{p(p+1)/2}$, from reversing the simplex's vertex order. A dual form is
-  indexed by primal simplices, so the sign should follow the *index* degree
-  rather than the cell dimension — but this needs deriving and testing, not
-  assuming, and the cross-validation against the doubled module will settle it.
+- ~~$\tau$'s sign on a dual form.~~ **Resolved:** on a primal $p$-cochain
+  $\tau$ carries $(-1)^{p(p+1)/2}$, from reversing the simplex's vertex order.
+  $\tau$ is a translation by half the unit diagonal, so it preserves the
+  *ambient* orientation; the resolved Poincaré convention orients each dual
+  block so that $\sigma$'s orientation followed by $D(\sigma)$'s gives that
+  ambient orientation, and since $\tau$ cannot flip the ambient orientation,
+  $D(\sigma)$'s sign under $\tau$ must transform exactly as $\sigma$'s does.
+  So the sign follows the *index* degree $m = D - k$ rather than the dual
+  degree $k$ — component counting alone fixes the table index but never a
+  sign; it is this orientation argument that fixes the sign. This extends to
+  the whole point group: `reflect` and `permute` carry no sign to begin with,
+  so keying their relabel table on the same index degree is the only question,
+  and it is answered the same way. Because `poincare_star` moves no data and
+  carries no sign, "$\tau$ commutes with `poincare_star`" is algebraically
+  equivalent to this sign claim, so the corresponding test
+  (`test_tau_on_a_dual_form_follows_the_index_degree`) is a **consistency
+  check that the implementation matches the derivation above, not an
+  independent measurement of it** — it would pass by construction for any
+  implementation that keys the sign table on the same index degree on both
+  sides, whatever that sign is.
 - ~~The orientation convention relating $\sigma$ to $D(\sigma)$.~~ **Resolved:**
   orient each dual block so that $\sigma$'s orientation followed by
   $D(\sigma)$'s gives the ambient orientation.  Then `poincare_star` carries no

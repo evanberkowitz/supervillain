@@ -392,7 +392,7 @@ def test_tau_on_a_dual_form_follows_the_index_degree():
 
 
 def test_tau_squared_on_a_dual_form_is_the_unit_diagonal_translation():
-    for D, N in ((3, 3), (4, 3)):
+    for D, N in ((2, 3), (3, 3), (4, 3)):
         lat = cpt.Lattice(D, N)
         for p in range(D + 1):
             a = cpt.poincare_star(lat.random(p))

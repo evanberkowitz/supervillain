@@ -1003,11 +1003,20 @@ def tau(data, power=1):
 
     .. note ::
         On a primal $p$-cochain $\tau$ carries $(-1)^{p(p+1)/2}$, from
-        reversing the simplex's vertex order.  A dual form is indexed by
-        primal simplices, so the sign follows the **index** degree
-        $m = D - k$ rather than the dual degree $k$; equivalently, $\tau$
-        commutes with :func:`poincare_star`.  That is measured by
-        ``test_tau_on_a_dual_form_follows_the_index_degree``, not assumed.
+        reversing the simplex's vertex order.  $\tau$ is a translation by half
+        the unit diagonal, so it preserves the *ambient* orientation.  The
+        resolved Poincare convention (:func:`poincare_star`) orients each dual
+        block so that $\sigma$'s orientation followed by $D(\sigma)$'s gives
+        that ambient orientation; since $\tau$ cannot flip the ambient
+        orientation, $D(\sigma)$'s sign under $\tau$ must transform exactly as
+        $\sigma$'s does.  So the sign follows the **index** degree
+        $m = D - k$ rather than the dual degree $k$ --- a component-counting
+        argument alone could fix the table *index* but never a sign; this
+        orientation argument is what fixes the sign.  The test
+        ``test_tau_on_a_dual_form_follows_the_index_degree``, equivalently
+        $\tau$ commuting with :func:`poincare_star`, is a consistency check
+        that the implementation matches this derivation, not an independent
+        measurement of it.
 
     .. note ::
         An even ``power`` is a whole-cell translation, so it short-circuits to
@@ -1043,7 +1052,7 @@ def tau(data, power=1):
     for i, (j, offset) in enumerate(table):
         out[j] = sign * np.roll(raw[i], offset, axis=tuple(range(lat.D)))
     return push(Form(out, degree=p, lattice=lat, dual=data.dual),
-               ((power - 1) // 2,) * lat.D)
+                ((power - 1) // 2,) * lat.D)
 
 
 def translate_diagonal(data, signs, steps=1):
