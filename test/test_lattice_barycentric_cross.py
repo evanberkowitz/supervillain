@@ -43,3 +43,45 @@ def test_to_doubled_refuses_a_dual_form():
     clat = cpt.Lattice(4, 3)
     with pytest.raises(ValueError):
         clat.zeros(2, dual=True).to_doubled()
+
+
+def _some_indices(count, k=3):
+    """A handful of component indices spanning [0, count), without repeats."""
+    if count <= k:
+        return list(range(count))
+    step = max(1, count // k)
+    return sorted(set(range(0, count, step)))[:k]
+
+
+def test_single_component_lands_at_its_predicted_slot():
+    r"""
+    Pin the ``(parity, type)`` $\to$ anchor correspondence directly, rather
+    than restating ``to_doubled``'s own indexing: a single nonzero compact
+    entry must land at doubled anchor $2x + \pi$ --- computed here from
+    scratch, not by calling into the implementation --- and nowhere else.
+
+    .. note ::
+        ``test_round_trip_is_the_identity`` cannot catch a *consistently*
+        wrong parity convention (e.g. every ``parity[mu]`` flipped to
+        ``1 - parity[mu]`` in both directions): the round trip would still be
+        the identity.  This test locates the single nonzero directly, so it
+        would.
+    """
+    for D, N in ((2, 3), (3, 3), (4, 3)):
+        clat, _ = _pair(D, N)
+        comps = cpt._compact_structures(D).components
+        for p in range(D + 1):
+            count = clat._c.count[p]
+            sites = [(0,) * D, tuple((mu + 1) % N for mu in range(D))]
+            for i in _some_indices(count):
+                parity, t = comps[p][i]
+                for x in sites:
+                    a = clat.zeros(p, dtype=int)
+                    np.asarray(a)[(i,) + x] = 7
+                    anchor = tuple((2 * x[mu] + parity[mu]) % (2 * N)
+                                   for mu in range(D))
+                    doubled_form = a.to_doubled()
+                    arr = np.asarray(doubled_form)
+                    assert np.issubdtype(arr.dtype, np.integer), (D, p, i, x)
+                    assert arr[(t,) + anchor] == 7, (D, p, i, x)
+                    assert (arr != 0).sum() == 1, (D, p, i, x)
