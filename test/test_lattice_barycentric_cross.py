@@ -10,6 +10,8 @@ The compact layout against the doubled one.
     ``test/test_lattice_barycentric.py``.  A passing cross-check is not
     independent confirmation of any of it.
 """
+from math import comb
+
 import numpy as np
 import pytest
 
@@ -270,3 +272,51 @@ def test_package_hoists_the_compact_names():
         assert hasattr(bary, name), name
         assert getattr(bary, name) is getattr(cpt, name), name
     assert bary.doubled.Lattice is dbl.Lattice
+
+
+def test_planes_match_doubled():
+    '''The coordinate planes depend only on D and p, so both layouts agree.'''
+    for D, N in ((2, 3), (3, 3), (4, 3)):
+        clat, dlat = _pair(D, N)
+        for p in range(D + 1):
+            assert clat.planes(p) == dlat.planes(p), (D, p)
+            assert len(clat.planes(p)) == comb(D, p), (D, p)
+
+
+def test_pvector_is_the_doubled_table_gathered_onto_components():
+    '''Each component's p-vector is its type's, so compact is a gather.'''
+    for D, N in ((2, 3), (3, 3), (4, 3)):
+        clat, dlat = _pair(D, N)
+        for p in range(D + 1):
+            cpv, dpv = clat.pvector(p), dlat.pvector(p)
+            assert cpv.shape == (clat._c.count[p], comb(D, p)), (D, p)
+            assert dpv.shape[1] == cpv.shape[1], (D, p)
+            for i, (_, t) in enumerate(clat._c.components[p]):
+                assert np.array_equal(cpv[i], dpv[t]), (D, p, i)
+            assert np.abs(cpv).sum() != 0, f'D={D} p={p}: vacuous'
+
+
+def test_pvector_at_the_top_degree_is_the_orientation_sign():
+    '''orientation_sign is the p = D case, where there is one plane.'''
+    for D, N in ((2, 3), (3, 3), (4, 3)):
+        clat, _ = _pair(D, N)
+        top = clat.pvector(D)
+        assert top.shape[1] == 1, D
+        assert np.array_equal(top[:, 0].reshape((-1,) + (1,) * D),
+                              clat.orientation_sign), D
+        assert set(np.unique(top)) == {-1, 1}, D
+
+
+def test_coordinate_aligned_components_have_exactly_one_unit_component():
+    '''A type releasing one direction per step spans a single plane.'''
+    for D, N in ((2, 3), (3, 3), (4, 3)):
+        clat, _ = _pair(D, N)
+        seen = 0
+        for p in range(1, D + 1):
+            pv = clat.pvector(p)
+            for i, (_, t) in enumerate(clat._c.components[p]):
+                if all(len(step) == 1 for step in clat._s.step_types[p][t]):
+                    assert np.count_nonzero(pv[i]) == 1, (D, p, i)
+                    assert abs(pv[i]).max() == 1, (D, p, i)
+                    seen += 1
+        assert seen > 0, f'D={D}: no coordinate-aligned component examined'

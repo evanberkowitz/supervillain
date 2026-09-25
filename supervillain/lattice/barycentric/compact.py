@@ -450,6 +450,63 @@ class Lattice:
         """
         return self._measures[p]
 
+    def planes(self, p):
+        r"""
+        The coordinate $p$-planes, as sorted direction tuples, in the order
+        :meth:`pvector` indexes them.
+
+        .. note ::
+            The planes depend only on $D$ and $p$, not on the layout, so this
+            is the same tuple the doubled module reports.
+
+        Parameters
+        ----------
+        p : int
+            The degree.
+
+        Returns
+        -------
+        tuple
+            $\binom{D}{p}$ tuples of directions.
+        """
+        return self._s.planes[p]
+
+    @cached_property
+    def _pvectors(self):
+        return tuple(
+            np.array([self._s.pvector[p][t] for _, t in self._c.components[p]])
+            for p in range(self.D + 1))
+
+    def pvector(self, p):
+        r"""
+        The $p$-vector of each component, component by coordinate $p$-plane:
+        shape ``(S_p, C(D,p))``, indexed by :meth:`planes`.
+
+        Entry ``[i, j]`` is the Plucker coordinate of the $p$-plane the simplex
+        spans --- the determinant of its edge vectors restricted to that plane.
+
+        .. note ::
+            A component's $p$-vector is a property of its type alone: the
+            anchor parity says where a simplex sits, not which way it points.
+            So this is the doubled module's table gathered onto the component
+            list, with no re-indexing of the site axes.
+
+        .. note ::
+            :attr:`orientation_sign` is the $p = D$ case, where there is only
+            one coordinate plane, and equals ``pvector(D)[:, 0]``.
+
+        Parameters
+        ----------
+        p : int
+            The degree.
+
+        Returns
+        -------
+        np.ndarray
+            Shape ``(S_p, C(D,p))``.
+        """
+        return self._pvectors[p]
+
     @property
     def link_classes(self):
         r"""The $(r,s)$ rank pairs labelling link classes, sorted."""
