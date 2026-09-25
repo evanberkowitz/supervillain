@@ -531,17 +531,34 @@ Differences from the Hypercubic Lattice
 
 .. danger ::
 
-   There is no Hodge star, and there cannot be one.
+   This module has no Hodge star, and a star here needs more than an operator.
 
-   A star would need a degree-reversing bijection between $p$-simplices and $(D-p)$-simplices, and the counts forbid it.
-   Per original site there are $16$ fine vertices but $384$ fine four-simplices, and $240$ fine links but $960$ tetrahedra; no choice of signs repairs a map with nowhere to send its arguments.
-   On the hypercubic lattice the corresponding counts are $\binom{D}{p} = \binom{D}{D-p}$ and therefore symmetric.
+   A star would have to be a degree-reversing map, and there is no such map from
+   $p$-simplices to $(D-p)$-simplices: per original site there are $16$ fine
+   vertices against $384$ four-simplices, and $240$ links against $960$
+   tetrahedra, where the hypercubic counts are symmetric because
+   $\binom{D}{p} = \binom{D}{D-p}$.
 
-   The mechanism that supplies :func:`~supervillain.lattice.interlaced.star` is present here but acts on the wrong index.
-   In the interlaced picture the rank of a site --- its number of odd coordinates --- *is* the form degree, so the parity flip $\xi \mapsto \xi + \varepsilon_{\mathrm{all}}$ reverses degree.
-   Here rank and degree are different: a $p$-simplex has $p$ steps, a step may release several directions at once, and its anchor carries a rank of its own.
-   :func:`~supervillain.lattice.barycentric.tau` is that same parity flip and does reverse rank, $r \mapsto D-r$, but it carries $p$-simplices to $p$-simplices and leaves the degree alone.
+   The resolution is that a star does not map within one complex.  Dual blocks
+   are in bijection with primal simplices --- $D(\sigma)$ of dimension $D-p$ for
+   each $p$-simplex --- so a dual $(D-p)$-cochain holds one number per
+   $p$-simplex and the map is index-preserving, $240 \leftrightarrow 240$.  What
+   a star needs is therefore a *dual-indexed companion* to :class:`Form`, which
+   this module does not have; it is not that the operator is missing but that
+   half its type is.
 
-   Underneath both is that a simplicial complex is not self-dual: the dual cell of a fine $p$-simplex is a $(D-p)$-dimensional block, a union of simplices of the *second* barycentric subdivision, so the dual of $\mathrm{sd}\,K$ is a block complex rather than $\mathrm{sd}\,K$ itself.
-   Poincaré duality survives in cohomology, realized by a map between two complexes rather than by an operator on one.
-   Nothing here needs a star in any case: :func:`~supervillain.lattice.barycentric.delta` is built as the transpose of $d$ with respect to :eq:`barycentric-d-delta-adjoint`, which is how a codifferential is had on a simplicial complex, rather than as $\pm\,\star d\,\star$.
+   The mechanism that supplies :func:`~supervillain.lattice.interlaced.star` is
+   present here but acts on the wrong index.  In the interlaced picture the rank
+   of a site --- its number of odd coordinates --- *is* the form degree, so the
+   parity flip $\xi \mapsto \xi + \varepsilon_{\mathrm{all}}$ reverses degree.
+   Here rank and degree are different, and
+   :func:`~supervillain.lattice.barycentric.tau`, which is that same parity flip,
+   reverses rank while carrying $p$-simplices to $p$-simplices.
+
+   Underneath is that a simplicial complex is not self-dual: the dual cell of a
+   fine $p$-simplex is a $(D-p)$-dimensional block, a union of simplices of the
+   *second* barycentric subdivision.  Poincaré duality survives in cohomology,
+   realized by a map between two complexes rather than by an operator on one.
+   Nothing in this module needs a star in any case:
+   :func:`~supervillain.lattice.barycentric.delta` is the transpose of $d$ with
+   respect to :eq:`barycentric-d-delta-adjoint`, not $\pm\,\star d\,\star$.
