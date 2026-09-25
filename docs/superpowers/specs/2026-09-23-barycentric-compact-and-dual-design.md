@@ -46,20 +46,27 @@ Each operator becomes a table: for every out-component, a list of
 `compact.operator_table(op, degree)` already takes, and it is what a later
 numba pass would consume.
 
-The shifts are **local**, and the stencil is the full neighbour cube. A
+The shifts are **local**, and the stencil is two-point per direction. A
 component sits at doubled anchor $2x + \pi$ for parity $\pi \in \{0,1\}^D$; a
 doubled shift $\delta$ sends it to $2x + \pi + \delta$, which splits as
 
 $$\pi_{\text{in}} = (\pi + \delta) \bmod 2, \qquad
   \Delta x = \lfloor (\pi + \delta)/2 \rfloor .$$
 
-Since $\pi \in \{0,1\}$ and $\delta \in \{-1,0,+1\}$, the sum lies in
-$\{-1,0,1,2\}$ and $\Delta x$ in $\{-1,0,+1\}$ --- a $+1$ offset arising exactly
-when $\pi = 1$ and $\delta = +1$. So each operator reaches the $3^D$ neighbouring
-sites (81 in $D = 4$), measured, not the $2^D$ an earlier draft of this spec
-claimed. That draft floor-divided the shift alone and forgot that the anchor's
-own parity contributes. Bounded and local either way, but the stencil is
-three-point per direction.
+The site offset lies in $\{-1, 0\}$, so each operator reaches $2^D$ neighbouring
+sites. The reason is the component filter: a component is realized only where
+every direction its type *releases* is even at the anchor, and a coboundary
+shift is nonzero only in directions the type releases. So wherever
+$\delta_\mu \neq 0$ we have $\pi_\mu = 0$, and $\pi + \delta$ can never reach
+$2$ --- the only route to a $+1$ offset. Measured over the realized components
+at $D = 2, 3, 4$: offsets $\{-1, 0\}$, with zero counterexamples.
+
+.. note: two earlier drafts of this paragraph were both unreliable. The first
+   said $\{-1,0\}$ but argued it by floor-dividing $\delta$ alone, ignoring
+   $\pi$ --- right answer, wrong reason. The second "corrected" it to
+   $\{-1,0,+1\}$ by ranging over *all* $(\pi, t)$ pairs rather than the realized
+   ones, which is the wrong answer. The filter argument above is the reason, and
+   it is what the test checks.
 
 ## `Form` carries `.dual`
 
