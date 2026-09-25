@@ -96,3 +96,65 @@ def test_random_is_dense():
 def test_no_support_method():
     """support() is deliberately absent; every slot is a simplex."""
     assert not hasattr(cpt.Lattice(4, 3), 'support')
+
+
+def test_count_is_lattice_wide():
+    """The precise trap the brief named: _c.count[p] is per site, count(p) is
+    lattice-wide.  Cross-check against doubled's count(), computed by a
+    completely different route (masking a (2N)^D array), rather than merely
+    restating _c.count[p] * N**D."""
+    for D, N in ((2, 3), (3, 3), (4, 3)):
+        lat = cpt.Lattice(D, N)
+        dlat = dbl.Lattice(D, N)
+        for p in range(D + 1):
+            assert lat.count(p) == dlat.count(p), (D, N, p)
+
+
+def test_measure_matches_doubled():
+    D, N = 4, 3
+    lat = cpt.Lattice(D, N)
+    c = cpt._compact_structures(D)
+    s = dbl._structures(D)
+    for p in range(D + 1):
+        m = lat.measure(p)
+        assert m.shape == (c.count[p],) + (1,) * D
+        assert (m != 0).any(), f'p={p}: measure is degenerately all zero'
+        for i, (parity, t) in enumerate(c.components[p]):
+            assert m.ravel()[i] == s.measure[p][t], (p, i)
+
+
+def test_orientation_sign_matches_doubled():
+    D, N = 4, 3
+    lat = cpt.Lattice(D, N)
+    c = cpt._compact_structures(D)
+    s = dbl._structures(D)
+    sign = lat.orientation_sign
+    assert (sign != 0).any(), 'orientation_sign is degenerately all zero'
+    for i, (parity, t) in enumerate(c.components[D]):
+        assert sign.ravel()[i] == s.orientation_sign[t], i
+
+
+def test_link_class_multiset_matches_doubled():
+    """Compare histograms, not element by element, so the test does not
+    merely restate the implementation."""
+    D, N = 4, 3
+    lat = cpt.Lattice(D, N)
+    dlat = dbl.Lattice(D, N)
+    nclass = len(lat.link_classes)
+    compact_hist = np.bincount(np.repeat(lat.link_class, N**D), minlength=nclass)
+    doubled_class = dlat.link_class
+    doubled_hist = np.bincount(doubled_class[doubled_class >= 0].ravel(), minlength=nclass)
+    assert compact_hist.sum() == lat.count(1) > 0
+    assert (compact_hist == doubled_hist).all()
+
+
+def test_random_integer_respects_its_bounds():
+    D, N, p = 3, 3, 2
+    lat = cpt.Lattice(D, N)
+    c = cpt._compact_structures(D)
+    a = lat.random_integer(p, low=10, high=20)
+    assert a.shape == (c.count[p],) + (N,) * D
+    raw = np.asarray(a)
+    assert np.issubdtype(raw.dtype, np.integer)
+    assert (raw >= 10).all() and (raw < 20).all()
+    assert (raw != raw.flat[0]).any(), 'random_integer is degenerately constant'
