@@ -22,6 +22,7 @@ from itertools import product
 import numpy as np
 
 from supervillain.lattice.barycentric import doubled
+from supervillain.lattice.barycentric import whitney
 
 
 class _CompactStructures:
@@ -53,6 +54,34 @@ class _CompactStructures:
         self._cup_cache = {}
         self._point_group_cache = {}
         self._half_diagonal_cache = {}
+        self._mass_cache = {}
+
+    def _split_anchor(self, anchor):
+        r"""
+        Split a doubled anchor into the compact layout's ``(parity, site)``.
+
+        A component $(\pi, t)$ at site $x$ is the doubled anchor $2x + \pi$, so
+        reading a doubled anchor back gives $\pi = \xi \bmod 2$ and
+        $x = \lfloor \xi/2 \rfloor$.
+
+        .. note ::
+            Floor division is the point: a doubled anchor of $-1$ is parity $1$
+            at site $-1$, not parity $-1$ at site $0$.  Every table in this
+            class routes through here so that convention is written once.
+
+        Parameters
+        ----------
+        anchor : sequence of int
+            A doubled coordinate, one entry per direction.
+
+        Returns
+        -------
+        tuple
+            ``(parity, site)``, each a length-$D$ tuple.
+        """
+        doubled_anchor = tuple(int(v) for v in anchor)
+        return (tuple(v % 2 for v in doubled_anchor),
+                tuple(v // 2 for v in doubled_anchor))
 
     def _route(self, p_out, table):
         r"""
@@ -86,9 +115,8 @@ class _CompactStructures:
         for parity, t in self.components[p_out]:
             terms = []
             for src, shift, sign in table[t]:
-                total = [parity[mu] + shift[mu] for mu in range(self.D)]
-                in_parity = tuple(v % 2 for v in total)
-                site      = tuple(v // 2 for v in total)
+                in_parity, site = self._split_anchor(
+                    parity[mu] + shift[mu] for mu in range(self.D))
                 terms.append((self.component_index[p_in][(in_parity, src)],
                               site, sign))
             out.append(tuple(terms))
@@ -117,9 +145,8 @@ class _CompactStructures:
             out = []
             for parity, t in self.components[p + q]:
                 ia, ic, shift = table[t]
-                total = [parity[mu] + shift[mu] for mu in range(self.D)]
-                c_parity = tuple(v % 2 for v in total)
-                site     = tuple(v // 2 for v in total)
+                c_parity, site = self._split_anchor(
+                    parity[mu] + shift[mu] for mu in range(self.D))
                 out.append((self.component_index[p][(parity, ia)],
                             self.component_index[q][(c_parity, ic)],
                             site))
@@ -215,13 +242,87 @@ class _CompactStructures:
             image, shift, sign = doubled._structures(self.D).half_diagonal(p)
             out = []
             for parity, t in self.components[p]:
-                total = [parity[mu] + int(shift[t][mu]) for mu in range(self.D)]
-                new_parity = tuple(v % 2 for v in total)
-                offset     = tuple(v // 2 for v in total)
+                new_parity, offset = self._split_anchor(
+                    parity[mu] + int(shift[t][mu]) for mu in range(self.D))
                 out.append((self.component_index[p][(new_parity, int(image[t]))],
                             offset))
             self._half_diagonal_cache[p] = (tuple(out), int(sign))
         return self._half_diagonal_cache[p]
+
+    def mass_table(self, p):
+        r"""
+        The Whitney mass matrix at degree $p$, as a compact-layout stencil.
+
+        Every fine top simplex is an orthoscheme congruent to the reference one
+        the ``whitney`` module describes, by an isometry that permutes the axes
+        and flips signs so that the $k$th step of the chain becomes the
+        reference's $k$th step.  That isometry carries chain vertex $k$ to
+        reference vertex $k$, so once both are indexed by the *position* of a
+        vertex along the chain the local matrix is literally the same array for
+        all $2^D D!$ of them, and
+        :func:`~supervillain.lattice.barycentric.whitney.local_mass` is called
+        once.
+
+        A $p$-face of a top simplex picks positions $k_0 < \cdots < k_p$ along
+        the chain.  It is anchored at vertex $k_0$, and its type merges the step
+        sets released strictly between consecutive chosen positions --- the same
+        anchor-plus-merged-steps rule the coboundary uses.  Every ordered pair
+        of $p$-faces of every top simplex contributes, and a pair shared by
+        several top simplices accumulates once per simplex, which is what makes
+        this stencil wider than the coboundary's.
+
+        .. note ::
+            The enumeration runs over top *types*, never over sites: a top
+            simplex's anchor is a rank-zero barycenter, so its doubled
+            coordinate is even in every direction and the whole incidence
+            pattern is a translate of the one anchored at the origin.
+
+        .. warning ::
+            Unlike the coboundary this cannot be assembled per out-*type* and
+            then routed by :meth:`_route`.  Which top simplices contain a
+            $p$-simplex depends on its anchor parity and not only on its type:
+            in $D = 2$ the link type releasing $+\hat e_1$ sits at chain
+            positions $(0,1)$ of its two top simplices when its anchor is even,
+            but at positions $(1,2)$ when the anchor is the midpoint of an
+            $\hat e_0$ edge.  So the assembly is per component from the start.
+
+        Parameters
+        ----------
+        p : int
+            The degree.
+
+        Returns
+        -------
+        tuple
+            Entries ``(out_component, in_component, site shift, coefficient)``,
+            sorted, with the coefficient a float.
+        """
+        if p not in self._mass_cache:
+            D = self.D
+            s = doubled._structures(D)
+            local  = whitney.local_mass(D, p)
+            chains = whitney.faces(D, p)
+            entries = {}
+            for t, steps in enumerate(s.step_types[D]):
+                anchors = s.offsets[D][t]
+                here = []
+                for chain in chains:
+                    merged = tuple(
+                        tuple(sorted(sum(steps[chain[j - 1]:chain[j]], ())))
+                        for j in range(1, len(chain)))
+                    parity, site = self._split_anchor(anchors[chain[0]])
+                    here.append((self.component_index[p][
+                        (parity, s.type_index[p][merged])], site))
+                for a, (out_component, out_site) in enumerate(here):
+                    for b, (in_component, in_site) in enumerate(here):
+                        key = (out_component, in_component,
+                               tuple(in_site[mu] - out_site[mu]
+                                     for mu in range(D)))
+                        entries[key] = entries.get(key, 0.0) + local[a, b]
+            self._mass_cache[p] = tuple(
+                key + (coefficient,)
+                for key, coefficient in sorted(entries.items()))
+        return self._mass_cache[p]
 
 
 _cache = {}
@@ -823,6 +924,58 @@ def poincare_star(a):
     lat = a.lattice
     return Form(np.array(np.asarray(a), copy=True),
                 degree=lat.D - a.degree, lattice=lat, dual=not a.dual)
+
+
+# ---------------------------------------------------------------------------
+# The metric Hodge star
+# ---------------------------------------------------------------------------
+
+def hodge_star(a):
+    r"""
+    The metric Hodge star, taking a primal degree-$p$ cochain to a dual
+    degree-$(D-p)$ one.
+
+    .. note ::
+        This is the Whitney/Galerkin mass matrix $M_p$, whose entries are
+        $\int \langle w_\sigma, w_\tau \rangle$ over Whitney forms; the
+        definitions are those of :cite:`Arnold:2006zzb`.
+
+    .. note ::
+        It is **not** the diagonal ratio $|D(\sigma)|/|\sigma|$.  That is the
+        Hodge star only under primal-dual orthogonality, which needs a
+        circumcentric dual on a well-centred mesh :cite:`Desbrun:2005dec`.
+        Every fine simplex here is an orthoscheme whose circumcentre lies on
+        its boundary, so the circumcentric dual is degenerate and the
+        diagonal shortcut is unavailable.
+
+    .. note ::
+        The output has the same array shape as the input: a dual $(D-p)$-cochain
+        is indexed by the primal $p$-simplices whose dual blocks it lives on.
+
+    .. warning ::
+        Unlike :func:`poincare_star` this is **not** involutive: $M \neq
+        M^{-1}$.  Use :func:`hodge_star_inverse` for the other direction.
+
+    Parameters
+    ----------
+    a : Form
+        A primal degree-$p$ cochain.
+
+    Returns
+    -------
+    Form
+        The dual degree-$(D-p)$ cochain $\star a$.
+    """
+    if a.dual:
+        raise ValueError(
+            'hodge_star maps primal to dual; use hodge_star_inverse on a dual form.')
+    lat = a.lattice
+    p = a.degree
+    raw = np.asarray(a)
+    out = np.zeros_like(raw, dtype=float)
+    for i, j, shift, c in lat._c.mass_table(p):
+        out[i] += c * _gather(raw[j], shift)
+    return Form(out, degree=lat.D - p, lattice=lat, dual=True)
 
 
 # ---------------------------------------------------------------------------

@@ -410,3 +410,104 @@ def test_translate_diagonal_carries_a_dual_form_through():
         out = cpt.translate_diagonal(a, signs)
         assert out.dual is True and out.degree == a.degree
         assert np.abs(np.asarray(out)).sum() != 0
+
+
+def test_hodge_star_maps_primal_to_dual_and_reflects_the_degree():
+    for D, N in ((2, 3), (3, 3), (4, 3)):
+        lat = cpt.Lattice(D, N)
+        for p in range(D + 1):
+            out = cpt.hodge_star(lat.random(p))
+            assert out.degree == D - p and out.dual is True, (D, p)
+
+
+def test_hodge_star_refuses_a_dual_form():
+    lat = cpt.Lattice(3, 3)
+    with pytest.raises(ValueError):
+        cpt.hodge_star(cpt.poincare_star(lat.zeros(1)))
+
+
+def test_hodge_star_pairing_is_symmetric():
+    '''<a, star b> == <b, star a>, because the mass matrix is symmetric.'''
+    for D, N in ((2, 3), (3, 3), (4, 3)):
+        lat = cpt.Lattice(D, N)
+        for p in range(D + 1):
+            a, b = lat.random(p), lat.random(p)
+            ab = float((np.asarray(a) * np.asarray(cpt.hodge_star(b))).sum())
+            ba = float((np.asarray(b) * np.asarray(cpt.hodge_star(a))).sum())
+            assert not np.isclose(ab, 0), f'D={D} p={p}: vacuous'
+            assert np.isclose(ab, ba), (D, p)
+
+
+def test_hodge_star_is_positive_definite_as_a_quadratic_form():
+    '''<a, star a> > 0 for a != 0: it is a Gram matrix.'''
+    for D, N in ((2, 3), (3, 3), (4, 3)):
+        lat = cpt.Lattice(D, N)
+        for p in range(D + 1):
+            a = lat.random(p)
+            q = float((np.asarray(a) * np.asarray(cpt.hodge_star(a))).sum())
+            assert q > 0, (D, p, q)
+
+
+def test_hodge_star_at_degree_zero_totals_the_torus_volume():
+    '''Summing the whole p=0 mass matrix integrates 1 over the torus.'''
+    for D, N in ((2, 3), (3, 3), (4, 3)):
+        lat = cpt.Lattice(D, N)
+        ones = lat.zeros(0)
+        np.asarray(ones)[...] = 1.0
+        total = float((np.asarray(ones)
+                       * np.asarray(cpt.hodge_star(ones))).sum())
+        assert np.isclose(total, float(N) ** D), (D, N, total)
+
+
+def test_hodge_star_commutes_with_the_point_group():
+    '''The metric is invariant under all 2^D D! elements, so the star is too.'''
+    for D, N in ((2, 3), (3, 3)):
+        lat = cpt.Lattice(D, N)
+        perm = tuple((i + 1) % D for i in range(D))
+        for p in range(D + 1):
+            a = lat.random(p)
+            lhs = cpt.permute(cpt.hodge_star(a), perm)
+            rhs = cpt.hodge_star(cpt.permute(a, perm))
+            assert np.abs(np.asarray(lhs)).sum() != 0, f'D={D} p={p}: vacuous'
+            assert np.allclose(np.asarray(lhs), np.asarray(rhs)), (D, p)
+            lhs = cpt.reflect(cpt.hodge_star(a), (0,))
+            rhs = cpt.hodge_star(cpt.reflect(a, (0,)))
+            assert np.allclose(np.asarray(lhs), np.asarray(rhs)), (D, p)
+
+
+def test_hodge_star_is_translation_invariant():
+    for D, N in ((2, 3), (3, 3), (4, 3)):
+        lat = cpt.Lattice(D, N)
+        shift = tuple(range(1, D + 1))
+        for p in range(D + 1):
+            a = lat.random(p)
+            lhs = cpt.push(cpt.hodge_star(a), shift)
+            rhs = cpt.hodge_star(cpt.push(a, shift))
+            assert np.abs(np.asarray(lhs)).sum() != 0, f'D={D} p={p}: vacuous'
+            assert np.allclose(np.asarray(lhs), np.asarray(rhs)), (D, p)
+
+
+@pytest.mark.xfail(strict=True, reason=(
+    'The spec asserts 14, 27, 21, 7, 1.  The measured maxima are '
+    '81, 125, 49, 9, 1, confirmed independently by brute-force enumeration '
+    'of every maximal flag of a D=4, N=3 torus: p=0 is 3**4, the barycentres '
+    'of the 81 cube faces comparable to a corner; p=3 is 5 + 5 - 1, the '
+    'facets of the two top simplices sharing one.  The expected tuple is left '
+    'as the spec wrote it, pending a decision on the spec.'))
+def test_mass_table_row_counts_match_the_whitney_stencil():
+    '''Whitney forms couple p-simplices sharing a top simplex: 14, 27, 21, 7, 1.'''
+    lat = cpt.Lattice(4, 3)
+    expected = (14, 27, 21, 7, 1)
+    for p in range(5):
+        rows = {}
+        for i, j, shift, c in lat._c.mass_table(p):
+            rows.setdefault(i, 0)
+            rows[i] += 1
+        assert len(rows) == lat._c.count[p], p
+        assert max(rows.values()) == expected[p], (p, max(rows.values()))
+
+
+def test_mass_tables_are_N_independent_and_cached():
+    a, b = cpt.Lattice(3, 3), cpt.Lattice(3, 5)
+    for p in range(4):
+        assert a._c.mass_table(p) is b._c.mass_table(p), p
