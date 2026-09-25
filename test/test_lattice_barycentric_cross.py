@@ -85,3 +85,38 @@ def test_single_component_lands_at_its_predicted_slot():
                     assert np.issubdtype(arr.dtype, np.integer), (D, p, i, x)
                     assert arr[(t,) + anchor] == 7, (D, p, i, x)
                     assert (arr != 0).sum() == 1, (D, p, i, x)
+
+
+def test_d_matches_doubled():
+    for D, N in ((2, 3), (3, 3), (4, 3)):
+        clat, _ = _pair(D, N)
+        for p in range(D):
+            a = clat.random(p)
+            lhs = cpt.d(a).to_doubled()
+            rhs = dbl.d(a.to_doubled())
+            assert not np.allclose(np.asarray(lhs), 0), f'D={D} p={p}: vacuous'
+            assert np.allclose(np.asarray(lhs), np.asarray(rhs)), (D, p)
+
+
+def test_d_raises_the_degree_and_stays_primal():
+    clat = cpt.Lattice(4, 3)
+    out = cpt.d(clat.random(1))
+    assert out.degree == 2 and out.dual is False
+
+
+def test_site_offsets_are_two_point():
+    """The stencil reaches x-1 and x per direction, never x+1.
+
+    A component is realized only where every direction its type releases is
+    even at the anchor, and a coboundary shift is nonzero only in directions
+    the type releases -- so parity + shift never reaches 2, which is the only
+    route to a +1 offset.
+    """
+    for D in (2, 3, 4):
+        c = cpt._compact_structures(D)
+        seen = set()
+        for P in range(1, D + 1):
+            for terms in c.coboundary[P]:
+                for _, shift, _ in terms:
+                    seen |= set(shift)
+        assert seen == {-1, 0}, f'D={D}: {sorted(seen)}'

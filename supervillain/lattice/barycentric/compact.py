@@ -47,6 +47,47 @@ class _CompactStructures:
         self.component_index = tuple({c: i for i, c in enumerate(cs)}
                                      for cs in comps)
         self.count           = tuple(len(cs) for cs in comps)
+        self.coboundary = tuple(self._route(P, s.coboundary[P])
+                                if P > 0 else ()
+                                for P in range(D + 1))
+
+    def _route(self, p_out, table):
+        r"""
+        Re-index a doubled operator table into the compact layout.
+
+        A component $(\pi, t)$ at site $x$ is the doubled anchor $2x + \pi$, so a
+        doubled shift $\delta$ lands at parity $(\pi + \delta) \bmod 2$ and site
+        $x + \lfloor (\pi + \delta)/2 \rfloor$.
+
+        .. note ::
+            The site offset lies in $\{-1, 0, +1\}$ per direction --- a $+1$
+            arising exactly when $\pi = 1$ and $\delta = +1$ --- so the stencil
+            reaches the $3^D$ neighbouring sites.
+
+        Parameters
+        ----------
+        p_out : int
+            Degree of the output.
+        table : tuple
+            The doubled table: per out-type, ``(in_type, doubled shift, sign)``.
+
+        Returns
+        -------
+        tuple
+            Per out-component, ``(in_component, site shift, sign)``.
+        """
+        p_in = p_out - 1
+        out = []
+        for parity, t in self.components[p_out]:
+            terms = []
+            for src, shift, sign in table[t]:
+                total = [parity[mu] + shift[mu] for mu in range(self.D)]
+                in_parity = tuple(v % 2 for v in total)
+                site      = tuple(v // 2 for v in total)
+                terms.append((self.component_index[p_in][(in_parity, src)],
+                              site, sign))
+            out.append(tuple(terms))
+        return tuple(out)
 
 
 _cache = {}
@@ -371,3 +412,60 @@ class Lattice:
         """
         return Form(np.random.randint(low, high, self._shape(p, dual)),
                     degree=p, lattice=self, dual=dual)
+
+
+# ---------------------------------------------------------------------------
+# Exterior derivative  d : C^p -> C^{p+1}
+# ---------------------------------------------------------------------------
+
+def _gather(array, shift):
+    r"""
+    ``result[x] = array[x + shift]`` on the site axes, periodically.
+
+    Parameters
+    ----------
+    array : np.ndarray
+        Site-indexed data.
+    shift : sequence of int
+        One integer per direction, in original lattice units.
+
+    Returns
+    -------
+    np.ndarray
+        The gathered array.
+    """
+    return np.roll(array, tuple(-int(s) for s in shift),
+                   axis=tuple(range(array.ndim - len(shift), array.ndim)))
+
+
+def d(a):
+    r"""
+    The coboundary, in the compact layout.
+
+    .. note ::
+        The table is the doubled module's, re-indexed: the mathematics is
+        established there, and what is new here is the routing between
+        components.
+
+    Parameters
+    ----------
+    a : Form
+        A primal degree-$p$ cochain.
+
+    Returns
+    -------
+    Form
+        The degree-$(p+1)$ cochain $da$.
+    """
+    if a.dual:
+        raise ValueError('d on a dual form is Phase 2; this is a primal operator.')
+    lat = a.lattice
+    P = a.degree + 1
+    if P > lat.D:
+        raise ValueError(f'No degree-{P} cochains in D = {lat.D}.')
+    raw = np.asarray(a)
+    out = np.zeros((lat._c.count[P],) + (lat.N,) * lat.D, dtype=raw.dtype)
+    for i, terms in enumerate(lat._c.coboundary[P]):
+        for src, shift, sign in terms:
+            out[i] += sign * _gather(raw[src], shift)
+    return Form(out, degree=P, lattice=lat)
