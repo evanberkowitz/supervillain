@@ -249,7 +249,9 @@ Barycentric Forms
 
 The barycentric subdivision $S = \mathrm{sd}\,K$ of the hypercubic complex $K$ replaces every cell of $K$ --- vertex, edge, plaquette, cube, up to the hypercube itself --- by the simplices spanned by the barycenters of its faces.
 Cochains on $S$ are not $p$-forms on the original lattice: they assign a number to each fine simplex, and the simplices of one degree are not congruent to one another.
-This module implements the exterior calculus there directly, in the totally obvious way, as a fixed target for correctness.
+Two layouts are documented here.
+``supervillain.lattice.barycentric.doubled``, which the rest of this section describes, implements the exterior calculus there directly, in the totally obvious way, as a fixed target for correctness.
+:ref:`barycentric-compact` at the end stores one entry per fine simplex instead, and is what production code should use.
 
 The fine vertices are the barycenters $b(F)$ of every face $F$ of every hypercube.
 A rank-$r$ barycenter has exactly $r$ half-integer coordinates, so in the :ref:`interlaced <interlaced>` doubled coordinates $\xi = 2x$ the fine vertices are exactly the sites of a $(2N)^D$ array, and
@@ -278,8 +280,8 @@ A type is realized at an anchor only when every direction it releases is even th
 A type releasing $k$ directions lives on $2^{-k}$ of the anchors, so the waste grows with degree: in $D = 4$ the occupancy runs $100\%, 19\%, 11\%, 8\%, 6\%$ from $p = 0$ to $p = 4$.
 
 That is the price of the obvious layout, and it is deliberate.
-A space-efficient implementation would group anchors by parity pattern --- each of the $2^D$ patterns admits its own set of types, and those anchors form an $N^D$ sublattice --- storing exactly one entry per simplex.
-That layout is a factor of $16$ smaller at the top degree and about $11$ smaller overall, but every operator must then route between $2^D$ blocks with different type sets in each, which is exactly the sort of intricacy worth checking against an implementation that does the obvious thing instead.
+Grouping anchors by parity pattern instead --- each of the $2^D$ patterns admits its own set of types, and those anchors form an $N^D$ sublattice --- stores exactly one entry per simplex, a factor of $16$ smaller at the top degree and about $11$ smaller overall.
+That is what :ref:`barycentric-compact` does, and every operator there routes between $2^D$ blocks with different type sets in each, which is exactly the sort of intricacy worth checking against an implementation that does the obvious thing instead.
 
 .. autoclass :: supervillain.lattice.barycentric.doubled.Lattice
    :members:
@@ -543,9 +545,17 @@ Differences from the Hypercubic Lattice
    are in bijection with primal simplices --- $D(\sigma)$ of dimension $D-p$ for
    each $p$-simplex --- so a dual $(D-p)$-cochain holds one number per
    $p$-simplex and the map is index-preserving, $240 \leftrightarrow 240$.  What
-   a star needs is therefore a *dual-indexed companion* to :class:`Form`, which
+   a star needs is therefore a *dual-indexed companion* to ``Form``, which
    this module does not have; it is not that the operator is missing but that
    half its type is.
+
+   :ref:`barycentric-compact` supplies that half.  Its forms carry a ``dual``
+   flag, and a dual $(D-p)$-cochain is indexed by the primal $p$ component
+   axis, so the companion type exists there.  The star itself still does not:
+   ``poincare_star``, ``hodge_star`` and ``hodge_star_inverse`` are deferred,
+   the compact operators refuse a dual form rather than dispatching on it, and
+   $\tau$'s sign on a dual form is unsettled.  What has changed is that a star
+   is now a missing operator rather than a missing type.
 
    The mechanism that supplies :func:`~supervillain.lattice.interlaced.star` is
    present here but acts on the wrong index.  In the interlaced picture the rank
@@ -569,7 +579,7 @@ Compact Storage
 ---------------
 
 Everything above is the doubled layout, whose occupancy falls to $6\%$ at the top degree.
-:mod:`~supervillain.lattice.barycentric.compact` stores the same complex with one entry per fine simplex and is what production code should use; the doubled module stays as the fixed target it was built to be.
+``supervillain.lattice.barycentric.compact`` stores the same complex with one entry per fine simplex and is what production code should use; the doubled module stays as the fixed target it was built to be.
 
 The saving comes from the observation already made above: a type is realized at an anchor only when every direction it releases is even there, so the realized slots are determined by the anchor's *parity pattern* alone.
 A **component** is a realized pair $(\pi, t)$ --- a parity pattern $\pi \in \{0,1\}^D$ together with a type $t$ whose released directions all avoid it.
@@ -602,7 +612,7 @@ That is a factor of $11.3$, and it is a factor of $16$ at the top degree alone.
    :members: to_doubled, from_doubled
    :no-index:
 
-:meth:`~supervillain.lattice.barycentric.compact.Form.to_doubled` and :meth:`~supervillain.lattice.barycentric.compact.Form.from_doubled` are the bridge between the two layouts, and by :eq:`barycentric-compact-anchor` each is a strided scatter or gather that loses nothing; ``test_round_trip_is_the_identity`` checks that composing them is the identity, and ``test_single_component_lands_at_its_predicted_slot`` pins the parity convention directly rather than by restating the implementation.
+``to_doubled`` and ``from_doubled``, just above, are the bridge between the two layouts, and by :eq:`barycentric-compact-anchor` each is a strided scatter or gather that loses nothing; ``test_round_trip_is_the_identity`` checks that composing them is the identity, and ``test_single_component_lands_at_its_predicted_slot`` pins the parity convention directly rather than by restating the implementation.
 
 Note that :meth:`~supervillain.lattice.barycentric.compact.Lattice.count` is lattice-wide, $S_p N^D$, while the per-site $S_p$ is internal; the two differ by a factor of $N^D$ and confusing them is the easiest mistake this layout offers.
 There is deliberately no ``support`` method: every slot is a simplex, so there is nothing to mask, which ``test_no_support_method`` and ``test_random_is_dense`` record as a promise rather than an accident.
@@ -610,7 +620,7 @@ There is deliberately no ``support`` method: every slot is a simplex, so there i
 Dual Forms
 ^^^^^^^^^^
 
-A :class:`~supervillain.lattice.barycentric.compact.Form` carries a ``dual`` flag alongside its degree, because the dual blocks are what a Hodge star would need and the compact layout is the place they can live: a dual $(D-p)$-cochain holds one number per $p$-simplex, so it is indexed by the *primal* $p$ component axis.
+A compact ``Form`` carries a ``dual`` flag alongside its degree, because the dual blocks are what a Hodge star would need and the compact layout is the place they can live: a dual $(D-p)$-cochain holds one number per $p$-simplex, so it is indexed by the *primal* $p$ component axis.
 The operators here are primal, and they refuse a dual form rather than guessing; the dual dispatch is deferred.
 
 The flag is load-bearing, not decoration.
@@ -640,17 +650,23 @@ Translations and the point group are re-indexed the same way, with one distincti
 
 .. autofunction :: supervillain.lattice.barycentric.compact.pull
 
+A whole-cell translation changes neither the anchor parity nor the type, so :func:`~supervillain.lattice.barycentric.compact.push` is a plain roll of the site axes with no re-indexing at all --- the one symmetry this layout gets for free --- and :func:`~supervillain.lattice.barycentric.compact.pull` inverts it.
+``translate`` is the same function under the name used elsewhere in the library, which ``test_translate_is_push`` records so that the cross-checks need not spend a case on it.
+Because no component table is involved, these are also the only two that carry a dual form through untouched, which is ``test_push_and_pull_carry_a_dual_form_through``.
+
 .. autofunction :: supervillain.lattice.barycentric.compact.tau
 
 .. autofunction :: supervillain.lattice.barycentric.compact.translate_diagonal
+
+$\tau$ does move components --- the parity flips wherever its doubled shift is odd --- but its action on the sites is still a translation, so each component carries a per-component roll together with the common $(-1)^{p(p+1)/2}$.
+An even power is a whole-cell translation and short-circuits to :func:`~supervillain.lattice.barycentric.compact.push`, a distinct path through the layout, so ``test_symmetries_match_doubled`` exercises both parities.
+:func:`~supervillain.lattice.barycentric.compact.translate_diagonal` is $\tau$ composed with a whole-cell translation, exactly as in the doubled module.
 
 .. autofunction :: supervillain.lattice.barycentric.compact.reflect
 
 .. autofunction :: supervillain.lattice.barycentric.compact.permute
 
-A whole-cell translation changes neither the parity nor the type, so :func:`~supervillain.lattice.barycentric.compact.push` is a plain roll of the site axes with no re-indexing at all.
-$\tau$ does move components --- the parity flips wherever its doubled shift is odd --- but its action on the sites is still a translation, so each component carries a per-component roll.
-The point group is different: :func:`~supervillain.lattice.barycentric.compact.reflect` sends $x_{\mu} \mapsto -x_{\mu} - \pi_{\mu}$ and :func:`~supervillain.lattice.barycentric.compact.permute` transposes the site axes, and **neither is a translation**, so neither can be expressed as a roll however the offset is chosen.
+The point group is the distinction: :func:`~supervillain.lattice.barycentric.compact.reflect` sends $x_{\mu} \mapsto -x_{\mu} - \pi_{\mu}$ and :func:`~supervillain.lattice.barycentric.compact.permute` transposes the site axes, and **neither is a translation**, so neither can be expressed as a roll however the offset is chosen.
 Each is instead a permutation of the component axis together with a flip or a transpose of the site axes, with a per-component roll of $1 - \pi_{\mu}$ fixing the periodic origin on each flipped axis.
 The tables are static --- they depend on $D$ and the group element, never on $N$, as ``test_point_group_tables_are_N_independent_and_cached`` records --- and each permutes the components bijectively, which is ``test_point_group_permutes_the_components_bijectively``.
 
