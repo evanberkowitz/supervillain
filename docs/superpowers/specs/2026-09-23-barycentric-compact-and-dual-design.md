@@ -175,12 +175,24 @@ non-involutivity bites only a model wanting metric roundtrips.
 ### `hodge_star`
 
 The metric star is the Whitney/Galerkin mass matrix $M_p$, whose entries are
-$\int \langle w_\sigma, w_\tau \rangle$ over Whitney forms.  It is **not** the
-diagonal ratio $|D(\sigma)|/|\sigma|$: that is the Hodge star only under
-primal--dual orthogonality, which needs a circumcentric dual on a well-centred
-mesh, and every fine simplex here is an orthoscheme whose circumcentre has
-minimum barycentric coordinate exactly $0$ --- it lies *on* the boundary, in
-$D = 2, 3, 4$.  The circumcentric dual is degenerate, so the diagonal shortcut
+$\int \langle w_\sigma, w_\tau \rangle$ over Whitney forms.  Take the definitions
+from finite element exterior calculus --- Arnold, Falk and Winther, *Finite
+element exterior calculus, homological techniques, and applications*, Acta
+Numerica **15** (2006) 1--155, `doi:10.1017/S0962492906210018`, in the
+bibliography as `Arnold:2006zzb` --- rather than restating them here, and cite
+it with `:cite:` from the documentation so the conventions are traceable to a
+peer-reviewed source rather than to this spec.
+
+It is **not** the diagonal ratio $|D(\sigma)|/|\sigma|$.  That is the Hodge star
+only under primal--dual orthogonality, which requires a *circumcentric* dual on
+a well-centred mesh.  Desbrun, Hirani, Leok and Marsden make the requirement
+explicit --- "previous researchers have used barycentric subdivision or
+barycentric duals.  We show that the use of circumcentric duals is crucial in
+arriving at a theory of discrete exterior calculus" (*Discrete Exterior
+Calculus*, arXiv:math/0508341, 2005; `Desbrun:2005dec`) --- and this lattice
+cannot supply one: every fine simplex is an orthoscheme whose circumcentre has
+minimum barycentric coordinate exactly $0$, so it lies *on* the boundary, in
+$D = 2, 3, 4$.  The circumcentric dual is degenerate and the diagonal shortcut
 is unavailable.
 
 It is nonetheless a stencil like the others, and a small one.  Whitney forms
@@ -317,6 +329,21 @@ of ones.
   $(-1)^{p(D-p)}$ --- that sign belongs to the metric star, and the Poincaré map
   is under no obligation to reproduce it.  Test $\star\star = +1$ and let
   $\star d \star = \pm\delta$ locate its sign in $d$, where it belongs.
+
+## References
+
+Both are in `master.bib` and cite with `:cite:` under `sphinxcontrib.bibtex`.
+
+- `Arnold:2006zzb` --- Arnold, Falk, Winther, *Finite element exterior calculus,
+  homological techniques, and applications*, Acta Numerica **15** (2006) 1--155,
+  `doi:10.1017/S0962492906210018`.  Peer-reviewed; the definitional source for
+  Whitney forms and the discrete Hodge star, and the place to take continuum
+  sign conventions from rather than from memory.
+- `Desbrun:2005dec` --- Desbrun, Hirani, Leok, Marsden, *Discrete Exterior
+  Calculus*, arXiv:math/0508341, 2005.  The source for the circumcentric-dual
+  requirement.  **No peer-reviewed version was located**: citing works reference
+  the e-print, and the entry carries a note saying so.  If one turns up, replace
+  the entry and keep the arXiv identifier alongside it.
 
 ## Deferred
 
