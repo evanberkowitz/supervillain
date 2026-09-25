@@ -50,6 +50,7 @@ class _CompactStructures:
         self.coboundary = tuple(self._route(P, s.coboundary[P])
                                 if P > 0 else ()
                                 for P in range(D + 1))
+        self._cup_cache = {}
 
     def _route(self, p_out, table):
         r"""
@@ -90,6 +91,31 @@ class _CompactStructures:
                               site, sign))
             out.append(tuple(terms))
         return tuple(out)
+
+    def cup_table(self, p, q):
+        r"""
+        Re-index the doubled cup table into the compact layout.
+
+        Returns
+        -------
+        tuple
+            Per out-component, ``(a_component, c_component, site shift)``.
+        """
+        key = (p, q)
+        if key not in self._cup_cache:
+            s = doubled._structures(self.D)
+            table = s.cup_table(p, q)
+            out = []
+            for parity, t in self.components[p + q]:
+                ia, ic, shift = table[t]
+                total = [parity[mu] + shift[mu] for mu in range(self.D)]
+                c_parity = tuple(v % 2 for v in total)
+                site     = tuple(v // 2 for v in total)
+                out.append((self.component_index[p][(parity, ia)],
+                            self.component_index[q][(c_parity, ic)],
+                            site))
+            self._cup_cache[key] = tuple(out)
+        return self._cup_cache[key]
 
 
 _cache = {}
@@ -471,3 +497,89 @@ def d(a):
         for src, shift, sign in terms:
             out[i] += sign * _gather(raw[src], shift)
     return Form(out, degree=P, lattice=lat)
+
+
+# ---------------------------------------------------------------------------
+# Codifferential  delta : C^p -> C^{p-1}
+# ---------------------------------------------------------------------------
+
+def delta(a):
+    r"""
+    The codifferential, the transpose of :func:`d` with respect to the plain
+    sum over components.
+
+    .. warning ::
+        The pairing carries no measure weighting.  Inserting
+        :meth:`Lattice.measure` breaks adjointness, exactly as in the doubled
+        layout.
+
+    Parameters
+    ----------
+    a : Form
+        A primal degree-$p$ cochain.
+
+    Returns
+    -------
+    Form
+        The degree-$(p-1)$ cochain $\delta a$.
+    """
+    if a.dual:
+        raise ValueError('delta on a dual form is Phase 2; this is a primal operator.')
+    lat = a.lattice
+    P = a.degree
+    if P < 1:
+        raise ValueError('delta is not defined on a 0-cochain.')
+    raw = np.asarray(a)
+    out = np.zeros((lat._c.count[P - 1],) + (lat.N,) * lat.D, dtype=raw.dtype)
+    for i, terms in enumerate(lat._c.coboundary[P]):
+        for src, shift, sign in terms:
+            out[src] += sign * _gather(raw[i], tuple(-s for s in shift))
+    return Form(out, degree=P - 1, lattice=lat)
+
+
+# ---------------------------------------------------------------------------
+# Alexander-Whitney cup product
+# ---------------------------------------------------------------------------
+
+def cup(a, c):
+    r"""
+    The Alexander--Whitney cup product, in the compact layout.
+
+    There is exactly one term per output simplex --- no sum over shuffles ---
+    as in the doubled module.
+
+    .. warning ::
+        Refused on dual forms.  Alexander--Whitney is a simplicial
+        construction and the dual block complex is not simplicial, so there is
+        no dual cup to dispatch to.
+
+    Parameters
+    ----------
+    a : Form
+        A primal degree-$p$ cochain.
+    c : Form
+        A primal degree-$q$ cochain on the same lattice.
+
+    Returns
+    -------
+    Form
+        The degree-$(p+q)$ cochain $a \smile c$.
+    """
+    if a.dual or c.dual:
+        raise ValueError(
+            'cup is refused on dual forms: Alexander-Whitney is simplicial and '
+            'the dual block complex is not, so there is no dual cup.')
+    lat = a.lattice
+    p, q = a.degree, c.degree
+    P = p + q
+    if P > lat.D:
+        raise ValueError(f'Degree {p} cup degree {q} exceeds D = {lat.D}.')
+    ra, rc = np.asarray(a), np.asarray(c)
+    out = np.zeros((lat._c.count[P],) + (lat.N,) * lat.D,
+                   dtype=np.result_type(ra.dtype, rc.dtype))
+    for i, (ia, ic, shift) in enumerate(lat._c.cup_table(p, q)):
+        out[i] = ra[ia] * _gather(rc[ic], shift)
+    return Form(out, degree=P, lattice=lat)
+
+
+wedge = cup
