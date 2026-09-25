@@ -51,6 +51,8 @@ class _CompactStructures:
                                 if P > 0 else ()
                                 for P in range(D + 1))
         self._cup_cache = {}
+        self._point_group_cache = {}
+        self._half_diagonal_cache = {}
 
     def _route(self, p_out, table):
         r"""
@@ -123,6 +125,103 @@ class _CompactStructures:
                             site))
             self._cup_cache[key] = tuple(out)
         return self._cup_cache[key]
+
+    def point_group(self, p, perm, flips):
+        r"""
+        Re-index a signed coordinate permutation into the compact layout.
+
+        The element sends direction $\mu$ to ``perm[mu]``, negating it if
+        $\mu \in$ ``flips``.  On anchors it is $\xi_{\text{perm}[\mu]} =
+        \epsilon_\mu \xi_\mu$, and writing $\xi = 2x + \pi$,
+
+        .. math::
+
+            \pi'_{\text{perm}[\mu]} = \pi_\mu,
+            \qquad
+            y_{\text{perm}[\mu]} = \begin{cases}
+                x_\mu            & \epsilon_\mu = +1 \\
+                -x_\mu - \pi_\mu & \epsilon_\mu = -1.
+            \end{cases}
+
+        .. note ::
+            The parity pattern is carried along unchanged --- negating an odd
+            coordinate leaves it odd --- so the component moves but its parity
+            only permutes.  The site action is a *flip* of each negated axis
+            followed by a per-component roll of $1 - \pi_\mu$, and then the
+            transpose; it is **not** a translation, so it cannot be folded into
+            the roll-only routing that :meth:`_route` uses.
+
+        .. warning ::
+            ``rolls`` are the roll amounts to apply *after* flipping, and they
+            depend on the component's own parity.  A single lattice-wide roll
+            would be wrong.
+
+        Parameters
+        ----------
+        p : int
+            The degree.
+        perm : sequence of int
+            A permutation of ``range(D)``.
+        flips : sequence of int
+            The directions whose sign is reversed.
+
+        Returns
+        -------
+        tuple
+            Per source component, ``(target component, rolls)``, with ``rolls``
+            a length-$D$ tuple that is $0$ in the unflipped directions.
+        """
+        perm = tuple(int(m) for m in perm)
+        F    = tuple(sorted(set(int(m) for m in flips)))
+        key  = (p, perm, F)
+        if key not in self._point_group_cache:
+            image = doubled._structures(self.D).relabel(p, perm, F)
+            out   = []
+            for parity, t in self.components[p]:
+                new_parity = [0] * self.D
+                for mu in range(self.D):
+                    new_parity[perm[mu]] = parity[mu]
+                rolls = tuple(1 - parity[mu] if mu in F else 0
+                              for mu in range(self.D))
+                out.append((self.component_index[p][(tuple(new_parity),
+                                                     int(image[t]))], rolls))
+            self._point_group_cache[key] = tuple(out)
+        return self._point_group_cache[key]
+
+    def half_diagonal(self, p):
+        r"""
+        Re-index $\tau$, the half-diagonal translation, into the compact layout.
+
+        .. note ::
+            Unlike the point group this *is* a translation of the sites, so
+            each component carries a plain per-component roll: the doubled
+            anchor moves by ``shift[t]``, and $2x + \pi + \text{shift}$ has
+            parity $(\pi + \text{shift}) \bmod 2$ at site
+            $x + \lfloor (\pi + \text{shift})/2 \rfloor$.
+
+        Parameters
+        ----------
+        p : int
+            The degree.
+
+        Returns
+        -------
+        tuple
+            ``(table, sign)``, where ``table[i]`` is
+            ``(target component, site shift)`` and ``sign`` is the common
+            $(-1)^{p(p+1)/2}$ from reversing the vertex order.
+        """
+        if p not in self._half_diagonal_cache:
+            image, shift, sign = doubled._structures(self.D).half_diagonal(p)
+            out = []
+            for parity, t in self.components[p]:
+                total = [parity[mu] + int(shift[t][mu]) for mu in range(self.D)]
+                new_parity = tuple(v % 2 for v in total)
+                offset     = tuple(v // 2 for v in total)
+                out.append((self.component_index[p][(new_parity, int(image[t]))],
+                            offset))
+            self._half_diagonal_cache[p] = (tuple(out), int(sign))
+        return self._half_diagonal_cache[p]
 
 
 _cache = {}
@@ -593,3 +692,241 @@ def cup(a, c):
 
 
 wedge = cup
+
+
+# ---------------------------------------------------------------------------
+# Translations
+# ---------------------------------------------------------------------------
+
+def push(data, shift):
+    r"""
+    Translate by whole unit cells: ``result[x + shift] = data[x]``.
+
+    .. note ::
+        A whole-cell translation leaves the component alone --- it changes
+        neither the anchor parity nor the type --- so this is a plain roll of
+        the site axes, with no re-indexing.  It is the one symmetry the compact
+        layout gets for free.
+
+    .. warning ::
+        ``shift`` is in original lattice units, as in
+        :func:`supervillain.lattice.barycentric.doubled.push`; the compact site
+        axes are already in those units, so it is *not* doubled here.
+
+    Parameters
+    ----------
+    data : Form
+        A cochain.
+    shift : sequence of int
+        One integer per direction, in original lattice units.
+
+    Returns
+    -------
+    Form
+        The translated cochain, of the same degree.
+    """
+    D = data.lattice.D
+    rolled = np.roll(np.asarray(data), tuple(int(s) for s in shift),
+                     axis=tuple(range(1, D + 1)))
+    return Form(rolled, degree=data.degree, lattice=data.lattice, dual=data.dual)
+
+
+def pull(data, shift):
+    r"""
+    Translate the other way: ``result[x] = data[x + shift]``.
+
+    Parameters
+    ----------
+    data : Form
+        A cochain.
+    shift : sequence of int
+        One integer per direction, in original lattice units.
+
+    Returns
+    -------
+    Form
+        The translated cochain.
+    """
+    return push(data, tuple(-int(s) for s in shift))
+
+
+translate = push
+
+
+# ---------------------------------------------------------------------------
+# The point group  (Z_2)^D semidirect S_D
+# ---------------------------------------------------------------------------
+
+def _point_group(data, perm, flips):
+    r"""
+    Apply a signed coordinate permutation, using
+    :meth:`_CompactStructures.point_group`.
+
+    .. note ::
+        The table is static --- it depends on $D$ and the group element, never
+        on $N$ --- and it is built by re-indexing the doubled module's
+        ``relabel``, exactly as :func:`d` re-indexes its coboundary.
+
+    .. warning ::
+        Unlike a translation, the site action here is a flip and a transpose,
+        so each component's block is reshaped rather than merely rolled.
+
+    Parameters
+    ----------
+    data : Form
+        A primal cochain.
+    perm : sequence of int
+        A permutation of ``range(D)``.
+    flips : sequence of int
+        The directions whose sign is reversed.
+
+    Returns
+    -------
+    Form
+        The transformed cochain, of the same degree.
+    """
+    if data.dual:
+        raise ValueError(
+            'The point group on a dual form is Phase 2; these are primal '
+            'operators.')
+    lat  = data.lattice
+    D    = lat.D
+    perm = tuple(int(m) for m in perm)
+    F    = tuple(sorted(set(int(m) for m in flips)))
+    inverse = tuple(int(i) for i in np.argsort(np.asarray(perm)))
+    raw = np.asarray(data)
+    out = np.zeros_like(raw)
+    for i, (j, rolls) in enumerate(lat._c.point_group(data.degree, perm, F)):
+        block = raw[i]
+        if F:
+            block = np.roll(np.flip(block, axis=F), rolls,
+                            axis=tuple(range(D)))
+        out[j] = np.transpose(block, axes=inverse)
+    return Form(out, degree=data.degree, lattice=lat)
+
+
+def reflect(data, flips):
+    r"""
+    Negate the axes in ``flips``.
+
+    .. note ::
+        No sign is needed, exactly as in
+        :func:`supervillain.lattice.barycentric.doubled.reflect`: a signed
+        permutation preserves rank, hence the rank order of every flag.
+
+    Parameters
+    ----------
+    data : Form
+        A primal cochain.
+    flips : sequence of int
+        The axes to negate.
+
+    Returns
+    -------
+    Form
+        The reflected cochain.
+    """
+    return _point_group(data, tuple(range(data.lattice.D)), flips)
+
+
+def permute(data, perm):
+    r"""
+    Relabel the axes, so axis $\mu$ becomes axis ``perm[mu]``.
+
+    .. note ::
+        Both the anchor parity and the step directions permute together, so the
+        component's parity pattern is permuted rather than changed, and the site
+        block is transposed with no shift at all.
+
+    Parameters
+    ----------
+    data : Form
+        A primal cochain.
+    perm : sequence of int
+        A permutation of ``range(D)``.
+
+    Returns
+    -------
+    Form
+        The permuted cochain.
+    """
+    return _point_group(data, perm, ())
+
+
+# ---------------------------------------------------------------------------
+# The half-diagonal translation
+# ---------------------------------------------------------------------------
+
+def tau(data, power=1):
+    r"""
+    The half-diagonal translation $\tau : x \mapsto x + \tfrac12(1,\ldots,1)$,
+    applied ``power`` times.
+
+    .. note ::
+        An even ``power`` is a whole-cell translation, so it short-circuits to
+        :func:`push`.  An odd one moves every component: the anchor parity
+        flips wherever $\tau$'s doubled shift is odd, which is precisely how a
+        half-step becomes visible in a layout whose sites are whole cells.
+
+    .. warning ::
+        Because rank reverses, so does every simplex's vertex order, and an odd
+        power carries $(-1)^{p(p+1)/2}$ --- see
+        :func:`supervillain.lattice.barycentric.doubled.tau`.
+
+    Parameters
+    ----------
+    data : Form
+        A primal cochain.
+    power : int
+        How many half-diagonal steps.
+
+    Returns
+    -------
+    Form
+        The translated cochain.
+    """
+    if data.dual:
+        raise ValueError(
+            "tau on a dual form is Phase 2: the dual blocks' orientation sign "
+            'under rank reversal is not settled here.')
+    lat = data.lattice
+    p   = data.degree
+    if power % 2 == 0:
+        return push(data, (power // 2,) * lat.D)
+    table, sign = lat._c.half_diagonal(p)
+    raw = np.asarray(data)
+    out = np.zeros_like(raw)
+    for i, (j, offset) in enumerate(table):
+        out[j] = sign * np.roll(raw[i], offset, axis=tuple(range(lat.D)))
+    return push(Form(out, degree=p, lattice=lat), ((power - 1) // 2,) * lat.D)
+
+
+def translate_diagonal(data, signs, steps=1):
+    r"""
+    Translate by $\tfrac{\text{steps}}{2}(\pm 1, \ldots, \pm 1)$.
+
+    .. note ::
+        These are not independent symmetries: every sign pattern is $\tau$
+        composed with a whole-cell translation, since
+        $\tfrac12(1,\ldots,1,-1) = \tfrac12(1,\ldots,1) + (0,\ldots,0,-1)$.
+
+    Parameters
+    ----------
+    data : Form
+        A primal cochain.
+    signs : sequence of int
+        A length-$D$ vector of $\pm 1$.
+    steps : int
+        How many half-diagonal steps.
+
+    Returns
+    -------
+    Form
+        The translated cochain.
+    """
+    lat   = data.lattice
+    signs = tuple(int(s) for s in signs)
+    if len(signs) != lat.D or any(s not in (+1, -1) for s in signs):
+        raise ValueError(f'signs must be {lat.D} entries of +1 or -1, got {signs}.')
+    integer = tuple(steps * (s - 1) // 2 for s in signs)
+    return push(tau(data, steps), integer)

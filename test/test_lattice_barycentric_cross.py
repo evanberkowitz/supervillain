@@ -1,3 +1,15 @@
+r"""
+The compact layout against the doubled one.
+
+.. warning ::
+    These tests check the **re-indexing**, not the operator mathematics.  Every
+    compact table here is *derived* from the corresponding doubled table, so
+    agreement confirms only that the routing between components is right; that
+    $d^2 = 0$, that adjointness holds, that the Leibniz rule holds and the rest
+    is established by the doubled module's own tests, in
+    ``test/test_lattice_barycentric.py``.  A passing cross-check is not
+    independent confirmation of any of it.
+"""
 import numpy as np
 import pytest
 
@@ -203,3 +215,58 @@ def test_site_offsets_are_two_point():
                 for _, shift, _ in terms:
                     seen |= set(shift)
         assert seen == {-1, 0}, f'D={D}: {sorted(seen)}'
+
+
+def test_translations_match_doubled():
+    for D, N in ((2, 3), (3, 3), (4, 3)):
+        clat, _ = _pair(D, N)
+        shift = tuple(range(1, D + 1))
+        for p in range(D + 1):
+            a = clat.random(p)
+            for name in ('push', 'pull'):
+                lhs = getattr(cpt, name)(a, shift).to_doubled()
+                rhs = getattr(dbl, name)(a.to_doubled(), shift)
+                assert not np.allclose(np.asarray(lhs), 0), f'{name} D={D} p={p}: vacuous'
+                assert np.allclose(np.asarray(lhs), np.asarray(rhs)), (name, D, p)
+
+
+def test_translate_is_push():
+    """An alias, in both modules -- so ``push`` above covers it."""
+    assert cpt.translate is cpt.push
+    assert dbl.translate is dbl.push
+
+
+def test_symmetries_match_doubled():
+    for D, N in ((2, 3), (3, 3), (4, 3)):
+        clat, _ = _pair(D, N)
+        perm  = tuple((i + 1) % D for i in range(D))
+        flips = (0,)
+        cases = (('reflect', flips), ('permute', perm), ('tau', 1), ('tau', 2))
+        for p in range(D + 1):
+            a = clat.random(p)
+            for name, arg in cases:
+                lhs = getattr(cpt, name)(a, arg).to_doubled()
+                rhs = getattr(dbl, name)(a.to_doubled(), arg)
+                assert not np.allclose(np.asarray(lhs), 0), f'{name} D={D} p={p}'
+                assert np.allclose(np.asarray(lhs), np.asarray(rhs)), (name, arg, D, p)
+
+
+def test_translate_diagonal_matches_doubled():
+    for D, N in ((3, 3), (4, 3)):
+        clat, _ = _pair(D, N)
+        signs = tuple(1 if i % 2 == 0 else -1 for i in range(D))
+        a = clat.random(1)
+        lhs = cpt.translate_diagonal(a, signs).to_doubled()
+        assert not np.allclose(np.asarray(lhs), 0), f'D={D}: vacuous'
+        assert np.allclose(np.asarray(lhs),
+                           np.asarray(dbl.translate_diagonal(a.to_doubled(), signs))), D
+
+
+def test_package_hoists_the_compact_names():
+    import supervillain.lattice.barycentric as bary
+    for name in ('Lattice', 'Form', 'd', 'delta', 'cup', 'wedge',
+                 'push', 'pull', 'translate', 'reflect', 'permute',
+                 'tau', 'translate_diagonal'):
+        assert hasattr(bary, name), name
+        assert getattr(bary, name) is getattr(cpt, name), name
+    assert bary.doubled.Lattice is dbl.Lattice

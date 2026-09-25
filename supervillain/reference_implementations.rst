@@ -562,3 +562,102 @@ Differences from the Hypercubic Lattice
    Nothing in this module needs a star in any case:
    :func:`~supervillain.lattice.barycentric.doubled.delta` is the transpose of $d$ with
    respect to :eq:`barycentric-d-delta-adjoint`, not $\pm\,\star d\,\star$.
+
+.. _barycentric-compact:
+
+Compact Storage
+---------------
+
+Everything above is the doubled layout, whose occupancy falls to $6\%$ at the top degree.
+:mod:`~supervillain.lattice.barycentric.compact` stores the same complex with one entry per fine simplex and is what production code should use; the doubled module stays as the fixed target it was built to be.
+
+The saving comes from the observation already made above: a type is realized at an anchor only when every direction it releases is even there, so the realized slots are determined by the anchor's *parity pattern* alone.
+A **component** is a realized pair $(\pi, t)$ --- a parity pattern $\pi \in \{0,1\}^D$ together with a type $t$ whose released directions all avoid it.
+Anchors of a given parity form an $N^D$ sublattice, so a component occurs exactly once per original site, and the doubled slot of component $(\pi, t)$ at site $x$ is the type-$t$ slot at anchor
+
+.. math::
+   :label: barycentric-compact-anchor
+
+   \xi = 2x + \pi .
+
+A degree-$p$ cochain is therefore an array of shape $(S_p,) + (N,)^D$ with no wasted entry at all.
+In $D = 4$ the component counts are
+
+.. math::
+   :label: barycentric-component-counts
+
+   S_p = 16,\; 240,\; 800,\; 960,\; 384 \qquad p = 0 \ldots 4
+
+which are exactly the simplices per original site: $240$ links and $384$ four-simplices reproduce the counts tabulated above, and dividing by the $16$ parity patterns' worth of doubled slots recovers the occupancies $100\%, 19\%, 11\%, 8\%, 6\%$ quoted for the doubled layout.
+``test_four_dimensional_component_counts`` pins the five numbers and ``test_component_counts_match_simplices_per_site`` checks the general statement against :meth:`~supervillain.lattice.barycentric.doubled.Lattice.count` in every $D$.
+
+The effect on memory is the whole point.
+Holding one cochain of every degree in ``float64`` at $D = 4$, $N = 6$ costs $\sum_p T_p = 1697$ numbers on each of $(2N)^D = 20736$ doubled sites --- $268.5$ MiB --- against $\sum_p S_p = 2400$ numbers on each of $N^D = 1296$ sites, or $23.7$ MiB.
+That is a factor of $11.3$, and it is a factor of $16$ at the top degree alone.
+
+.. autoclass :: supervillain.lattice.barycentric.compact.Lattice
+   :members:
+
+.. autoclass :: supervillain.lattice.barycentric.compact.Form
+   :members: to_doubled, from_doubled
+   :no-index:
+
+:meth:`~supervillain.lattice.barycentric.compact.Form.to_doubled` and :meth:`~supervillain.lattice.barycentric.compact.Form.from_doubled` are the bridge between the two layouts, and by :eq:`barycentric-compact-anchor` each is a strided scatter or gather that loses nothing; ``test_round_trip_is_the_identity`` checks that composing them is the identity, and ``test_single_component_lands_at_its_predicted_slot`` pins the parity convention directly rather than by restating the implementation.
+
+Note that :meth:`~supervillain.lattice.barycentric.compact.Lattice.count` is lattice-wide, $S_p N^D$, while the per-site $S_p$ is internal; the two differ by a factor of $N^D$ and confusing them is the easiest mistake this layout offers.
+There is deliberately no ``support`` method: every slot is a simplex, so there is nothing to mask, which ``test_no_support_method`` and ``test_random_is_dense`` record as a promise rather than an accident.
+
+Dual Forms
+^^^^^^^^^^
+
+A :class:`~supervillain.lattice.barycentric.compact.Form` carries a ``dual`` flag alongside its degree, because the dual blocks are what a Hodge star would need and the compact layout is the place they can live: a dual $(D-p)$-cochain holds one number per $p$-simplex, so it is indexed by the *primal* $p$ component axis.
+The operators here are primal, and they refuse a dual form rather than guessing; the dual dispatch is deferred.
+
+The flag is load-bearing, not decoration.
+A primal $2$-form and a dual $2$-form in $D = 4$ have **identical shapes**, both $(S_2,) + (N,)^D$, so numpy would happily add them.
+Arithmetic is therefore keyed on the pair $(\text{degree}, \text{dual})$, and a mixed pair degrades to a plain ``ndarray`` instead of pretending to be a ``Form`` --- checked by ``test_primal_plus_dual_degrades_even_though_shapes_match``, whose point is precisely that the shapes match, and by ``test_mixed_degree_still_degrades``.
+
+Operators
+^^^^^^^^^
+
+Every compact operator is the corresponding doubled table *re-indexed* by :eq:`barycentric-compact-anchor`.
+A doubled shift $\delta$ applied to component $(\pi, t)$ lands at parity $(\pi + \delta) \bmod 2$ and at site offset $\lfloor (\pi + \delta)/2 \rfloor$, and that arithmetic is the entire content of the translation.
+
+.. autofunction :: supervillain.lattice.barycentric.compact.d
+
+.. autofunction :: supervillain.lattice.barycentric.compact.delta
+
+.. autofunction :: supervillain.lattice.barycentric.compact.cup
+
+The site offset lies in $\{-1, 0\}$ in every direction, so the stencil is **two-point per direction** and reaches the $2^D$ sites of one corner block.
+The component filter forces it: a component is realized only where every direction its type releases is even at the anchor, so $\pi_{\mu} = 0$ there, and a coboundary shift is nonzero only in the directions the type releases.
+Hence $\pi_{\mu} + \delta_{\mu}$ never reaches $2$, which is the only route to a $+1$ offset.
+``test_site_offsets_are_two_point`` asserts the offset set is exactly $\{-1, 0\}$ in $D = 2, 3, 4$.
+
+Translations and the point group are re-indexed the same way, with one distinction worth stating because it is easy to get wrong.
+
+.. autofunction :: supervillain.lattice.barycentric.compact.push
+
+.. autofunction :: supervillain.lattice.barycentric.compact.pull
+
+.. autofunction :: supervillain.lattice.barycentric.compact.tau
+
+.. autofunction :: supervillain.lattice.barycentric.compact.translate_diagonal
+
+.. autofunction :: supervillain.lattice.barycentric.compact.reflect
+
+.. autofunction :: supervillain.lattice.barycentric.compact.permute
+
+A whole-cell translation changes neither the parity nor the type, so :func:`~supervillain.lattice.barycentric.compact.push` is a plain roll of the site axes with no re-indexing at all.
+$\tau$ does move components --- the parity flips wherever its doubled shift is odd --- but its action on the sites is still a translation, so each component carries a per-component roll.
+The point group is different: :func:`~supervillain.lattice.barycentric.compact.reflect` sends $x_{\mu} \mapsto -x_{\mu} - \pi_{\mu}$ and :func:`~supervillain.lattice.barycentric.compact.permute` transposes the site axes, and **neither is a translation**, so neither can be expressed as a roll however the offset is chosen.
+Each is instead a permutation of the component axis together with a flip or a transpose of the site axes, with a per-component roll of $1 - \pi_{\mu}$ fixing the periodic origin on each flipped axis.
+The tables are static --- they depend on $D$ and the group element, never on $N$, as ``test_point_group_tables_are_N_independent_and_cached`` records --- and each permutes the components bijectively, which is ``test_point_group_permutes_the_components_bijectively``.
+
+.. warning ::
+
+   The compact operators are cross-validated against the doubled module, not independently derived.
+
+   Each table here is produced by re-indexing a table that the doubled module already owns, so the agreement checked in :source:`test/test_lattice_barycentric_cross.py` --- ``test_d_matches_doubled``, ``test_delta_matches_doubled``, ``test_cup_matches_doubled``, ``test_translations_match_doubled``, ``test_symmetries_match_doubled`` and ``test_translate_diagonal_matches_doubled`` --- confirms the **routing between components** and nothing more.
+   That $d^2 = 0$, that adjointness holds, that the Leibniz rule holds, that $\tau$ carries link class $(r,s)$ to $(D-s,D-r)$: all of that is established by the doubled module's own tests, and a passing cross-check is not independent confirmation of any of it.
+   Only ``test_adjointness_holds_compactly`` is re-checked here, so that the compact module stands alone on the one property $\delta$ is defined by.

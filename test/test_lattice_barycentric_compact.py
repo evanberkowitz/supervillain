@@ -158,3 +158,61 @@ def test_random_integer_respects_its_bounds():
     assert np.issubdtype(raw.dtype, np.integer)
     assert (raw >= 10).all() and (raw < 20).all()
     assert (raw != raw.flat[0]).any(), 'random_integer is degenerately constant'
+
+
+def test_push_and_pull_carry_a_dual_form_through():
+    """A whole-cell roll needs no component table, so dual forms are fine."""
+    clat = cpt.Lattice(4, 3)
+    a = clat.random(2, dual=True)
+    out = cpt.pull(cpt.push(a, (1, 0, 2, 1)), (1, 0, 2, 1))
+    assert out.dual is True and out.degree == 2
+    assert not np.allclose(np.asarray(a), 0)
+    assert np.allclose(np.asarray(out), np.asarray(a))
+
+
+@pytest.mark.parametrize('call', [
+    lambda lat: cpt.reflect(lat.zeros(1, dual=True), (0,)),
+    lambda lat: cpt.permute(lat.zeros(1, dual=True), (1, 2, 3, 0)),
+    lambda lat: cpt.tau(lat.zeros(1, dual=True)),
+    lambda lat: cpt.tau(lat.zeros(1, dual=True), 2),
+    lambda lat: cpt.translate_diagonal(lat.zeros(1, dual=True), (1, 1, 1, 1)),
+])
+def test_the_point_group_and_tau_refuse_a_dual_form(call):
+    """Each entry point guards: the tables are indexed by primal components."""
+    with pytest.raises(ValueError):
+        call(cpt.Lattice(4, 3))
+
+
+def test_tau_refuses_a_dual_form_at_even_power_too():
+    """An even power short-circuits to push, which would otherwise sail past."""
+    clat = cpt.Lattice(4, 3)
+    with pytest.raises(ValueError):
+        cpt.tau(clat.zeros(1, dual=True), 2)
+
+
+@pytest.mark.parametrize('signs', [(1, 1, 1), (1, 1, 1, 0), (1, -1, 1, 2)])
+def test_translate_diagonal_refuses_bad_signs(signs):
+    clat = cpt.Lattice(4, 3)
+    with pytest.raises(ValueError):
+        cpt.translate_diagonal(clat.random(1), signs)
+
+
+def test_point_group_tables_are_N_independent_and_cached():
+    """The table depends on D and the group element only -- never on N."""
+    a, b = cpt.Lattice(3, 3), cpt.Lattice(3, 5)
+    assert a._c is b._c
+    assert a._c.point_group(1, (1, 2, 0), ()) is b._c.point_group(1, (1, 2, 0), ())
+    assert a._c.half_diagonal(1) is b._c.half_diagonal(1)
+
+
+def test_point_group_permutes_the_components_bijectively():
+    """Every component is the image of exactly one -- a symmetry loses nothing."""
+    for D in (2, 3, 4):
+        c = cpt._compact_structures(D)
+        perm = tuple((i + 1) % D for i in range(D))
+        for p in range(D + 1):
+            for element in ((tuple(range(D)), (0,)), (perm, ()), (perm, (0, 1))):
+                images = [j for j, _ in c.point_group(p, *element)]
+                assert sorted(images) == list(range(c.count[p])), (D, p, element)
+            images = [j for j, _ in c.half_diagonal(p)[0]]
+            assert sorted(images) == list(range(c.count[p])), (D, p, 'tau')
