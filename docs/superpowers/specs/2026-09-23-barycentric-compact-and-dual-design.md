@@ -178,6 +178,17 @@ of ones.
 6. **Legality** — primal + dual arithmetic degrades to `ndarray`; `cup` on a
    dual form raises; `d` on a dual form dispatches to the dual coboundary and
    agrees with the transpose of the primal one.
+7. **$\star d \star = \pm\,\delta$.** Composing gives
+   $p \to D-p \to D-p+1 \to p-1$, so the composite *lowers* the degree and
+   should reproduce the codifferential we already build as the transpose. This
+   ties the new star to existing machinery and is the sharpest check that the
+   $\sigma \leftrightarrow D(\sigma)$ orientation convention is self-consistent.
+
+   .. note: on the hypercubic lattice this identity holds only up to a
+   translation (see the interlaced documentation).  With a combinatorial star
+   that is the identity on the component index, it may well hold exactly here
+   --- to be measured, not assumed, and whichever way it comes out is worth
+   recording.
 7. **Memory** — a degree-$p$ compact cochain is $S_p N^D$ entries, asserted
    rather than assumed.
 
