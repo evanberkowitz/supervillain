@@ -192,8 +192,10 @@ def test_tau_refuses_a_dual_form_at_even_power_too():
 
 @pytest.mark.parametrize('signs', [(1, 1, 1), (1, 1, 1, 0), (1, -1, 1, 2)])
 def test_translate_diagonal_refuses_bad_signs(signs):
+    """``match`` matters: a wrong-length ``signs`` would also trip ``np.roll``
+    downstream, so without it the guard is not what the test proves."""
     clat = cpt.Lattice(4, 3)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match='signs must be'):
         cpt.translate_diagonal(clat.random(1), signs)
 
 
@@ -216,3 +218,18 @@ def test_point_group_permutes_the_components_bijectively():
                 assert sorted(images) == list(range(c.count[p])), (D, p, element)
             images = [j for j, _ in c.half_diagonal(p)[0]]
             assert sorted(images) == list(range(c.count[p])), (D, p, 'tau')
+
+
+def test_the_general_point_group_element_is_permute_after_reflect():
+    r"""``reflect`` and ``permute`` use only the pure-flip and pure-permutation
+    branches, so the combined one would otherwise go unexercised.  It is
+    $\xi_{\text{perm}[\mu]} = \epsilon_\mu \xi_\mu$, which is the flip first."""
+    for D in (2, 3, 4):
+        lat = cpt.Lattice(D, 3)
+        perm, flips = tuple((i + 1) % D for i in range(D)), (0,)
+        for p in range(D + 1):
+            a = lat.random(p)
+            combined = np.asarray(cpt._point_group(a, perm, flips))
+            assert not np.allclose(combined, 0), (D, p)
+            assert np.allclose(combined,
+                               np.asarray(cpt.permute(cpt.reflect(a, flips), perm))), (D, p)

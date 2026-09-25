@@ -771,6 +771,11 @@ def _point_group(data, perm, flips):
         Unlike a translation, the site action here is a flip and a transpose,
         so each component's block is reshaped rather than merely rolled.
 
+    .. seealso ::
+        The element is $\xi_{\text{perm}[\mu]} = \epsilon_\mu \xi_\mu$, so
+        a general one is :func:`permute` *after* :func:`reflect`; the two public
+        entry points use only the pure-permutation and pure-flip branches.
+
     Parameters
     ----------
     data : Form
