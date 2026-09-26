@@ -16,5 +16,6 @@ from supervillain.lattice.barycentric import doubled
 from supervillain.lattice.barycentric import compact
 from supervillain.lattice.barycentric.compact import (
     Lattice, Form, d, delta, cup, wedge,
+    poincare_star, hodge_star, hodge_star_inverse,
     push, pull, translate, reflect, permute, tau, translate_diagonal,
 )

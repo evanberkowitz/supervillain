@@ -620,8 +620,8 @@ There is deliberately no ``support`` method: every slot is a simplex, so there i
 Dual Forms
 ^^^^^^^^^^
 
-A compact ``Form`` carries a ``dual`` flag alongside its degree, because the dual blocks are what a Hodge star would need and the compact layout is the place they can live: a dual $(D-p)$-cochain holds one number per $p$-simplex, so it is indexed by the *primal* $p$ component axis.
-The operators here are primal, and they refuse a dual form rather than guessing; the dual dispatch is deferred.
+A compact ``Form`` carries a ``dual`` flag alongside its degree, because the dual blocks are what a Hodge star needs and the compact layout is the place they can live: a dual $(D-p)$-cochain holds one number per $p$-simplex, so it is indexed by the *primal* $p$ component axis.
+Each operator reads the flag and either dispatches or refuses, never guesses; :ref:`the table below <barycentric-legality>` says which does which.
 
 The flag is load-bearing, not decoration.
 A primal $2$-form and a dual $2$-form in $D = 4$ have **identical shapes**, both $(S_2,) + (N,)^D$, so numpy would happily add them.
@@ -677,3 +677,160 @@ The tables are static --- they depend on $D$ and the group element, never on $N$
    Each table here is produced by re-indexing a table that the doubled module already owns, so the agreement checked in :source:`test/test_lattice_barycentric_cross.py` --- ``test_d_matches_doubled``, ``test_delta_matches_doubled``, ``test_cup_matches_doubled``, ``test_translations_match_doubled``, ``test_symmetries_match_doubled`` and ``test_translate_diagonal_matches_doubled`` --- confirms the **routing between components** and nothing more.
    That $d^2 = 0$, that adjointness holds, that the Leibniz rule holds, that $\tau$ carries link class $(r,s)$ to $(D-s,D-r)$: all of that is established by the doubled module's own tests, and a passing cross-check is not independent confirmation of any of it.
    Only ``test_adjointness_holds_compactly`` is re-checked here, so that the compact module stands alone on the one property $\delta$ is defined by.
+
+.. _barycentric-two-stars:
+
+Duality and the Two Stars
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A dual $(D-p)$-cochain holds one number per dual block $D(\sigma)$, and the dual blocks are labelled by the primal $p$-simplices $\sigma$ they are dual to.
+So a dual $(D-p)$-cochain is indexed by the primal $p$ component axis, has exactly the shape $(S_p,) + (N,)^D$ that a primal $p$-cochain has, and shares its layout entry for entry.
+That is what makes Poincaré duality free here:
+
+.. math::
+   :label: barycentric-poincare-star
+
+   (\star_{P}\, a)\bigl(D(\sigma)\bigr) = a(\sigma)
+
+is a relabeling, not a computation.
+
+.. autofunction :: supervillain.lattice.barycentric.compact.poincare_star
+
+Note the two things :eq:`barycentric-poincare-star` does *not* have: a sum, and a sign.
+Each dual block is oriented so that $\sigma$'s orientation followed by $D(\sigma)$'s gives the ambient orientation, and with that convention
+
+.. math::
+   :label: barycentric-poincare-star-squared
+
+   \star_{P} \star_{P} = +1 \qquad \text{exactly,}
+
+rather than the continuum's $(-1)^{p(D-p)}$.
+The continuum sign is not lost; it is absorbed into the choice of dual orientation, and the geometry it was standing in for lives in the metric star below.
+``test_poincare_star_round_trips_a_dual_form`` pins :eq:`barycentric-poincare-star-squared` on the values and not merely on the degrees, and ``test_poincare_star_does_not_alias_its_input`` pins that the relabeled form is a copy, so mutating it cannot corrupt the source.
+
+That convention also settles $\tau$ on a dual form.
+$\tau$ reverses vertex order, so its sign $(-1)^{m(m+1)/2}$ is keyed on the degree of the simplex the number sits on --- the **index** degree $m = D - k$ for a dual $k$-cochain, not $k$.
+$\tau$ is a translation and so cannot flip the ambient orientation that :eq:`barycentric-poincare-star` ties $\sigma$ and $D(\sigma)$ to; equivalently, $\tau$ commutes with :func:`~supervillain.lattice.barycentric.compact.poincare_star`, which is what ``test_tau_on_a_dual_form_follows_the_index_degree`` asserts.
+
+.. _barycentric-legality:
+
+Which operators dispatch
+""""""""""""""""""""""""
+
+Every operator reads ``.dual`` and either dispatches or refuses; a refusal names both the operator and the offending flag.
+
+.. list-table::
+   :header-rows: 1
+
+   * - operator
+     - primal input
+     - dual input
+   * - ``d``
+     - primal $p \to$ primal $p+1$
+     - dual $k \to$ dual $k+1$
+   * - ``delta``
+     - primal $p \to$ primal $p-1$
+     - dual $k \to$ dual $k-1$
+   * - ``cup`` / ``wedge``
+     - primal $\times$ primal $\to$ primal
+     - **refused**
+   * - ``poincare_star``
+     - primal $p \to$ dual $D-p$
+     - dual $k \to$ primal $D-k$
+   * - ``hodge_star``
+     - primal $p \to$ dual $D-p$
+     - **refused**
+   * - ``hodge_star_inverse``
+     - **refused**
+     - dual $k \to$ primal $D-k$
+   * - ``push``, ``pull``, ``translate``
+     - either
+     - either
+   * - ``reflect``, ``permute``
+     - either
+     - either
+   * - ``tau``, ``translate_diagonal``
+     - either
+     - either
+
+:func:`~supervillain.lattice.barycentric.compact.d` and :func:`~supervillain.lattice.barycentric.compact.delta` dispatch because the coboundary genuinely exists on both complexes and the dual one is the *transpose* of the primal one --- machinery $\delta$ already builds --- so no second table is needed.
+A dual $k$-cochain is indexed by primal $(D-k)$-simplices, so raising its degree lowers the index degree and vice versa; ``test_d_on_the_dual_is_the_transpose_of_the_primal_coboundary`` checks the defining pairing and ``test_d_squared_is_zero_on_the_dual_complex`` checks that the dual complex is a complex.
+
+:func:`~supervillain.lattice.barycentric.compact.cup` is **refused** on a dual input rather than dispatched.
+Alexander--Whitney is a simplicial construction and the dual block complex is not simplicial --- a dual block is a union of fine simplices, not a simplex --- so there is no dual cup to dispatch *to*, and a silent answer would be a wrong one.
+``test_cup_refuses_a_dual_form`` and ``test_cup_refuses_a_dual_form_in_the_second_argument`` in :source:`test/test_lattice_barycentric_cross.py` hold both slots to it.
+
+:func:`~supervillain.lattice.barycentric.compact.hodge_star` and :func:`~supervillain.lattice.barycentric.compact.hodge_star_inverse` are each refused in the direction the other serves, rather than one of them dispatching both ways.
+They are different operators, not one operator read two ways: $M \neq M^{-1}$.
+``test_hodge_star_refuses_a_dual_form`` and ``test_hodge_star_inverse_refuses_a_primal_form`` pin the two refusals.
+
+The metric star
+"""""""""""""""
+
+There is deliberately **no bare** ``star`` in this module, and the two stars are named for what they are rather than as variants of one another.
+:func:`~supervillain.lattice.barycentric.compact.poincare_star` is metric-free topology: the identification $\sigma \leftrightarrow D(\sigma)$, which needs no notion of length.
+:func:`~supervillain.lattice.barycentric.compact.hodge_star` is the genuine Hodge star, which needs an inner product.
+On the hypercubic lattice the two coincide, because all cells of a given degree are congruent and the primal and dual volumes give a metric ratio of $1$ --- which is why :func:`~supervillain.lattice.interlaced.star` needs no qualifier and these do.
+The Poincaré map is the extra thing *this* lattice needs, because $\mathrm{sd}\,K$ is not self-dual.
+
+.. autofunction :: supervillain.lattice.barycentric.compact.hodge_star
+
+The metric star is the Whitney/Galerkin mass matrix $M_p$, with entries
+
+.. math::
+   :label: barycentric-whitney-mass
+
+   (M_p)_{\sigma\tau} = \int \langle w_{\sigma}, w_{\tau} \rangle
+
+over the Whitney forms $w_{\sigma}$; the definitions are those of :cite:`Arnold:2006zzb`.
+It is **not** the diagonal ratio $\lvert D(\sigma) \rvert / \lvert \sigma \rvert$.
+That is the Hodge star only under primal--dual orthogonality, which requires a *circumcentric* dual on a well-centred mesh :cite:`Desbrun:2005dec`, and this lattice cannot supply one: every fine simplex is an orthoscheme whose circumcentre has minimum barycentric coordinate exactly $0$ and so lies *on* its boundary.
+The circumcentric dual is degenerate here and the diagonal shortcut is unavailable.
+That is forced by the geometry, not a shortcoming of the implementation, and it is the whole reason both stars have a place: on this lattice one can have involutive and cheap, or metric and exact, but not both in a single operator.
+
+$M_p$ is nonetheless a stencil like the coboundary --- the same ``(out-component, in-component, shift, coefficient)`` table, with float coefficients instead of $\pm 1$ --- but a decidedly wider one.
+Whitney forms couple $p$-simplices sharing a top simplex, giving maximum row counts
+
+.. math::
+   :label: barycentric-whitney-row-counts
+
+   81,\; 125,\; 49,\; 9,\; 1 \qquad p = 0 \ldots 4
+
+in $D = 4$, an order of magnitude more than the coboundary's $p + 1$.
+Two of the five follow by hand.
+At $p = 0$ the fine vertices are the barycentres of the cubical faces, and two of them share a top simplex exactly when their faces are comparable, so a rank-$r$ face is coupled to $3^{r} + 3^{D-r} - 1$ others --- $3^{r}$ subfaces, $3^{D-r}$ superfaces, itself counted twice --- which is maximized at $r = 0$ and gives $3^{4} = 81$.
+At $p = D-1$ a facet lies in exactly two top simplices, which have $2(D+1) - 1 = 9$ facets between them.
+``test_mass_table_row_counts_match_the_whitney_stencil`` pins all five.
+
+Because the point group is transitive on top-simplex types and every fine $D$-simplex is congruent to every other, one reference local matrix suffices; the ``relabel`` tables that :func:`~supervillain.lattice.barycentric.compact.reflect` and :func:`~supervillain.lattice.barycentric.compact.permute` already use carry it to the rest, so the table depends on $D$ and $p$ and never on $N$, which is ``test_mass_tables_are_N_independent_and_cached``.
+No dual block volumes are needed: the Whitney route refers only to the primal simplices and the $L^2$ inner product.
+That $M_p$ is a Gram matrix is checked directly --- ``test_hodge_star_pairing_is_symmetric``, ``test_hodge_star_is_positive_definite_as_a_quadratic_form`` and ``test_hodge_star_is_positive_definite_in_the_spectrum`` --- and its normalization against geometry by ``test_hodge_star_at_degree_zero_totals_the_torus_volume``, which integrates $1$ over the torus, and ``test_hodge_star_reproduces_the_inner_product_of_constant_forms``.
+``test_mass_table_pins_hand_computed_coefficients_in_two_dimensions`` anchors the $D = 2$, $p = 1$ entries against values expanded by hand, so the table is not merely self-consistent.
+
+.. autofunction :: supervillain.lattice.barycentric.compact.hodge_star_inverse
+
+This is the **one approximate operator** in the module.
+$M_p$ is symmetric positive definite but not diagonal, so its inverse is a solve rather than a table: conjugate gradient against the :func:`~supervillain.lattice.barycentric.compact.hodge_star` stencil, to a stated tolerance, raising rather than returning quietly if it cannot get there.
+``test_hodge_star_inverse_round_trips_from_the_primal_side`` and ``test_hodge_star_inverse_round_trips_from_the_dual_side`` check both compositions and ``test_hodge_star_inverse_reports_its_residual`` checks that the tolerance means what it says.
+
+An exact Fourier route exists and is deliberately deferred.
+The stencil is identical at every site, so $M_p$ is block-circulant and diagonalizes per momentum into $N^D$ blocks of size $S_p$ --- but caching the inverted blocks costs $N^D S_p^2$ numbers, about $1.2$ GiB at $D = 4$, $N = 6$, $p = 1$, which would defeat the compact layout it is meant to serve.
+
+$\star\, d\, \star$
+"""""""""""""""""""
+
+The composite $\star_{P}\, d\, \star_{P}$ walks $p \to D-p \to D-p+1 \to p-1$, so it **lowers** the degree and should reproduce $\delta$.
+This is the sharpest available check that the $\sigma \leftrightarrow D(\sigma)$ orientation convention is self-consistent, because it is the one composition in which a mistaken sign in :eq:`barycentric-poincare-star` could not cancel against itself.
+
+.. math::
+   :label: barycentric-star-d-star
+
+   \star_{P}\, d\, \star_{P} = \delta
+
+Measured, not assumed --- and the measurement is worth recording, because on the hypercubic lattice the analogous identity holds only up to a sign $(-1)^{D(k+1)+1}$ *and* a translation by one physical step in every direction; see :ref:`the note above <interlaced-star-d-star-shift>`.
+Here there is neither.
+The sign is $+1$ and there is no translation, for every $(D, p)$ with $D = 2, 3, 4$ and $1 \le p \le D$; in fact the two sides agree bit for bit, because $\star_{P}$ moves no data and $d$ on a dual form is the transpose of the primal coboundary, so both sides walk the same coboundary table in the same direction.
+The hypercubic shift comes from the star moving data half a cell; a star that is the identity on the component index has nowhere to put one.
+``test_poincare_star_d_star_reproduces_delta_exactly`` asserts :eq:`barycentric-star-d-star` with the measured sign, not up to one.
+
+Finally, two tests assert the operator list and the accessor list of this section directly, in one place: ``test_every_operator_the_spec_names_exists`` --- by identity against the ``compact`` module, since a partial hoist would otherwise pass unnoticed --- and ``test_the_lattice_carries_every_accessor_the_spec_names``.

@@ -286,10 +286,18 @@ def test_poincare_star_does_not_alias_its_input():
 
 
 def test_poincare_star_round_trips_a_dual_form():
-    lat = cpt.Lattice(3, 3)
-    d1 = cpt.poincare_star(lat.random(1))
-    back = cpt.poincare_star(d1)
-    assert back.degree == 1 and back.dual is False
+    '''star star = +1 exactly, values included -- not the continuum's
+    (-1)**(p*(D-p)).'''
+    for D, N in ((2, 3), (3, 3), (4, 3)):
+        lat = cpt.Lattice(D, N)
+        for p in range(D + 1):
+            a = lat.random(p)
+            once = cpt.poincare_star(a)
+            back = cpt.poincare_star(once)
+            assert once.degree == D - p and once.dual is True, (D, p)
+            assert back.degree == p and back.dual is False, (D, p)
+            assert np.abs(np.asarray(a)).sum() != 0, f'D={D} p={p}: vacuous'
+            assert np.array_equal(np.asarray(back), np.asarray(a)), (D, p)
 
 
 def test_d_on_a_dual_form_raises_the_degree_and_stays_dual():
@@ -670,3 +678,50 @@ def test_mass_table_pins_hand_computed_coefficients_in_two_dimensions():
         assert key in table, key
         assert np.isclose(table[key], want, rtol=0, atol=1e-12), \
             (key, table[key], want)
+
+
+def test_poincare_star_d_star_reproduces_delta_exactly():
+    r'''p -> D-p -> D-p+1 -> p-1: the composite lowers the degree.
+
+    Measured, not assumed.  On the hypercubic lattice the analogous identity
+    holds only up to a translation; here it holds exactly, with a plus sign
+    and no translation, in every (D, p) tested.
+
+    The reason is that poincare_star moves no data and d on a dual form is
+    the transpose of the primal coboundary, so the composite walks the same
+    coboundary table in the same direction that delta does.
+    '''
+    for D, N in ((2, 3), (3, 3), (4, 3)):
+        lat = cpt.Lattice(D, N)
+        for p in range(1, D + 1):
+            a = lat.random(p)
+            composite = cpt.poincare_star(cpt.d(cpt.poincare_star(a)))
+            want = cpt.delta(a)
+            assert composite.degree == want.degree == p - 1, (D, p)
+            assert composite.dual is False, (D, p)
+            c, w = np.asarray(composite), np.asarray(want)
+            assert np.abs(w).sum() != 0, f'D={D} p={p}: vacuous'
+            assert np.allclose(c, w), (D, p, 'star d star is not +delta')
+
+
+def test_every_operator_the_spec_names_exists():
+    '''The spec's Legality table, asserted as a list.
+
+    Identity, not hasattr alone: compact and doubled export many of the same
+    names, so a partial hoist would otherwise pass silently.
+    '''
+    import supervillain.lattice.barycentric as bary
+    for name in ('Lattice', 'Form', 'd', 'delta', 'cup', 'wedge',
+                 'poincare_star', 'hodge_star', 'hodge_star_inverse',
+                 'push', 'pull', 'translate', 'reflect', 'permute',
+                 'tau', 'translate_diagonal'):
+        assert hasattr(bary, name), name
+        assert getattr(bary, name) is getattr(cpt, name), name
+
+
+def test_the_lattice_carries_every_accessor_the_spec_names():
+    lat = cpt.Lattice(3, 3)
+    for name in ('D', 'N', 'count', 'measure', 'planes', 'pvector',
+                 'link_class', 'orientation_sign', 'zeros', 'random',
+                 'random_integer'):
+        assert hasattr(lat, name), name

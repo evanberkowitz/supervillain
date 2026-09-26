@@ -4,7 +4,7 @@
 r"""
 The barycentric subdivision stored compactly: one entry per fine simplex.
 
-:mod:`~supervillain.lattice.barycentric.doubled` keeps a degree-$p$ cochain in
+``supervillain.lattice.barycentric.doubled`` keeps a degree-$p$ cochain in
 a $(T_p,) + (2N,)^D$ array, of which only a shrinking fraction is ever used ---
 $100\%, 19\%, 11\%, 8\%, 6\%$ for $p = 0 \ldots 4$ in $D = 4$.  Here a cochain
 is one dense array instead.
@@ -431,7 +431,7 @@ class Form(np.ndarray):
     def to_doubled(self):
         r"""
         The same cochain in the
-        :mod:`~supervillain.lattice.barycentric.doubled` layout.
+        ``supervillain.lattice.barycentric.doubled`` layout.
 
         .. note ::
             Component $(\pi, t)$ at site $x$ is the doubled slot of type $t$ at
@@ -464,7 +464,7 @@ class Form(np.ndarray):
     def from_doubled(cls, f, lattice):
         r"""
         A compact form from a
-        :mod:`~supervillain.lattice.barycentric.doubled` one.
+        ``supervillain.lattice.barycentric.doubled`` one.
 
         Parameters
         ----------
@@ -952,11 +952,12 @@ def hodge_star(a):
 
     .. note ::
         This is the Whitney/Galerkin mass matrix $M_p$, whose entries are
-        $\int \langle w_\sigma, w_\tau \rangle$ over Whitney forms; the
+        $\int \langle w_{\sigma}, w_{\tau} \rangle$ over Whitney forms; the
         definitions are those of :cite:`Arnold:2006zzb`.
 
     .. note ::
-        It is **not** the diagonal ratio $|D(\sigma)|/|\sigma|$.  That is the
+        It is **not** the diagonal ratio
+        $\lvert D(\sigma) \rvert / \lvert \sigma \rvert$.  That is the
         Hodge star only under primal-dual orthogonality, which needs a
         circumcentric dual on a well-centred mesh :cite:`Desbrun:2005dec`.
         Every fine simplex here is an orthoscheme whose circumcentre lies on
