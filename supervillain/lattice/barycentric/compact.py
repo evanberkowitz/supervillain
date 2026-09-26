@@ -998,6 +998,74 @@ def hodge_star(a):
     return Form(out, degree=lat.D - p, lattice=lat, dual=True)
 
 
+def hodge_star_inverse(a, tolerance=1e-10, max_iterations=None):
+    r"""
+    The inverse metric star, taking a dual degree-$k$ cochain to a primal
+    degree-$(D-k)$ one.
+
+    .. warning ::
+        This is the **one approximate operator** in the module.  $M_p$ is
+        symmetric positive definite but not diagonal, so its inverse is a
+        solve rather than a table; this runs conjugate gradient against the
+        :func:`hodge_star` stencil and returns a result accurate to
+        ``tolerance``, raising if it cannot get there.
+
+    .. note ::
+        A Fourier route would be exact --- the stencil is identical at every
+        site, so $M_p$ is block-circulant and diagonalizes per momentum ---
+        but caching the inverted blocks costs $N^D S_p^2$, about $1.2$ GiB at
+        $D = 4$, $N = 6$, $p = 1$, which would defeat the compact layout.
+
+    Parameters
+    ----------
+    a : Form
+        A dual degree-$k$ cochain.
+    tolerance : float
+        Relative residual at which to stop.
+    max_iterations : int or None
+        Iteration cap; ``None`` means the number of unknowns, at which point
+        conjugate gradient is exact in exact arithmetic.
+
+    Returns
+    -------
+    Form
+        The primal degree-$(D-k)$ cochain $\star^{-1} a$.
+    """
+    if not a.dual:
+        raise ValueError(
+            'hodge_star_inverse maps dual to primal; use hodge_star on a primal form.')
+    lat = a.lattice
+    p = lat.D - a.degree
+    b = np.asarray(a, dtype=float)
+    if max_iterations is None:
+        max_iterations = b.size
+
+    def apply(v):
+        return np.asarray(hodge_star(Form(v, degree=p, lattice=lat)), dtype=float)
+
+    x = np.zeros_like(b)
+    r = b - apply(x)
+    q = r.copy()
+    rr = float((r * r).sum())
+    scale = float((b * b).sum()) or 1.0
+    for _ in range(max_iterations):
+        if rr / scale <= tolerance ** 2:
+            break
+        Aq = apply(q)
+        alpha = rr / float((q * Aq).sum())
+        x += alpha * q
+        r -= alpha * Aq
+        rr_next = float((r * r).sum())
+        q = r + (rr_next / rr) * q
+        rr = rr_next
+    else:
+        if rr / scale > tolerance ** 2:
+            raise RuntimeError(
+                f'hodge_star_inverse did not converge: relative residual '
+                f'{np.sqrt(rr / scale):.3e} after {max_iterations} iterations.')
+    return Form(x, degree=p, lattice=lat, dual=False)
+
+
 # ---------------------------------------------------------------------------
 # Translations
 # ---------------------------------------------------------------------------

@@ -560,6 +560,51 @@ def test_hodge_star_is_positive_definite_in_the_spectrum():
             (p, np.linalg.eigvalsh(dense).min())
 
 
+def test_hodge_star_inverse_round_trips_from_the_primal_side():
+    for D, N in ((2, 3), (3, 3)):
+        lat = cpt.Lattice(D, N)
+        for p in range(D + 1):
+            a = lat.random(p)
+            back = cpt.hodge_star_inverse(cpt.hodge_star(a))
+            assert back.degree == p and back.dual is False, (D, p)
+            assert np.abs(np.asarray(a)).sum() != 0, f'D={D} p={p}: vacuous'
+            assert np.allclose(np.asarray(back), np.asarray(a), atol=1e-7), (
+                D, p, np.abs(np.asarray(back) - np.asarray(a)).max())
+
+
+def test_hodge_star_inverse_round_trips_from_the_dual_side():
+    for D, N in ((2, 3), (3, 3)):
+        lat = cpt.Lattice(D, N)
+        for p in range(D + 1):
+            b = cpt.poincare_star(lat.random(p))
+            back = cpt.hodge_star(cpt.hodge_star_inverse(b))
+            assert back.degree == b.degree and back.dual is True, (D, p)
+            assert np.allclose(np.asarray(back), np.asarray(b), atol=1e-7), (D, p)
+
+
+def test_hodge_star_inverse_refuses_a_primal_form():
+    lat = cpt.Lattice(3, 3)
+    with pytest.raises(ValueError):
+        cpt.hodge_star_inverse(lat.zeros(1))
+
+
+def test_hodge_star_inverse_reports_its_residual():
+    '''The one approximate operator: the residual is measured, not assumed.'''
+    lat = cpt.Lattice(3, 3)
+    a = lat.random(1)
+    b = cpt.hodge_star(a)
+    x = cpt.hodge_star_inverse(b, tolerance=1e-12)
+    residual = np.abs(np.asarray(cpt.hodge_star(x)) - np.asarray(b)).max()
+    assert residual < 1e-9, residual
+
+
+def test_hodge_star_inverse_raises_if_it_cannot_converge():
+    lat = cpt.Lattice(2, 3)
+    with pytest.raises(RuntimeError):
+        cpt.hodge_star_inverse(cpt.hodge_star(lat.random(1)),
+                               tolerance=1e-30, max_iterations=2)
+
+
 def test_mass_table_pins_hand_computed_coefficients_in_two_dimensions():
     r'''An absolute value anchor for the assembled stencil, following the idiom
     local_mass already uses: every other test here is a symmetry, and a
