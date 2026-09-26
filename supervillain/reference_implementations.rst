@@ -706,7 +706,8 @@ Each dual block is oriented so that $\sigma$'s orientation followed by $D(\sigma
 
 rather than the continuum's $(-1)^{p(D-p)}$.
 The continuum sign is not lost; it is absorbed into the choice of dual orientation, and the geometry it was standing in for lives in the metric star below.
-``test_poincare_star_round_trips_a_dual_form`` pins :eq:`barycentric-poincare-star-squared` on the values and not merely on the degrees, and ``test_poincare_star_does_not_alias_its_input`` pins that the relabeled form is a copy, so mutating it cannot corrupt the source.
+The sign is pinned at its source by ``test_poincare_star_moves_no_data``, which asserts that the output array equals the input array entry for entry at every $(D, p)$: no sign of any kind can survive that, the continuum's included.
+``test_poincare_star_is_involutive_with_no_sign`` then pins :eq:`barycentric-poincare-star-squared` itself and ``test_poincare_star_round_trips_a_dual_form`` the dual-to-primal-to-dual direction, while ``test_poincare_star_does_not_alias_its_input`` pins that the relabeled form is a copy, so mutating it cannot corrupt the source.
 
 That convention also settles $\tau$ on a dual form.
 $\tau$ reverses vertex order, so its sign $(-1)^{m(m+1)/2}$ is keyed on the degree of the simplex the number sits on --- the **index** degree $m = D - k$ for a dual $k$-cochain, not $k$.
@@ -820,7 +821,8 @@ $\star\, d\, \star$
 """""""""""""""""""
 
 The composite $\star_{P}\, d\, \star_{P}$ walks $p \to D-p \to D-p+1 \to p-1$, so it **lowers** the degree and should reproduce $\delta$.
-This is the sharpest available check that the $\sigma \leftrightarrow D(\sigma)$ orientation convention is self-consistent, because it is the one composition in which a mistaken sign in :eq:`barycentric-poincare-star` could not cancel against itself.
+This is a consistency check on the *degree bookkeeping* of :eq:`barycentric-poincare-star` and on the dual dispatch of :func:`~supervillain.lattice.barycentric.compact.d` --- that $\star_{P}$ reflects the degree the way it claims to, and that $d$ on a dual form lowers the index degree rather than raising it.
+It is not what pins the sign: a sign in :eq:`barycentric-poincare-star` cannot survive ``test_poincare_star_moves_no_data`` in the first place, and a reader who weakened that test on the strength of this identity would be removing the check that is actually doing the work.
 
 .. math::
    :label: barycentric-star-d-star

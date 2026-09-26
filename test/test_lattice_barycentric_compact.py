@@ -286,18 +286,28 @@ def test_poincare_star_does_not_alias_its_input():
 
 
 def test_poincare_star_round_trips_a_dual_form():
-    '''star star = +1 exactly, values included -- not the continuum's
-    (-1)**(p*(D-p)).'''
+    '''The dual -> primal -> dual direction, with an input built dual by
+    lat.random(k, dual=True) rather than by applying poincare_star first.
+
+    Redundant, deliberately and with its value stated honestly: every
+    mutation tried against the dual-input path -- a sign on a dual input,
+    a zeroed dual branch, a wrong output degree on the dual branch -- is
+    caught by test_poincare_star_is_involutive_with_no_sign as well, and
+    _shape's dual reflection is already covered by
+    test_dual_form_uses_the_complementary_component_axis.  This catches
+    nothing on its own.  It is kept only because it is the one place a
+    constructor-made dual form is round-tripped, and it is three lines.
+    '''
     for D, N in ((2, 3), (3, 3), (4, 3)):
         lat = cpt.Lattice(D, N)
-        for p in range(D + 1):
-            a = lat.random(p)
+        for k in range(D + 1):
+            a = lat.random(k, dual=True)
             once = cpt.poincare_star(a)
             back = cpt.poincare_star(once)
-            assert once.degree == D - p and once.dual is True, (D, p)
-            assert back.degree == p and back.dual is False, (D, p)
-            assert np.abs(np.asarray(a)).sum() != 0, f'D={D} p={p}: vacuous'
-            assert np.array_equal(np.asarray(back), np.asarray(a)), (D, p)
+            assert once.degree == D - k and once.dual is False, (D, k)
+            assert back.degree == k and back.dual is True, (D, k)
+            assert np.abs(np.asarray(a)).sum() != 0, f'D={D} k={k}: vacuous'
+            assert np.array_equal(np.asarray(back), np.asarray(a)), (D, k)
 
 
 def test_d_on_a_dual_form_raises_the_degree_and_stays_dual():
