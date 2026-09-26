@@ -287,7 +287,6 @@ That is what :ref:`barycentric-compact` does, and every operator there routes be
    :members:
 
 .. autoclass :: supervillain.lattice.barycentric.doubled.Form
-   :no-index:
 
 Types and Classes
 -----------------
@@ -610,7 +609,6 @@ That is a factor of $11.3$, and it is a factor of $16$ at the top degree alone.
 
 .. autoclass :: supervillain.lattice.barycentric.compact.Form
    :members: to_doubled, from_doubled
-   :no-index:
 
 ``to_doubled`` and ``from_doubled``, just above, are the bridge between the two layouts, and by :eq:`barycentric-compact-anchor` each is a strided scatter or gather that loses nothing; ``test_round_trip_is_the_identity`` checks that composing them is the identity, and ``test_single_component_lands_at_its_predicted_slot`` pins the parity convention directly rather than by restating the implementation.
 
@@ -803,7 +801,7 @@ At $p = 0$ the fine vertices are the barycentres of the cubical faces, and two o
 At $p = D-1$ a facet lies in exactly two top simplices, which have $2(D+1) - 1 = 9$ facets between them.
 ``test_mass_table_row_counts_match_the_whitney_stencil`` pins all five.
 
-Because the point group is transitive on top-simplex types and every fine $D$-simplex is congruent to every other, one reference local matrix suffices; the ``relabel`` tables that :func:`~supervillain.lattice.barycentric.compact.reflect` and :func:`~supervillain.lattice.barycentric.compact.permute` already use carry it to the rest, so the table depends on $D$ and $p$ and never on $N$, which is ``test_mass_tables_are_N_independent_and_cached``.
+Because every fine top simplex is congruent to the reference one by an isometry carrying chain vertex $k$ to reference vertex $k$, one reference local matrix suffices for all $2^D D!$ of them: the local matrix is literally the same array for every top type, and :func:`~supervillain.lattice.barycentric.whitney.local_mass` is called once, so the table depends on $D$ and $p$ and never on $N$, which is ``test_mass_tables_are_N_independent_and_cached``.
 No dual block volumes are needed: the Whitney route refers only to the primal simplices and the $L^2$ inner product.
 That $M_p$ is a Gram matrix is checked directly --- ``test_hodge_star_pairing_is_symmetric``, ``test_hodge_star_is_positive_definite_as_a_quadratic_form`` and ``test_hodge_star_is_positive_definite_in_the_spectrum`` --- and its normalization against geometry by ``test_hodge_star_at_degree_zero_totals_the_torus_volume``, which integrates $1$ over the torus, and ``test_hodge_star_reproduces_the_inner_product_of_constant_forms``.
 ``test_mass_table_pins_hand_computed_coefficients_in_two_dimensions`` anchors the $D = 2$, $p = 1$ entries against values expanded by hand, so the table is not merely self-consistent.

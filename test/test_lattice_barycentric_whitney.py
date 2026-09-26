@@ -9,7 +9,6 @@ from itertools import combinations
 from math import factorial
 
 import numpy as np
-import pytest
 
 import supervillain.lattice.barycentric.whitney as w
 

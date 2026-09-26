@@ -126,9 +126,10 @@ is discretized here as the Whitney mass matrix.
 
 On the hypercubic lattice the two coincide --- all cells of a degree are
 congruent and the dual volumes match, so the metric ratio is $1$ --- which is
-why `compact.star` needs no qualifier and these do.  `compact.star` is the Hodge
-star; the Poincaré map is the extra thing this lattice needs, because
-$\mathrm{sd}\,K$ is not self-dual.
+why `supervillain.lattice.compact.star`, the *hypercubic* module's star, needs
+no qualifier and these do.  It is the Hodge star; the Poincaré map is the
+extra thing this (barycentric) lattice needs, because $\mathrm{sd}\,K$ is not
+self-dual.
 
 `hodge_star` and `hodge_star_inverse` are each refused in the direction the
 other serves rather than dispatching: they are different operators, not one
@@ -286,7 +287,8 @@ supervillain/lattice/barycentric/
 ```
 
 Imported as `supervillain.lattice.barycentric as bary`, giving `bary.Lattice`,
-`bary.d`, `bary.delta`, `bary.cup`, `bary.star`. The names are not hoisted into
+`bary.d`, `bary.delta`, `bary.cup` (there is deliberately no bare `bary.star`;
+see above). The names are not hoisted into
 `supervillain.lattice`, where they would collide with the hypercubic ones.
 
 Every lattice kind stays under the lattice layer; the top level is organized by
@@ -314,9 +316,17 @@ of ones.
 3. **Cross-validation** — for `d`, `delta`, `cup`, `push`/`pull`, `reflect`,
    `permute`, `tau`, `translate_diagonal`: compact and doubled agree after
    `to_doubled`, at $D = 2, 3, 4$. This is the spec's reason to exist.
-4. **Intrinsic identities** re-checked in the compact layout, so it stands on
-   its own if the doubled module is ever dropped: $d^2 = 0$, adjointness, cup
-   associativity and Leibniz, the point-group order, $\tau$'s class map.
+4. **Intrinsic identities.** As shipped, only adjointness and $d^2 = 0$ on the
+   dual complex are re-checked directly in the compact layout; cup
+   associativity and Leibniz, the point-group order, and $\tau$'s class map are
+   not. The "stands on its own if the doubled module is ever dropped" motive
+   named in the original ask is unreachable: `compact` imports `doubled` and
+   derives every table from `doubled._structures`, and cross-validation
+   (item 3) already asserts compact $\equiv$ doubled operator by operator, so
+   re-deriving those identities again in the compact layout would be checking
+   the same doubled tables a second time, near-vacuously. This narrowing is
+   documented in a warning admonition on the reference-implementations page
+   and in the cross-test module docstring.
 5. **Star** — $\star$ toggles `.dual`, $\star\star$ returns to the primal with
    the expected sign, and the pairing $\langle a, \star b \rangle$ agrees with
    the plain sum over components.

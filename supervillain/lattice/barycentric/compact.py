@@ -18,7 +18,6 @@ by (parity bitmask, type index).
 """
 
 from functools import cached_property
-from itertools import product
 import numpy as np
 
 from supervillain.lattice.barycentric import doubled
@@ -904,11 +903,11 @@ def poincare_star(a):
     degree-$(D-p)$ one.
 
     .. note ::
-        This **moves no data** and costs nothing.  A dual $(D-p)$-cochain
+        This is a **relabeling, not a rearrangement**: a dual $(D-p)$-cochain
         holds one number per primal $p$-simplex, so it is indexed by the same
-        component axis the input already uses; all this does is relabel the
-        type.  Its job is to tell :func:`d` and :func:`delta` which complex
-        they are on.
+        component axis the input already uses, and the values are unpermuted.
+        Its job is to tell :func:`d` and :func:`delta` which complex they are
+        on.
 
     .. note ::
         It carries **no sign**, and $\star\star = +1$ exactly --- not the

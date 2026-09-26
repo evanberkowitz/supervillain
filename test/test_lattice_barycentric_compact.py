@@ -1,4 +1,3 @@
-import itertools
 import math
 
 import numpy as np
@@ -137,17 +136,19 @@ def test_orientation_sign_matches_doubled():
 
 
 def test_link_class_multiset_matches_doubled():
-    """Compare histograms, not element by element, so the test does not
-    merely restate the implementation."""
-    D, N = 4, 3
-    lat = cpt.Lattice(D, N)
-    dlat = dbl.Lattice(D, N)
-    nclass = len(lat.link_classes)
-    compact_hist = np.bincount(np.repeat(lat.link_class, N**D), minlength=nclass)
-    doubled_class = dlat.link_class
-    doubled_hist = np.bincount(doubled_class[doubled_class >= 0].ravel(), minlength=nclass)
-    assert compact_hist.sum() == lat.count(1) > 0
-    assert (compact_hist == doubled_hist).all()
+    """Element by element, at the same (type, parity-strided) slice that
+    Form.to_doubled uses, rather than histograms that a re-indexing of the
+    anchor parity could still pass by accident."""
+    for D, N in ((2, 3), (3, 3), (4, 3)):
+        lat = cpt.Lattice(D, N)
+        dlat = dbl.Lattice(D, N)
+        seen_any = False
+        for i, (parity, t) in enumerate(lat._c.components[1]):
+            index = (t,) + tuple(slice(parity[mu], None, 2) for mu in range(D))
+            expected = dlat.link_class[index]
+            assert (expected == lat.link_class[i]).all(), (D, i, parity, t)
+            seen_any = True
+        assert seen_any
 
 
 def test_random_integer_respects_its_bounds():
@@ -481,7 +482,7 @@ def test_hodge_star_at_degree_zero_totals_the_torus_volume():
 
 def test_hodge_star_commutes_with_the_point_group():
     '''The metric is invariant under all 2^D D! elements, so the star is too.'''
-    for D, N in ((2, 3), (3, 3)):
+    for D, N in ((2, 3), (3, 3), (4, 3)):
         lat = cpt.Lattice(D, N)
         perm = tuple((i + 1) % D for i in range(D))
         for p in range(D + 1):
