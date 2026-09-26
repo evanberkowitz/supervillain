@@ -277,6 +277,17 @@ class _CompactStructures:
             coordinate is even in every direction and the whole incidence
             pattern is a translate of the one anchored at the origin.
 
+        .. note ::
+            Entries whose coefficient vanishes are **retained**: a pair of
+            faces that co-occur in a top simplex but whose Whitney forms happen
+            to be orthogonal there still gets a row.  That keeps the row count
+            equal to the co-occurrence count the design spec states --- $81,
+            125, 49, 9, 1$ in $D = 4$ --- rather than to a numerical accident.
+            Roughly a sixth of the $D = 4$ degree-1 entries are zero this way,
+            and not all of them exactly: cancellation leaves some at $10^{-19}$.
+            :func:`hodge_star` skips them at the point of use, on a threshold
+            rather than on ``if c``, so nothing pays for them per call.
+
         .. warning ::
             Unlike the coboundary this cannot be assembled per out-*type* and
             then routed by :meth:`_route`.  Which top simplices contain a
@@ -930,6 +941,10 @@ def poincare_star(a):
 # The metric Hodge star
 # ---------------------------------------------------------------------------
 
+_NEGLIGIBLE = 1e-12
+r"""Below this a mass-table coefficient is orthogonality, not signal."""
+
+
 def hodge_star(a):
     r"""
     The metric Hodge star, taking a primal degree-$p$ cochain to a dual
@@ -974,6 +989,11 @@ def hodge_star(a):
     raw = np.asarray(a)
     out = np.zeros_like(raw, dtype=float)
     for i, j, shift, c in lat._c.mass_table(p):
+        # The table keeps orthogonal co-occurring pairs so its row counts stay
+        # the spec's; skip them here rather than roll and multiply by nothing.
+        # A threshold, not `if c`: cancellation leaves some at ~1e-19.
+        if abs(c) <= _NEGLIGIBLE:
+            continue
         out[i] += c * _gather(raw[j], shift)
     return Form(out, degree=lat.D - p, lattice=lat, dual=True)
 

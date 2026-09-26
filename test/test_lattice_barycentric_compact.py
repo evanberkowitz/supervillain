@@ -539,3 +539,89 @@ def test_hodge_star_reproduces_the_inner_product_of_constant_forms():
                               for b in cochains] for a in cochains])
             assert np.allclose(gram, float(N) ** D * np.eye(len(cochains))), \
                 (D, p, gram)
+
+
+def test_hodge_star_is_positive_definite_in_the_spectrum():
+    '''<a, star a> > 0 on one positive random vector would also hold for an
+    operator with large negative eigenvalues, so build the dense mass matrix
+    column by column and look at the spectrum itself.  hodge_star_inverse is a
+    conjugate-gradient solve, which converges only if this is SPD.'''
+    D, N = 2, 3
+    lat = cpt.Lattice(D, N)
+    for p in range(D + 1):
+        size = lat._c.count[p] * N ** D
+        dense = np.empty((size, size))
+        for column in range(size):
+            basis = lat.zeros(p)
+            np.asarray(basis).reshape(-1)[column] = 1.0
+            dense[:, column] = np.asarray(cpt.hodge_star(basis)).reshape(-1)
+        assert np.allclose(dense, dense.T), p
+        assert np.linalg.eigvalsh(dense).min() > 0, \
+            (p, np.linalg.eigvalsh(dense).min())
+
+
+def test_mass_table_pins_hand_computed_coefficients_in_two_dimensions():
+    r'''An absolute value anchor for the assembled stencil, following the idiom
+    local_mass already uses: every other test here is a symmetry, and a
+    symmetric equivariant perturbation supported on the same components and
+    annihilating constant forms passes all of them while being badly wrong.
+
+    In D = 2 the fine top simplex is corner -> edge midpoint -> cell centre.
+    Take the reference one, vertices (0,0), (1/2,0), (1/2,1/2) in original
+    units.  Its barycentric coordinates are lambda_0 = 1 - 2x,
+    lambda_1 = 2x - 2y, lambda_2 = 2y, so the gradient Gram matrix is
+
+        G = [[4, -4, 0], [-4, 8, -4], [0, -4, 4]],
+
+    and with |T| = 1/8 the products integrate to L[m][m] = 1/48 and
+    L[m][n] = 1/96 for m != n.  For edges (i,j) and (k,l) the Whitney pairing
+    is L_ik G_jl - L_il G_jk - L_jk G_il + L_jl G_ik, which over the edges
+    (0,1), (0,2), (1,2) gives
+
+        [[1/3, 0, -1/6], [0, 1/6, 0], [-1/6, 0, 1/3]].
+
+    A link in the lattice is a face of exactly the top simplices whose chain
+    contains both its endpoints, and each such simplex contributes the entry
+    at the link's chain positions.  Every link lies in exactly two top
+    simplices, and two distinct links share at most one, so:
+
+    - corner -> edge midpoint sits at positions (0,1) in both of its simplices,
+      giving 2 * 1/3 = 2/3 on the diagonal;
+    - edge midpoint -> centre sits at (1,2) in both, giving 2 * 1/3 = 2/3;
+    - corner -> centre sits at (0,2) in both, giving 2 * 1/6 = 1/3;
+    - the corner -> edge and edge -> centre links of one simplex are at (0,1)
+      and (1,2), giving the single -1/6;
+    - corner -> edge against corner -> centre is (0,1) against (0,2), and
+      corner -> centre against edge -> centre is (0,2) against (1,2); both
+      local entries vanish, and the table keeps the row anyway.
+
+    The last case reaches across a cell boundary: the simplex
+    (0,0) -> (-1,0) -> (-1,1) in doubled coordinates anchors its
+    edge -> centre link at site (-1,0), so that entry carries shift (-1,0).
+    '''
+    lat = cpt.Lattice(2, 3)
+    s = dbl._structures(2)
+    table = {(i, j, shift): c for i, j, shift, c in lat._c.mass_table(1)}
+
+    def link(parity, step):
+        return lat._c.component_index[1][(parity, s.type_index[1][(step,)])]
+
+    corner_to_edge      = link((0, 0), ((0, +1),))            # (0,0)->(1,0)
+    corner_to_edge_west = link((0, 0), ((0, -1),))            # (0,0)->(-1,0)
+    edge_to_centre      = link((1, 0), ((1, +1),))            # (1,0)->(1,1)
+    corner_to_centre    = link((0, 0), ((0, +1), (1, +1)))    # (0,0)->(1,1)
+
+    here = (0, 0)
+    expected = {
+        (corner_to_edge,      corner_to_edge,   here):    2 / 3,
+        (edge_to_centre,      edge_to_centre,   here):    2 / 3,
+        (corner_to_centre,    corner_to_centre, here):    1 / 3,
+        (corner_to_edge,      edge_to_centre,   here):   -1 / 6,
+        (corner_to_edge,      corner_to_centre, here):    0.0,
+        (corner_to_centre,    edge_to_centre,   here):    0.0,
+        (corner_to_edge_west, edge_to_centre,   (-1, 0)): -1 / 6,
+    }
+    for key, want in expected.items():
+        assert key in table, key
+        assert np.isclose(table[key], want, rtol=0, atol=1e-12), \
+            (key, table[key], want)
