@@ -189,7 +189,7 @@ class Batch:
 
         Returns
         -------
-        scalar, ndarray, Form, or Batch
+        scalar, ndarray, :class:`~supervillain.lattice.Form`, or Batch
             One element, a sub-batch, or a indexed view of the storage array.
         '''
         if isinstance(index, numbers.Integral) and not isinstance(index, bool):
